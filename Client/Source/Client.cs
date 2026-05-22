@@ -9,9 +9,11 @@ using Trading;
 using UnityEngine;
 using UserManagement;
 using Utils;
+using Utils.Framework;
 using Verse;
 using Verse.Sound;
 using Thing = Verse.Thing;
+using PhinixClient.Framework;
 
 namespace PhinixClient
 {
@@ -56,7 +58,15 @@ namespace PhinixClient
         public bool Online => Connected && Authenticated && LoggedIn;
 
         private ClientChat chat;
-        public void SendMessage(string message) => chat.Send(message);
+        public void SendMessage(string message)
+        {
+            if (!frameworkClient.TryHandleOutgoingMessage(message))
+            {
+                chat.Send(message);
+            }
+        }
+        public bool ShouldDisplayChatMessage(UIChatMessage message) => frameworkClient.ShouldDisplayChatMessage(message, Settings.BlockedUsers, false);
+        public bool ShouldPlayChatNotification(UIChatMessage message) => frameworkClient.ShouldPlayNotification(message, Uuid, Settings.PlayNoiseOnMessageReceived, Current.Game != null, Settings.BlockedUsers);
         public void MarkAsRead() => chat.MarkAsRead();
         public UIChatMessage[] GetUnreadChatMessages(bool markAsRead = true) => GetChatMessages(markAsRead, true);
         public int UnreadMessages => chat.UnreadMessages;
@@ -85,6 +95,11 @@ namespace PhinixClient
         public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateFailure;
         public event EventHandler<UITradesSyncedEventArgs> OnTradesSynced;
         #endregion
+
+        private PhinixFrameworkClient frameworkClient;
+        private PhinixClientItemPipeline itemPipeline;
+        private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
+        private PhinixClientTradeCompletionPipeline tradeCompletionPipeline;
 
         public event EventHandler<BlockedUsersChangedEventArgs> OnBlockedUsersChanged;
         public event EventHandler OnChatMessageLimitChanged;
@@ -138,12 +153,17 @@ namespace PhinixClient
             userManager = new ClientUserManager(netClient, authenticator);
             chat = new ClientChat(netClient, authenticator, userManager);
             trading = new ClientTrading(netClient, authenticator, userManager);
+            frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager);
+            itemPipeline = new PhinixClientItemPipeline(Log, frameworkClient.CompatibilityMode);
+            defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(trading, userManager, itemPipeline, dropPods, Log);
+            tradeCompletionPipeline = new PhinixClientTradeCompletionPipeline(itemPipeline, Log, new DefaultTradeCompletionHandler(defaultTradeBehaviour));
 
             // Subscribe to log events
             authenticator.OnLogEntry += ILoggableHandler;
             userManager.OnLogEntry += ILoggableHandler;
             chat.OnLogEntry += ILoggableHandler;
             trading.OnLogEntry += ILoggableHandler;
+            frameworkClient.OnLogEntry += ILoggableHandler;
 
             #region Module Event Handlers
             // Subscribe to connection events
@@ -175,6 +195,7 @@ namespace PhinixClient
             userManager.OnLoginSuccess += (sender, args) =>
             {
                 Verse.Log.Message(string.Format("Successfully logged in with UUID {0}", userManager.Uuid));
+                frameworkClient.BeginNegotiation();
             };
             userManager.OnLoginFailure += (sender, args) =>
             {
@@ -206,66 +227,32 @@ namespace PhinixClient
             {
                 if (Prefs.DevMode) Verse.Log.Message("Received chat message from UUID " + args.Message.SenderUuid);
 
-                // Check if the message wasn't ours, chat noises are enabled, and if we are in-game before playing a sound
-                if (args.Message.SenderUuid != Uuid && Settings.PlayNoiseOnMessageReceived && Current.Game != null && !Settings.BlockedUsers.Contains(args.Message.SenderUuid))
+                UIChatMessage uiMessage = new UIChatMessage(userManager, args.Message);
+                if (ShouldPlayChatNotification(uiMessage))
                 {
                     lock (soundQueueLock)
                     {
-                        // Add a little tick noise to the sound queue
-                        // (queue is necessary because sounds only play on the main Unity thread)
                         soundQueue.Add(SoundDefOf.Tick_Tiny);
                     }
                 }
             };
+            frameworkClient.OnDisplayMessageReceived += (sender, args) =>
+            {
+                if (ShouldPlayChatNotification(args.Message))
+                {
+                    lock (soundQueueLock)
+                    {
+                        soundQueue.Add(SoundDefOf.Tick_Tiny);
+                    }
+                }
+            };
+            frameworkClient.OnCompatibilityModeChanged += (_, compatibilityMode) => itemPipeline.SetCompatibilityMode(compatibilityMode);
 
             // Subscribe to trading events
             trading.OnTradeCreationSuccess += (sender, args) =>
             {
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("Created trade {0} with {1}", args.TradeId, args.OtherPartyUuid));
-
-                // Don't display anything if the other party is blocked and we want to hide their trades
-                if (!Settings.ShowBlockedTrades && Instance.Settings.BlockedUsers.Contains(args.OtherPartyUuid)) return;
-
-                // Check if we are waiting for this trade to be created. If so, show the trade window immediately.
-                lock (waitingForTradeCreationWithLock)
-                {
-                    // Check for and remove the other party's UUID in one go
-                    if (waitingForTradeCreationWith.Remove(args.OtherPartyUuid))
-                    {
-                        if (trading.TryGetTrade(args.TradeId, out ImmutableTrade trade))
-                        {
-                            // Show the trade window and skip any further processing. No need to generate a letter if
-                            // we already have the window up.
-                            lock (tradeWindowQueueLock) tradeWindowQueue.Add(trade);
-                            return;
-                        }
-                        else
-                        {
-                            // Log the failure and revert to the letter instead
-                            Verse.Log.Warning(string.Format("Failed to get newly created trade {0} when attempting to open immediately", args.TradeId));
-                        }
-                    }
-                }
-
-                // Try get the other party's display name
-                if (Instance.TryGetDisplayName(args.OtherPartyUuid, out string displayName))
-                {
-                    // Strip formatting
-                    displayName = TextHelper.StripRichText(displayName);
-                }
-                else
-                {
-                    // Unknown display name, default to ???
-                    displayName = "???";
-                }
-
-                // Generate a letter
-                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
-                Find.LetterStack.ReceiveLetter(
-                    label: "Phinix_trade_tradeReceivedLetter_label".Translate(displayName),
-                    text: "Phinix_trade_tradeReceivedLetter_description".Translate(displayName),
-                    textLetterDef: letterDef
-                );
+                defaultTradeBehaviour.HandleTradeCreationSuccess(args, Settings.ShowBlockedTrades, Settings.BlockedUsers, waitingForTradeCreationWith, waitingForTradeCreationWithLock, tradeWindowQueue, tradeWindowQueueLock);
             };
             trading.OnTradeCreationFailure += (sender, args) =>
             {
@@ -278,88 +265,19 @@ namespace PhinixClient
             };
             trading.OnTradeCompleted += (sender, args) =>
             {
-                // Try get the other party's display name
-                if (Instance.TryGetDisplayName(args.OtherPartyUuid, out string displayName))
-                {
-                    // Strip formatting
-                    displayName = TextHelper.StripRichText(displayName);
-                }
-                else
-                {
-                    // Unknown display name, default to ???
-                    displayName = "???";
-                }
-
-                // Convert all the received items into their Verse counterparts and strip out any unknown ones
-                //// While it would be less computationally-expensive to strip out unknown items beforehand, we would
-                //// have no idea whether we could actually make the item without another check, so we just piggy-back
-                //// off of the converter's checks and strip them out afterward.
-                Verse.Thing[] verseItems = args.Items
-                                                .Select(TradingThingConverter.ConvertThingFromProtoOrUnknown)
-                                                .Where(thing => thing.def.defName != "UnknownItem")
-                                                .ToArray();
-
-
-                // Launch drop pods to a trade spot on a home tile
-                LookTargets dropSpotLookTarget = dropPods(verseItems);
-
-                // Generate a letter
-                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeAccepted");
-                Find.LetterStack.ReceiveLetter("Phinix_trade_tradeCompletedLetter_label".Translate(), "Phinix_trade_tradeCompletedLetter_description".Translate(displayName), letterDef, dropSpotLookTarget);
+                tradeCompletionPipeline.HandleTradeCompleted(args);
 
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("Trade with {0} completed successfully", args.OtherPartyUuid));
             };
             trading.OnTradeCancelled += (sender, args) =>
             {
-                // Don't display anything if the other party is blocked and we want to hide their trades
-                if (!Settings.ShowBlockedTrades && Instance.Settings.BlockedUsers.Contains(args.OtherPartyUuid)) return;
-
-                // Try get the other party's display name
-                if (userManager.TryGetDisplayName(args.OtherPartyUuid, out string displayName))
-                {
-                    // Strip formatting
-                    displayName = TextHelper.StripRichText(displayName);
-                }
-                else
-                {
-                    // Unknown display name, default to ???
-                    displayName = "???";
-                }
-
-                // Convert all the received items into their Verse counterparts and strip out any unknown ones
-                //// While it would be less computationally-expensive to strip out unknown items beforehand, we would
-                //// have no idea whether we could actually make the item without another check, so we just piggy-back
-                //// off of the converter's checks and strip them out afterward.
-                Verse.Thing[] verseItems = args.Items
-                                                .Select(TradingThingConverter.ConvertThingFromProtoOrUnknown)
-                                                .Where(thing => thing.def.defName != "UnknownItem")
-                                                .ToArray();
-
-                // Launch drop pods to a trade spot on a home tile
-                LookTargets dropSpotLookTarget = dropPods(verseItems);
-
-                // Generate a letter
-                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCancelled");
-                Find.LetterStack.ReceiveLetter("Phinix_trade_tradeCancelled_label".Translate(), "Phinix_trade_tradeCancelled_description".Translate(displayName), letterDef, dropSpotLookTarget);
+                defaultTradeBehaviour.HandleTradeCancelled(args, Settings.ShowBlockedTrades, Settings.BlockedUsers);
 
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("Trade with {0} cancelled", args.OtherPartyUuid));
             };
             trading.OnTradeUpdateFailure += (sender, args) =>
             {
-                // Try get the other party's display name
-                if (trading.TryGetOtherPartyUuid(args.TradeId, out string otherPartyUuid) &&
-                    userManager.TryGetDisplayName(otherPartyUuid, out string displayName))
-                {
-                    // Strip formatting
-                    displayName = TextHelper.StripRichText(displayName);
-                }
-                else
-                {
-                    // Unknown display name, default to ???
-                    displayName = "???";
-                }
-
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_tradeUpdateFailedTitle".Translate(), text: "Phinix_error_tradeUpdateFailedMessage".Translate(displayName, args.FailureMessage, args.FailureReason.ToString())));
+                defaultTradeBehaviour.HandleTradeUpdateFailure(args);
             };
             trading.OnTradesSynced += (sender, args) =>
             {
@@ -379,8 +297,23 @@ namespace PhinixClient
             userManager.OnUserLoggedOut += (sender, e) => { OnUserLoggedOut?.Invoke(sender, e); };
             userManager.OnUserCreated += (sender, e) => { OnUserCreated?.Invoke(sender, e); };
             userManager.OnUserSync += (sender, e) => { OnUserSync?.Invoke(sender, e); };
-            chat.OnChatMessageReceived += (sender, e) => { OnChatMessageReceived?.Invoke(sender, new UIChatMessageEventArgs(new UIChatMessage(userManager, e.Message))); };
+            chat.OnChatMessageReceived += (sender, e) =>
+            {
+                UIChatMessage uiMessage = new UIChatMessage(userManager, e.Message);
+                if (frameworkClient.TryBuildLegacyDisplayMessage(uiMessage, out UIChatMessage displayMessage) &&
+                    ShouldDisplayChatMessage(displayMessage))
+                {
+                    OnChatMessageReceived?.Invoke(sender, new UIChatMessageEventArgs(displayMessage));
+                }
+            };
             chat.OnChatSync += (sender, e) => { OnChatSync?.Invoke(sender, e); };
+            frameworkClient.OnDisplayMessageReceived += (sender, e) =>
+            {
+                if (ShouldDisplayChatMessage(e.Message))
+                {
+                    OnChatMessageReceived?.Invoke(sender, e);
+                }
+            };
             trading.OnTradeCreationSuccess += (sender, e) => { OnTradeCreationSuccess?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, userManager)); };
             trading.OnTradeCreationFailure += (sender, e) => { OnTradeCreationFailure?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, userManager)); };
             trading.OnTradeCompleted += (sender, e) => { OnTradeCompleted?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
@@ -572,9 +505,10 @@ namespace PhinixClient
         /// <returns>List of chat messages</returns>
         public UIChatMessage[] GetChatMessages(bool markAsRead = true, bool unreadOnly = false)
         {
-            ClientChatMessage[] chatMessages = unreadOnly ? chat.GetUnreadMessages(markAsRead) : chat.GetMessages(markAsRead);
+            IEnumerable<UIChatMessage> legacyMessages = (unreadOnly ? chat.GetUnreadMessages(markAsRead) : chat.GetMessages(markAsRead))
+                .Select(message => new UIChatMessage(userManager, message));
 
-            return chatMessages.Select(m => new UIChatMessage(userManager, m)).ToArray();
+            return frameworkClient.BuildChatFeed(legacyMessages);
         }
 
         /// <summary>
@@ -588,10 +522,18 @@ namespace PhinixClient
             message = null;
 
             // Try pull out the message
-            if (!chat.TryGetMessage(messageId, out ClientChatMessage clientChatMessage)) return false;
+            if (!chat.TryGetMessage(messageId, out ClientChatMessage clientChatMessage))
+            {
+                return frameworkClient.TryGetDisplayMessage(messageId, out message);
+            }
 
             // Wrap it with the sender's user details
-            message = new UIChatMessage(userManager, clientChatMessage);
+            UIChatMessage legacyMessage = new UIChatMessage(userManager, clientChatMessage);
+            if (!frameworkClient.TryBuildLegacyDisplayMessage(legacyMessage, out message))
+            {
+                message = null;
+                return false;
+            }
 
             return true;
         }

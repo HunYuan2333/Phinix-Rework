@@ -69,6 +69,14 @@
     <Phinix_trade_activeTrade_openButton>Open</Phinix_trade_activeTrade_openButton>
     <Phinix_trade_activeTrade_cancelButton>Cancel</Phinix_trade_activeTrade_cancelButton>
 
+    <Phinix_framework_connectedFrameworkServer>Connected to a framework-capable Phinix server.</Phinix_framework_connectedFrameworkServer>
+    <Phinix_framework_connectedLegacyServer>Connected to a legacy Phinix server. Framework-only extensions are disabled.</Phinix_framework_connectedLegacyServer>
+    <Phinix_framework_legacyExtensionUnavailable>Current server is running in legacy mode. Framework extensions are unavailable.</Phinix_framework_legacyExtensionUnavailable>
+    <Phinix_framework_remoteCapabilityUnavailable>The connected server does not support framework capability: {0}</Phinix_framework_remoteCapabilityUnavailable>
+    <Phinix_framework_unsupportedIncomingMessageType>Received unsupported framework message type: {0}</Phinix_framework_unsupportedIncomingMessageType>
+    <Phinix_framework_redPacketMessage>[Red Packet] {0}</Phinix_framework_redPacketMessage>
+    <Phinix_framework_redPacketEmptyWarning>Ignored empty red packet message.</Phinix_framework_redPacketEmptyWarning>
+
     <Phinix_error_loginFailedTitle>Login failed</Phinix_error_loginFailedTitle>
     <Phinix_error_loginFailedMessage>Failed to log in to the server: {0} ({1})</Phinix_error_loginFailedMessage>
     <Phinix_error_authFailedTitle>Authentication failed</Phinix_error_authFailedTitle>
