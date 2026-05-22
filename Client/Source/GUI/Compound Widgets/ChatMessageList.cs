@@ -196,7 +196,7 @@ namespace PhinixClient.GUI
                 // Append the buffered messages to the list, filtering out any blocked users and trimming it to the limit
                 messages.AddRange(
                     Client.Instance.GetChatMessages()
-                        .Where(m => !Client.Instance.Settings.BlockedUsers.Contains(m.SenderUuid))
+                        .Where(Client.Instance.ShouldDisplayChatMessage)
                         .Skip(Math.Max(0, messages.Count() - Client.Instance.Settings.ChatMessageLimit))
                 );
                 messagesChanged = true;
@@ -205,7 +205,7 @@ namespace PhinixClient.GUI
 
         private void ChatMessageReceivedEventHandler(object sender, UIChatMessageEventArgs args)
         {
-            if (Client.Instance.Settings.BlockedUsers.Contains(args.Message.User.Uuid)) return;
+            if (!Client.Instance.ShouldDisplayChatMessage(args.Message)) return;
 
             lock (messagesLock)
             {

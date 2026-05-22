@@ -54,6 +54,14 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'TravisCI' And '$(Platform)' == 'AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>false</SignAssembly>
   </PropertyGroup>
@@ -73,6 +81,7 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Runtime.InteropServices.RuntimeInformation" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
@@ -94,6 +103,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockedUsersChangedEventArgs.cs" />
+    <Compile Include="Extensions\RedPacketClientExtension.cs" />
+    <Compile Include="Framework\DefaultLegacyTradeItemCodec.cs" />
+    <Compile Include="Framework\DefaultTradeCompletionHandler.cs" />
+    <Compile Include="Framework\PhinixClientItemPipeline.cs" />
+    <Compile Include="Framework\PhinixClientTradeCompletionPipeline.cs" />
+    <Compile Include="Framework\PhinixDefaultTradeBehaviour.cs" />
+    <Compile Include="Framework\PhinixFrameworkClient.cs" />
     <Compile Include="GUI\GUIUtils.cs" />
     <Compile Include="LegacySettings.cs" />
     <Compile Include="Patches\RootPatch.cs" />
@@ -190,6 +206,9 @@
     <RemoveDir Directories="$(SolutionDir)\Client\$(GameVersion)\Assemblies\" />
   </Target>
   <Target Name="AfterBuild">
+    <MakeDir Directories="$(SolutionDir)\Client\Common\Assemblies" />
+    <MakeDir Directories="$(SolutionDir)\Client\$(GameVersion)\Assemblies" />
+    <MakeDir Condition="'$(GameVersion)' == 'Any'" Directories="$(SolutionDir)\Client\1.6\Assemblies" />
     <Copy SourceFiles="$(TargetDir)\LiteNetLib.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\1-LiteNetLib.dll" />
     <Copy SourceFiles="$(TargetDir)\Google.Protobuf.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\2-Protobuf.dll" />
     <Copy SourceFiles="$(TargetDir)\Utils.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\3-Utils.dll" />
@@ -199,5 +218,6 @@
     <Copy SourceFiles="$(TargetDir)\Chat.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\7-Chat.dll" />
     <Copy SourceFiles="$(TargetDir)\Trading.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\8-Trading.dll" />
     <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\$(GameVersion)\Assemblies\9-PhinixClient.dll" />
+    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\1.6\Assemblies\9-PhinixClient.dll" />
   </Target>
 </Project>

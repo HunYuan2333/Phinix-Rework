@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ModMetaData>
-    <name>Phinix</name>
-    <packageId>Thomotron.Phinix</packageId>
-    <author>Thomotron and The Phinix Team</author>
-    <url>https://github.com/PhinixTeam/Phinix</url>
+    <name>phinix-rework</name>
+    <packageId>hunyuan2333.phinix-rework</packageId>
+    <author>hunyuan2333</author>
+    <url>https://github.com/hunyuan2333/phinix-rework</url>
     <description>
-A total rewrite of Longwelwind's Phi chat mod for RimWorld that allows players to chat and trade items with each other within the game.
+Phinix Rework is a reworked RimWorld chat and trading mod that lets players communicate and exchange items with each other in-game.
     </description>
     <supportedVersions>
         <li>1.3</li>
