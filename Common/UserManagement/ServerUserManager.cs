@@ -45,10 +45,6 @@ namespace UserManagement
         /// Lock for connected user dictionary operations.
         /// </summary>
         private object connectedUsersLock = new object();
-        /// <summary>
-        /// Lock for user store operations.
-        /// </summary>
-        private readonly object userStoreLockObject = new object();
 
         /// <summary>
         /// Stores each user in an easily-serialisable format.
@@ -57,7 +53,7 @@ namespace UserManagement
         /// <summary>
         /// Lock for user store operations.
         /// </summary>
-        protected override object userStoreLock => userStoreLockObject;
+        protected override object userStoreLock => new object();
 
         /// <summary>
         /// Maximum display name length for new logins.

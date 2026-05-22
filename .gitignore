@@ -270,3 +270,6 @@ Client/1.*/Assemblies/*.dll
 
 # Phinix credentials
 **/PhinixCredentials.bin
+users
+
+Client/Any/Assemblies/9-PhinixClient.dll

@@ -39,15 +39,11 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Framework\FrameworkEnvelope.cs" />
-    <Compile Include="Framework\FrameworkSerialization.cs" />
-    <Compile Include="Framework\FrameworkTypes.cs" />
-    <Compile Include="Framework\PhinixExtensionRegistry.cs" />
     <Compile Include="IPersistent.cs" />
     <Compile Include="LogEventArgs.cs" />
     <Compile Include="ILoggable.cs" />
@@ -56,6 +52,10 @@
     <Compile Include="ProtobufPacketHelper.cs" />
     <Compile Include="TextHelper.cs" />
     <Compile Include="TypeUrl.cs" />
+    <Compile Include="Framework\FrameworkTypes.cs" />
+    <Compile Include="Framework\FrameworkEnvelope.cs" />
+    <Compile Include="Framework\FrameworkSerialization.cs" />
+    <Compile Include="Framework\PhinixExtensionRegistry.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj">
@@ -67,7 +67,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
          Other similar extension points exist, see Microsoft.Common.targets.
     <Target Name="BeforeBuild">
     </Target>

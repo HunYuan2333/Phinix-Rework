@@ -193,7 +193,6 @@
       <Name>Utils</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj">
-      <Project>{d5bbfa59-db31-40f8-a8bf-7333be984316}</Project>
       <Name>Google.Protobuf</Name>
     </ProjectReference>
   </ItemGroup>
