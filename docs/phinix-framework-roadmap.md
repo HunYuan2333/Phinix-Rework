@@ -135,11 +135,58 @@ Phase 3 实际接入状态（核查结论）：
 ### Phase 4: 兼容与样板验证
 状态：进行中
 
-- 当前阶段优先级说明：
-  - 先完成兼容性与降级行为的收口。
+  - 当前阶段优先级说明：
+    - 先完成兼容性与降级行为的收口。
+    - 先把 framework 正式接入 `message / command / item` 三态模型。
+    - 当前第一优先级不是继续美化 legacy 模块，而是把原先的 chat/trade 默认实现尽快吃进 framework。
+    - 吃进 framework 的过程中，优先保证 pipeline 语义和边界稳定；service 内部即使暂时偏厚、承担较多业务职责，也可以接受。
+    - 也就是说，当前阶段允许先把 legacy 逻辑“整体搬进 built-in feature service”，后续再做 service 内部细分；不要求一开始就把 built-in feature 拆成很多小类。
+    - 现有聊天与交易实现不再继续扩展为长期协议根，进入“预备重写”状态。
+    - 后续默认 chat/trade 应作为三态模型上的 built-in feature 重写，而不是继续强化 legacy 模块边界。
+  - 默认 chat 的 framework built-in feature 重写已基本完成：消息发送走 `message`，历史同步走 `command`。
   - 样板 submod 验证仍属于 Phase 4 范围，但不是当前最优先事项。
   - 现有 `message` 通道继续收紧为“显示流”。
   - 后续如需承载状态同步、请求/回执、私有控制信息，应新增与 `message` 平行的 `command` 通道，而不是继续混入当前显示流。
+  - built-in chat 已验证：
+    - framework 历史同步可工作；
+    - 重连后历史消息可恢复；
+    - 新消息发送/广播/显示链路可工作。
+  - 今日已完成的 chat 重写工作：
+    - built-in chat 的 canonical payload/store 已迁到 framework 自己的 protobuf 契约：
+      - `BuiltInChatMessagePayload`
+      - `BuiltInChatHistoryStore`
+    - 服务端 framework chat 已不再依赖 `Common/Chat` 的协议与持久化模型；
+    - 客户端 framework chat 已不再依赖 `ClientChatMessage` / `ClientChatMessageEventArgs` / `ChatMessageStatus`；
+    - chat UI 已切换到独立的 framework-native UI model：
+      - `UIChatMessage`
+      - `UIChatMessageEventArgs`
+      - `UIChatMessageStatus`
+    - `Phinix.sln` 中旧 `Chat` 项目已移除；
+    - `Client` / `Server` 主运行链路已不再引用 `Common/Chat` 项目。
+  - built-in chat 后续体验项已记录但暂不优先实现：
+    - 聊天显示行数限制，并开放为可配置项；
+    - 时间显示补全年月日，而不只显示 `HH:mm`；
+    - 系统消息与普通用户消息做明显样式区分。
+    - 连接恢复或服务端重启检测后，客户端自动重新协商 framework capability，并自动重新请求 chat history / resync，避免必须手动断联重连。
+  - 当前 chat 迁移状态更新为：
+    - 旧 chat 的客户端/服务端主运行链路已下线；
+    - `ClientChat` 的发送 fallback、已读计数、消息缓存读取与事件桥接已从 `Client` 宿主代码中移除；
+    - 客户端聊天 UI 现在直接消费 framework built-in chat service 提供的数据与事件；
+    - built-in chat 已不再复用 `Common/Chat` 的协议、持久化模型与 UI 类型；
+    - `Common/Chat` 当前仅作为待清理的 legacy 目录保留，不再属于主运行链路。
+  - chat 后续拆分原则（当前决策）：
+    - `message pipeline` 只负责显示流分发、handler/renderer 调度、通用显示缓冲与通用事件抛出；
+    - `command pipeline` 只负责历史请求、同步完成、后续控制语义等 chat 非显示流分发；
+    - chat-specific 逻辑应尽可能继续下沉到 built-in chat service，包括：
+      - 历史同步；
+      - unread/read；
+      - feed 构建；
+      - blocked user 过滤；
+      - 通知触发策略；
+      - framework display message 到 chat UI model 的转换；
+    - 当前允许 built-in chat service 先保持“单个较厚 service”形态，不把“service 必须很薄”当作第一目标；
+    - 该厚 service 形态是当前迁移阶段的权宜之计，不作为最终架构目标；
+    - 在 legacy chat 目录物理清理完成、主链路稳定后，仍需继续做 service 内部拆分与职责收口。
 
 - 实现 `新客户端 -> 旧服务器` 自动探测与 legacy 降级。
 - 在 legacy 模式下：

@@ -74,6 +74,7 @@
     <Phinix_framework_legacyExtensionUnavailable>Current server is running in legacy mode. Framework extensions are unavailable.</Phinix_framework_legacyExtensionUnavailable>
     <Phinix_framework_remoteCapabilityUnavailable>The connected server does not support framework capability: {0}</Phinix_framework_remoteCapabilityUnavailable>
     <Phinix_framework_unsupportedIncomingMessageType>Received unsupported framework message type: {0}</Phinix_framework_unsupportedIncomingMessageType>
+    <Phinix_framework_systemDisplayName>Phinix</Phinix_framework_systemDisplayName>
     <Phinix_framework_redPacketMessage>[Red Packet] {0}</Phinix_framework_redPacketMessage>
     <Phinix_framework_redPacketEmptyWarning>Ignored empty red packet message.</Phinix_framework_redPacketEmptyWarning>
 

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
 using Authentication;
-using Chat;
 using Connections;
 using UserManagement;
 using Utils;
@@ -35,6 +34,8 @@ namespace PhinixClient.Framework
         private readonly List<FrameworkDisplayMessage> displayMessages = new List<FrameworkDisplayMessage>();
         private readonly object displayMessagesLock = new object();
         private readonly Timer negotiationTimer;
+        private int displayMessageCountAtLastCheck;
+        private PhinixFrameworkChatService chatService;
 
         public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager)
         {
@@ -101,7 +102,7 @@ namespace PhinixClient.Framework
                         SendMessage = sendPacket,
                         RemoteCapabilities = remoteCapabilities.ToArray(),
                         HasRemoteCapability = hasRemoteCapability,
-                        Log = (message, level) => RaiseLogEntry(new LogEventArgs(message, level))
+                        Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
                     }
                 );
 
@@ -115,23 +116,23 @@ namespace PhinixClient.Framework
                     return false;
                 }
 
-                FrameworkPacket message = result.Message;
-                if (message != null && !string.IsNullOrEmpty(message.MessageType) && !hasRemoteCapability(message.MessageType))
+                FrameworkPacket outgoingMessage = result.Message;
+                if (outgoingMessage != null && !string.IsNullOrEmpty(outgoingMessage.MessageType) && !hasRemoteCapability(outgoingMessage.MessageType))
                 {
-                    showSystemMessage("Phinix_framework_remoteCapabilityUnavailable", message.MessageType);
+                    showSystemMessage("Phinix_framework_remoteCapabilityUnavailable", outgoingMessage.MessageType);
                     return true;
                 }
 
-                if (message == null)
+                if (outgoingMessage == null)
                 {
                     if (result.Action == MessageHandlingResultAction.Continue) continue;
                     return true;
                 }
 
-                message.Kind = FrameworkProtocol.KindMessage;
-                message.SessionId = authenticator.SessionId;
-                message.SenderUuid = userManager.Uuid;
-                sendPacket(message);
+                outgoingMessage.Kind = FrameworkProtocol.KindMessage;
+                outgoingMessage.SessionId = authenticator.SessionId;
+                outgoingMessage.SenderUuid = userManager.Uuid;
+                sendPacket(outgoingMessage);
 
                 if (result.Action != MessageHandlingResultAction.Continue)
                 {
@@ -142,89 +143,76 @@ namespace PhinixClient.Framework
             return false;
         }
 
-        public bool ShouldSuppressLegacyMessage(UIChatMessage message)
-        {
-            FrameworkDisplayMessage displayMessage = new FrameworkDisplayMessage
-            {
-                MessageId = message.MessageId,
-                SenderUuid = message.SenderUuid,
-                Text = message.Message,
-                TimestampUtcTicks = message.Timestamp.ToUniversalTime().Ticks,
-                Source = "legacy"
-            };
-
-            return shouldSuppress(displayMessage);
-        }
-
-        public UIChatMessage[] GetDisplayMessages()
+        public void MarkAsRead()
         {
             lock (displayMessagesLock)
             {
-                return displayMessages
-                    .Select(toUiMessage)
-                    .OrderBy(message => message.Timestamp)
-                    .ToArray();
+                displayMessageCountAtLastCheck = displayMessages.Count;
             }
         }
 
-        public UIChatMessage[] BuildChatFeed(IEnumerable<UIChatMessage> legacyMessages)
+        public int UnreadMessages
         {
-            IEnumerable<UIChatMessage> visibleLegacyMessages = (legacyMessages ?? Enumerable.Empty<UIChatMessage>())
-                .Where(message => !ShouldSuppressLegacyMessage(message));
-
-            return visibleLegacyMessages
-                .Concat(GetDisplayMessages())
-                .OrderBy(message => message.Timestamp)
-                .ToArray();
-        }
-
-        public bool TryBuildLegacyDisplayMessage(UIChatMessage legacyMessage, out UIChatMessage displayMessage)
-        {
-            displayMessage = null;
-
-            if (legacyMessage == null || ShouldSuppressLegacyMessage(legacyMessage))
+            get
             {
-                return false;
-            }
-
-            displayMessage = legacyMessage;
-            return true;
-        }
-
-        public bool ShouldDisplayChatMessage(UIChatMessage message, IEnumerable<string> blockedUserUuids, bool includeBlockedMessages)
-        {
-            if (message == null) return false;
-            if (ShouldSuppressLegacyMessage(message)) return false;
-            if (includeBlockedMessages) return true;
-
-            HashSet<string> blockedUsers = new HashSet<string>(blockedUserUuids ?? Enumerable.Empty<string>());
-            return !blockedUsers.Contains(message.SenderUuid);
-        }
-
-        public bool ShouldPlayNotification(UIChatMessage message, string localUuid, bool playNoiseOnMessageReceived, bool isInGame, IEnumerable<string> blockedUserUuids)
-        {
-            if (message == null || !playNoiseOnMessageReceived || !isInGame) return false;
-            if (message.SenderUuid == localUuid || message.SenderUuid == FrameworkProtocol.SystemSenderUuid) return false;
-
-            HashSet<string> blockedUsers = new HashSet<string>(blockedUserUuids ?? Enumerable.Empty<string>());
-            return !blockedUsers.Contains(message.SenderUuid);
-        }
-
-        public bool TryGetDisplayMessage(string messageId, out UIChatMessage message)
-        {
-            lock (displayMessagesLock)
-            {
-                FrameworkDisplayMessage frameworkMessage = displayMessages.SingleOrDefault(candidate => candidate.MessageId == messageId);
-                if (frameworkMessage == null)
+                lock (displayMessagesLock)
                 {
-                    message = null;
-                    return false;
+                    return displayMessages.Count - displayMessageCountAtLastCheck;
+                }
+            }
+        }
+
+        public FrameworkDisplayMessage[] GetUnreadDisplayMessages(bool markAsRead = true)
+        {
+            lock (displayMessagesLock)
+            {
+                List<FrameworkDisplayMessage> unreadMessages = displayMessages
+                    .Skip(displayMessageCountAtLastCheck)
+                    .ToList();
+
+                if (markAsRead)
+                {
+                    displayMessageCountAtLastCheck = displayMessages.Count;
                 }
 
-                message = toUiMessage(frameworkMessage);
-                return true;
+                return unreadMessages.ToArray();
             }
         }
+
+        public FrameworkDisplayMessage[] GetDisplayMessages()
+        {
+            lock (displayMessagesLock)
+            {
+                return displayMessages.ToArray();
+            }
+        }
+
+        public bool HasRemoteCapability(string capability)
+        {
+            return hasRemoteCapability(capability);
+        }
+
+        public void SendFrameworkPacket(FrameworkPacket packet)
+        {
+            if (packet == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(packet.SessionId))
+            {
+                packet.SessionId = authenticator.SessionId;
+            }
+
+            if (string.IsNullOrEmpty(packet.SenderUuid))
+            {
+                packet.SenderUuid = userManager.Uuid;
+            }
+
+            sendPacket(packet);
+        }
+
+        public void ConfigureChatService(PhinixFrameworkChatService chatService) => this.chatService = chatService;
 
         private void packetHandler(string module, string connectionId, byte[] data)
         {
@@ -259,7 +247,21 @@ namespace PhinixClient.Framework
                         "Phinix_framework_connectedFrameworkServer");
                     break;
                 case FrameworkProtocol.KindMessage:
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Received framework message packet type='{packet.MessageType ?? "<null>"}' id='{packet.MessageId ?? "<null>"}' sender='{packet.SenderUuid ?? "<null>"}' flow='{packet.Flow}' payloadBytes={(packet.PayloadBytes?.Length ?? 0)}",
+                        LogLevel.DEBUG));
+                    if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Unspecified)
+                    {
+                        packet.Flow = global::Phinix.Framework.FrameworkFlow.Message;
+                    }
                     handleMessage(packet);
+                    break;
+                case FrameworkProtocol.KindCommand:
+                    if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Unspecified)
+                    {
+                        packet.Flow = global::Phinix.Framework.FrameworkFlow.Command;
+                    }
+                    handleCommand(packet);
                     break;
                 default:
                     RaiseLogEntry(new LogEventArgs($"Unknown framework packet kind '{packet.Kind}'", LogLevel.DEBUG));
@@ -271,6 +273,9 @@ namespace PhinixClient.Framework
         {
             bool matchedHandler = false;
             FrameworkPacket currentMessage = message;
+            RaiseLogEntry(new LogEventArgs(
+                $"Handling framework message type='{currentMessage?.MessageType ?? "<null>"}' id='{currentMessage?.MessageId ?? "<null>"}'.",
+                LogLevel.DEBUG));
             ClientFrameworkContext context = new ClientFrameworkContext
             {
                 CompatibilityMode = CompatibilityMode,
@@ -279,12 +284,15 @@ namespace PhinixClient.Framework
                 SendMessage = sendPacket,
                 RemoteCapabilities = remoteCapabilities.ToArray(),
                 HasRemoteCapability = hasRemoteCapability,
-                Log = (message, level) => RaiseLogEntry(new LogEventArgs(message, level))
+                Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
             };
 
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleIncomingMessage(currentMessage)))
             {
                 matchedHandler = true;
+                RaiseLogEntry(new LogEventArgs(
+                    $"Framework message '{currentMessage?.MessageType ?? "<null>"}' matched client handler '{handler.GetType().FullName}'.",
+                    LogLevel.DEBUG));
                 ClientIncomingMessageResult result = handler.HandleIncomingMessage(currentMessage, context);
                 if (result == null) continue;
 
@@ -311,9 +319,15 @@ namespace PhinixClient.Framework
 
             foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => renderer.CanRender(currentMessage)))
             {
+                RaiseLogEntry(new LogEventArgs(
+                    $"Framework message '{currentMessage?.MessageType ?? "<null>"}' matched renderer '{renderer.GetType().FullName}'.",
+                    LogLevel.DEBUG));
                 FrameworkDisplayMessage renderedMessage = renderer.Render(currentMessage);
                 if (renderedMessage != null)
                 {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Renderer '{renderer.GetType().FullName}' produced display message '{renderedMessage.MessageId ?? "<null>"}'.",
+                        LogLevel.DEBUG));
                     addDisplayMessage(renderedMessage);
                     return;
                 }
@@ -325,16 +339,99 @@ namespace PhinixClient.Framework
             }
         }
 
+        private void handleCommand(FrameworkPacket command)
+        {
+            bool matchedHandler = false;
+            FrameworkPacket currentCommand = command;
+            ClientFrameworkContext context = new ClientFrameworkContext
+            {
+                CompatibilityMode = CompatibilityMode,
+                SenderUuid = userManager.Uuid,
+                SessionId = authenticator.SessionId,
+                SendMessage = sendPacket,
+                RemoteCapabilities = remoteCapabilities.ToArray(),
+                HasRemoteCapability = hasRemoteCapability,
+                Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
+            };
+
+            foreach (IClientCommandHandler handler in discoveredExtensions.ClientCommandHandlers.Where(handler => handler.CanHandleIncomingCommand(currentCommand)))
+            {
+                matchedHandler = true;
+                ClientIncomingCommandResult result = handler.HandleIncomingCommand(currentCommand, context);
+                if (result == null) continue;
+
+                if (result.Action == MessageHandlingResultAction.ReplacePayload && result.Command != null)
+                {
+                    currentCommand = result.Command;
+                    continue;
+                }
+
+                if (result.DisplayMessage != null)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Client handler '{handler.GetType().FullName}' produced display message '{result.DisplayMessage.MessageId ?? "<null>"}'.",
+                        LogLevel.DEBUG));
+                    addDisplayMessage(result.DisplayMessage);
+                }
+
+                if (result.Action != MessageHandlingResultAction.Continue)
+                {
+                    return;
+                }
+            }
+
+            if (!matchedHandler)
+            {
+                RaiseLogEntry(new LogEventArgs($"No client framework command handler registered for command type '{currentCommand.MessageType ?? "unknown"}'.", LogLevel.DEBUG));
+            }
+        }
+
         private void addDisplayMessage(FrameworkDisplayMessage message)
         {
-            if (message == null || shouldSuppress(message)) return;
+            if (message == null)
+            {
+                RaiseLogEntry(new LogEventArgs("Framework display message was null; skipping add.", LogLevel.DEBUG));
+                return;
+            }
+
+            if (shouldSuppress(message))
+            {
+                RaiseLogEntry(new LogEventArgs(
+                    $"Framework display message '{message.MessageId ?? "<null>"}' from '{message.SenderUuid ?? "<null>"}' was suppressed before entering display buffer.",
+                    LogLevel.DEBUG));
+                return;
+            }
 
             lock (displayMessagesLock)
             {
                 displayMessages.Add(message);
             }
 
-            OnDisplayMessageReceived?.Invoke(this, new UIChatMessageEventArgs(toUiMessage(message)));
+            int bufferCount;
+            lock (displayMessagesLock)
+            {
+                bufferCount = displayMessages.Count;
+            }
+
+            RaiseLogEntry(new LogEventArgs(
+                $"Added framework display message '{message.MessageId ?? "<null>"}' from '{message.SenderUuid ?? "<null>"}' to display buffer. BufferCount={bufferCount}",
+                LogLevel.DEBUG));
+
+            UIChatMessage uiMessage = chatService != null
+                ? chatService.ToUiMessage(message, userManager)
+                : new UIChatMessage(
+                    message.MessageId,
+                    message.SenderUuid,
+                    message.Text ?? string.Empty,
+                    new DateTime(message.TimestampUtcTicks, DateTimeKind.Utc),
+                    UIChatMessageStatus.Confirmed,
+                    new ImmutableUser(message.SenderUuid),
+                    message.Source);
+
+            OnDisplayMessageReceived?.Invoke(this, new UIChatMessageEventArgs(uiMessage));
+            RaiseLogEntry(new LogEventArgs(
+                $"Raised OnDisplayMessageReceived for framework display message '{message.MessageId ?? "<null>"}'.",
+                LogLevel.DEBUG));
         }
 
         private bool shouldSuppress(FrameworkDisplayMessage message)
@@ -356,6 +453,22 @@ namespace PhinixClient.Framework
         private void sendPacket(FrameworkPacket packet)
         {
             if (packet == null || !netClient.Connected) return;
+
+            if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Message || packet.Kind == FrameworkProtocol.KindMessage)
+            {
+                packet.Flow = global::Phinix.Framework.FrameworkFlow.Message;
+                if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindMessage;
+            }
+            else if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Command || packet.Kind == FrameworkProtocol.KindCommand)
+            {
+                packet.Flow = global::Phinix.Framework.FrameworkFlow.Command;
+                if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindCommand;
+            }
+            else if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Item || packet.Kind == FrameworkProtocol.KindItem)
+            {
+                packet.Flow = global::Phinix.Framework.FrameworkFlow.Item;
+                if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindItem;
+            }
 
             netClient.Send(FrameworkProtocol.ModuleName, FrameworkSerialization.SerializePacket(packet));
         }
@@ -381,6 +494,7 @@ namespace PhinixClient.Framework
             lock (displayMessagesLock)
             {
                 displayMessages.Clear();
+                displayMessageCountAtLastCheck = 0;
             }
 
             setCompatibilityMode(FrameworkCompatibilityMode.Unknown);
@@ -407,29 +521,6 @@ namespace PhinixClient.Framework
             }
         }
 
-        private UIChatMessage toUiMessage(FrameworkDisplayMessage message)
-        {
-            ImmutableUser user;
-            if (message.SenderUuid == FrameworkProtocol.SystemSenderUuid)
-            {
-                user = new ImmutableUser(FrameworkProtocol.SystemSenderUuid, "Phinix", true, false);
-            }
-            else if (!userManager.TryGetUser(message.SenderUuid, out user))
-            {
-                user = new ImmutableUser(message.SenderUuid);
-            }
-
-            ClientChatMessage clientChatMessage = new ClientChatMessage(
-                message.MessageId,
-                message.SenderUuid,
-                resolveDisplayText(message),
-                new DateTime(message.TimestampUtcTicks, DateTimeKind.Utc),
-                ChatMessageStatus.CONFIRMED
-            );
-
-            return new UIChatMessage(clientChatMessage, user);
-        }
-
         private bool hasRemoteCapability(string capability)
         {
             if (string.IsNullOrEmpty(capability)) return true;
@@ -438,22 +529,6 @@ namespace PhinixClient.Framework
             {
                 return remoteCapabilities.Contains(capability);
             }
-        }
-
-        private string resolveDisplayText(FrameworkDisplayMessage message)
-        {
-            if (!string.IsNullOrEmpty(message.TranslationKey))
-            {
-                List<string> translationArgs = message.TranslationArgs ?? new List<string>();
-                if (translationArgs.Any())
-                {
-                    return message.TranslationKey.Translate(translationArgs.Cast<object>().ToArray());
-                }
-
-                return message.TranslationKey.Translate();
-            }
-
-            return message.Text ?? string.Empty;
         }
 
         private void showSystemMessage(string translationKey, params string[] translationArgs)

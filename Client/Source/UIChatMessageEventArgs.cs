@@ -1,14 +1,14 @@
-﻿using Chat;
+using System;
 
 namespace PhinixClient
 {
-    public class UIChatMessageEventArgs : ClientChatMessageEventArgs
+    public class UIChatMessageEventArgs : EventArgs
     {
-        public new UIChatMessage Message;
-        
-        public UIChatMessageEventArgs(UIChatMessage message) : base(message)
+        public UIChatMessage Message;
+
+        public UIChatMessageEventArgs(UIChatMessage message)
         {
-            this.Message = message;
+            Message = message;
         }
     }
 }

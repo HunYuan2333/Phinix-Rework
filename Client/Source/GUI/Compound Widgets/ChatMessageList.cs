@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using Chat;
 using Trading;
 using UnityEngine;
 using UserManagement;
@@ -244,8 +243,8 @@ namespace PhinixClient.GUI
                 string formattedMessage = string.Format(
                     "[{0:HH:mm}] {1}: {2}",
                     chatMessage.Timestamp,
-                    Client.Instance.Settings.ShowNameFormatting && chatMessage.Status == ChatMessageStatus.CONFIRMED ? chatMessage.User.DisplayName : TextHelper.StripRichText(chatMessage.User.DisplayName),
-                    Client.Instance.Settings.ShowChatFormatting && chatMessage.Status == ChatMessageStatus.CONFIRMED ? chatMessage.Message : TextHelper.StripRichText(chatMessage.Message)
+                    Client.Instance.Settings.ShowNameFormatting && chatMessage.Status == UIChatMessageStatus.Confirmed ? chatMessage.User.DisplayName : TextHelper.StripRichText(chatMessage.User.DisplayName),
+                    Client.Instance.Settings.ShowChatFormatting && chatMessage.Status == UIChatMessageStatus.Confirmed ? chatMessage.Message : TextHelper.StripRichText(chatMessage.Message)
                 );
 
                 // Calculate the message sizing
@@ -302,10 +301,10 @@ namespace PhinixClient.GUI
             // Change the colour of the message to reflect the sent status
             switch (chatMessage.Status)
             {
-                case ChatMessageStatus.PENDING:
+                case UIChatMessageStatus.Pending:
                     formattedText = TextHelper.StripRichText(formattedText).Colorize(pendingMessageColour);
                     break;
-                case ChatMessageStatus.DENIED:
+                case UIChatMessageStatus.Denied:
                     formattedText = TextHelper.StripRichText(formattedText).Colorize(deniedMessageColour);
                     break;
                 default:
@@ -364,7 +363,7 @@ namespace PhinixClient.GUI
             if (items.Count > 0) Find.WindowStack.Add(new FloatMenu(items));
         }
 
-        private void drawMessageContextMenu(ClientChatMessage chatMessage)
+        private void drawMessageContextMenu(UIChatMessage chatMessage)
         {
             // Create and populate a list of context menu items
             List<FloatMenuOption> items = new List<FloatMenuOption>();

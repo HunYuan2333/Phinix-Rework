@@ -41,6 +41,7 @@ namespace PhinixClient.Extensions
                 Action = MessageHandlingResultAction.Handled,
                 Message = new FrameworkPacket
                 {
+                    Flow = global::Phinix.Framework.FrameworkFlow.Message,
                     MessageType = ExtensionId,
                     PayloadJson = FrameworkSerialization.SerializePayload(new RedPacketPayload
                     {

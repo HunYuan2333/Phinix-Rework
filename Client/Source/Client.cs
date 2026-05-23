@@ -1,5 +1,4 @@
 ﻿using Authentication;
-using Chat;
 using Connections;
 using RimWorld;
 using System;
@@ -57,20 +56,20 @@ namespace PhinixClient
 
         public bool Online => Connected && Authenticated && LoggedIn;
 
-        private ClientChat chat;
+        public bool CanUseFrameworkChat => frameworkClient != null && frameworkClient.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2;
         public void SendMessage(string message)
         {
-            if (!frameworkClient.TryHandleOutgoingMessage(message))
-            {
-                chat.Send(message);
-            }
+            frameworkClient.TryHandleOutgoingMessage(message);
         }
-        public bool ShouldDisplayChatMessage(UIChatMessage message) => frameworkClient.ShouldDisplayChatMessage(message, Settings.BlockedUsers, false);
-        public bool ShouldPlayChatNotification(UIChatMessage message) => frameworkClient.ShouldPlayNotification(message, Uuid, Settings.PlayNoiseOnMessageReceived, Current.Game != null, Settings.BlockedUsers);
-        public void MarkAsRead() => chat.MarkAsRead();
+        public bool ShouldDisplayChatMessage(UIChatMessage message) => frameworkChatService.ShouldDisplayChatMessage(message, Settings.BlockedUsers, false);
+        public bool ShouldPlayChatNotification(UIChatMessage message) => frameworkChatService.ShouldPlayNotification(message, Uuid, Settings.PlayNoiseOnMessageReceived, Current.Game != null, Settings.BlockedUsers);
+        public void MarkAsRead()
+        {
+            frameworkClient.MarkAsRead();
+        }
         public UIChatMessage[] GetUnreadChatMessages(bool markAsRead = true) => GetChatMessages(markAsRead, true);
-        public int UnreadMessages => chat.UnreadMessages;
-        public int UnreadMessagesExcludingBlocked => chat.GetUnreadMessagesExcluding(Settings.BlockedUsers);
+        public int UnreadMessages => frameworkClient.UnreadMessages;
+        public int UnreadMessagesExcludingBlocked => frameworkChatService.CountUnreadExcluding(frameworkClient.GetUnreadDisplayMessages(false), Settings.BlockedUsers);
         public event EventHandler<UIChatMessageEventArgs> OnChatMessageReceived;
         public event EventHandler OnChatSync;
 
@@ -97,6 +96,7 @@ namespace PhinixClient
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
+        private PhinixFrameworkChatService frameworkChatService;
         private PhinixClientItemPipeline itemPipeline;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
         private PhinixClientTradeCompletionPipeline tradeCompletionPipeline;
@@ -151,9 +151,10 @@ namespace PhinixClient
             netClient = new NetClient();
             authenticator = new ClientAuthenticator(netClient, getCredentials);
             userManager = new ClientUserManager(netClient, authenticator);
-            chat = new ClientChat(netClient, authenticator, userManager);
             trading = new ClientTrading(netClient, authenticator, userManager);
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager);
+            frameworkChatService = new PhinixFrameworkChatService();
+            frameworkClient.ConfigureChatService(frameworkChatService);
             itemPipeline = new PhinixClientItemPipeline(Log, frameworkClient.CompatibilityMode);
             defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(trading, userManager, itemPipeline, dropPods, Log);
             tradeCompletionPipeline = new PhinixClientTradeCompletionPipeline(itemPipeline, Log, new DefaultTradeCompletionHandler(defaultTradeBehaviour));
@@ -161,7 +162,6 @@ namespace PhinixClient
             // Subscribe to log events
             authenticator.OnLogEntry += ILoggableHandler;
             userManager.OnLogEntry += ILoggableHandler;
-            chat.OnLogEntry += ILoggableHandler;
             trading.OnLogEntry += ILoggableHandler;
             frameworkClient.OnLogEntry += ILoggableHandler;
 
@@ -223,19 +223,6 @@ namespace PhinixClient
             };
 
             // Subscribe to chat events
-            chat.OnChatMessageReceived += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message("Received chat message from UUID " + args.Message.SenderUuid);
-
-                UIChatMessage uiMessage = new UIChatMessage(userManager, args.Message);
-                if (ShouldPlayChatNotification(uiMessage))
-                {
-                    lock (soundQueueLock)
-                    {
-                        soundQueue.Add(SoundDefOf.Tick_Tiny);
-                    }
-                }
-            };
             frameworkClient.OnDisplayMessageReceived += (sender, args) =>
             {
                 if (ShouldPlayChatNotification(args.Message))
@@ -246,7 +233,14 @@ namespace PhinixClient
                     }
                 }
             };
-            frameworkClient.OnCompatibilityModeChanged += (_, compatibilityMode) => itemPipeline.SetCompatibilityMode(compatibilityMode);
+            frameworkClient.OnCompatibilityModeChanged += (_, compatibilityMode) =>
+            {
+                itemPipeline.SetCompatibilityMode(compatibilityMode);
+                if (compatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
+                {
+                    requestFrameworkChatHistory();
+                }
+            };
 
             // Subscribe to trading events
             trading.OnTradeCreationSuccess += (sender, args) =>
@@ -297,16 +291,6 @@ namespace PhinixClient
             userManager.OnUserLoggedOut += (sender, e) => { OnUserLoggedOut?.Invoke(sender, e); };
             userManager.OnUserCreated += (sender, e) => { OnUserCreated?.Invoke(sender, e); };
             userManager.OnUserSync += (sender, e) => { OnUserSync?.Invoke(sender, e); };
-            chat.OnChatMessageReceived += (sender, e) =>
-            {
-                UIChatMessage uiMessage = new UIChatMessage(userManager, e.Message);
-                if (frameworkClient.TryBuildLegacyDisplayMessage(uiMessage, out UIChatMessage displayMessage) &&
-                    ShouldDisplayChatMessage(displayMessage))
-                {
-                    OnChatMessageReceived?.Invoke(sender, new UIChatMessageEventArgs(displayMessage));
-                }
-            };
-            chat.OnChatSync += (sender, e) => { OnChatSync?.Invoke(sender, e); };
             frameworkClient.OnDisplayMessageReceived += (sender, e) =>
             {
                 if (ShouldDisplayChatMessage(e.Message))
@@ -505,10 +489,17 @@ namespace PhinixClient
         /// <returns>List of chat messages</returns>
         public UIChatMessage[] GetChatMessages(bool markAsRead = true, bool unreadOnly = false)
         {
-            IEnumerable<UIChatMessage> legacyMessages = (unreadOnly ? chat.GetUnreadMessages(markAsRead) : chat.GetMessages(markAsRead))
-                .Select(message => new UIChatMessage(userManager, message));
+            if (unreadOnly)
+            {
+                return frameworkChatService.BuildUiMessages(frameworkClient.GetUnreadDisplayMessages(markAsRead), userManager);
+            }
 
-            return frameworkClient.BuildChatFeed(legacyMessages);
+            if (markAsRead)
+            {
+                frameworkClient.MarkAsRead();
+            }
+
+            return frameworkChatService.BuildUiMessages(frameworkClient.GetDisplayMessages(), userManager);
         }
 
         /// <summary>
@@ -519,23 +510,7 @@ namespace PhinixClient
         /// <returns>Whether the chat message was retrieved successfully</returns>
         public bool TryGetMessage(string messageId, out UIChatMessage message)
         {
-            message = null;
-
-            // Try pull out the message
-            if (!chat.TryGetMessage(messageId, out ClientChatMessage clientChatMessage))
-            {
-                return frameworkClient.TryGetDisplayMessage(messageId, out message);
-            }
-
-            // Wrap it with the sender's user details
-            UIChatMessage legacyMessage = new UIChatMessage(userManager, clientChatMessage);
-            if (!frameworkClient.TryBuildLegacyDisplayMessage(legacyMessage, out message))
-            {
-                message = null;
-                return false;
-            }
-
-            return true;
+            return frameworkChatService.TryGetUiMessage(frameworkClient.GetDisplayMessages(), messageId, userManager, out message);
         }
 
         /// <summary>
@@ -586,6 +561,13 @@ namespace PhinixClient
             }
         }
 
+        internal void NotifyFrameworkChatSynced()
+        {
+            OnChatSync?.Invoke(this, EventArgs.Empty);
+        }
+
+        internal PhinixFrameworkChatService FrameworkChatService => frameworkChatService;
+
         /// <summary>
         /// Handles credential requests from the <see cref="ClientAuthenticator"/> module.
         /// This forwards the server details and a callback to the GUI for user input.
@@ -622,6 +604,11 @@ namespace PhinixClient
             DropPodUtility.DropThingsNear(dropSpot, map, things, canRoofPunch: false);
 
             return new LookTargets(dropSpot, map);
+        }
+
+        private void requestFrameworkChatHistory()
+        {
+            frameworkChatService.RequestHistory(frameworkClient, Authenticated, LoggedIn, SessionId, Uuid);
         }
     }
 }

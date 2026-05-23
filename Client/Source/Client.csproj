@@ -77,6 +77,14 @@
       <HintPath>$(RimWorldDepDir)\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
+    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51">
+      <HintPath>..\..\.nuget\System.Memory.4.5.3\lib\netstandard2.0\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <HintPath>..\..\.nuget\System.Runtime.CompilerServices.Unsafe.4.5.2\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -103,9 +111,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockedUsersChangedEventArgs.cs" />
+    <Compile Include="Extensions\BuiltInChatClientExtension.cs" />
     <Compile Include="Extensions\RedPacketClientExtension.cs" />
     <Compile Include="Framework\DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="Framework\DefaultTradeCompletionHandler.cs" />
+    <Compile Include="Framework\PhinixFrameworkChatService.cs" />
     <Compile Include="Framework\PhinixClientItemPipeline.cs" />
     <Compile Include="Framework\PhinixClientTradeCompletionPipeline.cs" />
     <Compile Include="Framework\PhinixDefaultTradeBehaviour.cs" />
@@ -152,6 +162,7 @@
     <Compile Include="StackedThings.cs" />
     <Compile Include="TradingThingConverter.cs" />
     <Compile Include="UIChatMessageEventArgs.cs" />
+    <Compile Include="UIChatMessageStatus.cs" />
     <Compile Include="UICompleteTradeEventArgs.cs" />
     <Compile Include="UICreateTradeEventArgs.cs" />
     <Compile Include="UITradesSyncedEventArgs.cs" />
@@ -171,10 +182,6 @@
     <ProjectReference Include="..\..\Common\Authentication\Authentication.csproj">
       <Project>{E983D5C7-A573-44E4-A8BB-D5A9D78EA538}</Project>
       <Name>Authentication</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Common\Chat\Chat.csproj">
-      <Project>{c6b36f14-16e8-4eeb-b1b3-5e8e96fa8dec}</Project>
-      <Name>Chat</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Common\Connections\Connections.csproj">
       <Project>{38cb6bed-e751-42fe-a847-c0ddd482ac62}</Project>
@@ -211,11 +218,12 @@
     <MakeDir Condition="'$(GameVersion)' == 'Any'" Directories="$(SolutionDir)\Client\1.6\Assemblies" />
     <Copy SourceFiles="$(TargetDir)\LiteNetLib.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\1-LiteNetLib.dll" />
     <Copy SourceFiles="$(TargetDir)\Google.Protobuf.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\2-Protobuf.dll" />
+    <Copy SourceFiles="$(TargetDir)\System.Memory.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\System.Memory.dll" />
+    <Copy SourceFiles="$(TargetDir)\System.Runtime.CompilerServices.Unsafe.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\System.Runtime.CompilerServices.Unsafe.dll" />
     <Copy SourceFiles="$(TargetDir)\Utils.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\3-Utils.dll" />
     <Copy SourceFiles="$(TargetDir)\Connections.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\4-Connections.dll" />
     <Copy SourceFiles="$(TargetDir)\Authentication.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\5-Authentication.dll" />
     <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\6-UserManagement.dll" />
-    <Copy SourceFiles="$(TargetDir)\Chat.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\7-Chat.dll" />
     <Copy SourceFiles="$(TargetDir)\Trading.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\8-Trading.dll" />
     <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\$(GameVersion)\Assemblies\9-PhinixClient.dll" />
     <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\1.6\Assemblies\9-PhinixClient.dll" />

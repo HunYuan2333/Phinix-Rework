@@ -1,41 +1,37 @@
-﻿using System.Collections.Generic;
-using Chat;
+using System;
 using UserManagement;
-using Verse;
 
 namespace PhinixClient
 {
     /// <summary>
-    /// Pairs a chat message to the user that sent it.
+    /// UI-facing chat message model used by the framework chat feature.
     /// </summary>
-    public class UIChatMessage : ClientChatMessage
+    public class UIChatMessage
     {
-        /// <summary>
-        /// User that sent <see cref="ChatMessage"/>
-        /// </summary>
+        public string MessageId;
+        public DateTime Timestamp;
+        public string SenderUuid;
+        public string Message;
+        public UIChatMessageStatus Status;
         public ImmutableUser User;
+        public string Source;
 
-        public UIChatMessage(ClientChatMessage chatMessage, ImmutableUser user) : base(chatMessage.MessageId, chatMessage.SenderUuid, chatMessage.Message, chatMessage.Timestamp, chatMessage.Status)
+        public UIChatMessage(
+            string messageId,
+            string senderUuid,
+            string message,
+            DateTime timestamp,
+            UIChatMessageStatus status,
+            ImmutableUser user,
+            string source = null)
         {
-            this.User = user;
-        }
-
-        /// <summary>
-        /// Creates a new <see cref="UIChatMessage"/> from the given <see cref="ClientChatMessage"/> using <paramref name="userManager"/> to look up the sender's user details.
-        /// If the user cannot be found, a default one is used.
-        /// </summary>
-        /// <param name="userManager">User manager instance to use for user lookup</param>
-        /// <param name="chatMessage">Base chat message</param>
-        /// <returns>New <see cref="UIChatMessage"/> instance</returns>
-        public UIChatMessage(UserManager userManager, ClientChatMessage chatMessage) : base(chatMessage.MessageId, chatMessage.SenderUuid, chatMessage.Message, chatMessage.Timestamp, chatMessage.Status)
-        {
-            // Try get a copy of the user's details, otherwise use the defaults
-            if (!userManager.TryGetUser(chatMessage.SenderUuid, out ImmutableUser user))
-            {
-                user = new ImmutableUser(chatMessage.SenderUuid);
-            }
-
-            this.User = user;
+            MessageId = messageId;
+            SenderUuid = senderUuid;
+            Message = message;
+            Timestamp = timestamp;
+            Status = status;
+            User = user;
+            Source = source;
         }
     }
 }
