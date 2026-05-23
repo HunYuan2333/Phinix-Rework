@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ModMetaData>
+<<<<<<< HEAD
     <name>phinix-rework</name>
     <packageId>hunyuan2333.phinix-rework</packageId>
     <author>hunyuan2333</author>
     <url>https://github.com/hunyuan2333/phinix-rework</url>
+=======
+    <name>Phinix Framework Dev</name>
+    <packageId>Thomotron.PhinixFrameworkDev</packageId>
+    <author>Thomotron and The Phinix Team</author>
+    <url>https://github.com/PhinixTeam/Phinix</url>
+>>>>>>> d3c62cff90e29258d4af98141e72a4678c46177e
     <description>
 Phinix Rework is a reworked RimWorld chat and trading mod that lets players communicate and exchange items with each other in-game.
     </description>
