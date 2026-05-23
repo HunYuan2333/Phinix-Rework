@@ -68,7 +68,8 @@ namespace PhinixClient.Framework
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
 
             negotiationTimer.Start();
-            sendEnvelope(new FrameworkEnvelope
+            RaiseLogEntry(new LogEventArgs("Starting framework capability negotiation with connected server.", LogLevel.DEBUG));
+            sendPacket(new FrameworkPacket
             {
                 Kind = FrameworkProtocol.KindHello,
                 SessionId = authenticator.SessionId,
@@ -97,7 +98,7 @@ namespace PhinixClient.Framework
                         CompatibilityMode = CompatibilityMode,
                         SenderUuid = userManager.Uuid,
                         SessionId = authenticator.SessionId,
-                        SendEnvelope = sendEnvelope,
+                        SendMessage = sendPacket,
                         RemoteCapabilities = remoteCapabilities.ToArray(),
                         HasRemoteCapability = hasRemoteCapability,
                         Log = (message, level) => RaiseLogEntry(new LogEventArgs(message, level))
@@ -114,23 +115,23 @@ namespace PhinixClient.Framework
                     return false;
                 }
 
-                FrameworkEnvelope envelope = result.Envelope;
-                if (envelope != null && !string.IsNullOrEmpty(envelope.MessageType) && !hasRemoteCapability(envelope.MessageType))
+                FrameworkPacket message = result.Message;
+                if (message != null && !string.IsNullOrEmpty(message.MessageType) && !hasRemoteCapability(message.MessageType))
                 {
-                    showSystemMessage("Phinix_framework_remoteCapabilityUnavailable", envelope.MessageType);
+                    showSystemMessage("Phinix_framework_remoteCapabilityUnavailable", message.MessageType);
                     return true;
                 }
 
-                if (envelope == null)
+                if (message == null)
                 {
                     if (result.Action == MessageHandlingResultAction.Continue) continue;
                     return true;
                 }
 
-                envelope.Kind = FrameworkProtocol.KindExtension;
-                envelope.SessionId = authenticator.SessionId;
-                envelope.SenderUuid = userManager.Uuid;
-                sendEnvelope(envelope);
+                message.Kind = FrameworkProtocol.KindMessage;
+                message.SessionId = authenticator.SessionId;
+                message.SenderUuid = userManager.Uuid;
+                sendPacket(message);
 
                 if (result.Action != MessageHandlingResultAction.Continue)
                 {
@@ -227,21 +228,21 @@ namespace PhinixClient.Framework
 
         private void packetHandler(string module, string connectionId, byte[] data)
         {
-            FrameworkEnvelope envelope;
+            FrameworkPacket packet;
             try
             {
-                envelope = FrameworkSerialization.DeserializeEnvelope(data);
+                packet = FrameworkSerialization.DeserializePacket(data);
             }
             catch (Exception exception)
             {
-                RaiseLogEntry(new LogEventArgs($"Failed to deserialize framework envelope: {exception.Message}", LogLevel.WARNING));
+                RaiseLogEntry(new LogEventArgs($"Failed to deserialize framework packet: {exception.Message}", LogLevel.WARNING));
                 return;
             }
 
-            switch (envelope.Kind)
+            switch (packet.Kind)
             {
                 case FrameworkProtocol.KindCapabilities:
-                    FrameworkCapabilitiesPayload capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(envelope.PayloadJson);
+                    FrameworkCapabilitiesPayload capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(packet.PayloadJson);
                     lock (remoteCapabilities)
                     {
                         remoteCapabilities.Clear();
@@ -251,44 +252,45 @@ namespace PhinixClient.Framework
                         }
                     }
 
-                    CompatibilityMode = FrameworkCompatibilityMode.FrameworkV2;
                     negotiationTimer.Stop();
-                    OnCompatibilityModeChanged?.Invoke(this, CompatibilityMode);
-                    showSystemMessage("Phinix_framework_connectedFrameworkServer");
+                    setCompatibilityMode(
+                        FrameworkCompatibilityMode.FrameworkV2,
+                        $"Framework capability negotiation succeeded with {remoteCapabilities.Count} negotiated remote capability/capabilities.",
+                        "Phinix_framework_connectedFrameworkServer");
                     break;
-                case FrameworkProtocol.KindExtension:
-                    handleExtension(envelope);
+                case FrameworkProtocol.KindMessage:
+                    handleMessage(packet);
                     break;
                 default:
-                    RaiseLogEntry(new LogEventArgs($"Unknown framework envelope kind '{envelope.Kind}'", LogLevel.DEBUG));
+                    RaiseLogEntry(new LogEventArgs($"Unknown framework packet kind '{packet.Kind}'", LogLevel.DEBUG));
                     break;
             }
         }
 
-        private void handleExtension(FrameworkEnvelope envelope)
+        private void handleMessage(FrameworkPacket message)
         {
             bool matchedHandler = false;
-            FrameworkEnvelope currentEnvelope = envelope;
+            FrameworkPacket currentMessage = message;
             ClientFrameworkContext context = new ClientFrameworkContext
             {
                 CompatibilityMode = CompatibilityMode,
                 SenderUuid = userManager.Uuid,
                 SessionId = authenticator.SessionId,
-                SendEnvelope = sendEnvelope,
+                SendMessage = sendPacket,
                 RemoteCapabilities = remoteCapabilities.ToArray(),
                 HasRemoteCapability = hasRemoteCapability,
                 Log = (message, level) => RaiseLogEntry(new LogEventArgs(message, level))
             };
 
-            foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleIncomingEnvelope(currentEnvelope)))
+            foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleIncomingMessage(currentMessage)))
             {
                 matchedHandler = true;
-                ClientIncomingMessageResult result = handler.HandleIncomingEnvelope(currentEnvelope, context);
+                ClientIncomingMessageResult result = handler.HandleIncomingMessage(currentMessage, context);
                 if (result == null) continue;
 
-                if (result.Action == MessageHandlingResultAction.ReplacePayload && result.Envelope != null)
+                if (result.Action == MessageHandlingResultAction.ReplacePayload && result.Message != null)
                 {
-                    currentEnvelope = result.Envelope;
+                    currentMessage = result.Message;
                     continue;
                 }
 
@@ -299,13 +301,17 @@ namespace PhinixClient.Framework
 
                 if (result.Action != MessageHandlingResultAction.Continue)
                 {
+                    if (result.DisplayMessage == null)
+                    {
+                        RaiseLogEntry(new LogEventArgs($"Framework message '{currentMessage?.MessageType ?? "unknown"}' was consumed without producing display output. Silent consumption should move to a future command/control flow.", LogLevel.WARNING));
+                    }
                     return;
                 }
             }
 
-            foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => renderer.CanRender(currentEnvelope)))
+            foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => renderer.CanRender(currentMessage)))
             {
-                FrameworkDisplayMessage renderedMessage = renderer.Render(currentEnvelope);
+                FrameworkDisplayMessage renderedMessage = renderer.Render(currentMessage);
                 if (renderedMessage != null)
                 {
                     addDisplayMessage(renderedMessage);
@@ -315,7 +321,7 @@ namespace PhinixClient.Framework
 
             if (!matchedHandler)
             {
-                showSystemMessage("Phinix_framework_unsupportedIncomingMessageType", currentEnvelope.MessageType ?? "unknown");
+                showSystemMessage("Phinix_framework_unsupportedIncomingMessageType", currentMessage.MessageType ?? "unknown");
             }
         }
 
@@ -347,24 +353,27 @@ namespace PhinixClient.Framework
             return false;
         }
 
-        private void sendEnvelope(FrameworkEnvelope envelope)
+        private void sendPacket(FrameworkPacket packet)
         {
-            if (envelope == null || !netClient.Connected) return;
+            if (packet == null || !netClient.Connected) return;
 
-            netClient.Send(FrameworkProtocol.ModuleName, FrameworkSerialization.SerializeEnvelope(envelope));
+            netClient.Send(FrameworkProtocol.ModuleName, FrameworkSerialization.SerializePacket(packet));
         }
 
         private void enterLegacyMode()
         {
-            CompatibilityMode = FrameworkCompatibilityMode.Legacy;
-            OnCompatibilityModeChanged?.Invoke(this, CompatibilityMode);
-            showSystemMessage("Phinix_framework_connectedLegacyServer");
+            if (!authenticator.Authenticated || !userManager.LoggedIn) return;
+            if (CompatibilityMode != FrameworkCompatibilityMode.Unknown) return;
+
+            setCompatibilityMode(
+                FrameworkCompatibilityMode.Legacy,
+                "Framework capability negotiation timed out; falling back to legacy compatibility mode.",
+                "Phinix_framework_connectedLegacyServer");
         }
 
         private void reset()
         {
             negotiationTimer.Stop();
-            CompatibilityMode = FrameworkCompatibilityMode.Unknown;
             lock (remoteCapabilities)
             {
                 remoteCapabilities.Clear();
@@ -372,6 +381,29 @@ namespace PhinixClient.Framework
             lock (displayMessagesLock)
             {
                 displayMessages.Clear();
+            }
+
+            setCompatibilityMode(FrameworkCompatibilityMode.Unknown);
+        }
+
+        private void setCompatibilityMode(FrameworkCompatibilityMode compatibilityMode, string logMessage = null, string systemMessageKey = null, params string[] translationArgs)
+        {
+            bool changed = CompatibilityMode != compatibilityMode;
+            CompatibilityMode = compatibilityMode;
+
+            if (!string.IsNullOrEmpty(logMessage))
+            {
+                RaiseLogEntry(new LogEventArgs(logMessage));
+            }
+
+            if (changed)
+            {
+                OnCompatibilityModeChanged?.Invoke(this, CompatibilityMode);
+            }
+
+            if (!string.IsNullOrEmpty(systemMessageKey))
+            {
+                showSystemMessage(systemMessageKey, translationArgs);
             }
         }
 
