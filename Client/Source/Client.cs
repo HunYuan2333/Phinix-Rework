@@ -16,7 +16,7 @@ using PhinixClient.Framework;
 
 namespace PhinixClient
 {
-    public class Client : Mod
+    public class Client : Mod, IClientTradeFacade
     {
         public static Client Instance;
         public static readonly Version Version = typeof(Client).Assembly.GetName().Version;
@@ -73,18 +73,32 @@ namespace PhinixClient
         public event EventHandler<UIChatMessageEventArgs> OnChatMessageReceived;
         public event EventHandler OnChatSync;
 
-        private ClientTrading trading;
-        public void CancelTrade(string tradeId) => trading.CancelTrade(tradeId);
-        public string[] GetTradeIds() => trading.GetTradeIds();
-        public string[] GetTradeIdsExceptWith(IEnumerable<string> otherPartyUuids) => trading.GetTradeIdsExceptWith(otherPartyUuids);
-        public ImmutableTrade[] GetTrades() => trading.GetTrades();
-        public ImmutableTrade[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids) => trading.GetTradesExceptWith(otherPartyUuids);
-        public bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid) => trading.TryGetOtherPartyUuid(tradeId, out otherPartyUuid);
-        public bool TryGetOtherPartyAccepted(string tradeId, out bool otherPartyAccepted) => trading.TryGetOtherPartyAccepted(tradeId, out otherPartyAccepted);
-        public bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted) => trading.TryGetPartyAccepted(tradeId, partyUuid, out accepted);
-        public bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<Trading.ProtoThing> items) => trading.TryGetItemsOnOffer(tradeId, uuid, out items);
-        public void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "") => trading.UpdateItems(tradeId, items, token);
-        public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null) => trading.UpdateStatus(tradeId, accepted, cancelled);
+        private IClientTradeService legacyTradeService;
+        private IClientTradeService frameworkTradeAdapter;
+        public void CancelTrade(string tradeId)
+        {
+            ActiveTradeService.CancelTrade(tradeId);
+        }
+        public string[] GetTradeIds() => ActiveTradeService.GetTradeIds();
+        public string[] GetTradeIdsExceptWith(IEnumerable<string> otherPartyUuids)
+        {
+            return ActiveTradeService.GetTradesExceptWith(otherPartyUuids).Select(trade => trade.TradeId).ToArray();
+        }
+        public ImmutableTrade[] GetTrades() => ActiveTradeService.GetTrades();
+        public bool TryGetTrade(string tradeId, out ImmutableTrade trade) => ActiveTradeService.TryGetTrade(tradeId, out trade);
+        public ImmutableTrade[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids) => ActiveTradeService.GetTradesExceptWith(otherPartyUuids);
+        public bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid) => ActiveTradeService.TryGetOtherPartyUuid(tradeId, out otherPartyUuid);
+        public bool TryGetOtherPartyAccepted(string tradeId, out bool otherPartyAccepted) => ActiveTradeService.TryGetOtherPartyAccepted(tradeId, out otherPartyAccepted);
+        public bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted) => ActiveTradeService.TryGetPartyAccepted(tradeId, partyUuid, out accepted);
+        public bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<Trading.ProtoThing> items) => ActiveTradeService.TryGetItemsOnOffer(tradeId, uuid, out items);
+        public void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "")
+        {
+            ActiveTradeService.UpdateTradeItems(tradeId, items, token);
+        }
+        public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)
+        {
+            ActiveTradeService.UpdateTradeStatus(tradeId, accepted, cancelled);
+        }
         public LookTargets DropPods(IEnumerable<Thing> verseThings) => dropPods(verseThings);
         public event EventHandler<UICreateTradeEventArgs> OnTradeCreationSuccess;
         public event EventHandler<UICreateTradeEventArgs> OnTradeCreationFailure;
@@ -93,17 +107,22 @@ namespace PhinixClient
         public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateSuccess;
         public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateFailure;
         public event EventHandler<UITradesSyncedEventArgs> OnTradesSynced;
+        public ITradeUiFacade TradeUi { get; }
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
         private PhinixFrameworkChatService frameworkChatService;
+        private PhinixFrameworkTradeClientService frameworkTradeService;
         private PhinixClientItemPipeline itemPipeline;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
         private PhinixClientTradeCompletionPipeline tradeCompletionPipeline;
 
-        public event EventHandler<BlockedUsersChangedEventArgs> OnBlockedUsersChanged;
-        public event EventHandler OnChatMessageLimitChanged;
+        private bool UseFrameworkTrade => frameworkClient != null &&
+                                          frameworkClient.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2 &&
+                                          frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability);
+        private IClientTradeService ActiveTradeService => UseFrameworkTrade ? frameworkTradeAdapter : legacyTradeService;
 
+        public event EventHandler<BlockedUsersChangedEventArgs> OnBlockedUsersChanged;
         public Settings Settings { get; }
 
         /// <summary>
@@ -146,24 +165,44 @@ namespace PhinixClient
             // Load in Settings
             Settings = GetSettings<Settings>();
             if (!Settings.Migrated) Settings.MigrateFromHugsLib();
+            TradeUi = new ClientTradeUiFacade(this);
 
             // Set up our module instances
             netClient = new NetClient();
             authenticator = new ClientAuthenticator(netClient, getCredentials);
             userManager = new ClientUserManager(netClient, authenticator);
-            trading = new ClientTrading(netClient, authenticator, userManager);
-            frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager);
+            ClientTrading legacyTrading = new ClientTrading(netClient, authenticator, userManager);
             frameworkChatService = new PhinixFrameworkChatService();
+            itemPipeline = new PhinixClientItemPipeline(Log, FrameworkCompatibilityMode.Unknown);
+            frameworkTradeService = new PhinixFrameworkTradeClientService(itemPipeline, Log);
+            ExtensionHostContext extensionHostContext = new ExtensionHostContext
+            {
+                HostKind = "client",
+                Log = (message, level) => Log(new LogEventArgs(message, level)),
+                StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "client"))
+            };
+            extensionHostContext.AddService(new BuiltInChatClientHostServices(frameworkChatService, NotifyFrameworkChatSynced));
+            extensionHostContext.AddService(new BuiltInTradeClientHostServices(frameworkTradeService));
+            frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
             frameworkClient.ConfigureChatService(frameworkChatService);
-            itemPipeline = new PhinixClientItemPipeline(Log, frameworkClient.CompatibilityMode);
-            defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(trading, userManager, itemPipeline, dropPods, Log);
+            legacyTradeService = new LegacyClientTradeServiceAdapter(legacyTrading);
+            frameworkTradeAdapter = new FrameworkClientTradeServiceAdapter(frameworkTradeService, frameworkClient, authenticator, userManager, createFrameworkContext, Log);
+            defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(this, userManager, itemPipeline, dropPods, Log);
             tradeCompletionPipeline = new PhinixClientTradeCompletionPipeline(itemPipeline, Log, new DefaultTradeCompletionHandler(defaultTradeBehaviour));
 
             // Subscribe to log events
             authenticator.OnLogEntry += ILoggableHandler;
             userManager.OnLogEntry += ILoggableHandler;
-            trading.OnLogEntry += ILoggableHandler;
+            legacyTradeService.OnLogEntry += ILoggableHandler;
             frameworkClient.OnLogEntry += ILoggableHandler;
+            frameworkClient.OnCompatibilityModeChanged += (_, mode) =>
+            {
+                itemPipeline.SetCompatibilityMode(mode);
+                if (mode == FrameworkCompatibilityMode.FrameworkV2)
+                {
+                    frameworkTradeAdapter.RequestInitialSync();
+                }
+            };
 
             #region Module Event Handlers
             // Subscribe to connection events
@@ -243,40 +282,24 @@ namespace PhinixClient
             };
 
             // Subscribe to trading events
-            trading.OnTradeCreationSuccess += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Created trade {0} with {1}", args.TradeId, args.OtherPartyUuid));
-                defaultTradeBehaviour.HandleTradeCreationSuccess(args, Settings.ShowBlockedTrades, Settings.BlockedUsers, waitingForTradeCreationWith, waitingForTradeCreationWithLock, tradeWindowQueue, tradeWindowQueueLock);
-            };
-            trading.OnTradeCreationFailure += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Failed to create trade with {0}: {1} ({2})", args.OtherPartyUuid, args.FailureMessage, args.FailureReason.ToString()));
-
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_tradeCreationFailedTitle".Translate(), text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
-
-                // Remove the other party from the waiting list
-                lock (waitingForTradeCreationWithLock) waitingForTradeCreationWith.Remove(args.OtherPartyUuid);
-            };
-            trading.OnTradeCompleted += (sender, args) =>
-            {
-                tradeCompletionPipeline.HandleTradeCompleted(args);
-
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Trade with {0} completed successfully", args.OtherPartyUuid));
-            };
-            trading.OnTradeCancelled += (sender, args) =>
-            {
-                defaultTradeBehaviour.HandleTradeCancelled(args, Settings.ShowBlockedTrades, Settings.BlockedUsers);
-
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Trade with {0} cancelled", args.OtherPartyUuid));
-            };
-            trading.OnTradeUpdateFailure += (sender, args) =>
+            legacyTradeService.OnTradeCreationSuccess += (sender, args) => handleTradeCreationSuccess("trade", args);
+            legacyTradeService.OnTradeCreationFailure += (sender, args) => handleTradeCreationFailure("trade", args);
+            legacyTradeService.OnTradeCompleted += (sender, args) => handleTradeCompleted("trade", args);
+            legacyTradeService.OnTradeCancelled += (sender, args) => handleTradeCancelled("trade", args);
+            legacyTradeService.OnTradeUpdateFailure += (sender, args) =>
             {
                 defaultTradeBehaviour.HandleTradeUpdateFailure(args);
             };
-            trading.OnTradesSynced += (sender, args) =>
+            legacyTradeService.OnTradesSynced += (sender, args) => logTradeSync("trade", args);
+            frameworkTradeAdapter.OnTradeCreationSuccess += (sender, args) => handleTradeCreationSuccess("framework trade", args);
+            frameworkTradeAdapter.OnTradeCreationFailure += (sender, args) => handleTradeCreationFailure("framework trade", args);
+            frameworkTradeAdapter.OnTradeCompleted += (sender, args) => handleTradeCompleted("framework trade", args);
+            frameworkTradeAdapter.OnTradeCancelled += (sender, args) => handleTradeCancelled("framework trade", args);
+            frameworkTradeAdapter.OnTradeUpdateFailure += (sender, args) =>
             {
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Synced {0} trade{1} from server", args.TradeIds.Length, args.TradeIds.Length != 1 ? "s" : ""));
+                defaultTradeBehaviour.HandleTradeUpdateFailure(args);
             };
+            frameworkTradeAdapter.OnTradesSynced += (sender, args) => logTradeSync("framework trade", args);
             #endregion
 
             // Forward events so the UI can handle them
@@ -298,13 +321,20 @@ namespace PhinixClient
                     OnChatMessageReceived?.Invoke(sender, e);
                 }
             };
-            trading.OnTradeCreationSuccess += (sender, e) => { OnTradeCreationSuccess?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, userManager)); };
-            trading.OnTradeCreationFailure += (sender, e) => { OnTradeCreationFailure?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, userManager)); };
-            trading.OnTradeCompleted += (sender, e) => { OnTradeCompleted?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
-            trading.OnTradeCancelled += (sender, e) => { OnTradeCancelled?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
-            trading.OnTradeUpdateSuccess += (sender, e) => { OnTradeUpdateSuccess?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, trading)); };
-            trading.OnTradeUpdateFailure += (sender, e) => { OnTradeUpdateFailure?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, trading)); };
-            trading.OnTradesSynced += (sender, e) => { OnTradesSynced?.Invoke(sender, UITradesSyncedEventArgs.FromTradesSyncedEventArgs(e, trading, userManager)); };
+            legacyTradeService.OnTradeCreationSuccess += (sender, e) => { OnTradeCreationSuccess?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, this, userManager)); };
+            legacyTradeService.OnTradeCreationFailure += (sender, e) => { OnTradeCreationFailure?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, this, userManager)); };
+            legacyTradeService.OnTradeCompleted += (sender, e) => { OnTradeCompleted?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
+            legacyTradeService.OnTradeCancelled += (sender, e) => { OnTradeCancelled?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
+            legacyTradeService.OnTradeUpdateSuccess += (sender, e) => { OnTradeUpdateSuccess?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, this)); };
+            legacyTradeService.OnTradeUpdateFailure += (sender, e) => { OnTradeUpdateFailure?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, this)); };
+            legacyTradeService.OnTradesSynced += (sender, e) => { OnTradesSynced?.Invoke(sender, UITradesSyncedEventArgs.FromTradesSyncedEventArgs(e, this)); };
+            frameworkTradeAdapter.OnTradeCreationSuccess += (sender, e) => { OnTradeCreationSuccess?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, this, userManager)); };
+            frameworkTradeAdapter.OnTradeCreationFailure += (sender, e) => { OnTradeCreationFailure?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, this, userManager)); };
+            frameworkTradeAdapter.OnTradeCompleted += (sender, e) => { OnTradeCompleted?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
+            frameworkTradeAdapter.OnTradeCancelled += (sender, e) => { OnTradeCancelled?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
+            frameworkTradeAdapter.OnTradeUpdateSuccess += (sender, e) => { OnTradeUpdateSuccess?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, this)); };
+            frameworkTradeAdapter.OnTradeUpdateFailure += (sender, e) => { OnTradeUpdateFailure?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, this)); };
+            frameworkTradeAdapter.OnTradesSynced += (sender, e) => { OnTradesSynced?.Invoke(sender, UITradesSyncedEventArgs.FromTradesSyncedEventArgs(e, this)); };
 
             // Connect to the server set in the config
             Connect(Settings.ServerAddress, Settings.ServerPort);
@@ -531,7 +561,70 @@ namespace PhinixClient
                 waitingForTradeCreationWith.Add(uuid);
             }
 
-            trading.CreateTrade(uuid);
+            ActiveTradeService.CreateTrade(uuid);
+        }
+
+        private void handleTradeCreationSuccess(string logLabel, CreateTradeEventArgs args)
+        {
+            if (Prefs.DevMode) Verse.Log.Message(string.Format("Created {0} {1} with {2}", logLabel, args.TradeId, args.OtherPartyUuid));
+            defaultTradeBehaviour.HandleTradeCreationSuccess(args, Settings.ShowBlockedTrades, Settings.BlockedUsers, waitingForTradeCreationWith, waitingForTradeCreationWithLock, tradeWindowQueue, tradeWindowQueueLock);
+        }
+
+        private void handleTradeCreationFailure(string logLabel, CreateTradeEventArgs args)
+        {
+            if (Prefs.DevMode) Verse.Log.Message(string.Format("Failed to create {0} with {1}: {2} ({3})", logLabel, args.OtherPartyUuid, args.FailureMessage, args.FailureReason.ToString()));
+
+            Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_tradeCreationFailedTitle".Translate(), text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
+
+            lock (waitingForTradeCreationWithLock) waitingForTradeCreationWith.Remove(args.OtherPartyUuid);
+        }
+
+        private void handleTradeCompleted(string logLabel, CompleteTradeEventArgs args)
+        {
+            tradeCompletionPipeline.HandleTradeCompleted(args);
+
+            if (Prefs.DevMode) Verse.Log.Message(string.Format("{0} with {1} completed successfully", capitalize(logLabel), args.OtherPartyUuid));
+        }
+
+        private void handleTradeCancelled(string logLabel, CompleteTradeEventArgs args)
+        {
+            defaultTradeBehaviour.HandleTradeCancelled(args, Settings.ShowBlockedTrades, Settings.BlockedUsers);
+
+            if (Prefs.DevMode) Verse.Log.Message(string.Format("{0} with {1} cancelled", capitalize(logLabel), args.OtherPartyUuid));
+        }
+
+        private static void logTradeSync(string logLabel, TradesSyncedEventArgs args)
+        {
+            if (Prefs.DevMode) Verse.Log.Message(string.Format("Synced {0} {1}{2} from server", args.TradeIds.Length, logLabel, args.TradeIds.Length != 1 ? "s" : ""));
+        }
+
+        private static string capitalize(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return string.Empty;
+            }
+
+            if (value.Length == 1)
+            {
+                return value.ToUpperInvariant();
+            }
+
+            return char.ToUpperInvariant(value[0]) + value.Substring(1);
+        }
+
+        private ClientFrameworkContext createFrameworkContext()
+        {
+            return new ClientFrameworkContext
+            {
+                CompatibilityMode = frameworkClient.CompatibilityMode,
+                SenderUuid = userManager.Uuid,
+                SessionId = authenticator.SessionId,
+                SendMessage = frameworkClient.SendFrameworkPacket,
+                RemoteCapabilities = Array.Empty<string>(),
+                HasRemoteCapability = frameworkClient.HasRemoteCapability,
+                Log = (message, level) => Log(new LogEventArgs(message, level))
+            };
         }
 
         /// <summary>

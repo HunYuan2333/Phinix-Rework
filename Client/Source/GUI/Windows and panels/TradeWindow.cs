@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using PhinixClient.GUI;
+using PhinixClient.Framework;
 using RimWorld;
 using Trading;
 using UnityEngine;
@@ -36,6 +37,7 @@ namespace PhinixClient
 
         private readonly Regex itemCountInputRegex = new Regex("\\d*");
         private readonly Texture2D tradeArrows = ContentFinder<Texture2D>.Get("tradeArrows");
+        private readonly ITradeUiFacade tradeUi = Client.Instance.TradeUi;
 
         private Vector2 ourOfferScrollPos = Vector2.zero;
         private Vector2 theirOfferScrollPos = Vector2.zero;
@@ -107,29 +109,12 @@ namespace PhinixClient
             base.PreOpen();
 
             // Subscribe to events
-            Client.Instance.OnTradeCompleted += OnTradeFinished;
-            Client.Instance.OnTradeCancelled += OnTradeFinished;
-            Client.Instance.OnTradeUpdateSuccess += OnTradeUpdated;
-            Client.Instance.OnTradeUpdateFailure += OnTradeUpdated;
+            tradeUi.OnTradeCompleted += OnTradeFinished;
+            tradeUi.OnTradeCancelled += OnTradeFinished;
+            tradeUi.OnTradeUpdateSuccess += OnTradeUpdated;
+            tradeUi.OnTradeUpdateFailure += OnTradeUpdated;
 
-            // Select things from all maps that are player homes
-            IEnumerable<Map> homeMaps = Find.Maps.Where(map => map.IsPlayerHome);
-            IEnumerable<Thing> things;
-            if (Client.Instance.Settings.AllItemsTradable)
-            {
-                // Get *everything*
-                things = homeMaps.SelectMany(map => map.listerThings.AllThings);
-            }
-            else
-            {
-                // From each map, select all haul destinations, then everything stored there
-                IEnumerable<SlotGroup> haulDestinations = homeMaps.SelectMany(map => map.haulDestinationManager.AllGroups);
-                things = haulDestinations.SelectMany(haulDestination => haulDestination.HeldThings);
-            }
-
-            // Group all items and cache them for later
-            availableItems = StackedThings.GroupThings(things.Where(thing => thing.def.category == ThingCategory.Item && !thing.def.IsCorpse));
-            filteredAvailableItems = availableItems;
+            refreshAvailableItems();
 
             // Pre-fill offer caches as well
             ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProtoOrUnknown));
@@ -141,8 +126,10 @@ namespace PhinixClient
             base.Close(doCloseSound);
 
             // Unsubscribe from events
-            Client.Instance.OnTradeCompleted -= OnTradeFinished;
-            Client.Instance.OnTradeCancelled -= OnTradeFinished;
+            tradeUi.OnTradeCompleted -= OnTradeFinished;
+            tradeUi.OnTradeCancelled -= OnTradeFinished;
+            tradeUi.OnTradeUpdateSuccess -= OnTradeUpdated;
+            tradeUi.OnTradeUpdateFailure -= OnTradeUpdated;
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -212,7 +199,7 @@ namespace PhinixClient
             if (ourOfferAccepted != trade.Accepted)
             {
                 // Update our accepted state
-                new Thread(() => Client.Instance.UpdateTradeStatus(trade.TradeId, accepted: ourOfferAccepted)).Start();
+                new Thread(() => tradeUi.UpdateTradeStatus(trade.TradeId, accepted: ourOfferAccepted)).Start();
             }
 
             // Their offer
@@ -267,7 +254,7 @@ namespace PhinixClient
                     IEnumerable<ProtoThing> actualOffer = trade.ItemsOnOffer.Concat(selectedThings.Select(TradingThingConverter.ConvertThingFromVerse));
 
                     // Send an update to the server
-                    Client.Instance.UpdateTradeItems(trade.TradeId, actualOffer, token);
+                    tradeUi.UpdateTradeItems(trade.TradeId, actualOffer, token);
                     Log.Message("Sent update");
                 }
                 catch (Exception e)
@@ -280,8 +267,7 @@ namespace PhinixClient
             if (Widgets.ButtonText(resetButtonRect, "Phinix_trade_resetButton".Translate()))
             {
                 // Convert and drop our items in pods
-                Client.Instance.DropPods(trade.ItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProto));
-
+                tradeUi.DropPods(trade.ItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProto));
 
                 // Reset all selected counts to zero
                 foreach (StackedThings stack in availableItems)
@@ -289,8 +275,10 @@ namespace PhinixClient
                     stack.Selected = 0;
                 }
 
+                refreshAvailableItems();
+
                 // Update trade items
-                Client.Instance.UpdateTradeItems(trade.TradeId, Array.Empty<ProtoThing>());
+                tradeUi.UpdateTradeItems(trade.TradeId, Array.Empty<ProtoThing>());
             }
 
             // Save GUI colour
@@ -300,7 +288,7 @@ namespace PhinixClient
             UnityEngine.GUI.color = Color.red;
             if (Widgets.ButtonText(cancelButtonRect, "Phinix_trade_cancelButton".Translate()))
             {
-                new Thread(() => Client.Instance.CancelTrade(trade.TradeId)).Start();
+                new Thread(() => tradeUi.CancelTrade(trade.TradeId)).Start();
             }
 
             // Restore GUI colour
@@ -385,10 +373,32 @@ namespace PhinixClient
                             {
                                 GenSpawn.Spawn(thing, thing.Position, thing.Map, thing.Rotation, WipeMode.VanishOrMoveAside);
                             }
+
+                            refreshAvailableItems();
                         }
                     }
                 }
             }
+        }
+
+        private void refreshAvailableItems()
+        {
+            IEnumerable<Map> homeMaps = Find.Maps.Where(map => map.IsPlayerHome);
+            IEnumerable<Thing> things;
+            if (Client.Instance.Settings.AllItemsTradable)
+            {
+                things = homeMaps.SelectMany(map => map.listerThings.AllThings);
+            }
+            else
+            {
+                IEnumerable<SlotGroup> haulDestinations = homeMaps.SelectMany(map => map.haulDestinationManager.AllGroups);
+                things = haulDestinations.SelectMany(haulDestination => haulDestination.HeldThings);
+            }
+
+            availableItems = StackedThings.GroupThings(things.Where(thing => thing.def.category == ThingCategory.Item && !thing.def.IsCorpse));
+            filteredAvailableItems = availableItems
+                .Where(stack => stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1)
+                .ToList();
         }
 
         /// <summary>

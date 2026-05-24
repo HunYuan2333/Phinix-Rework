@@ -14,15 +14,15 @@ namespace PhinixClient.Framework
 {
     public sealed class PhinixDefaultTradeBehaviour
     {
-        private readonly ClientTrading trading;
+        private readonly IClientTradeFacade tradeFacade;
         private readonly ClientUserManager userManager;
         private readonly PhinixClientItemPipeline itemPipeline;
         private readonly Func<IEnumerable<Thing>, LookTargets> dropPods;
         private readonly Action<LogEventArgs> log;
 
-        public PhinixDefaultTradeBehaviour(ClientTrading trading, ClientUserManager userManager, PhinixClientItemPipeline itemPipeline, Func<IEnumerable<Thing>, LookTargets> dropPods, Action<LogEventArgs> log)
+        public PhinixDefaultTradeBehaviour(IClientTradeFacade tradeFacade, ClientUserManager userManager, PhinixClientItemPipeline itemPipeline, Func<IEnumerable<Thing>, LookTargets> dropPods, Action<LogEventArgs> log)
         {
-            this.trading = trading;
+            this.tradeFacade = tradeFacade;
             this.userManager = userManager;
             this.itemPipeline = itemPipeline;
             this.dropPods = dropPods;
@@ -47,7 +47,7 @@ namespace PhinixClient.Framework
                 }
             }
 
-            if (!trading.TryGetTrade(tradeId, out ImmutableTrade trade))
+            if (!tradeFacade.TryGetTrade(tradeId, out ImmutableTrade trade))
             {
                 log?.Invoke(new LogEventArgs(string.Format("Failed to get newly created trade {0} when attempting to open immediately", tradeId), LogLevel.WARNING));
                 return false;
@@ -117,7 +117,7 @@ namespace PhinixClient.Framework
         public void HandleTradeUpdateFailure(TradeUpdateEventArgs args)
         {
             string displayName = "???";
-            if (trading.TryGetOtherPartyUuid(args.TradeId, out string otherPartyUuid) &&
+            if (tradeFacade.TryGetOtherPartyUuid(args.TradeId, out string otherPartyUuid) &&
                 userManager.TryGetDisplayName(otherPartyUuid, out string resolvedDisplayName))
             {
                 displayName = TextHelper.StripRichText(resolvedDisplayName);

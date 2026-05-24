@@ -112,10 +112,21 @@
   <ItemGroup>
     <Compile Include="BlockedUsersChangedEventArgs.cs" />
     <Compile Include="Extensions\BuiltInChatClientExtension.cs" />
+    <Compile Include="Extensions\BuiltInTradeClientExtension.cs" />
     <Compile Include="Extensions\RedPacketClientExtension.cs" />
     <Compile Include="Framework\DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="Framework\DefaultTradeCompletionHandler.cs" />
+    <Compile Include="Framework\BuiltInChatClientHostServices.cs" />
+    <Compile Include="Framework\BuiltInTradeClientHostServices.cs" />
+    <Compile Include="Framework\ClientTradeUiFacade.cs" />
+    <Compile Include="Framework\FrameworkClientTradeServiceAdapter.cs" />
+    <Compile Include="Framework\IClientTradeFacade.cs" />
+    <Compile Include="Framework\IClientTradeService.cs" />
+    <Compile Include="Framework\ITradeUiFacade.cs" />
+    <Compile Include="Framework\LegacyClientTradeServiceAdapter.cs" />
     <Compile Include="Framework\PhinixFrameworkChatService.cs" />
+    <Compile Include="Framework\PhinixFrameworkTradeClientRepository.cs" />
+    <Compile Include="Framework\PhinixFrameworkTradeClientService.cs" />
     <Compile Include="Framework\PhinixClientItemPipeline.cs" />
     <Compile Include="Framework\PhinixClientTradeCompletionPipeline.cs" />
     <Compile Include="Framework\PhinixDefaultTradeBehaviour.cs" />

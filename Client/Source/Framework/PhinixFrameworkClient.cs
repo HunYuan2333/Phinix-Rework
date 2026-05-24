@@ -28,6 +28,7 @@ namespace PhinixClient.Framework
         private readonly NetClient netClient;
         private readonly ClientAuthenticator authenticator;
         private readonly ClientUserManager userManager;
+        private readonly ExtensionHostContext extensionHostContext;
         private readonly DiscoveredPhinixExtensions discoveredExtensions;
         private readonly string[] capabilities;
         private readonly HashSet<string> remoteCapabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -37,13 +38,15 @@ namespace PhinixClient.Framework
         private int displayMessageCountAtLastCheck;
         private PhinixFrameworkChatService chatService;
 
-        public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager)
+        public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
             this.authenticator = authenticator;
             this.userManager = userManager;
-            this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions();
+            this.extensionHostContext = extensionHostContext ?? ExtensionHostContext.Empty;
+            this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
             this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
+            PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
             this.negotiationTimer = new Timer
             {
                 AutoReset = false,
@@ -56,6 +59,16 @@ namespace PhinixClient.Framework
             netClient.OnDisconnect += (_, __) => reset();
 
             RaiseLogEntry(new LogEventArgs($"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities."));
+            if (discoveredExtensions.Modules.Count > 0)
+            {
+                RaiseLogEntry(new LogEventArgs(
+                    $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
+                    $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}."));
+            }
+            foreach (string diagnostic in discoveredExtensions.Diagnostics)
+            {
+                RaiseLogEntry(new LogEventArgs(diagnostic, LogLevel.DEBUG));
+            }
             foreach (string warning in discoveredExtensions.Warnings)
             {
                 RaiseLogEntry(new LogEventArgs(warning, LogLevel.WARNING));
@@ -247,9 +260,6 @@ namespace PhinixClient.Framework
                         "Phinix_framework_connectedFrameworkServer");
                     break;
                 case FrameworkProtocol.KindMessage:
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Received framework message packet type='{packet.MessageType ?? "<null>"}' id='{packet.MessageId ?? "<null>"}' sender='{packet.SenderUuid ?? "<null>"}' flow='{packet.Flow}' payloadBytes={(packet.PayloadBytes?.Length ?? 0)}",
-                        LogLevel.DEBUG));
                     if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Unspecified)
                     {
                         packet.Flow = global::Phinix.Framework.FrameworkFlow.Message;
@@ -273,9 +283,6 @@ namespace PhinixClient.Framework
         {
             bool matchedHandler = false;
             FrameworkPacket currentMessage = message;
-            RaiseLogEntry(new LogEventArgs(
-                $"Handling framework message type='{currentMessage?.MessageType ?? "<null>"}' id='{currentMessage?.MessageId ?? "<null>"}'.",
-                LogLevel.DEBUG));
             ClientFrameworkContext context = new ClientFrameworkContext
             {
                 CompatibilityMode = CompatibilityMode,
@@ -290,9 +297,6 @@ namespace PhinixClient.Framework
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleIncomingMessage(currentMessage)))
             {
                 matchedHandler = true;
-                RaiseLogEntry(new LogEventArgs(
-                    $"Framework message '{currentMessage?.MessageType ?? "<null>"}' matched client handler '{handler.GetType().FullName}'.",
-                    LogLevel.DEBUG));
                 ClientIncomingMessageResult result = handler.HandleIncomingMessage(currentMessage, context);
                 if (result == null) continue;
 
@@ -319,15 +323,9 @@ namespace PhinixClient.Framework
 
             foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => renderer.CanRender(currentMessage)))
             {
-                RaiseLogEntry(new LogEventArgs(
-                    $"Framework message '{currentMessage?.MessageType ?? "<null>"}' matched renderer '{renderer.GetType().FullName}'.",
-                    LogLevel.DEBUG));
                 FrameworkDisplayMessage renderedMessage = renderer.Render(currentMessage);
                 if (renderedMessage != null)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Renderer '{renderer.GetType().FullName}' produced display message '{renderedMessage.MessageId ?? "<null>"}'.",
-                        LogLevel.DEBUG));
                     addDisplayMessage(renderedMessage);
                     return;
                 }
@@ -368,9 +366,6 @@ namespace PhinixClient.Framework
 
                 if (result.DisplayMessage != null)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Client handler '{handler.GetType().FullName}' produced display message '{result.DisplayMessage.MessageId ?? "<null>"}'.",
-                        LogLevel.DEBUG));
                     addDisplayMessage(result.DisplayMessage);
                 }
 
@@ -390,15 +385,11 @@ namespace PhinixClient.Framework
         {
             if (message == null)
             {
-                RaiseLogEntry(new LogEventArgs("Framework display message was null; skipping add.", LogLevel.DEBUG));
                 return;
             }
 
             if (shouldSuppress(message))
             {
-                RaiseLogEntry(new LogEventArgs(
-                    $"Framework display message '{message.MessageId ?? "<null>"}' from '{message.SenderUuid ?? "<null>"}' was suppressed before entering display buffer.",
-                    LogLevel.DEBUG));
                 return;
             }
 
@@ -406,16 +397,6 @@ namespace PhinixClient.Framework
             {
                 displayMessages.Add(message);
             }
-
-            int bufferCount;
-            lock (displayMessagesLock)
-            {
-                bufferCount = displayMessages.Count;
-            }
-
-            RaiseLogEntry(new LogEventArgs(
-                $"Added framework display message '{message.MessageId ?? "<null>"}' from '{message.SenderUuid ?? "<null>"}' to display buffer. BufferCount={bufferCount}",
-                LogLevel.DEBUG));
 
             UIChatMessage uiMessage = chatService != null
                 ? chatService.ToUiMessage(message, userManager)
@@ -429,9 +410,6 @@ namespace PhinixClient.Framework
                     message.Source);
 
             OnDisplayMessageReceived?.Invoke(this, new UIChatMessageEventArgs(uiMessage));
-            RaiseLogEntry(new LogEventArgs(
-                $"Raised OnDisplayMessageReceived for framework display message '{message.MessageId ?? "<null>"}'.",
-                LogLevel.DEBUG));
         }
 
         private bool shouldSuppress(FrameworkDisplayMessage message)

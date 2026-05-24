@@ -10,7 +10,7 @@
 - 所有阶段都以“红包 submod 能否自然接入”作为检验标准。
 
 ## Development Model
-采用四段式开发模型：
+采用五段式开发模型：
 
 1. **架构原型阶段**
    - 目标：验证新框架最关键的 3 个风险点。
@@ -38,10 +38,18 @@
      - 最后补 legacy client compatibility
    - 要求旧功能在迁移后只是“默认 handler”，不再是核心架构本体。
 
-4. **试点扩展阶段**
-   - 目标：用至少一个真实 submod 验证框架。
-   - 推荐直接做“红包/特殊消息载荷”作为样板扩展。
-   - 如果样板扩展仍需改核心代码，说明框架抽象失败，需要回退修正接口。
+4. **built-in chat 收口阶段**
+   - 目标：完成 chat 的 framework-native 重写与 legacy 清场。
+   - 这一阶段以 chat 为唯一 built-in feature 收口对象。
+   - 允许 built-in chat service 暂时偏厚，但必须保证 pipeline、capability、host context、adapter 边界稳定。
+
+5. **legacy 拆除与插件化收口阶段**
+   - 目标：把 trade 从“已接入 framework 主链”推进到“可安全移除 legacy 实现”。
+   - 需要完成：
+     - runtime 不再实例化 legacy 模块
+     - UI 不再依赖 legacy domain/net 类型
+     - built-in trade 真正收敛成 extension module + adapter/facade
+   - 如果删除 legacy 后仍需回头改 core 才能接回默认 trade，说明插件化边界仍未完成。
 
 ## Implementation Plan
 ### Phase 1: 架构原型
@@ -132,19 +140,16 @@ Phase 3 实际接入状态（核查结论）：
 - 可以宣告 Phase 3 完成。
 - 更准确的完整说法应为：**Phase 3 已完成，当前完成形态为 `legacy transport + pipeline adapter`，后续仍有 framework-native 化增强空间。**
 
-### Phase 4: 兼容与样板验证
-状态：进行中
+### Phase 4: built-in chat 收口
+状态：已完成
 
   - 当前阶段优先级说明：
-    - 先完成兼容性与降级行为的收口。
-    - 先把 framework 正式接入 `message / command / item` 三态模型。
-    - 当前第一优先级不是继续美化 legacy 模块，而是把原先的 chat/trade 默认实现尽快吃进 framework。
-    - 吃进 framework 的过程中，优先保证 pipeline 语义和边界稳定；service 内部即使暂时偏厚、承担较多业务职责，也可以接受。
-    - 也就是说，当前阶段允许先把 legacy 逻辑“整体搬进 built-in feature service”，后续再做 service 内部细分；不要求一开始就把 built-in feature 拆成很多小类。
-    - 现有聊天与交易实现不再继续扩展为长期协议根，进入“预备重写”状态。
-    - 后续默认 chat/trade 应作为三态模型上的 built-in feature 重写，而不是继续强化 legacy 模块边界。
+    - 当前阶段只针对 chat，不再包含 trade。
+    - 目标是让 chat 完成 framework-native 主链迁移、UI 契约迁移与 legacy 清场。
+    - 优先保证 pipeline 语义和边界稳定；built-in chat service 内部即使暂时偏厚、承担较多业务职责，也可以接受。
+    - 也就是说，当前阶段允许先把 legacy chat 逻辑“整体搬进 built-in chat service”，后续再做 service 内部细分；不要求一开始就把 built-in chat 拆成很多小类。
+    - 现有 chat 实现不再继续扩展为长期协议根，进入“framework built-in feature 收口完成”状态。
   - 默认 chat 的 framework built-in feature 重写已基本完成：消息发送走 `message`，历史同步走 `command`。
-  - 样板 submod 验证仍属于 Phase 4 范围，但不是当前最优先事项。
   - 现有 `message` 通道继续收紧为“显示流”。
   - 后续如需承载状态同步、请求/回执、私有控制信息，应新增与 `message` 平行的 `command` 通道，而不是继续混入当前显示流。
   - built-in chat 已验证：
@@ -162,7 +167,8 @@ Phase 3 实际接入状态（核查结论）：
       - `UIChatMessageEventArgs`
       - `UIChatMessageStatus`
     - `Phinix.sln` 中旧 `Chat` 项目已移除；
-    - `Client` / `Server` 主运行链路已不再引用 `Common/Chat` 项目。
+    - `Client` / `Server` 主运行链路已不再引用 `Common/Chat` 项目；
+    - legacy `Common/Chat` 目录已完成物理清理。
   - built-in chat 后续体验项已记录但暂不优先实现：
     - 聊天显示行数限制，并开放为可配置项；
     - 时间显示补全年月日，而不只显示 `HH:mm`；
@@ -173,7 +179,7 @@ Phase 3 实际接入状态（核查结论）：
     - `ClientChat` 的发送 fallback、已读计数、消息缓存读取与事件桥接已从 `Client` 宿主代码中移除；
     - 客户端聊天 UI 现在直接消费 framework built-in chat service 提供的数据与事件；
     - built-in chat 已不再复用 `Common/Chat` 的协议、持久化模型与 UI 类型；
-    - `Common/Chat` 当前仅作为待清理的 legacy 目录保留，不再属于主运行链路。
+    - 旧 `Common/Chat` 已完成仓库级清理，chat 当前只保留 framework built-in feature 实现。
   - chat 后续拆分原则（当前决策）：
     - `message pipeline` 只负责显示流分发、handler/renderer 调度、通用显示缓冲与通用事件抛出；
     - `command pipeline` 只负责历史请求、同步完成、后续控制语义等 chat 非显示流分发；
@@ -186,20 +192,55 @@ Phase 3 实际接入状态（核查结论）：
       - framework display message 到 chat UI model 的转换；
     - 当前允许 built-in chat service 先保持“单个较厚 service”形态，不把“service 必须很薄”当作第一目标；
     - 该厚 service 形态是当前迁移阶段的权宜之计，不作为最终架构目标；
-    - 在 legacy chat 目录物理清理完成、主链路稳定后，仍需继续做 service 内部拆分与职责收口。
+    - 当前 legacy chat 清理已完成，后续仍需在主链路稳定基础上继续做 service 内部拆分与职责收口。
 
-- 实现 `新客户端 -> 旧服务器` 自动探测与 legacy 降级。
-- 在 legacy 模式下：
-  - 维持基础 chat/trade
-  - 禁用 `v2` 扩展消息与高级 item payload
-  - 给用户明确提示当前连接不支持框架能力
-- 编写一个样板 submod：
-  - 推荐“红包消息/附件消息/自定义载荷消息”三选一，优先红包
-  - 当前暂缓，不作为进入 Phase 4 后的第一优先级任务
+- 验收标准：
+  - 默认 chat 在 framework 主链上可运行，且用户感知基本不变
+  - chat UI 不再依赖 legacy chat 类型
+  - `Common/Chat` 可从主运行链路与仓库中清理
+  - 框架失效时退回默认行为而不是直接崩
+
+### Phase 5: legacy trade 拆除与插件化边界收口
+状态：未开始
+
+- 目标：
+  - 让 trade 达到与当前 chat 相近的完成形态：
+    - legacy runtime 可删除；
+    - built-in trade 作为 extension module 挂在 framework 上；
+    - core 不再依赖 trade 语义；
+    - UI 与默认行为通过 adapter/facade 消费 trade extension，而不是直接依赖 legacy trade 类型。
+- 当前阶段定位说明：
+  - Phase 4 已经作为 chat 收口阶段完成；
+  - Phase 5 专门负责把 trade 从“framework 主链已可运行”推进到“legacy 可安全下线”。
+- Phase 5 主要任务：
+  - 完成 `trade -> command + item` 的 framework-native built-in extension 重写。
+  - 实现 `新客户端 -> 旧服务器` 自动探测与 legacy 降级。
+  - 在 legacy 模式下：
+    - 维持基础 chat/trade
+    - 禁用 `v2` 扩展消息与高级 item payload
+    - 给用户明确提示当前连接不支持框架能力
+  - 从 `Client` / `Server` 宿主中移除 `ClientTrading` / `ServerTrading` 的运行时实例化与主链依赖。
+  - 将 trade UI 依赖的 legacy 契约迁到新的 adapter/facade/view model 层：
+    - `ImmutableTrade`
+    - `ProtoThing`
+    - `CreateTradeEventArgs`
+    - `TradeUpdateEventArgs`
+    - `TradesSyncedEventArgs`
+    - `CompleteTradeEventArgs`
+  - 把 `TradeWindow` / `TradeList` 从“直接消费 legacy 业务对象”改成“消费 trade UI facade / projection”。
+  - 把 `PhinixDefaultTradeBehaviour` 从 `ClientTrading` 直接依赖中摘掉，改为依赖 trade extension 暴露的统一查询/命令入口。
+  - 把 `ProtoThing` 降级为过渡兼容类型，避免继续作为 trade UI 的 canonical item shape。
+  - 最终移除 `Trading.csproj` 对 `Client` / `Server` 主运行链路的硬依赖。
 - 验收标准：
   - 新客户端连旧服能正常用基础功能
-  - 样板 submod 能独立注册、收发、渲染，不改核心代码
-  - 框架失效时退回默认行为而不是直接崩
+  - 删除 `ClientTrading` / `ServerTrading` 后，默认 trade 仍可正常创建、更新、取消、完成。
+  - `TradeWindow` / `TradeList` 不再直接依赖 legacy trade domain/net 类型。
+  - trade extension 的主能力可以通过 module + host context + adapter/facade 完成装配，不需要 core 添加 trade-specific 分支。
+  - 样板 submod 能在不修改 core 的前提下复用 trade/item 相关扩展能力。
+
+- 编写一个样板 submod：
+  - 推荐“红包消息/附件消息/自定义载荷消息”三选一，优先红包
+  - 当前暂缓，不作为进入 Phase 5 前的阻塞项
 
 ## Test Plan
 - 协议测试：

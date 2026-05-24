@@ -51,19 +51,46 @@ namespace PhinixClient.Framework
                 throw new InvalidOperationException($"Payload cannot be decoded by codec '{CodecId}'.");
             }
 
-            ProtoThing protoThing;
+            ProtoThing protoThing = decodeToProtoThing(payload);
+
+            return TradingThingConverter.ConvertThingFromProtoOrUnknown(protoThing);
+        }
+
+        public static bool TryDecodeToProtoThing(FrameworkItemPayload payload, out ProtoThing protoThing)
+        {
+            protoThing = null;
+            if (payload == null ||
+                !string.Equals(payload.CodecId, DefaultCodecId, StringComparison.OrdinalIgnoreCase) ||
+                ((payload.PayloadBytes == null || payload.PayloadBytes.Length == 0) && string.IsNullOrEmpty(payload.PayloadJson)))
+            {
+                return false;
+            }
+
+            protoThing = decodeToProtoThing(payload);
+            return protoThing != null;
+        }
+
+        public static ProtoThing CreateUnknownProtoThing(string label)
+        {
+            return new ProtoThing
+            {
+                DefName = label ?? "UnknownItem",
+                StackCount = 1,
+                HitPoints = 1,
+                Quality = Quality.None
+            };
+        }
+
+        private static ProtoThing decodeToProtoThing(FrameworkItemPayload payload)
+        {
             if (payload.PayloadBytes != null && payload.PayloadBytes.Length > 0)
             {
                 global::Phinix.Framework.FrameworkVanillaItemData deserializedPayload = FrameworkSerialization.DeserializeItemData(payload.PayloadBytes);
-                protoThing = fromPayload(deserializedPayload);
-            }
-            else
-            {
-                LegacyProtoThingPayload legacyPayload = FrameworkSerialization.DeserializePayload<LegacyProtoThingPayload>(payload.PayloadJson);
-                protoThing = fromLegacyPayload(legacyPayload);
+                return fromPayload(deserializedPayload);
             }
 
-            return TradingThingConverter.ConvertThingFromProtoOrUnknown(protoThing);
+            LegacyProtoThingPayload legacyPayload = FrameworkSerialization.DeserializePayload<LegacyProtoThingPayload>(payload.PayloadJson);
+            return fromLegacyPayload(legacyPayload);
         }
 
         private static global::Phinix.Framework.FrameworkVanillaItemData toPayload(ProtoThing protoThing)

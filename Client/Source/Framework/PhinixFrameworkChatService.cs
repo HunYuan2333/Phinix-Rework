@@ -169,7 +169,9 @@ namespace PhinixClient.Framework
                 List<string> translationArgs = message.TranslationArgs ?? new List<string>();
                 if (translationArgs.Any())
                 {
+#pragma warning disable CS0618
                     return message.TranslationKey.Translate(translationArgs.Cast<object>().ToArray());
+#pragma warning restore CS0618
                 }
 
                 return message.TranslationKey.Translate();

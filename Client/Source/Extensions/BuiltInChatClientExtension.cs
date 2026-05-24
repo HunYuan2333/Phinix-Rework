@@ -1,15 +1,26 @@
 using System.Collections.Generic;
-using Utils;
+using PhinixClient.Framework;
 using Utils.Framework;
 
 namespace PhinixClient.Extensions
 {
     [PhinixExtension("builtin.chat")]
-    public class BuiltInChatClientExtension : IPhinixExtension, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IMessageRenderer
+    public class BuiltInChatClientExtension : IPhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IMessageRenderer
     {
+        private BuiltInChatClientHostServices hostServices;
+
         public string ExtensionId => "builtin.chat";
 
         public int Priority => 1000;
+
+        public void Register(IExtensionComponentSink sink, ExtensionHostContext hostContext)
+        {
+            hostServices = hostContext.GetRequiredService<BuiltInChatClientHostServices>();
+            sink.AddCapabilityProvider(this);
+            sink.AddClientMessageHandler(this);
+            sink.AddClientCommandHandler(this);
+            sink.AddMessageRenderer(this);
+        }
 
         public IEnumerable<string> GetCapabilities()
         {
@@ -20,7 +31,7 @@ namespace PhinixClient.Extensions
 
         public bool CanHandleOutgoingText(string rawMessage)
         {
-            return Client.Instance != null &&
+            return hostServices?.ChatService != null &&
                    !string.IsNullOrWhiteSpace(rawMessage);
         }
 
@@ -29,7 +40,7 @@ namespace PhinixClient.Extensions
             return new ClientOutgoingMessageResult
             {
                 Action = MessageHandlingResultAction.Handled,
-                Message = Client.Instance.FrameworkChatService.CreateOutgoingMessage(rawMessage, context)
+                Message = hostServices.ChatService.CreateOutgoingMessage(rawMessage, context)
             };
         }
 
@@ -40,14 +51,10 @@ namespace PhinixClient.Extensions
 
         public ClientIncomingMessageResult HandleIncomingMessage(FrameworkPacket message, ClientFrameworkContext context)
         {
-            context.Log?.Invoke(
-                $"Built-in chat client extension accepted incoming framework chat message '{message?.MessageId ?? "<null>"}' from '{message?.SenderUuid ?? "<null>"}'.",
-                LogLevel.DEBUG);
-
             return new ClientIncomingMessageResult
             {
                 Action = MessageHandlingResultAction.Handled,
-                DisplayMessage = Client.Instance.FrameworkChatService.RenderMessage(message)
+                DisplayMessage = hostServices.ChatService.RenderMessage(message)
             };
         }
 
@@ -58,10 +65,7 @@ namespace PhinixClient.Extensions
 
         public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context)
         {
-            if (Client.Instance != null)
-            {
-                Client.Instance.NotifyFrameworkChatSynced();
-            }
+            hostServices?.NotifyChatSynced?.Invoke();
 
             return new ClientIncomingCommandResult
             {
@@ -76,7 +80,7 @@ namespace PhinixClient.Extensions
 
         public FrameworkDisplayMessage Render(FrameworkPacket message)
         {
-            return Client.Instance.FrameworkChatService.RenderMessage(message);
+            return hostServices.ChatService.RenderMessage(message);
         }
     }
 }

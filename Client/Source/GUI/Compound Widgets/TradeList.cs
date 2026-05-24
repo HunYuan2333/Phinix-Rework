@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using PhinixClient.Framework;
 using Trading;
 using UnityEngine;
 using UserManagement;
@@ -11,6 +12,7 @@ namespace PhinixClient.GUI
 {
     public class TradeList
     {
+        private readonly ITradeUiFacade tradeUi = Client.Instance.TradeUi;
         private const float SCROLLBAR_WIDTH = 16f;
 
         private const float DEFAULT_SPACING = 10f;
@@ -47,14 +49,14 @@ namespace PhinixClient.GUI
         public TradeList()
         {
             // Subscribe to update events
-            Client.Instance.OnDisconnect += onDisconnectHandler;
-            Client.Instance.OnTradesSynced += onTradesSyncedHandler;
-            Client.Instance.OnTradeCancelled += onTradeCompletedOrCancelledHandler;
-            Client.Instance.OnTradeCompleted += onTradeCompletedOrCancelledHandler;
-            Client.Instance.OnTradeCreationSuccess += onTradeCreationSuccessHandler;
-            Client.Instance.OnTradeUpdateFailure += onTradeUpdateHandler;
-            Client.Instance.OnTradeUpdateSuccess += onTradeUpdateHandler;
-            Client.Instance.OnUserDisplayNameChanged += onUserDisplayNameChangedHandler;
+            tradeUi.OnDisconnect += onDisconnectHandler;
+            tradeUi.OnTradesSynced += onTradesSyncedHandler;
+            tradeUi.OnTradeCancelled += onTradeCompletedOrCancelledHandler;
+            tradeUi.OnTradeCompleted += onTradeCompletedOrCancelledHandler;
+            tradeUi.OnTradeCreationSuccess += onTradeCreationSuccessHandler;
+            tradeUi.OnTradeUpdateFailure += onTradeUpdateHandler;
+            tradeUi.OnTradeUpdateSuccess += onTradeUpdateHandler;
+            tradeUi.OnUserDisplayNameChanged += onUserDisplayNameChangedHandler;
 
             // Pre-fill the trade rows
             repopulateTradeRows();
@@ -135,7 +137,7 @@ namespace PhinixClient.GUI
                 // Cancel button
                 if (Widgets.ButtonText(buttonAreaRect.RightPartPixels(BUTTON_WIDTH), "Phinix_trade_activeTrade_cancelButton".Translate()))
                 {
-                    Client.Instance.CancelTrade(trade.TradeId);
+                    tradeUi.CancelTrade(trade.TradeId);
                 }
             }
         }
@@ -150,12 +152,12 @@ namespace PhinixClient.GUI
             {
                 // Clear and repopulate the list with active trades
                 trades.Clear();
-                trades.AddRange(Client.Instance.GetTrades());
+                trades.AddRange(tradeUi.GetTrades());
 
                 // Mark the rows to be updated
                 tradesChanged = true;
 
-                Client.Instance.Log(new LogEventArgs("Repopulated trade list", LogLevel.DEBUG));
+                tradeUi.Log(new LogEventArgs("Repopulated trade list", LogLevel.DEBUG));
             }
         }
 

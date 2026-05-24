@@ -101,13 +101,7 @@ namespace PhinixClient.Framework
 
         private static Thing buildUnknownItem(string label)
         {
-            ProtoThing unknownProto = new ProtoThing
-            {
-                DefName = label ?? "UnknownItem",
-                StackCount = 1,
-                HitPoints = 1,
-                Quality = Quality.None
-            };
+            ProtoThing unknownProto = DefaultLegacyTradeItemCodec.CreateUnknownProtoThing(label);
 
             return TradingThingConverter.ConvertThingFromProtoOrUnknown(unknownProto);
         }

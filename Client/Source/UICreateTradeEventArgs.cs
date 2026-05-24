@@ -1,6 +1,7 @@
 using System;
 using Trading;
 using UserManagement;
+using PhinixClient.Framework;
 
 namespace PhinixClient
 {
@@ -31,10 +32,15 @@ namespace PhinixClient
         /// <param name="args">Base event args</param>
         /// <param name="userManager"><see cref="ClientUserManager"/> instance for user lookup</param>
         /// <returns>Converted event args</returns>
-        public static UICreateTradeEventArgs FromCreateTradeEventArgs(CreateTradeEventArgs args, ClientUserManager userManager)
+        public static UICreateTradeEventArgs FromCreateTradeEventArgs(CreateTradeEventArgs args, IClientTradeFacade tradeFacade, ClientUserManager userManager)
         {
             if (args.Success)
             {
+                if (tradeFacade != null && tradeFacade.TryGetTrade(args.TradeId, out ImmutableTrade existingTrade))
+                {
+                    return new UICreateTradeEventArgs(existingTrade);
+                }
+
                 // Try to pull out the other party from userManager, creating a barebones one if that fails
                 if (!userManager.TryGetUser(args.OtherPartyUuid, out ImmutableUser otherParty))
                 {
