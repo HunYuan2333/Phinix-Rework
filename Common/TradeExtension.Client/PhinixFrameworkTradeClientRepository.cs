@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Phinix.TradeExtension;
 using Utils.Framework;
 
-namespace PhinixClient.Framework
+namespace Phinix.TradeExtension.Client
 {
     public sealed class PhinixFrameworkTradeClientRepository
     {
@@ -23,7 +22,7 @@ namespace PhinixClient.Framework
                         continue;
                     }
 
-                    trades[snapshot.TradeId] = clone(snapshot);
+                    trades[snapshot.TradeId] = Clone(snapshot);
                 }
             }
         }
@@ -37,7 +36,7 @@ namespace PhinixClient.Framework
 
             lock (syncLock)
             {
-                trades[snapshot.TradeId] = clone(snapshot);
+                trades[snapshot.TradeId] = Clone(snapshot);
             }
         }
 
@@ -58,7 +57,7 @@ namespace PhinixClient.Framework
         {
             lock (syncLock)
             {
-                return trades.Values.Select(clone).OrderBy(snapshot => snapshot.TradeId).ToArray();
+                return trades.Values.Select(Clone).OrderBy(snapshot => snapshot.TradeId).ToArray();
             }
         }
 
@@ -68,7 +67,7 @@ namespace PhinixClient.Framework
             {
                 if (trades.TryGetValue(tradeId, out FrameworkTradeStateSnapshot stored))
                 {
-                    snapshot = clone(stored);
+                    snapshot = Clone(stored);
                     return true;
                 }
             }
@@ -77,7 +76,7 @@ namespace PhinixClient.Framework
             return false;
         }
 
-        private static FrameworkTradeStateSnapshot clone(FrameworkTradeStateSnapshot snapshot)
+        private static FrameworkTradeStateSnapshot Clone(FrameworkTradeStateSnapshot snapshot)
         {
             return new FrameworkTradeStateSnapshot
             {

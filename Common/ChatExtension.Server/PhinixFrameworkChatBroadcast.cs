@@ -2,7 +2,7 @@ using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Utils.Framework;
 
-namespace PhinixServer.Framework
+namespace Phinix.ChatExtension.Server
 {
     public sealed class PhinixFrameworkChatBroadcast
     {
@@ -11,7 +11,7 @@ namespace PhinixServer.Framework
             return new FrameworkPacket
             {
                 Flow = global::Phinix.Framework.FrameworkFlow.Message,
-                MessageType = FrameworkProtocol.BuiltInChatMessageType,
+                MessageType = FrameworkChatProtocol.MessageType,
                 MessageId = chatMessage.MessageId,
                 SenderUuid = chatMessage.SenderUuid,
                 TimestampUtcTicks = chatMessage.Timestamp != null ? chatMessage.Timestamp.ToDateTime().ToUniversalTime().Ticks : 0L,
@@ -24,7 +24,7 @@ namespace PhinixServer.Framework
             return new FrameworkPacket
             {
                 Flow = global::Phinix.Framework.FrameworkFlow.Command,
-                MessageType = FrameworkProtocol.BuiltInChatHistorySyncCompleteType,
+                MessageType = FrameworkChatProtocol.HistorySyncCompleteType,
                 CommandKind = global::Phinix.Framework.FrameworkCommandKind.Event,
                 SenderUuid = FrameworkProtocol.SystemSenderUuid,
                 PayloadBytes = new Empty().ToByteArray()

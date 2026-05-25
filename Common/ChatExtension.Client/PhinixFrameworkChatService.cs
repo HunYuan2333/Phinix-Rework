@@ -3,39 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
+using PhinixClient;
+using PhinixClient.Framework;
 using UserManagement;
 using Utils.Framework;
 using Verse;
 
-namespace PhinixClient.Framework
+namespace Phinix.ChatExtension.Client
 {
-    public interface IFrameworkChatClientApi
-    {
-        event EventHandler HistorySynced;
-
-        FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context);
-
-        FrameworkDisplayMessage RenderMessage(FrameworkPacket message);
-
-        FrameworkPacket CreateHistoryRequestPacket(string sessionId, string senderUuid);
-
-        void RequestHistory(PhinixFrameworkClient frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid);
-
-        UIChatMessage[] BuildUiMessages(IEnumerable<FrameworkDisplayMessage> messages, ClientUserManager userManager);
-
-        bool TryGetUiMessage(IEnumerable<FrameworkDisplayMessage> messages, string messageId, ClientUserManager userManager, out UIChatMessage message);
-
-        int CountUnreadExcluding(IEnumerable<FrameworkDisplayMessage> messages, IEnumerable<string> excludedUuids);
-
-        bool ShouldDisplayChatMessage(UIChatMessage message, IEnumerable<string> blockedUserUuids, bool includeBlockedMessages);
-
-        bool ShouldPlayNotification(UIChatMessage message, string localUuid, bool playNoiseOnMessageReceived, bool isInGame, IEnumerable<string> blockedUserUuids);
-
-        UIChatMessage ToUiMessage(FrameworkDisplayMessage message, ClientUserManager userManager);
-
-        void NotifyHistorySynced();
-    }
-
     public class PhinixFrameworkChatService : IFrameworkChatClientApi
     {
         public event EventHandler HistorySynced;
@@ -51,7 +26,7 @@ namespace PhinixClient.Framework
             return new FrameworkPacket
             {
                 Flow = global::Phinix.Framework.FrameworkFlow.Message,
-                MessageType = FrameworkProtocol.BuiltInChatMessageType,
+                MessageType = FrameworkChatProtocol.MessageType,
                 MessageId = payload.MessageId,
                 SenderUuid = context.SenderUuid,
                 PayloadBytes = payload.ToByteArray()
@@ -81,21 +56,21 @@ namespace PhinixClient.Framework
             {
                 Flow = global::Phinix.Framework.FrameworkFlow.Command,
                 CommandKind = global::Phinix.Framework.FrameworkCommandKind.Request,
-                MessageType = FrameworkProtocol.BuiltInChatHistoryRequestType,
+                MessageType = FrameworkChatProtocol.HistoryRequestType,
                 SessionId = sessionId ?? string.Empty,
                 SenderUuid = senderUuid ?? string.Empty,
                 PayloadBytes = new Empty().ToByteArray()
             };
         }
 
-        public void RequestHistory(PhinixFrameworkClient frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
+        public void RequestHistory(IFrameworkClientTransport frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
         {
             if (frameworkClient == null || !authenticated || !loggedIn || string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
             {
                 return;
             }
 
-            if (!frameworkClient.HasRemoteCapability(FrameworkProtocol.BuiltInChatHistoryRequestType))
+            if (!frameworkClient.HasRemoteCapability(FrameworkChatProtocol.HistoryRequestType))
             {
                 return;
             }
@@ -103,15 +78,15 @@ namespace PhinixClient.Framework
             frameworkClient.SendFrameworkPacket(CreateHistoryRequestPacket(sessionId, senderUuid));
         }
 
-        public UIChatMessage[] BuildUiMessages(IEnumerable<FrameworkDisplayMessage> messages, ClientUserManager userManager)
+        public UIChatMessage[] BuildUiMessages(IEnumerable<FrameworkDisplayMessage> messages, IClientUserDirectory userDirectory)
         {
             return (messages ?? Enumerable.Empty<FrameworkDisplayMessage>())
-                .Select(message => ToUiMessage(message, userManager))
+                .Select(message => ToUiMessage(message, userDirectory))
                 .OrderBy(message => message.Timestamp)
                 .ToArray();
         }
 
-        public bool TryGetUiMessage(IEnumerable<FrameworkDisplayMessage> messages, string messageId, ClientUserManager userManager, out UIChatMessage message)
+        public bool TryGetUiMessage(IEnumerable<FrameworkDisplayMessage> messages, string messageId, IClientUserDirectory userDirectory, out UIChatMessage message)
         {
             FrameworkDisplayMessage frameworkMessage = (messages ?? Enumerable.Empty<FrameworkDisplayMessage>())
                 .SingleOrDefault(candidate => candidate.MessageId == messageId);
@@ -122,7 +97,7 @@ namespace PhinixClient.Framework
                 return false;
             }
 
-            message = ToUiMessage(frameworkMessage, userManager);
+            message = ToUiMessage(frameworkMessage, userDirectory);
             return true;
         }
 
@@ -165,7 +140,7 @@ namespace PhinixClient.Framework
             return !blockedUsers.Contains(message.SenderUuid);
         }
 
-        public UIChatMessage ToUiMessage(FrameworkDisplayMessage message, ClientUserManager userManager)
+        public UIChatMessage ToUiMessage(FrameworkDisplayMessage message, IClientUserDirectory userDirectory)
         {
             ImmutableUser user;
             if (message.SenderUuid == FrameworkProtocol.SystemSenderUuid)
@@ -176,7 +151,7 @@ namespace PhinixClient.Framework
                     true,
                     false);
             }
-            else if (!userManager.TryGetUser(message.SenderUuid, out user))
+            else if (userDirectory == null || !userDirectory.TryGetUser(message.SenderUuid, out user))
             {
                 user = new ImmutableUser(message.SenderUuid);
             }

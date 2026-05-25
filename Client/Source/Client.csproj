@@ -111,19 +111,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlockedUsersChangedEventArgs.cs" />
-    <Compile Include="Extensions\BuiltInChatClientExtension.cs" />
-    <Compile Include="Extensions\BuiltInTradeClientExtension.cs" />
     <Compile Include="Extensions\RedPacketClientExtension.cs" />
     <Compile Include="Framework\DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="Framework\DefaultTradeCompletionHandler.cs" />
     <Compile Include="Framework\ClientTradeUiFacade.cs" />
+    <Compile Include="Framework\ClientFrameworkUserDirectoryAdapter.cs" />
     <Compile Include="Framework\FrameworkClientTradeServiceAdapter.cs" />
     <Compile Include="Framework\IClientTradeFacade.cs" />
     <Compile Include="Framework\IClientTradeService.cs" />
     <Compile Include="Framework\ITradeUiFacade.cs" />
-    <Compile Include="Framework\PhinixFrameworkChatService.cs" />
-    <Compile Include="Framework\PhinixFrameworkTradeClientRepository.cs" />
-    <Compile Include="Framework\PhinixFrameworkTradeClientService.cs" />
     <Compile Include="Framework\PhinixClientItemPipeline.cs" />
     <Compile Include="Framework\PhinixClientTradeCompletionPipeline.cs" />
     <Compile Include="Framework\PhinixDefaultTradeBehaviour.cs" />
@@ -132,7 +128,6 @@
     <Compile Include="LegacySettings.cs" />
     <Compile Include="Patches\RootPatch.cs" />
     <Compile Include="Settings.cs" />
-    <Compile Include="UIChatMessage.cs" />
     <Compile Include="Client.cs" />
     <Compile Include="GUI\Basic Widgets\BlankWidget.cs" />
     <Compile Include="GUI\Basic Widgets\ButtonWidget.cs" />
@@ -169,17 +164,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StackedThings.cs" />
     <Compile Include="Trade\ClientTradeCompletionContracts.cs" />
-    <Compile Include="Trade\ClientTradeSnapshot.cs" />
-    <Compile Include="Trade\TradeCompletionEventArgs.cs" />
-    <Compile Include="Trade\TradeCreationEventArgs.cs" />
-    <Compile Include="Trade\TradeFailureReason.cs" />
     <Compile Include="Trade\TradeItemConverter.cs" />
-    <Compile Include="Trade\TradeItemQuality.cs" />
-    <Compile Include="Trade\TradeItemSnapshot.cs" />
-    <Compile Include="Trade\TradesSyncedEventArgs.cs" />
-    <Compile Include="Trade\TradeUpdateEventArgs.cs" />
-    <Compile Include="UIChatMessageEventArgs.cs" />
-    <Compile Include="UIChatMessageStatus.cs" />
     <Compile Include="UnknownItem.cs" />
     <Content Include="..\About\**">
       <Link>About\%(RecursiveDir)%(Filename)%(Extension)</Link>
@@ -196,6 +181,18 @@
       <Project>{E983D5C7-A573-44E4-A8BB-D5A9D78EA538}</Project>
       <Name>Authentication</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Common\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
+      <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
+      <Name>ClientExtensionAbstractions</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Common\ChatExtension\ChatExtension.csproj">
+      <Project>{7B7D7B5F-D806-4A6B-B1AB-2D6EA7B4D5F4}</Project>
+      <Name>ChatExtension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Common\ChatExtension.Client\ChatExtension.Client.csproj">
+      <Project>{0E62A5A2-C95D-4CE4-B77B-6D5C698A2101}</Project>
+      <Name>ChatExtension.Client</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Common\Connections\Connections.csproj">
       <Project>{38cb6bed-e751-42fe-a847-c0ddd482ac62}</Project>
       <Name>Connections</Name>
@@ -203,6 +200,10 @@
     <ProjectReference Include="..\..\Common\TradeExtension\TradeExtension.csproj">
       <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
       <Name>TradeExtension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Common\TradeExtension.Client\TradeExtension.Client.csproj">
+      <Project>{0D9D0722-46D1-4330-9177-C5E4D2452102}</Project>
+      <Name>TradeExtension.Client</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj">
       <Project>{4e8c099f-dcab-418a-a2fe-2705a7065ec3}</Project>
@@ -237,8 +238,12 @@
     <Copy SourceFiles="$(TargetDir)\Connections.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\4-Connections.dll" />
     <Copy SourceFiles="$(TargetDir)\Authentication.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\5-Authentication.dll" />
     <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\6-UserManagement.dll" />
-    <Copy SourceFiles="$(TargetDir)\TradeExtension.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\7-TradeExtension.dll" />
-    <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\$(GameVersion)\Assemblies\9-PhinixClient.dll" />
-    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\1.6\Assemblies\9-PhinixClient.dll" />
+    <Copy SourceFiles="$(TargetDir)\ClientExtensionAbstractions.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\7-ClientExtensionAbstractions.dll" />
+    <Copy SourceFiles="$(TargetDir)\ChatExtension.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\8-ChatExtension.dll" />
+    <Copy SourceFiles="$(TargetDir)\TradeExtension.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\9-TradeExtension.dll" />
+    <Copy SourceFiles="$(TargetDir)\ChatExtension.Client.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\10-ChatExtension.Client.dll" />
+    <Copy SourceFiles="$(TargetDir)\TradeExtension.Client.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\11-TradeExtension.Client.dll" />
+    <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\$(GameVersion)\Assemblies\12-PhinixClient.dll" />
+    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Client\1.6\Assemblies\12-PhinixClient.dll" />
   </Target>
 </Project>

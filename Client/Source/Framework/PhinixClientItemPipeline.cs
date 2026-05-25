@@ -9,12 +9,12 @@ using Thing = Verse.Thing;
 
 namespace PhinixClient.Framework
 {
-    public sealed class PhinixClientItemPipeline
+    public sealed class PhinixClientItemPipeline : ITradeItemPayloadEncoder
     {
         private readonly List<IItemCodec> codecs;
         private readonly ItemCodecContext codecContext;
 
-        public PhinixClientItemPipeline(Action<LogEventArgs> log, FrameworkCompatibilityMode compatibilityMode)
+        public PhinixClientItemPipeline(Action<LogEventArgs> log, FrameworkCompatibilityMode compatibilityMode, IEnumerable<IItemCodec> extensionCodecs = null)
         {
             this.codecContext = new ItemCodecContext
             {
@@ -23,9 +23,7 @@ namespace PhinixClient.Framework
             };
 
             this.codecs = new List<IItemCodec> { new DefaultLegacyTradeItemCodec() };
-
-            DiscoveredPhinixExtensions discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions();
-            foreach (IItemCodec codec in discoveredExtensions.ItemCodecs)
+            foreach (IItemCodec codec in extensionCodecs ?? Enumerable.Empty<IItemCodec>())
             {
                 if (codec == null || string.IsNullOrEmpty(codec.CodecId)) continue;
                 if (codecs.Any(existing => string.Equals(existing.CodecId, codec.CodecId, StringComparison.OrdinalIgnoreCase))) continue;

@@ -112,13 +112,21 @@ Phase 6 设计基线见：
 - 最新一批 facade / adapter / runtime 抽象改动之后，还需要重新验证编译状态。
 - 旧服兼容与自动降级仍未在本轮收口完成。
 
+当前已知问题追踪：
+
+- `TradeWindow` 的本地物品回滚体验仍有缺陷。
+  - 现象：当某类物品只剩一件时，点击 `upload/update` 后，下方候选物品列表会立即消失；随后点击 `reset`，候选列表不会把该物品稳定加回。
+  - 当前影响：本地 UI / 本地物品回滚体验不可靠，但交易结束后物品通常仍会通过现有返还链路回到玩家。
+  - 初步判断：`reset` 的本地回滚与 `pending item` / `drop pod` / 可交易候选列表刷新之间存在时序或落点不一致。
+  - 建议优先级：`P2`，先记录追踪，不阻塞当前 `Phase 6 / Step 4` 收口。
+
 当前规则：
 
 - 不为了“删掉 `Common/Trading`”而把 legacy trade 本体搬进 `Common/Utils`。
 - 只迁移真正去业务化、可复用的共享契约。
 
 ### Phase 6: core-only host 与动态 extension 架构收口
-状态：已开始，当前处于 `Step 1: 文档边界冻结`
+状态：进行中，`Step 1` 到 `Step 4` 代码迁移已基本完成，待最终验收
 
 目标：
 
@@ -128,19 +136,40 @@ Phase 6 设计基线见：
 - 引入最小 `API registry`，支持 `RegisterApi<T>()` / `TryResolve<T>()` / `ResolveAll<T>()`。
 - 把 extension 注册入口从“散装 handler 发现”收敛为 “module + builder”。
 
-当前 Step 1 需要完成的文档收口：
+当前已完成：
 
 - 更新 roadmap，明确 `Phase 6` 是当前主线。
 - 以 `docs/phase6-core-only-extension-architecture.md` 作为新的边界基线。
 - 清理已被新设计文档覆盖的旧草稿，避免后续继续按过时边界推进。
+- 已抽出 `IExtensionBuilder` 与 `IExtensionApiRegistry`。
+- registry 主发现对象已从散装 handler 类推进到 module-first。
+- 非 module 自动发现已降级为兼容路径，不再作为主注册模型。
+- chat 协议常量已从 `Utils.Framework.FrameworkProtocol` 迁出，改由独立 `Common/ChatExtension` 契约承载。
+- chat proto / generated payload ownership 已从 `Common/Utils` 转移到 `Common/ChatExtension`。
+- client/server chat 代码已切到 chat extension contract 引用，不再依赖 core 私有 `BuiltInChat*` 常量。
 
 后续实现步骤：
 
-1. 抽出 `IExtensionBuilder` 与 `IExtensionApiRegistry`。
-2. 把 registry 的主发现对象从 handler 类切到 module。
-3. 把 chat/trade 协议常量与业务语义迁回各自 extension。
-4. 逐步把 `message pipeline` 正式收口为 `content pipeline` 语义。
-5. 用 core 级 host services 替换 `BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 这类业务专用装配。
+1. 完成 `Step 4` 最终验收：
+   - 补齐编译验证
+   - 补齐 chat capability / send / history sync 轻量黑盒验证
+   - 确认仓库里不再残留 `FrameworkProtocol.BuiltInChat*` 有效引用
+2. 逐步把 `message pipeline` 正式收口为 `content pipeline` 语义。
+3. 用 core 级 host services 替换 `BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 这类业务专用装配。
+4. 在 `Step 5` 中只引入轻量 lifecycle 约束：
+   - extension 自己负责初始化、持久化、清理
+   - 这些行为挂在通用 lifecycle phase 上
+   - host 不再为具体业务扩展补专用时序钩子
+
+release 后可考虑的增强，但不属于当前 `Phase 6` 的收口目标：
+
+- server 侧用户/权限/操作审计等通用平台能力
+- 基于 SQLite 的通用 user/platform storage API
+- 面向 extension 的更完整 server platform service 层
+- 更明确、统一的 extension lifecycle phase 语义与扩展约束
+- activate / shutdown / save 等时机的统一 diagnostics、ordering、failure handling
+
+这些能力属于开发增强，不应在首个 `Phase 6` release 前继续扩大范围。
 
 ## Test Plan
 - 协议测试：
@@ -171,6 +200,8 @@ Phase 6 设计基线见：
 - dependency solver
 - graph-based startup ordering
 - multi-version API coexistence
+- server-side user/permission/platform API layer
+- SQLite-backed core platform storage services
 
 这些能力都不是当前阶段的目标。当前优先保证的是：
 

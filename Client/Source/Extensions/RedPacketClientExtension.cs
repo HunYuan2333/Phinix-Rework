@@ -6,13 +6,20 @@ using Verse;
 namespace PhinixClient.Extensions
 {
     [PhinixExtension("sample.red_packet")]
-    public class RedPacketClientExtension : IPhinixExtension, ICapabilityProvider, IClientMessageHandler, IMessageRenderer
+    public sealed class RedPacketClientExtension : IPhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IMessageRenderer
     {
         private const string Prefix = "/redpacket ";
 
         public string ExtensionId => "sample.red_packet";
 
         public int Priority => 100;
+
+        public void Register(IExtensionBuilder builder)
+        {
+            builder.AddCapabilityProvider(this);
+            builder.AddClientMessageHandler(this);
+            builder.AddMessageRenderer(this);
+        }
 
         public IEnumerable<string> GetCapabilities()
         {

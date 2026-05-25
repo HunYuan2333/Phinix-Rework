@@ -8,7 +8,7 @@ using UserManagement;
 using Utils;
 using Utils.Framework;
 
-namespace PhinixServer.Framework
+namespace Phinix.ChatExtension.Server
 {
     public interface IFrameworkChatServerApi : ILoggable, IPersistent
     {

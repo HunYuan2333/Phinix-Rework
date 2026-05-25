@@ -114,6 +114,7 @@ namespace PhinixClient
         private PhinixFrameworkClient frameworkClient;
         private IFrameworkChatClientApi frameworkChatService;
         private IFrameworkTradeClientApi frameworkTradeService;
+        private IClientUserDirectory frameworkUserDirectory;
         private PhinixClientItemPipeline itemPipeline;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
         private PhinixClientTradeCompletionPipeline tradeCompletionPipeline;
@@ -169,19 +170,18 @@ namespace PhinixClient
             netClient = new NetClient();
             authenticator = new ClientAuthenticator(netClient, getCredentials);
             userManager = new ClientUserManager(netClient, authenticator);
-            frameworkChatService = new PhinixFrameworkChatService();
+            frameworkUserDirectory = new ClientFrameworkUserDirectoryAdapter(userManager);
             itemPipeline = new PhinixClientItemPipeline(Log, FrameworkCompatibilityMode.Unknown);
-            frameworkTradeService = new PhinixFrameworkTradeClientService(itemPipeline, userManager, Log);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
             {
                 HostKind = "client",
                 Log = (message, level) => Log(new LogEventArgs(message, level)),
                 StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "client"))
             };
-            extensionHostContext.AddService<IFrameworkChatClientApi>(frameworkChatService);
-            extensionHostContext.AddService<IFrameworkTradeClientApi>(frameworkTradeService);
             extensionHostContext.AddService(itemPipeline);
+            extensionHostContext.AddService<ITradeItemPayloadEncoder>(itemPipeline);
             extensionHostContext.AddService(userManager);
+            extensionHostContext.AddService(frameworkUserDirectory);
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
             if (!frameworkClient.TryResolveExtensionApi(out frameworkChatService))
             {
@@ -512,7 +512,7 @@ namespace PhinixClient
         {
             if (unreadOnly)
             {
-                return frameworkChatService.BuildUiMessages(frameworkClient.GetUnreadDisplayMessages(markAsRead), userManager);
+                return frameworkChatService.BuildUiMessages(frameworkClient.GetUnreadDisplayMessages(markAsRead), frameworkUserDirectory);
             }
 
             if (markAsRead)
@@ -520,7 +520,7 @@ namespace PhinixClient
                 frameworkClient.MarkAsRead();
             }
 
-            return frameworkChatService.BuildUiMessages(frameworkClient.GetDisplayMessages(), userManager);
+            return frameworkChatService.BuildUiMessages(frameworkClient.GetDisplayMessages(), frameworkUserDirectory);
         }
 
         /// <summary>
@@ -531,7 +531,7 @@ namespace PhinixClient
         /// <returns>Whether the chat message was retrieved successfully</returns>
         public bool TryGetMessage(string messageId, out UIChatMessage message)
         {
-            return frameworkChatService.TryGetUiMessage(frameworkClient.GetDisplayMessages(), messageId, userManager, out message);
+            return frameworkChatService.TryGetUiMessage(frameworkClient.GetDisplayMessages(), messageId, frameworkUserDirectory, out message);
         }
 
         /// <summary>

@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport
     {
         public delegate void CompatibilityModeChangedDelegate(object sender, FrameworkCompatibilityMode compatibilityMode);
 
@@ -411,7 +411,7 @@ namespace PhinixClient.Framework
             }
 
             UIChatMessage uiMessage = TryResolveExtensionApi(out IFrameworkChatClientApi chatApi)
-                ? chatApi.ToUiMessage(message, userManager)
+                ? chatApi.ToUiMessage(message, extensionHostContext.GetRequiredService<IClientUserDirectory>())
                 : new UIChatMessage(
                     message.MessageId,
                     message.SenderUuid,

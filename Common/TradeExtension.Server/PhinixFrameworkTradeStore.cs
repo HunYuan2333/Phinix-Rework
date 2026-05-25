@@ -4,10 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Xml;
-using Phinix.TradeExtension;
 using Utils.Framework;
 
-namespace PhinixServer.Framework
+namespace Phinix.TradeExtension.Server
 {
     internal sealed class PhinixFrameworkTradeStore
     {
@@ -33,21 +32,6 @@ namespace PhinixServer.Framework
                 snapshot = createdTrade.ToSnapshot();
                 return true;
             }
-        }
-
-        public bool TryGet(string tradeId, out FrameworkTradeStateSnapshot snapshot)
-        {
-            lock (syncLock)
-            {
-                if (activeTrades.TryGetValue(tradeId, out MutableTrade trade))
-                {
-                    snapshot = trade.ToSnapshot();
-                    return true;
-                }
-            }
-
-            snapshot = null;
-            return false;
         }
 
         public FrameworkTradeStateSnapshot[] GetByParticipant(string participantUuid)
@@ -258,13 +242,9 @@ namespace PhinixServer.Framework
         internal sealed class PendingCompletionNotification
         {
             public string TradeId { get; private set; }
-
             public string RecipientUuid { get; private set; }
-
             public string OtherPartyUuid { get; private set; }
-
             public List<FrameworkItemPayload> Items { get; private set; } = new List<FrameworkItemPayload>();
-
             public bool Cancelled { get; private set; }
 
             public PendingCompletionNotification Clone()
@@ -335,11 +315,8 @@ namespace PhinixServer.Framework
             }
 
             public string TradeId { get; private set; }
-
             public string[] ParticipantUuids { get; private set; }
-
             public long Version { get; private set; }
-
             public bool AllAccepted => ParticipantUuids.All(uuid => acceptedParticipants.Contains(uuid));
 
             public bool TrySetOffer(string participantUuid, IEnumerable<FrameworkItemPayload> items)

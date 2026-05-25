@@ -567,12 +567,24 @@ public interface IChatApi
 把 built-in chat / trade 常量迁到各自 extension contract 项目，并停止在 core 中保留 chat 专属命名。
 
 ### Step 5
-
 把 `BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 替换为：
 
 - core-level host services
 - extension 内部自己的 composition
 - 必要时通过 API registry 获取对外协作能力
+
+同时在这一阶段明确收紧一条硬边界：
+
+- `core` / `host` 不得因为某个具体 extension 的领域语义继续新增业务分支
+- `core` / `host` 只负责发现、注册、激活 extension，并提供通用基础服务
+- extension 的业务逻辑必须建立在 `content / command / item` 三条 pipeline 之上
+- extension 之间的协作只能依赖显式暴露的 API contract，不能依赖宿主注入的业务 wrapper，也不能依赖其他 extension 的具体实现类
+
+换句话说，`Step 5` 完成后应达到的不是“host 以另一种方式继续装配 chat/trade”，而是：
+
+- host 对 extension 的认知只停留在 module lifecycle 与基础 host services
+- extension 自己决定如何组织 handler / renderer / codec / repository / service
+- extension 如果要调用另一个 extension，只能通过 `RegisterApi<T>()` / `TryResolve<T>()` 这类显式 contract 协作
 
 ### Step 6
 
@@ -589,7 +601,6 @@ public interface IChatApi
 Phase 6 完成后，应该满足以下标准：
 
 - server host 不再包含 chat/trade/red packet 的业务常量和业务装配逻辑。
-- extension 只能通过 message / command / item 三条 pipeline 接入。
 - extension 只能通过 content / command / item 三条 pipeline 接入。
 - 新增一个 official extension 时，不需要修改 core pipeline 结构。
 - extension 可以动态发现、动态注册、动态激活。

@@ -1,51 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Phinix.TradeExtension;
+using PhinixClient.Framework;
 using PhinixClient.Trade;
 using UserManagement;
 using Utils;
 using Utils.Framework;
 
-namespace PhinixClient.Framework
+namespace Phinix.TradeExtension.Client
 {
-    public interface IFrameworkTradeClientApi
-    {
-        event EventHandler RepositoryChanged;
-        event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess;
-        event EventHandler<TradeCreationEventArgs> OnTradeCreationFailure;
-        event EventHandler<TradeUpdateEventArgs> OnTradeUpdateSuccess;
-        event EventHandler<TradeUpdateEventArgs> OnTradeUpdateFailure;
-        event EventHandler<TradesSyncedEventArgs> OnTradesSynced;
-        event EventHandler<TradeCompletionEventArgs> OnTradeCompleted;
-        event EventHandler<TradeCompletionEventArgs> OnTradeCancelled;
-
-        FrameworkTradeStateSnapshot[] GetRepositoryTrades();
-        string[] GetTradeIds();
-        ClientTradeSnapshot[] GetTrades();
-        bool TryGetTrade(string tradeId, out ClientTradeSnapshot trade);
-        bool TryGetOtherPartyUuid(string tradeId, string localUuid, out string otherPartyUuid);
-        bool TryGetOtherPartyAccepted(string tradeId, string localUuid, out bool otherPartyAccepted);
-        bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted);
-        bool TryGetItemsOnOffer(string tradeId, string partyUuid, out IEnumerable<TradeItemSnapshot> items);
-        void RequestSnapshot(PhinixFrameworkClient frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid);
-        FrameworkPacket CreateTradeRequest(string otherPartyUuid, ClientFrameworkContext context);
-        FrameworkPacket CreateOfferUpdateRequest(string tradeId, IEnumerable<TradeItemSnapshot> tradeItems, ClientFrameworkContext context);
-        FrameworkPacket CreateStatusUpdateRequest(string tradeId, bool? accepted, bool? cancelled, ClientFrameworkContext context);
-        void TrackPendingTradeUpdate(string tradeId, string token);
-        void HandleSnapshot(FrameworkPacket packet);
-        void HandleCreateResponse(FrameworkPacket packet);
-        void HandleOfferUpdateResponse(FrameworkPacket packet);
-        void HandleStatusUpdateResponse(FrameworkPacket packet);
-        void HandleCompletedEvent(FrameworkPacket packet);
-        void HandleCancelledEvent(FrameworkPacket packet);
-    }
-
     public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
-        private readonly PhinixClientItemPipeline itemPipeline;
-        private readonly ClientUserManager userManager;
+        private readonly ITradeItemPayloadEncoder itemPipeline;
+        private readonly IClientUserDirectory userDirectory;
         private readonly Action<LogEventArgs> log;
         private readonly Dictionary<string, string> pendingTradeCreationByTradeId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> pendingTradeUpdateTokensByTradeId = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -59,28 +27,22 @@ namespace PhinixClient.Framework
         public event EventHandler<TradeCompletionEventArgs> OnTradeCompleted;
         public event EventHandler<TradeCompletionEventArgs> OnTradeCancelled;
 
-        public PhinixFrameworkTradeClientService(PhinixClientItemPipeline itemPipeline, ClientUserManager userManager, Action<LogEventArgs> log)
+        public PhinixFrameworkTradeClientService(ITradeItemPayloadEncoder itemPipeline, IClientUserDirectory userDirectory, Action<LogEventArgs> log)
         {
             repository = new PhinixFrameworkTradeClientRepository();
             this.itemPipeline = itemPipeline;
-            this.userManager = userManager;
+            this.userDirectory = userDirectory;
             this.log = log;
         }
 
-        public FrameworkTradeStateSnapshot[] GetRepositoryTrades()
-        {
-            return repository.GetAll();
-        }
+        public FrameworkTradeStateSnapshot[] GetRepositoryTrades() => repository.GetAll();
 
-        public string[] GetTradeIds()
-        {
-            return repository.GetAll().Select(snapshot => snapshot.TradeId).ToArray();
-        }
+        public string[] GetTradeIds() => repository.GetAll().Select(snapshot => snapshot.TradeId).ToArray();
 
         public ClientTradeSnapshot[] GetTrades()
         {
             return repository.GetAll()
-                .Select(toTradeSnapshot)
+                .Select(ToTradeSnapshot)
                 .Where(trade => trade != null && !string.IsNullOrEmpty(trade.TradeId))
                 .ToArray();
         }
@@ -93,7 +55,7 @@ namespace PhinixClient.Framework
                 return false;
             }
 
-            trade = toTradeSnapshot(snapshot);
+            trade = ToTradeSnapshot(snapshot);
             return trade != null;
         }
 
@@ -169,11 +131,11 @@ namespace PhinixClient.Framework
                 return false;
             }
 
-            items = decodeTradeItems(participant.ItemsOnOffer);
+            items = DecodeTradeItems(participant.ItemsOnOffer);
             return true;
         }
 
-        public void RequestSnapshot(PhinixFrameworkClient frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
+        public void RequestSnapshot(IFrameworkClientTransport frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
         {
             if (frameworkClient == null || !authenticated || !loggedIn || string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
             {
@@ -222,7 +184,7 @@ namespace PhinixClient.Framework
             FrameworkTradeOfferUpdateRequest payload = new FrameworkTradeOfferUpdateRequest
             {
                 TradeId = tradeId,
-                Items = itemPipeline.EncodeTradeItems(tradeItems).ToList()
+                Items = (itemPipeline.EncodeTradeItems(tradeItems) ?? Array.Empty<FrameworkItemPayload>()).ToList()
             };
 
             return new FrameworkPacket
@@ -285,7 +247,7 @@ namespace PhinixClient.Framework
                 repository.ReplaceAll(payload?.Trades);
                 foreach (FrameworkTradeStateSnapshot trade in payload?.Trades ?? Enumerable.Empty<FrameworkTradeStateSnapshot>())
                 {
-                    flushPendingEventsForTrade(trade.TradeId, false);
+                    FlushPendingEventsForTrade(trade.TradeId, false);
                 }
             }
             else
@@ -293,13 +255,10 @@ namespace PhinixClient.Framework
                 foreach (FrameworkTradeStateSnapshot trade in payload?.Trades ?? Enumerable.Empty<FrameworkTradeStateSnapshot>())
                 {
                     repository.Upsert(trade);
-                    bool emittedPendingEvent = flushPendingEventsForTrade(trade.TradeId, true);
-                    if (!emittedPendingEvent)
+                    bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true);
+                    if (!emittedPendingEvent && TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
                     {
-                        if (TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
-                        {
-                            OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
-                        }
+                        OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
                     }
                 }
             }
@@ -331,7 +290,7 @@ namespace PhinixClient.Framework
 
             OnTradeCreationFailure?.Invoke(this, new TradeCreationEventArgs(
                 payload.OtherPartyUuid,
-                toClientFailureReason(payload.FailureReason),
+                ToClientFailureReason(payload.FailureReason),
                 payload.FailureMessage));
 
             if (!string.IsNullOrEmpty(payload.FailureMessage))
@@ -356,8 +315,8 @@ namespace PhinixClient.Framework
             }
 
             OnTradeUpdateFailure?.Invoke(this, new TradeUpdateEventArgs(
-                getTradeOrPlaceholder(payload.TradeId),
-                toClientFailureReason(payload.FailureReason),
+                GetTradeOrPlaceholder(payload.TradeId),
+                ToClientFailureReason(payload.FailureReason),
                 payload.FailureMessage,
                 token));
 
@@ -383,8 +342,8 @@ namespace PhinixClient.Framework
             }
 
             OnTradeUpdateFailure?.Invoke(this, new TradeUpdateEventArgs(
-                getTradeOrPlaceholder(payload.TradeId),
-                toClientFailureReason(payload.FailureReason),
+                GetTradeOrPlaceholder(payload.TradeId),
+                ToClientFailureReason(payload.FailureReason),
                 payload.FailureMessage,
                 token));
 
@@ -404,7 +363,7 @@ namespace PhinixClient.Framework
 
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            OnTradeCompleted?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, decodeTradeItems(payload.Items)));
+            OnTradeCompleted?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' completed with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
 
@@ -418,11 +377,11 @@ namespace PhinixClient.Framework
 
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, decodeTradeItems(payload.Items)));
+            OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' cancelled with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
 
-        private bool flushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)
+        private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)
         {
             if (string.IsNullOrEmpty(tradeId))
             {
@@ -433,14 +392,14 @@ namespace PhinixClient.Framework
             if (pendingTradeCreationByTradeId.TryGetValue(tradeId, out string otherPartyUuid))
             {
                 pendingTradeCreationByTradeId.Remove(tradeId);
-                OnTradeCreationSuccess?.Invoke(this, new TradeCreationEventArgs(getTradeOrPlaceholder(tradeId, otherPartyUuid)));
+                OnTradeCreationSuccess?.Invoke(this, new TradeCreationEventArgs(GetTradeOrPlaceholder(tradeId, otherPartyUuid)));
                 emitted = true;
             }
 
             if (pendingTradeUpdateTokensByTradeId.TryGetValue(tradeId, out List<string> tokens))
             {
                 pendingTradeUpdateTokensByTradeId.Remove(tradeId);
-                ClientTradeSnapshot trade = getTradeOrPlaceholder(tradeId);
+                ClientTradeSnapshot trade = GetTradeOrPlaceholder(tradeId);
                 foreach (string token in tokens)
                 {
                     OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(trade, token));
@@ -456,7 +415,7 @@ namespace PhinixClient.Framework
             return emitted;
         }
 
-        private ClientTradeSnapshot toTradeSnapshot(FrameworkTradeStateSnapshot snapshot)
+        private ClientTradeSnapshot ToTradeSnapshot(FrameworkTradeStateSnapshot snapshot)
         {
             if (snapshot == null)
             {
@@ -464,9 +423,9 @@ namespace PhinixClient.Framework
             }
 
             FrameworkTradeParticipantSnapshot localParticipant = (snapshot.Participants ?? new List<FrameworkTradeParticipantSnapshot>())
-                .SingleOrDefault(participant => participant.Uuid == userManager.Uuid);
+                .SingleOrDefault(participant => participant.Uuid == userDirectory?.Uuid);
             FrameworkTradeParticipantSnapshot otherParticipant = (snapshot.Participants ?? new List<FrameworkTradeParticipantSnapshot>())
-                .SingleOrDefault(participant => participant.Uuid != userManager.Uuid);
+                .SingleOrDefault(participant => participant.Uuid != userDirectory?.Uuid);
 
             if (otherParticipant == null)
             {
@@ -474,7 +433,7 @@ namespace PhinixClient.Framework
             }
 
             ImmutableUser otherParty = new ImmutableUser(otherParticipant.Uuid);
-            if (userManager.TryGetUser(otherParticipant.Uuid, out ImmutableUser existingUser))
+            if (userDirectory != null && userDirectory.TryGetUser(otherParticipant.Uuid, out ImmutableUser existingUser))
             {
                 otherParty = existingUser;
             }
@@ -482,28 +441,28 @@ namespace PhinixClient.Framework
             return new ClientTradeSnapshot(
                 snapshot.TradeId,
                 otherParty,
-                decodeTradeItems(localParticipant?.ItemsOnOffer),
-                decodeTradeItems(otherParticipant.ItemsOnOffer),
+                DecodeTradeItems(localParticipant?.ItemsOnOffer),
+                DecodeTradeItems(otherParticipant.ItemsOnOffer),
                 localParticipant?.Accepted ?? false,
                 otherParticipant.Accepted);
         }
 
-        private TradeItemSnapshot[] decodeTradeItems(IEnumerable<FrameworkItemPayload> items)
+        private static TradeItemSnapshot[] DecodeTradeItems(IEnumerable<FrameworkItemPayload> items)
         {
             return (items ?? Enumerable.Empty<FrameworkItemPayload>())
                 .Select(item =>
                 {
-                    if (DefaultLegacyTradeItemCodec.TryDecodeToTradeItemSnapshot(item, out TradeItemSnapshot tradeItem))
+                    if (FrameworkTradeItemPayloadCodec.TryDecodeToTradeItemSnapshot(item, out TradeItemSnapshot tradeItem))
                     {
                         return tradeItem;
                     }
 
-                    return DefaultLegacyTradeItemCodec.CreateUnknownTradeItemSnapshot(item?.CodecId ?? "UnknownCodec");
+                    return FrameworkTradeItemPayloadCodec.CreateUnknownTradeItemSnapshot(item?.CodecId ?? "UnknownCodec");
                 })
                 .ToArray();
         }
 
-        private ClientTradeSnapshot getTradeOrPlaceholder(string tradeId, string otherPartyUuid = "")
+        private ClientTradeSnapshot GetTradeOrPlaceholder(string tradeId, string otherPartyUuid = "")
         {
             if (TryGetTrade(tradeId, out ClientTradeSnapshot trade))
             {
@@ -513,7 +472,7 @@ namespace PhinixClient.Framework
             return new ClientTradeSnapshot(tradeId, new ImmutableUser(otherPartyUuid));
         }
 
-        private static TradeFailureReason toClientFailureReason(FrameworkTradeFailureReason failureReason)
+        private static TradeFailureReason ToClientFailureReason(FrameworkTradeFailureReason failureReason)
         {
             switch (failureReason)
             {

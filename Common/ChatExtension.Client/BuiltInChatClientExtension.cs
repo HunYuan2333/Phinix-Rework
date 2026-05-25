@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using PhinixClient.Framework;
 using Utils.Framework;
 
-namespace PhinixClient.Extensions
+namespace Phinix.ChatExtension.Client
 {
     [PhinixExtension("builtin.chat")]
     public class BuiltInChatClientExtension : IPhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IMessageRenderer
@@ -15,7 +15,7 @@ namespace PhinixClient.Extensions
 
         public void Register(IExtensionBuilder builder)
         {
-            chatApi = builder.HostContext.GetRequiredService<IFrameworkChatClientApi>();
+            chatApi = chatApi ?? new PhinixFrameworkChatService();
             builder.RegisterApi(chatApi);
             builder.AddCapabilityProvider(this);
             builder.AddClientMessageHandler(this);
@@ -25,9 +25,9 @@ namespace PhinixClient.Extensions
 
         public IEnumerable<string> GetCapabilities()
         {
-            yield return FrameworkProtocol.BuiltInChatMessageType;
-            yield return FrameworkProtocol.BuiltInChatHistoryRequestType;
-            yield return FrameworkProtocol.BuiltInChatHistorySyncCompleteType;
+            yield return FrameworkChatProtocol.MessageType;
+            yield return FrameworkChatProtocol.HistoryRequestType;
+            yield return FrameworkChatProtocol.HistorySyncCompleteType;
         }
 
         public bool CanHandleOutgoingText(string rawMessage)
@@ -47,7 +47,7 @@ namespace PhinixClient.Extensions
 
         public bool CanHandleIncomingMessage(FrameworkPacket message)
         {
-            return message != null && message.MessageType == FrameworkProtocol.BuiltInChatMessageType;
+            return message != null && message.MessageType == FrameworkChatProtocol.MessageType;
         }
 
         public ClientIncomingMessageResult HandleIncomingMessage(FrameworkPacket message, ClientFrameworkContext context)
@@ -61,7 +61,7 @@ namespace PhinixClient.Extensions
 
         public bool CanHandleIncomingCommand(FrameworkPacket command)
         {
-            return command != null && command.MessageType == FrameworkProtocol.BuiltInChatHistorySyncCompleteType;
+            return command != null && command.MessageType == FrameworkChatProtocol.HistorySyncCompleteType;
         }
 
         public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context)
@@ -76,7 +76,7 @@ namespace PhinixClient.Extensions
 
         public bool CanRender(FrameworkPacket message)
         {
-            return message != null && message.MessageType == FrameworkProtocol.BuiltInChatMessageType;
+            return message != null && message.MessageType == FrameworkChatProtocol.MessageType;
         }
 
         public FrameworkDisplayMessage Render(FrameworkPacket message)

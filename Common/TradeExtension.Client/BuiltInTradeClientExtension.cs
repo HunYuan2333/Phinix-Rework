@@ -1,9 +1,8 @@
 using System.Collections.Generic;
-using Phinix.TradeExtension;
 using PhinixClient.Framework;
 using Utils.Framework;
 
-namespace PhinixClient.Extensions
+namespace Phinix.TradeExtension.Client
 {
     [PhinixExtension(FrameworkTradeProtocol.Capability)]
     public sealed class BuiltInTradeClientExtension : IPhinixExtensionModule, ICapabilityProvider, IClientCommandHandler
@@ -16,7 +15,10 @@ namespace PhinixClient.Extensions
 
         public void Register(IExtensionBuilder builder)
         {
-            tradeApi = builder.HostContext.GetRequiredService<IFrameworkTradeClientApi>();
+            tradeApi = tradeApi ?? new PhinixFrameworkTradeClientService(
+                builder.HostContext.GetRequiredService<ITradeItemPayloadEncoder>(),
+                builder.HostContext.GetRequiredService<IClientUserDirectory>(),
+                logEvent => builder.HostContext.Log?.Invoke(logEvent.Message, logEvent.LogLevel));
             builder.RegisterApi(tradeApi);
             builder.AddCapabilityProvider(this);
             builder.AddClientCommandHandler(this);
