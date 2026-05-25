@@ -1,26 +1,24 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Trading;
+using System.Reflection;
+using PhinixClient.Trade;
 using Utils;
-using Utils.Framework;
 
 namespace PhinixClient.Framework
 {
     public sealed class PhinixClientTradeCompletionPipeline
     {
-        private readonly List<ITradeCompletionHandler> handlers;
+        private readonly List<IClientTradeCompletionHandler> handlers;
         private readonly PhinixClientItemPipeline itemPipeline;
         private readonly Action<LogEventArgs> log;
 
-        public PhinixClientTradeCompletionPipeline(PhinixClientItemPipeline itemPipeline, Action<LogEventArgs> log, ITradeCompletionHandler defaultHandler)
+        public PhinixClientTradeCompletionPipeline(PhinixClientItemPipeline itemPipeline, Action<LogEventArgs> log, IClientTradeCompletionHandler defaultHandler)
         {
             this.itemPipeline = itemPipeline;
             this.log = log;
 
-            handlers = new List<ITradeCompletionHandler>();
-            DiscoveredPhinixExtensions discovered = PhinixExtensionRegistry.DiscoverExtensions();
-            handlers.AddRange(discovered.TradeCompletionHandlers);
+            handlers = discoverHandlers();
             if (defaultHandler != null)
             {
                 handlers.Add(defaultHandler);
@@ -32,9 +30,9 @@ namespace PhinixClient.Framework
                 .ToList();
         }
 
-        public void HandleTradeCompleted(CompleteTradeEventArgs args)
+        public void HandleTradeCompleted(TradeCompletionEventArgs args)
         {
-            TradeCompletionContext context = new TradeCompletionContext
+            ClientTradeCompletionContext context = new ClientTradeCompletionContext
             {
                 TradeId = args?.TradeId,
                 OtherPartyUuid = args?.OtherPartyUuid,
@@ -42,7 +40,7 @@ namespace PhinixClient.Framework
                 Log = (message, level) => log?.Invoke(new LogEventArgs(message, level))
             };
 
-            foreach (ITradeCompletionHandler handler in handlers)
+            foreach (IClientTradeCompletionHandler handler in handlers)
             {
                 try
                 {
@@ -61,6 +59,46 @@ namespace PhinixClient.Framework
             }
 
             log?.Invoke(new LogEventArgs("No trade completion handler accepted the current completion context.", LogLevel.WARNING));
+        }
+
+        private List<IClientTradeCompletionHandler> discoverHandlers()
+        {
+            List<IClientTradeCompletionHandler> discoveredHandlers = new List<IClientTradeCompletionHandler>();
+
+            IEnumerable<Type> candidateTypes = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .Where(assembly => !assembly.IsDynamic)
+                .SelectMany(getLoadableTypes)
+                .Where(type => type.IsClass && !type.IsAbstract && typeof(IClientTradeCompletionHandler).IsAssignableFrom(type) && type.GetConstructor(Type.EmptyTypes) != null);
+
+            foreach (Type candidateType in candidateTypes)
+            {
+                try
+                {
+                    if (Activator.CreateInstance(candidateType) is IClientTradeCompletionHandler handler)
+                    {
+                        discoveredHandlers.Add(handler);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    log?.Invoke(new LogEventArgs($"Failed to initialize trade completion handler '{candidateType.FullName}': {exception.Message}", LogLevel.WARNING));
+                }
+            }
+
+            return discoveredHandlers;
+        }
+
+        private static IEnumerable<Type> getLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                return exception.Types.Where(type => type != null);
+            }
         }
     }
 }

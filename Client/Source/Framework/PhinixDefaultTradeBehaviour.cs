@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using PhinixClient.Trade;
 using RimWorld;
-using Trading;
 using UnityEngine;
 using UserManagement;
 using Utils;
-using Utils.Framework;
 using Verse;
 using Thing = Verse.Thing;
 
@@ -37,7 +36,7 @@ namespace PhinixClient.Framework
             return !blockedUsers.Contains(otherPartyUuid);
         }
 
-        public bool TryQueueTradeWindow(string otherPartyUuid, string tradeId, HashSet<string> waitingForTradeCreationWith, object waitingForTradeCreationWithLock, List<ImmutableTrade> tradeWindowQueue, object tradeWindowQueueLock)
+        public bool TryQueueTradeWindow(string otherPartyUuid, string tradeId, HashSet<string> waitingForTradeCreationWith, object waitingForTradeCreationWithLock, List<ClientTradeSnapshot> tradeWindowQueue, object tradeWindowQueueLock)
         {
             lock (waitingForTradeCreationWithLock)
             {
@@ -47,7 +46,7 @@ namespace PhinixClient.Framework
                 }
             }
 
-            if (!tradeFacade.TryGetTrade(tradeId, out ImmutableTrade trade))
+            if (!tradeFacade.TryGetTrade(tradeId, out ClientTradeSnapshot trade))
             {
                 log?.Invoke(new LogEventArgs(string.Format("Failed to get newly created trade {0} when attempting to open immediately", tradeId), LogLevel.WARNING));
                 return false;
@@ -61,7 +60,7 @@ namespace PhinixClient.Framework
             return true;
         }
 
-        public void HandleTradeCreationSuccess(CreateTradeEventArgs args, bool showBlockedTrades, IEnumerable<string> blockedUserUuids, HashSet<string> waitingForTradeCreationWith, object waitingForTradeCreationWithLock, List<ImmutableTrade> tradeWindowQueue, object tradeWindowQueueLock)
+        public void HandleTradeCreationSuccess(TradeCreationEventArgs args, bool showBlockedTrades, IEnumerable<string> blockedUserUuids, HashSet<string> waitingForTradeCreationWith, object waitingForTradeCreationWithLock, List<ClientTradeSnapshot> tradeWindowQueue, object tradeWindowQueueLock)
         {
             if (!ShouldDisplayTradeEvent(args.OtherPartyUuid, showBlockedTrades, blockedUserUuids)) return;
             if (TryQueueTradeWindow(args.OtherPartyUuid, args.TradeId, waitingForTradeCreationWith, waitingForTradeCreationWithLock, tradeWindowQueue, tradeWindowQueueLock)) return;
@@ -75,9 +74,9 @@ namespace PhinixClient.Framework
             );
         }
 
-        public void HandleTradeCompleted(CompleteTradeEventArgs args)
+        public void HandleTradeCompleted(TradeCompletionEventArgs args)
         {
-            HandleTradeCompleted(new TradeCompletionContext
+            HandleTradeCompleted(new ClientTradeCompletionContext
             {
                 TradeId = args?.TradeId,
                 OtherPartyUuid = args?.OtherPartyUuid,
@@ -86,7 +85,7 @@ namespace PhinixClient.Framework
             });
         }
 
-        public void HandleTradeCompleted(TradeCompletionContext context)
+        public void HandleTradeCompleted(ClientTradeCompletionContext context)
         {
             if (context == null) return;
 
@@ -100,7 +99,7 @@ namespace PhinixClient.Framework
                 dropSpotLookTarget);
         }
 
-        public void HandleTradeCancelled(CompleteTradeEventArgs args, bool showBlockedTrades, IEnumerable<string> blockedUserUuids)
+        public void HandleTradeCancelled(TradeCompletionEventArgs args, bool showBlockedTrades, IEnumerable<string> blockedUserUuids)
         {
             if (!ShouldDisplayTradeEvent(args.OtherPartyUuid, showBlockedTrades, blockedUserUuids)) return;
 
@@ -138,7 +137,7 @@ namespace PhinixClient.Framework
             return "???";
         }
 
-        private LookTargets deliverItems(IEnumerable<ProtoThing> items)
+        private LookTargets deliverItems(IEnumerable<TradeItemSnapshot> items)
         {
             Thing[] verseItems = itemPipeline.DecodeTradeItems(items)
                 .Where(thing => thing.def.defName != "UnknownItem")
@@ -147,7 +146,7 @@ namespace PhinixClient.Framework
             return dropPods(verseItems);
         }
 
-        private LookTargets deliverItems(IEnumerable<FrameworkItemPayload> items)
+        private LookTargets deliverItems(IEnumerable<Utils.Framework.FrameworkItemPayload> items)
         {
             Thing[] verseItems = itemPipeline.DecodeItems(items)
                 .Where(thing => thing.def.defName != "UnknownItem")

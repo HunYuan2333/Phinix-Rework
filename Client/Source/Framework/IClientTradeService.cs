@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Trading;
+using PhinixClient.Trade;
 using Utils;
 
 namespace PhinixClient.Framework
@@ -8,10 +8,10 @@ namespace PhinixClient.Framework
     public interface IClientTradeService
     {
         event EventHandler<LogEventArgs> OnLogEntry;
-        event EventHandler<CreateTradeEventArgs> OnTradeCreationSuccess;
-        event EventHandler<CreateTradeEventArgs> OnTradeCreationFailure;
-        event EventHandler<CompleteTradeEventArgs> OnTradeCompleted;
-        event EventHandler<CompleteTradeEventArgs> OnTradeCancelled;
+        event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess;
+        event EventHandler<TradeCreationEventArgs> OnTradeCreationFailure;
+        event EventHandler<TradeCompletionEventArgs> OnTradeCompleted;
+        event EventHandler<TradeCompletionEventArgs> OnTradeCancelled;
         event EventHandler<TradeUpdateEventArgs> OnTradeUpdateSuccess;
         event EventHandler<TradeUpdateEventArgs> OnTradeUpdateFailure;
         event EventHandler<TradesSyncedEventArgs> OnTradesSynced;
@@ -22,11 +22,11 @@ namespace PhinixClient.Framework
 
         string[] GetTradeIds();
 
-        ImmutableTrade[] GetTrades();
+        ClientTradeSnapshot[] GetTrades();
 
-        ImmutableTrade[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids);
+        ClientTradeSnapshot[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids);
 
-        bool TryGetTrade(string tradeId, out ImmutableTrade trade);
+        bool TryGetTrade(string tradeId, out ClientTradeSnapshot trade);
 
         bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid);
 
@@ -34,9 +34,9 @@ namespace PhinixClient.Framework
 
         bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted);
 
-        bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<ProtoThing> items);
+        bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<TradeItemSnapshot> items);
 
-        void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "");
+        void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "");
 
         void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null);
 

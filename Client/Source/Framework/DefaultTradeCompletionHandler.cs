@@ -1,8 +1,8 @@
-using Utils.Framework;
+using PhinixClient.Trade;
 
 namespace PhinixClient.Framework
 {
-    public sealed class DefaultTradeCompletionHandler : ITradeCompletionHandler
+    public sealed class DefaultTradeCompletionHandler : IClientTradeCompletionHandler
     {
         private readonly PhinixDefaultTradeBehaviour defaultTradeBehaviour;
 
@@ -15,12 +15,12 @@ namespace PhinixClient.Framework
             this.defaultTradeBehaviour = defaultTradeBehaviour;
         }
 
-        public bool CanHandle(TradeCompletionContext context)
+        public bool CanHandle(ClientTradeCompletionContext context)
         {
             return context != null;
         }
 
-        public void Handle(TradeCompletionContext context)
+        public void Handle(ClientTradeCompletionContext context)
         {
             defaultTradeBehaviour.HandleTradeCompleted(context);
         }

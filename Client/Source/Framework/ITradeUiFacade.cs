@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Trading;
+using PhinixClient.Trade;
 using UserManagement;
 using Utils;
 using Verse;
@@ -11,19 +11,19 @@ namespace PhinixClient.Framework
     public interface ITradeUiFacade
     {
         event EventHandler OnDisconnect;
-        event EventHandler<UICreateTradeEventArgs> OnTradeCreationSuccess;
-        event EventHandler<UICompleteTradeEventArgs> OnTradeCompleted;
-        event EventHandler<UICompleteTradeEventArgs> OnTradeCancelled;
-        event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateSuccess;
-        event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateFailure;
-        event EventHandler<UITradesSyncedEventArgs> OnTradesSynced;
+        event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess;
+        event EventHandler<TradeCompletionEventArgs> OnTradeCompleted;
+        event EventHandler<TradeCompletionEventArgs> OnTradeCancelled;
+        event EventHandler<TradeUpdateEventArgs> OnTradeUpdateSuccess;
+        event EventHandler<TradeUpdateEventArgs> OnTradeUpdateFailure;
+        event EventHandler<TradesSyncedEventArgs> OnTradesSynced;
         event EventHandler<UserDisplayNameChangedEventArgs> OnUserDisplayNameChanged;
 
-        ImmutableTrade[] GetTrades();
+        ClientTradeSnapshot[] GetTrades();
 
         void CancelTrade(string tradeId);
 
-        void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "");
+        void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "");
 
         void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null);
 

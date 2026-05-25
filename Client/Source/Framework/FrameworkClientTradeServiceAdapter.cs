@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Authentication;
-using Trading;
+using PhinixClient.Trade;
 using UserManagement;
 using Utils;
 using Utils.Framework;
@@ -32,25 +32,25 @@ namespace PhinixClient.Framework
             remove { }
         }
 
-        public event EventHandler<CreateTradeEventArgs> OnTradeCreationSuccess
+        public event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess
         {
             add => tradeService.OnTradeCreationSuccess += value;
             remove => tradeService.OnTradeCreationSuccess -= value;
         }
 
-        public event EventHandler<CreateTradeEventArgs> OnTradeCreationFailure
+        public event EventHandler<TradeCreationEventArgs> OnTradeCreationFailure
         {
             add => tradeService.OnTradeCreationFailure += value;
             remove => tradeService.OnTradeCreationFailure -= value;
         }
 
-        public event EventHandler<CompleteTradeEventArgs> OnTradeCompleted
+        public event EventHandler<TradeCompletionEventArgs> OnTradeCompleted
         {
             add => tradeService.OnTradeCompleted += value;
             remove => tradeService.OnTradeCompleted -= value;
         }
 
-        public event EventHandler<CompleteTradeEventArgs> OnTradeCancelled
+        public event EventHandler<TradeCompletionEventArgs> OnTradeCancelled
         {
             add => tradeService.OnTradeCancelled += value;
             remove => tradeService.OnTradeCancelled -= value;
@@ -86,15 +86,15 @@ namespace PhinixClient.Framework
 
         public string[] GetTradeIds() => tradeService.GetTradeIds();
 
-        public ImmutableTrade[] GetTrades() => tradeService.GetImmutableTrades(userManager);
+        public ClientTradeSnapshot[] GetTrades() => tradeService.GetTrades();
 
-        public ImmutableTrade[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids)
+        public ClientTradeSnapshot[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids)
         {
             HashSet<string> ignored = new HashSet<string>(otherPartyUuids ?? Enumerable.Empty<string>());
             return GetTrades().Where(trade => !ignored.Contains(trade.OtherPartyUuid)).ToArray();
         }
 
-        public bool TryGetTrade(string tradeId, out ImmutableTrade trade) => tradeService.TryGetImmutableTrade(tradeId, userManager, out trade);
+        public bool TryGetTrade(string tradeId, out ClientTradeSnapshot trade) => tradeService.TryGetTrade(tradeId, out trade);
 
         public bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid) => tradeService.TryGetOtherPartyUuid(tradeId, userManager.Uuid, out otherPartyUuid);
 
@@ -102,9 +102,9 @@ namespace PhinixClient.Framework
 
         public bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted) => tradeService.TryGetPartyAccepted(tradeId, partyUuid, out accepted);
 
-        public bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<ProtoThing> items) => tradeService.TryGetItemsOnOffer(tradeId, uuid, out items);
+        public bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<TradeItemSnapshot> items) => tradeService.TryGetItemsOnOffer(tradeId, uuid, out items);
 
-        public void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "")
+        public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
         {
             FrameworkPacket packet = tradeService.CreateOfferUpdateRequest(tradeId, items, createContext());
             if (!string.IsNullOrEmpty(token))

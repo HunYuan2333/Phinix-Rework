@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using PhinixClient.Framework;
-using Trading;
+using PhinixClient.Trade;
 using UnityEngine;
 using UserManagement;
 using Utils;
@@ -28,11 +28,11 @@ namespace PhinixClient.GUI
         /// <summary>
         /// List of active trades.
         /// </summary>
-        private readonly List<ImmutableTrade> trades = new List<ImmutableTrade>();
+        private readonly List<ClientTradeSnapshot> trades = new List<ClientTradeSnapshot>();
         /// <summary>
         /// Filtered list of active trades.
         /// </summary>
-        private readonly List<ImmutableTrade> filteredTrades = new List<ImmutableTrade>();
+        private readonly List<ClientTradeSnapshot> filteredTrades = new List<ClientTradeSnapshot>();
         /// <summary>
         /// Whether <see cref="trades"/> has been updated and <see cref="filteredTrades"/> should be repopulated by the
         /// UI thread.
@@ -100,7 +100,7 @@ namespace PhinixClient.GUI
             float currentY = contentRect.yMin;
             for (int i = 0; i < filteredTrades.Count; i++, currentY += ROW_HEIGHT)
             {
-                ImmutableTrade trade = filteredTrades[i];
+                ClientTradeSnapshot trade = filteredTrades[i];
 
                 Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, ROW_HEIGHT);
                 Rect buttonAreaRect = new Rect(rowRect.xMax - (BUTTON_WIDTH * 2 + DEFAULT_SPACING), currentY, BUTTON_WIDTH * 2 + DEFAULT_SPACING, ROW_HEIGHT);
@@ -171,7 +171,7 @@ namespace PhinixClient.GUI
             }
         }
 
-        private void onTradesSyncedHandler(object sender, UITradesSyncedEventArgs args)
+        private void onTradesSyncedHandler(object sender, TradesSyncedEventArgs args)
         {
             lock (tradesLock)
             {
@@ -182,7 +182,7 @@ namespace PhinixClient.GUI
             }
         }
 
-        private void onTradeCompletedOrCancelledHandler(object sender, UICompleteTradeEventArgs args)
+        private void onTradeCompletedOrCancelledHandler(object sender, TradeCompletionEventArgs args)
         {
             lock (tradesLock)
             {
@@ -192,23 +192,26 @@ namespace PhinixClient.GUI
             }
         }
 
-        private void onTradeCreationSuccessHandler(object sender, UICreateTradeEventArgs args)
+        private void onTradeCreationSuccessHandler(object sender, TradeCreationEventArgs args)
         {
             lock (tradesLock)
             {
                 // Add the trade and mark the rows to be updated
-                trades.Add(args.Trade);
-                tradesChanged = true;
+                if (args.Trade != null)
+                {
+                    trades.Add(args.Trade);
+                    tradesChanged = true;
+                }
             }
         }
 
-        private void onTradeUpdateHandler(object sender, UITradeUpdateEventArgs args)
+        private void onTradeUpdateHandler(object sender, TradeUpdateEventArgs args)
         {
             lock (tradesLock)
             {
                 // Update the trade row
                 int index = trades.FindIndex(t => t.TradeId == args.TradeId);
-                if (index >= 0)
+                if (index >= 0 && args.Trade != null)
                 {
                     trades[index] = args.Trade;
                 }
@@ -235,7 +238,7 @@ namespace PhinixClient.GUI
                         acceptingTrades: user.AcceptingTrades
                     );
 
-                    trades[matchIndex] = new ImmutableTrade(
+                    trades[matchIndex] = new ClientTradeSnapshot(
                         tradeId: trades[matchIndex].TradeId,
                         otherParty: user,
                         ourItemsOnOffer: trades[matchIndex].ItemsOnOffer,

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Phinix.TradeExtension;
 using PhinixClient.Framework;
 using Utils.Framework;
 

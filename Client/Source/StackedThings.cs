@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Trading;
+using PhinixClient.Trade;
 using UnityEngine;
 using Verse;
 
@@ -35,11 +35,11 @@ namespace PhinixClient
         }
 
         /// <summary>
-        /// Gets the selected amount of things as their <see cref="ProtoThing"/> equivalents.
-        /// Does some hacky-feeling stuff to get just the right amount of stacks set in stone as <see cref="ProtoThing"/>s.
+        /// Gets the selected amount of things as trade item snapshots.
+        /// Does some hacky-feeling stuff to get just the right amount of stacks set in stone as serialisable trade items.
         /// </summary>
         /// <returns></returns>
-        public IEnumerable<ProtoThing> GetSelectedThingsAsProto()
+        public IEnumerable<TradeItemSnapshot> GetSelectedThingsAsTradeItems()
         {
             List<Thing> thingsToConvert = new List<Thing>();
             Thing thingToModify = null;
@@ -66,7 +66,7 @@ namespace PhinixClient
             }
 
             // Convert the readily-convertible things
-            List<ProtoThing> convertedThings = thingsToConvert.Select(TradingThingConverter.ConvertThingFromVerse).ToList();
+            List<TradeItemSnapshot> convertedThings = thingsToConvert.Select(TradeItemConverter.ConvertThingFromVerse).ToList();
 
             // Check if we need to modify a thing to get the right amount
             if (thingToModify != null)
@@ -79,13 +79,13 @@ namespace PhinixClient
                 thingToModify.stackCount = targetAmount;
 
                 // Convert and add the modified thing
-                convertedThings.Add(TradingThingConverter.ConvertThingFromVerse(thingToModify));
+                convertedThings.Add(TradeItemConverter.ConvertThingFromVerse(thingToModify));
 
                 // Set the stack size to what it was before
                 thingToModify.stackCount = actualAmount;
             }
 
-            // Return the list of converted ProtoThings
+            // Return the list of converted trade item snapshots
             return convertedThings;
         }
 

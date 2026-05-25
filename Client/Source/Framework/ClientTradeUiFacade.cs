@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Trading;
+using PhinixClient.Trade;
 using UserManagement;
 using Utils;
 using Verse;
@@ -23,37 +23,37 @@ namespace PhinixClient.Framework
             remove => client.OnDisconnect -= value;
         }
 
-        public event EventHandler<UICreateTradeEventArgs> OnTradeCreationSuccess
+        public event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess
         {
             add => client.OnTradeCreationSuccess += value;
             remove => client.OnTradeCreationSuccess -= value;
         }
 
-        public event EventHandler<UICompleteTradeEventArgs> OnTradeCompleted
+        public event EventHandler<TradeCompletionEventArgs> OnTradeCompleted
         {
             add => client.OnTradeCompleted += value;
             remove => client.OnTradeCompleted -= value;
         }
 
-        public event EventHandler<UICompleteTradeEventArgs> OnTradeCancelled
+        public event EventHandler<TradeCompletionEventArgs> OnTradeCancelled
         {
             add => client.OnTradeCancelled += value;
             remove => client.OnTradeCancelled -= value;
         }
 
-        public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateSuccess
+        public event EventHandler<TradeUpdateEventArgs> OnTradeUpdateSuccess
         {
             add => client.OnTradeUpdateSuccess += value;
             remove => client.OnTradeUpdateSuccess -= value;
         }
 
-        public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateFailure
+        public event EventHandler<TradeUpdateEventArgs> OnTradeUpdateFailure
         {
             add => client.OnTradeUpdateFailure += value;
             remove => client.OnTradeUpdateFailure -= value;
         }
 
-        public event EventHandler<UITradesSyncedEventArgs> OnTradesSynced
+        public event EventHandler<TradesSyncedEventArgs> OnTradesSynced
         {
             add => client.OnTradesSynced += value;
             remove => client.OnTradesSynced -= value;
@@ -65,11 +65,11 @@ namespace PhinixClient.Framework
             remove => client.OnUserDisplayNameChanged -= value;
         }
 
-        public ImmutableTrade[] GetTrades() => client.GetTrades();
+        public ClientTradeSnapshot[] GetTrades() => client.GetTrades();
 
         public void CancelTrade(string tradeId) => client.CancelTrade(tradeId);
 
-        public void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "") => client.UpdateTradeItems(tradeId, items, token);
+        public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "") => client.UpdateTradeItems(tradeId, items, token);
 
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null) => client.UpdateTradeStatus(tradeId, accepted, cancelled);
 

@@ -5,8 +5,8 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using PhinixClient.GUI;
 using PhinixClient.Framework;
+using PhinixClient.Trade;
 using RimWorld;
-using Trading;
 using UnityEngine;
 using Utils;
 using Verse;
@@ -50,11 +50,11 @@ namespace PhinixClient
         /// The trade this window contains.
         /// Will be overwritten with <see cref="updatedTrade"/> by the UI thread if <see cref="tradeUpdated"/> is set.
         /// </summary>
-        private ImmutableTrade trade;
+        private ClientTradeSnapshot trade;
         /// <summary>
         /// Updated copy of <see cref="trade"/>.
         /// </summary>
-        private ImmutableTrade updatedTrade;
+        private ClientTradeSnapshot updatedTrade;
         /// <summary>
         /// Whether <see cref="updatedTrade"/> has been changed and should be copied into <see cref="trade"/> by the UI thread.
         /// </summary>
@@ -92,7 +92,7 @@ namespace PhinixClient
         /// Creates a new <see cref="TradeWindow"/> for the given trade ID.
         /// </summary>
         /// <param name="trade">Trade details</param>
-        public TradeWindow(ImmutableTrade trade)
+        public TradeWindow(ClientTradeSnapshot trade)
         {
             this.trade = trade;
 
@@ -117,8 +117,8 @@ namespace PhinixClient
             refreshAvailableItems();
 
             // Pre-fill offer caches as well
-            ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProtoOrUnknown));
-            theirOfferCache = StackedThings.GroupThings(trade.OtherPartyItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProtoOrUnknown));
+            ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
+            theirOfferCache = StackedThings.GroupThings(trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
         }
 
         public override void Close(bool doCloseSound = true)
@@ -143,8 +143,8 @@ namespace PhinixClient
                     trade = updatedTrade;
 
                     // Refresh trade caches
-                    ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProtoOrUnknown));
-                    theirOfferCache = StackedThings.GroupThings(trade.OtherPartyItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProtoOrUnknown));
+                    ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
+                    theirOfferCache = StackedThings.GroupThings(trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
 
                     // Reset the update flag
                     tradeUpdated = false;
@@ -251,7 +251,7 @@ namespace PhinixClient
 
 
                     // Get the items we have on offer and splice in the selected items
-                    IEnumerable<ProtoThing> actualOffer = trade.ItemsOnOffer.Concat(selectedThings.Select(TradingThingConverter.ConvertThingFromVerse));
+                    IEnumerable<TradeItemSnapshot> actualOffer = trade.ItemsOnOffer.Concat(selectedThings.Select(TradeItemConverter.ConvertThingFromVerse));
 
                     // Send an update to the server
                     tradeUi.UpdateTradeItems(trade.TradeId, actualOffer, token);
@@ -267,7 +267,7 @@ namespace PhinixClient
             if (Widgets.ButtonText(resetButtonRect, "Phinix_trade_resetButton".Translate()))
             {
                 // Convert and drop our items in pods
-                tradeUi.DropPods(trade.ItemsOnOffer.Select(TradingThingConverter.ConvertThingFromProto));
+                tradeUi.DropPods(trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshot));
 
                 // Reset all selected counts to zero
                 foreach (StackedThings stack in availableItems)
@@ -278,7 +278,7 @@ namespace PhinixClient
                 refreshAvailableItems();
 
                 // Update trade items
-                tradeUi.UpdateTradeItems(trade.TradeId, Array.Empty<ProtoThing>());
+                tradeUi.UpdateTradeItems(trade.TradeId, Array.Empty<TradeItemSnapshot>());
             }
 
             // Save GUI colour
@@ -327,7 +327,7 @@ namespace PhinixClient
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="args"></param>
-        private void OnTradeFinished(object sender, CompleteTradeEventArgs args)
+        private void OnTradeFinished(object sender, TradeCompletionEventArgs args)
         {
             Close();
         }
@@ -337,7 +337,7 @@ namespace PhinixClient
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="args"></param>
-        private void OnTradeUpdated(object sender, UITradeUpdateEventArgs args)
+        private void OnTradeUpdated(object sender, TradeUpdateEventArgs args)
         {
             // Save the updated trade and flag the current one to be replaced
             lock (updatedTradeLock)

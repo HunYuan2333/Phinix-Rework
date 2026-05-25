@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Trading;
+using PhinixClient.Trade;
 using Utils;
 using Utils.Framework;
 using Verse;
@@ -38,15 +38,15 @@ namespace PhinixClient.Framework
             codecContext.CompatibilityMode = compatibilityMode;
         }
 
-        public Thing[] DecodeTradeItems(IEnumerable<ProtoThing> legacyItems)
+        public Thing[] DecodeTradeItems(IEnumerable<TradeItemSnapshot> tradeItems)
         {
-            return DecodeItems(EncodeTradeItems(legacyItems));
+            return DecodeItems(EncodeTradeItems(tradeItems));
         }
 
-        public FrameworkItemPayload[] EncodeTradeItems(IEnumerable<ProtoThing> legacyItems)
+        public FrameworkItemPayload[] EncodeTradeItems(IEnumerable<TradeItemSnapshot> tradeItems)
         {
-            return (legacyItems ?? Enumerable.Empty<ProtoThing>())
-                .Select(encodeLegacyItem)
+            return (tradeItems ?? Enumerable.Empty<TradeItemSnapshot>())
+                .Select(encodeTradeItem)
                 .Where(payload => payload != null)
                 .ToArray();
         }
@@ -59,7 +59,7 @@ namespace PhinixClient.Framework
                 .ToArray();
         }
 
-        private FrameworkItemPayload encodeLegacyItem(ProtoThing item)
+        private FrameworkItemPayload encodeTradeItem(TradeItemSnapshot item)
         {
             IItemCodec codec = codecs.FirstOrDefault(candidate => candidate.CanEncode(item, codecContext));
             if (codec == null)
@@ -101,9 +101,9 @@ namespace PhinixClient.Framework
 
         private static Thing buildUnknownItem(string label)
         {
-            ProtoThing unknownProto = DefaultLegacyTradeItemCodec.CreateUnknownProtoThing(label);
+            TradeItemSnapshot unknownItem = DefaultLegacyTradeItemCodec.CreateUnknownTradeItemSnapshot(label);
 
-            return TradingThingConverter.ConvertThingFromProtoOrUnknown(unknownProto);
+            return TradeItemConverter.ConvertThingFromSnapshotOrUnknown(unknownItem);
         }
     }
 }

@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
-using Trading;
+using PhinixClient.Trade;
 using Utils.Framework;
 using Verse;
 
 namespace PhinixClient.Framework
 {
     /// <summary>
-    /// Default codec that bridges current trade <see cref="ProtoThing"/> payloads into the framework item pipeline.
+    /// Default codec that bridges built-in trade item snapshots into the framework item pipeline.
     /// </summary>
     public sealed class DefaultLegacyTradeItemCodec : IItemCodec
     {
@@ -17,17 +17,17 @@ namespace PhinixClient.Framework
 
         public bool CanEncode(object item, ItemCodecContext context)
         {
-            return item is ProtoThing;
+            return item is TradeItemSnapshot;
         }
 
         public FrameworkItemPayload Encode(object item, ItemCodecContext context)
         {
-            if (!(item is ProtoThing protoThing))
+            if (!(item is TradeItemSnapshot tradeItem))
             {
-                throw new InvalidOperationException($"Item is not a {nameof(ProtoThing)} and cannot be encoded by codec '{CodecId}'.");
+                throw new InvalidOperationException($"Item is not a {nameof(TradeItemSnapshot)} and cannot be encoded by codec '{CodecId}'.");
             }
 
-            global::Phinix.Framework.FrameworkVanillaItemData payload = toPayload(protoThing);
+            global::Phinix.Framework.FrameworkVanillaItemData payload = toPayload(tradeItem);
             return new FrameworkItemPayload
             {
                 CodecId = CodecId,
@@ -51,14 +51,14 @@ namespace PhinixClient.Framework
                 throw new InvalidOperationException($"Payload cannot be decoded by codec '{CodecId}'.");
             }
 
-            ProtoThing protoThing = decodeToProtoThing(payload);
+            TradeItemSnapshot item = decodeToTradeItemSnapshot(payload);
 
-            return TradingThingConverter.ConvertThingFromProtoOrUnknown(protoThing);
+            return TradeItemConverter.ConvertThingFromSnapshotOrUnknown(item);
         }
 
-        public static bool TryDecodeToProtoThing(FrameworkItemPayload payload, out ProtoThing protoThing)
+        public static bool TryDecodeToTradeItemSnapshot(FrameworkItemPayload payload, out TradeItemSnapshot item)
         {
-            protoThing = null;
+            item = null;
             if (payload == null ||
                 !string.Equals(payload.CodecId, DefaultCodecId, StringComparison.OrdinalIgnoreCase) ||
                 ((payload.PayloadBytes == null || payload.PayloadBytes.Length == 0) && string.IsNullOrEmpty(payload.PayloadJson)))
@@ -66,22 +66,16 @@ namespace PhinixClient.Framework
                 return false;
             }
 
-            protoThing = decodeToProtoThing(payload);
-            return protoThing != null;
+            item = decodeToTradeItemSnapshot(payload);
+            return item != null;
         }
 
-        public static ProtoThing CreateUnknownProtoThing(string label)
+        public static TradeItemSnapshot CreateUnknownTradeItemSnapshot(string label)
         {
-            return new ProtoThing
-            {
-                DefName = label ?? "UnknownItem",
-                StackCount = 1,
-                HitPoints = 1,
-                Quality = Quality.None
-            };
+            return new TradeItemSnapshot(label ?? "UnknownItem", 1, 1, TradeItemQuality.None);
         }
 
-        private static ProtoThing decodeToProtoThing(FrameworkItemPayload payload)
+        private static TradeItemSnapshot decodeToTradeItemSnapshot(FrameworkItemPayload payload)
         {
             if (payload.PayloadBytes != null && payload.PayloadBytes.Length > 0)
             {
@@ -93,80 +87,76 @@ namespace PhinixClient.Framework
             return fromLegacyPayload(legacyPayload);
         }
 
-        private static global::Phinix.Framework.FrameworkVanillaItemData toPayload(ProtoThing protoThing)
+        private static global::Phinix.Framework.FrameworkVanillaItemData toPayload(TradeItemSnapshot item)
         {
-            if (protoThing == null) return null;
+            if (item == null) return null;
 
             return new global::Phinix.Framework.FrameworkVanillaItemData
             {
-                DefName = protoThing.DefName,
-                StackCount = protoThing.StackCount,
-                HitPoints = protoThing.HitPoints,
-                Quality = toFrameworkQuality(protoThing.Quality),
-                StuffDefName = protoThing.StuffDefName,
-                InnerItem = toPayload(protoThing.InnerProtoThing)
+                DefName = item.DefName,
+                StackCount = item.StackCount,
+                HitPoints = item.HitPoints,
+                Quality = toFrameworkQuality(item.Quality),
+                StuffDefName = item.StuffDefName,
+                InnerItem = toPayload(item.InnerItem)
             };
         }
 
-        private static ProtoThing fromPayload(global::Phinix.Framework.FrameworkVanillaItemData payload)
+        private static TradeItemSnapshot fromPayload(global::Phinix.Framework.FrameworkVanillaItemData payload)
         {
             if (payload == null) return null;
 
-            return new ProtoThing
-            {
-                DefName = payload.DefName,
-                StackCount = payload.StackCount,
-                HitPoints = payload.HitPoints,
-                Quality = fromFrameworkQuality(payload.Quality),
-                StuffDefName = payload.StuffDefName,
-                InnerProtoThing = fromPayload(payload.InnerItem)
-            };
+            return new TradeItemSnapshot(
+                payload.DefName,
+                payload.StackCount,
+                payload.HitPoints,
+                fromFrameworkQuality(payload.Quality),
+                payload.StuffDefName,
+                fromPayload(payload.InnerItem));
         }
 
-        private static ProtoThing fromLegacyPayload(LegacyProtoThingPayload payload)
+        private static TradeItemSnapshot fromLegacyPayload(LegacyProtoThingPayload payload)
         {
             if (payload == null) return null;
 
-            return new ProtoThing
-            {
-                DefName = payload.DefName,
-                StackCount = payload.StackCount,
-                HitPoints = payload.HitPoints,
-                Quality = payload.Quality,
-                StuffDefName = payload.StuffDefName,
-                InnerProtoThing = fromLegacyPayload(payload.InnerProtoThing)
-            };
+            return new TradeItemSnapshot(
+                payload.DefName,
+                payload.StackCount,
+                payload.HitPoints,
+                payload.Quality,
+                payload.StuffDefName,
+                fromLegacyPayload(payload.InnerProtoThing));
         }
 
-        private static global::Phinix.Framework.FrameworkItemQuality toFrameworkQuality(Quality quality)
+        private static global::Phinix.Framework.FrameworkItemQuality toFrameworkQuality(TradeItemQuality quality)
         {
             switch (quality)
             {
-                case Quality.Awful: return global::Phinix.Framework.FrameworkItemQuality.Awful;
-                case Quality.Poor: return global::Phinix.Framework.FrameworkItemQuality.Poor;
-                case Quality.Normal: return global::Phinix.Framework.FrameworkItemQuality.Normal;
-                case Quality.Good: return global::Phinix.Framework.FrameworkItemQuality.Good;
-                case Quality.Excellent: return global::Phinix.Framework.FrameworkItemQuality.Excellent;
-                case Quality.Masterwork: return global::Phinix.Framework.FrameworkItemQuality.Masterwork;
-                case Quality.Legendary: return global::Phinix.Framework.FrameworkItemQuality.Legendary;
-                case Quality.None: return global::Phinix.Framework.FrameworkItemQuality.None;
+                case TradeItemQuality.Awful: return global::Phinix.Framework.FrameworkItemQuality.Awful;
+                case TradeItemQuality.Poor: return global::Phinix.Framework.FrameworkItemQuality.Poor;
+                case TradeItemQuality.Normal: return global::Phinix.Framework.FrameworkItemQuality.Normal;
+                case TradeItemQuality.Good: return global::Phinix.Framework.FrameworkItemQuality.Good;
+                case TradeItemQuality.Excellent: return global::Phinix.Framework.FrameworkItemQuality.Excellent;
+                case TradeItemQuality.Masterwork: return global::Phinix.Framework.FrameworkItemQuality.Masterwork;
+                case TradeItemQuality.Legendary: return global::Phinix.Framework.FrameworkItemQuality.Legendary;
+                case TradeItemQuality.None: return global::Phinix.Framework.FrameworkItemQuality.None;
                 default: return global::Phinix.Framework.FrameworkItemQuality.Unspecified;
             }
         }
 
-        private static Quality fromFrameworkQuality(global::Phinix.Framework.FrameworkItemQuality quality)
+        private static TradeItemQuality fromFrameworkQuality(global::Phinix.Framework.FrameworkItemQuality quality)
         {
             switch (quality)
             {
-                case global::Phinix.Framework.FrameworkItemQuality.Awful: return Quality.Awful;
-                case global::Phinix.Framework.FrameworkItemQuality.Poor: return Quality.Poor;
-                case global::Phinix.Framework.FrameworkItemQuality.Normal: return Quality.Normal;
-                case global::Phinix.Framework.FrameworkItemQuality.Good: return Quality.Good;
-                case global::Phinix.Framework.FrameworkItemQuality.Excellent: return Quality.Excellent;
-                case global::Phinix.Framework.FrameworkItemQuality.Masterwork: return Quality.Masterwork;
-                case global::Phinix.Framework.FrameworkItemQuality.Legendary: return Quality.Legendary;
-                case global::Phinix.Framework.FrameworkItemQuality.None: return Quality.None;
-                default: return Quality.None;
+                case global::Phinix.Framework.FrameworkItemQuality.Awful: return TradeItemQuality.Awful;
+                case global::Phinix.Framework.FrameworkItemQuality.Poor: return TradeItemQuality.Poor;
+                case global::Phinix.Framework.FrameworkItemQuality.Normal: return TradeItemQuality.Normal;
+                case global::Phinix.Framework.FrameworkItemQuality.Good: return TradeItemQuality.Good;
+                case global::Phinix.Framework.FrameworkItemQuality.Excellent: return TradeItemQuality.Excellent;
+                case global::Phinix.Framework.FrameworkItemQuality.Masterwork: return TradeItemQuality.Masterwork;
+                case global::Phinix.Framework.FrameworkItemQuality.Legendary: return TradeItemQuality.Legendary;
+                case global::Phinix.Framework.FrameworkItemQuality.None: return TradeItemQuality.None;
+                default: return TradeItemQuality.None;
             }
         }
 
@@ -183,7 +173,7 @@ namespace PhinixClient.Framework
             public int HitPoints { get; set; }
 
             [System.Runtime.Serialization.DataMember(Order = 3)]
-            public Quality Quality { get; set; }
+            public TradeItemQuality Quality { get; set; }
 
             [System.Runtime.Serialization.DataMember(Order = 4)]
             public string StuffDefName { get; set; }
