@@ -11,13 +11,13 @@ namespace PhinixClient.Framework
 {
     public sealed class FrameworkClientTradeServiceAdapter : IClientTradeService
     {
-        private readonly PhinixFrameworkTradeClientService tradeService;
+        private readonly IFrameworkTradeClientApi tradeService;
         private readonly PhinixFrameworkClient frameworkClient;
         private readonly ClientAuthenticator authenticator;
         private readonly ClientUserManager userManager;
         private readonly Func<ClientFrameworkContext> createContext;
 
-        public FrameworkClientTradeServiceAdapter(PhinixFrameworkTradeClientService tradeService, PhinixFrameworkClient frameworkClient, ClientAuthenticator authenticator, ClientUserManager userManager, Func<ClientFrameworkContext> createContext, Action<LogEventArgs> log)
+        public FrameworkClientTradeServiceAdapter(IFrameworkTradeClientApi tradeService, PhinixFrameworkClient frameworkClient, ClientAuthenticator authenticator, ClientUserManager userManager, Func<ClientFrameworkContext> createContext, Action<LogEventArgs> log)
         {
             this.tradeService = tradeService;
             this.frameworkClient = frameworkClient;

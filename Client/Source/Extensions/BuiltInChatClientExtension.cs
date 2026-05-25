@@ -7,19 +7,20 @@ namespace PhinixClient.Extensions
     [PhinixExtension("builtin.chat")]
     public class BuiltInChatClientExtension : IPhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IMessageRenderer
     {
-        private BuiltInChatClientHostServices hostServices;
+        private IFrameworkChatClientApi chatApi;
 
         public string ExtensionId => "builtin.chat";
 
         public int Priority => 1000;
 
-        public void Register(IExtensionComponentSink sink, ExtensionHostContext hostContext)
+        public void Register(IExtensionBuilder builder)
         {
-            hostServices = hostContext.GetRequiredService<BuiltInChatClientHostServices>();
-            sink.AddCapabilityProvider(this);
-            sink.AddClientMessageHandler(this);
-            sink.AddClientCommandHandler(this);
-            sink.AddMessageRenderer(this);
+            chatApi = builder.HostContext.GetRequiredService<IFrameworkChatClientApi>();
+            builder.RegisterApi(chatApi);
+            builder.AddCapabilityProvider(this);
+            builder.AddClientMessageHandler(this);
+            builder.AddClientCommandHandler(this);
+            builder.AddMessageRenderer(this);
         }
 
         public IEnumerable<string> GetCapabilities()
@@ -31,7 +32,7 @@ namespace PhinixClient.Extensions
 
         public bool CanHandleOutgoingText(string rawMessage)
         {
-            return hostServices?.ChatService != null &&
+            return chatApi != null &&
                    !string.IsNullOrWhiteSpace(rawMessage);
         }
 
@@ -40,7 +41,7 @@ namespace PhinixClient.Extensions
             return new ClientOutgoingMessageResult
             {
                 Action = MessageHandlingResultAction.Handled,
-                Message = hostServices.ChatService.CreateOutgoingMessage(rawMessage, context)
+                Message = chatApi.CreateOutgoingMessage(rawMessage, context)
             };
         }
 
@@ -54,7 +55,7 @@ namespace PhinixClient.Extensions
             return new ClientIncomingMessageResult
             {
                 Action = MessageHandlingResultAction.Handled,
-                DisplayMessage = hostServices.ChatService.RenderMessage(message)
+                DisplayMessage = chatApi.RenderMessage(message)
             };
         }
 
@@ -65,7 +66,7 @@ namespace PhinixClient.Extensions
 
         public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context)
         {
-            hostServices?.NotifyChatSynced?.Invoke();
+            chatApi?.NotifyHistorySynced();
 
             return new ClientIncomingCommandResult
             {
@@ -80,7 +81,7 @@ namespace PhinixClient.Extensions
 
         public FrameworkDisplayMessage Render(FrameworkPacket message)
         {
-            return hostServices.ChatService.RenderMessage(message);
+            return chatApi.RenderMessage(message);
         }
     }
 }

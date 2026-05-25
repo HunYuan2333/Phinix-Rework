@@ -36,8 +36,6 @@ namespace PhinixClient.Framework
         private readonly object displayMessagesLock = new object();
         private readonly Timer negotiationTimer;
         private int displayMessageCountAtLastCheck;
-        private PhinixFrameworkChatService chatService;
-
         public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
@@ -225,7 +223,21 @@ namespace PhinixClient.Framework
             sendPacket(packet);
         }
 
-        public void ConfigureChatService(PhinixFrameworkChatService chatService) => this.chatService = chatService;
+        public bool TryResolveExtensionApi<T>(out T implementation) where T : class
+        {
+            if (discoveredExtensions.ApiRegistry != null)
+            {
+                return discoveredExtensions.ApiRegistry.TryResolve(out implementation);
+            }
+
+            implementation = null;
+            return false;
+        }
+
+        public IReadOnlyList<T> ResolveExtensionApis<T>() where T : class
+        {
+            return discoveredExtensions.ApiRegistry?.ResolveAll<T>() ?? Array.Empty<T>();
+        }
 
         private void packetHandler(string module, string connectionId, byte[] data)
         {
@@ -398,8 +410,8 @@ namespace PhinixClient.Framework
                 displayMessages.Add(message);
             }
 
-            UIChatMessage uiMessage = chatService != null
-                ? chatService.ToUiMessage(message, userManager)
+            UIChatMessage uiMessage = TryResolveExtensionApi(out IFrameworkChatClientApi chatApi)
+                ? chatApi.ToUiMessage(message, userManager)
                 : new UIChatMessage(
                     message.MessageId,
                     message.SenderUuid,

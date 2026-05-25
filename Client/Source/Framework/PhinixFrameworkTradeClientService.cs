@@ -9,7 +9,39 @@ using Utils.Framework;
 
 namespace PhinixClient.Framework
 {
-    public sealed class PhinixFrameworkTradeClientService
+    public interface IFrameworkTradeClientApi
+    {
+        event EventHandler RepositoryChanged;
+        event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess;
+        event EventHandler<TradeCreationEventArgs> OnTradeCreationFailure;
+        event EventHandler<TradeUpdateEventArgs> OnTradeUpdateSuccess;
+        event EventHandler<TradeUpdateEventArgs> OnTradeUpdateFailure;
+        event EventHandler<TradesSyncedEventArgs> OnTradesSynced;
+        event EventHandler<TradeCompletionEventArgs> OnTradeCompleted;
+        event EventHandler<TradeCompletionEventArgs> OnTradeCancelled;
+
+        FrameworkTradeStateSnapshot[] GetRepositoryTrades();
+        string[] GetTradeIds();
+        ClientTradeSnapshot[] GetTrades();
+        bool TryGetTrade(string tradeId, out ClientTradeSnapshot trade);
+        bool TryGetOtherPartyUuid(string tradeId, string localUuid, out string otherPartyUuid);
+        bool TryGetOtherPartyAccepted(string tradeId, string localUuid, out bool otherPartyAccepted);
+        bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted);
+        bool TryGetItemsOnOffer(string tradeId, string partyUuid, out IEnumerable<TradeItemSnapshot> items);
+        void RequestSnapshot(PhinixFrameworkClient frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid);
+        FrameworkPacket CreateTradeRequest(string otherPartyUuid, ClientFrameworkContext context);
+        FrameworkPacket CreateOfferUpdateRequest(string tradeId, IEnumerable<TradeItemSnapshot> tradeItems, ClientFrameworkContext context);
+        FrameworkPacket CreateStatusUpdateRequest(string tradeId, bool? accepted, bool? cancelled, ClientFrameworkContext context);
+        void TrackPendingTradeUpdate(string tradeId, string token);
+        void HandleSnapshot(FrameworkPacket packet);
+        void HandleCreateResponse(FrameworkPacket packet);
+        void HandleOfferUpdateResponse(FrameworkPacket packet);
+        void HandleStatusUpdateResponse(FrameworkPacket packet);
+        void HandleCompletedEvent(FrameworkPacket packet);
+        void HandleCancelledEvent(FrameworkPacket packet);
+    }
+
+    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private readonly PhinixClientItemPipeline itemPipeline;

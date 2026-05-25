@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<PhinixFrameworkTradeStore.FrameworkTradeStoreState xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.datacontract.org/2004/07/PhinixServer.Framework">
+  <ActiveTrades xmlns:d2p1="http://schemas.datacontract.org/2004/07/Phinix.TradeExtension" />
+  <PendingCompletionNotifications />
+</PhinixFrameworkTradeStore.FrameworkTradeStoreState>

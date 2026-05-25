@@ -231,6 +231,7 @@
 
 ## Related Docs
 - `docs/phinix-framework-roadmap.md`
+- `docs/phase6-core-only-extension-architecture.md`
 - `docs/phinix-core-extension-boundary-assessment.md`
 
 ## Short Handoff

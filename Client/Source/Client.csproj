@@ -116,8 +116,6 @@
     <Compile Include="Extensions\RedPacketClientExtension.cs" />
     <Compile Include="Framework\DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="Framework\DefaultTradeCompletionHandler.cs" />
-    <Compile Include="Framework\BuiltInChatClientHostServices.cs" />
-    <Compile Include="Framework\BuiltInTradeClientHostServices.cs" />
     <Compile Include="Framework\ClientTradeUiFacade.cs" />
     <Compile Include="Framework\FrameworkClientTradeServiceAdapter.cs" />
     <Compile Include="Framework\IClientTradeFacade.cs" />

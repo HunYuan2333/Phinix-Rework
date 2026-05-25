@@ -112,8 +112,8 @@ namespace PhinixClient
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
-        private PhinixFrameworkChatService frameworkChatService;
-        private PhinixFrameworkTradeClientService frameworkTradeService;
+        private IFrameworkChatClientApi frameworkChatService;
+        private IFrameworkTradeClientApi frameworkTradeService;
         private PhinixClientItemPipeline itemPipeline;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
         private PhinixClientTradeCompletionPipeline tradeCompletionPipeline;
@@ -178,10 +178,21 @@ namespace PhinixClient
                 Log = (message, level) => Log(new LogEventArgs(message, level)),
                 StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "client"))
             };
-            extensionHostContext.AddService(new BuiltInChatClientHostServices(frameworkChatService, NotifyFrameworkChatSynced));
-            extensionHostContext.AddService(new BuiltInTradeClientHostServices(frameworkTradeService));
+            extensionHostContext.AddService<IFrameworkChatClientApi>(frameworkChatService);
+            extensionHostContext.AddService<IFrameworkTradeClientApi>(frameworkTradeService);
+            extensionHostContext.AddService(itemPipeline);
+            extensionHostContext.AddService(userManager);
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
-            frameworkClient.ConfigureChatService(frameworkChatService);
+            if (!frameworkClient.TryResolveExtensionApi(out frameworkChatService))
+            {
+                throw new InvalidOperationException("The built-in chat client extension did not register IFrameworkChatClientApi.");
+            }
+
+            if (!frameworkClient.TryResolveExtensionApi(out frameworkTradeService))
+            {
+                throw new InvalidOperationException("The built-in trade client extension did not register IFrameworkTradeClientApi.");
+            }
+
             frameworkTradeAdapter = new FrameworkClientTradeServiceAdapter(frameworkTradeService, frameworkClient, authenticator, userManager, createFrameworkContext, Log);
             defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(this, userManager, itemPipeline, dropPods, Log);
             tradeCompletionPipeline = new PhinixClientTradeCompletionPipeline(itemPipeline, Log, new DefaultTradeCompletionHandler(defaultTradeBehaviour));
@@ -198,6 +209,7 @@ namespace PhinixClient
                     frameworkTradeAdapter.RequestInitialSync();
                 }
             };
+            frameworkChatService.HistorySynced += (_, __) => OnChatSync?.Invoke(this, EventArgs.Empty);
 
             #region Module Event Handlers
             // Subscribe to connection events
@@ -632,13 +644,6 @@ namespace PhinixClient
                     break;
             }
         }
-
-        internal void NotifyFrameworkChatSynced()
-        {
-            OnChatSync?.Invoke(this, EventArgs.Empty);
-        }
-
-        internal PhinixFrameworkChatService FrameworkChatService => frameworkChatService;
 
         /// <summary>
         /// Handles credential requests from the <see cref="ClientAuthenticator"/> module.

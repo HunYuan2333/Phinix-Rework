@@ -9,8 +9,37 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkChatService
+    public interface IFrameworkChatClientApi
     {
+        event EventHandler HistorySynced;
+
+        FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context);
+
+        FrameworkDisplayMessage RenderMessage(FrameworkPacket message);
+
+        FrameworkPacket CreateHistoryRequestPacket(string sessionId, string senderUuid);
+
+        void RequestHistory(PhinixFrameworkClient frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid);
+
+        UIChatMessage[] BuildUiMessages(IEnumerable<FrameworkDisplayMessage> messages, ClientUserManager userManager);
+
+        bool TryGetUiMessage(IEnumerable<FrameworkDisplayMessage> messages, string messageId, ClientUserManager userManager, out UIChatMessage message);
+
+        int CountUnreadExcluding(IEnumerable<FrameworkDisplayMessage> messages, IEnumerable<string> excludedUuids);
+
+        bool ShouldDisplayChatMessage(UIChatMessage message, IEnumerable<string> blockedUserUuids, bool includeBlockedMessages);
+
+        bool ShouldPlayNotification(UIChatMessage message, string localUuid, bool playNoiseOnMessageReceived, bool isInGame, IEnumerable<string> blockedUserUuids);
+
+        UIChatMessage ToUiMessage(FrameworkDisplayMessage message, ClientUserManager userManager);
+
+        void NotifyHistorySynced();
+    }
+
+    public class PhinixFrameworkChatService : IFrameworkChatClientApi
+    {
+        public event EventHandler HistorySynced;
+
         public FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context)
         {
             global::Phinix.Framework.BuiltInChatMessagePayload payload = new global::Phinix.Framework.BuiltInChatMessagePayload
@@ -160,6 +189,11 @@ namespace PhinixClient.Framework
                 status: UIChatMessageStatus.Confirmed,
                 user: user,
                 source: message.Source);
+        }
+
+        public void NotifyHistorySynced()
+        {
+            HistorySynced?.Invoke(this, EventArgs.Empty);
         }
 
         private string ResolveDisplayText(FrameworkDisplayMessage message)
