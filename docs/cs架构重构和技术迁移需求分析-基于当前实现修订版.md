@@ -524,6 +524,27 @@ extension 成为一等公民
 host 只提供最小宿主服务
 ```
 
+这里还需要补一条边界澄清，避免后续实现者把 “Common 瘦身” 误解成 “Common 完全不允许出现任何业务语义”：
+
+> Common 不应继续承载业务实现、业务流程编排、官方功能特判以及任何 client-only / server-only 运行时代码；但它仍然可以保留“双端必须共同理解”的契约级业务语义，例如共享 packet、DTO、枚举、capability 名称、extension API 抽象和 handler contract。
+
+换句话说，应该被保留在 Common 的是：
+
+```text
+协议
+抽象
+runtime-neutral 基础设施
+```
+
+而不应该继续停留在 Common 的是：
+
+```text
+具体业务处理器
+服务端状态管理器
+客户端 UI 模型
+host 对官方扩展的特殊假设
+```
+
 这里需要进一步明确一个容易被忽略的需求：
 
 > “extension 成为一等公民”不只是指支持更多插件，更是指 `chat`、`trade` 和未来新增扩展在架构地位上必须平等。
@@ -597,20 +618,347 @@ core 越来越懂业务
 
 只要它们继续长期停留在 Common 主树里，团队在认知上就会更容易把它们视为“框架组成部分”，而不是“与其他插件平权的扩展模块”。
 
+另外还需要明确一条容易被误判的边界：
+
+> 把 `server-only` 源码文件从 `Common` 目录物理迁出，只能算 `Phase 2` 的完成条件之一，但不能等同于 `Common` 程序集边界已经彻底瘦身。
+
+更具体地说，可以接受这样的过渡态：
+
+```text
+源码路径已经迁到 /Server 或其他更合理的宿主目录
+但暂时仍编译进原有 Common 程序集
+```
+
+这样做的价值是：
+
+```text
+先修正目录边界和团队认知
+降低一次性改动的依赖爆炸风险
+不给当前 client/server 引用链引入过多破坏
+```
+
+但它也意味着：
+
+```text
+Common 的“物理目录边界”变干净了
+Common 的“程序集边界”还没有完全变干净
+```
+
+因此，`Phase 2` 更合适的完成定义应当是：
+
+> 先把明显的 `runtime-specific` 实现和 `client-only / server-only` 源码从 `Common` 主树中迁出，完成目录层面的收口；至于这些类型是否立即拆出原有程序集，不应在这一阶段强行一次做完。
+
+---
+
+### Phase 2.5：拆 Common 的程序集边界
+
+在 `Phase 2` 之后，建议补一个单独的小阶段，而不是把这部分直接混进 `Phase 3`。
+
+原因是这件事虽然和服务端 modern .NET 迁移有关，但它本质上首先是：
+
+```text
+编译边界收口
+程序集职责重分
+引用方向治理
+```
+
+而不只是运行时升级。
+
+这一阶段的核心任务应改写为：
+
+```text
+1. 把仍然挂在 Common 程序集里的 server-only 类型逐步拆出
+2. 评估 Authentication / UserManagement / Utils 是否需要拆成 shared + server 两层
+3. 让 Common 最终只保留真正双端共享的 contract、abstraction 和少量 runtime-neutral 实现
+```
+
+针对第 2 点，结合当前代码可以先给出一个明确结论：
+
+> 这三个项目都需要完成 shared / server 职责分离，但不应该机械地“一刀切”成完全对称的双层结构。更准确的策略是：`Authentication` 与 `UserManagement` 需要显式拆成 `shared + server` 两层；`Utils` 不需要整体拆成两层，而是把极少数 server-only 运行时能力单独迁出即可。
+
+原因分别如下。
+
+#### Authentication：需要拆成 `shared + server`
+
+当前 `Authentication` 同时包含了：
+
+```text
+shared:
+  Authenticator
+  ClientAuthenticator
+  Credential / CredentialStore
+  AuthenticatePacket / AuthResponsePacket / HelloPacket / ExtendSessionPacket 等协议
+
+server-only:
+  ServerAuthenticator
+  Session
+```
+
+并且 `ServerAuthenticator` 不是一个轻量包装层，而是明确承载了服务端运行时状态：
+
+```text
+NetServer 绑定
+session 生命周期管理
+credential store 持久化
+connection/session/username 映射
+服务端认证包处理与响应发送
+```
+
+这类能力既不会被客户端复用，也不适合作为 Common 的共享实现长期保留。
+
+因此，`Authentication` 最合适的方向是：
+
+```text
+Authentication(shared)
+  保留认证协议、共享模型、Authenticator 抽象、ClientAuthenticator
+
+Authentication.Server
+  持有 ServerAuthenticator / Session
+  依赖 Authentication(shared) + Connections + Utils
+```
+
+#### UserManagement：需要拆成 `shared + server`
+
+当前 `UserManagement` 也同时包含了：
+
+```text
+shared:
+  UserManager
+  ClientUserManager
+  ImmutableUser
+  User / UserStore
+  LoginPacket / LoginResponsePacket / UserSyncPacket / UserUpdatePacket
+  若干双端共享事件类型
+
+server-only:
+  ServerUserManager
+  ServerLoginEventArgs
+```
+
+其中 `ServerUserManager` 已经明显不只是“共享逻辑的一个具体实现”，而是服务端核心运行时组件：
+
+```text
+依赖 ServerAuthenticator 校验 session
+维护 connectionId -> uuid 的在线映射
+处理登录与掉线登出
+广播 UserUpdate / UserSync
+对接 Chat / Trade 等服务端扩展
+```
+
+另外，当前 `Extensions/Chat/Server` 与 `Extensions/Trade/Server` 已经直接消费 `ServerUserManager` 和 `ServerLoginEventArgs`。这进一步说明：
+
+> 它们已经是稳定的服务端侧 API，而不是 Common 层里的偶然实现细节。
+
+因此，`UserManagement` 最合适的方向是：
+
+```text
+UserManagement(shared)
+  保留 user model、共享抽象、客户端实现、协议与双端共享事件
+
+UserManagement.Server
+  持有 ServerUserManager / ServerLoginEventArgs
+  依赖 UserManagement(shared) + Authentication.Server
+```
+
+#### Utils：不建议整体拆成 `shared + server`
+
+`Utils` 的情况和前两者不同。
+
+当前 `Utils` 的主体实际上已经是共享基础设施：
+
+```text
+Framework proto / serialization / registry
+ILoggable / LogEventArgs / LogLevel
+IPersistent
+ProtobufPacketHelper
+TextHelper
+TypeUrl
+```
+
+这里只有一小块明确属于服务端运行时：
+
+```text
+ConsoleHighlighting
+HighlightType
+```
+
+这部分能力的特征是：
+
+```text
+只给服务端控制台日志增强使用
+客户端没有依赖
+对 framework shared contract 没有贡献
+```
+
+所以 `Utils` 更适合采用：
+
+```text
+Utils(shared)
+  继续保留现有绝大多数 runtime-neutral 内容
+
+ServerRuntime 或 Utils.Server(小型 server-only 程序集)
+  仅承载 ConsoleHighlighting / HighlightType 这类控制台运行时能力
+```
+
+也就是说，`Utils` 不需要被整体拆成一个与 `Authentication` / `UserManagement` 对称的双层体系；只需要把 server-only 的尾巴切干净即可。
+
+综合起来，这一项评估的最终结论应写成：
+
+```text
+Authentication：需要拆成 shared + server
+UserManagement：需要拆成 shared + server
+Utils：不建议整体双层化，只需把 server-only 运行时能力单独迁出
+```
+
+并且这一步在当前仓库里已经不是抽象讨论，而是有非常具体的落点。
+
+当前代码至少已经暴露出三类典型信号：
+
+```text
+1. Extensions/Chat 和 Extensions/Trade 已经独立成新的项目树
+2. 但 Authentication / UserManagement / Utils 仍然属于 Common 侧程序集
+3. 这些 Common 程序集里依旧通过 csproj 直接编译 ../../Server 下的源码文件
+```
+
+例如当前真实情况包括：
+
+```text
+Common/Authentication/Authentication.csproj
+  -> 编译 ../../Server/Authentication/ServerAuthenticator.cs
+  -> 编译 ../../Server/Authentication/Session.cs
+
+Common/UserManagement/UserManagement.csproj
+  -> 编译 ../../Server/UserManagement/ServerLoginEventArgs.cs
+  -> 编译 ../../Server/UserManagement/ServerUserManager.cs
+
+Common/Utils/Utils.csproj
+  -> 编译 ../../Server/ConsoleHighlighting.cs
+```
+
+这意味着当前仓库虽然已经完成了部分“物理目录迁出”，但还没有完成“编译时依赖方向收口”：
+
+```text
+Server 项目在引用 Common
+Common 程序集却仍然反向吞入 Server 源码
+最终形成的仍然是“目录分开了，但程序集职责还缠在一起”的过渡态
+```
+
+这里尤其要避免一个误区：
+
+> 不要因为 `server-only` 代码文件已经放到了 `/Server` 目录，就误以为 `Common` 已经完成了最终瘦身；如果这些类型仍然编译进 `Authentication` / `UserManagement` / `Utils` 等 Common 程序集，它们仍然属于过渡态。
+
+这一阶段更合适的实施策略，不是一次性把所有 Common 都打碎重组，而是按“最小可验证拆分”推进：
+
+```text
+第一步：先消除 Common csproj 对 ../../Server/*.cs 的直接 Compile Include
+第二步：让 server-only 类型回到 Server 自己拥有的程序集
+第三步：再视情况决定是否继续把 shared 部分细拆成更纯粹的 contract / runtime 层
+```
+
+如果结合当前项目状态，更稳妥的目标形态可以是：
+
+```text
+Utils
+  保留 framework proto、序列化、文本工具、扩展注册等 runtime-neutral 能力
+  把 ConsoleHighlighting 彻底移回 Server
+
+Authentication
+  保留认证协议、共享模型、客户端所需能力
+  把 ServerAuthenticator / Session 拆到 Server 自有程序集
+
+UserManagement
+  保留 user model、同步协议、双端共享事件或抽象
+  把 ServerUserManager / ServerLoginEventArgs 拆到 Server 自有程序集
+```
+
+这里的关键不是名字一定怎么取，而是引用方向必须变成：
+
+```text
+Server -> Common(shared contracts / abstractions)
+而不是
+Common -> 编译 Server 源码
+```
+
+从风险控制上看，`Phase 2.5` 最好明确排除几件容易一起被打包进来的大事：
+
+```text
+不要在这一阶段同步推进 net8/net10 升级
+不要在这一阶段强行引入外部插件装载机制
+不要在这一阶段重写 message / command / item 三管道语义
+```
+
+因为这一步的目标不是“功能升级”，而是：
+
+```text
+先把程序集边界拉直
+先把引用方向理顺
+先让后续 modern .NET 迁移拥有可控前置条件
+```
+
+因此，`Phase 2.5` 建议补上更清晰的完成条件：
+
+```text
+1. Common 下所有 csproj 不再直接 Compile Include ../../Server 下的源码文件
+2. server-only 类型由 Server 或 Server 侧专属程序集显式持有
+3. Server 对这些能力的依赖改成正常 ProjectReference，而不是反向编译注入
+4. CommonBoundaryTests 这类边界校验继续保留，并用于防止回归
+```
+
+如果以上四点做到了，即使 `Authentication`、`UserManagement`、`Utils` 还没有一步拆成最理想的多层结构，也可以认为：
+
+> `Phase 2.5` 已完成“程序集边界收口”的主要目标，并为 `Phase 3` 的服务端 modern .NET 迁移创造了更干净的起跑线。
+
+把这一步单独记成 `Phase 2.5` 的好处是：
+
+```text
+既承认 Phase 2 的目录收口价值
+又明确告诉后续实现者：程序集解耦还没做完
+同时避免和 modern .NET 服务端迁移搅在一起，导致风险叠加
+```
+
 ---
 
 ### Phase 3：服务端迁移到 modern .NET
 
 这一步应当被提升优先级。
 
-真实迁移目标建议分两段：
+但这里必须先明确一个前提：
+
+> Phase 3 不是“整个仓库一起升级到 modern .NET”，而是“在不破坏 RimWorld / Unity / Mono 客户端前提下，优先完成服务端运行时现代化”。
+
+当前 `Client` 明确仍处于 Unity/Mono 生态，不能为了服务端迁移而被动跟随升级。因此，`Phase 3` 的正确目标不是：
+
+```text
+Client / Common / Server 一次性全切 modern .NET
+```
+
+而应当是：
+
+```text
+Client 继续保留 net472
+Server 侧项目迁移到 modern .NET
+服务端所依赖的 Common 项目改造成同时支持 net472 + net10.0
+```
+
+也就是说，这一阶段真正要建立的是：
+
+```text
+Client -> 继续消费 Common(net472)
+Server -> 消费 Common(net10.0)
+Common -> 成为双端兼容的 multi-target 共享层
+```
+
+基于当前目标和工具链判断，真实迁移目标建议分两段：
 
 ```text
 第一阶段：
-  server -> net8.0
+  先把服务端依赖链改造成可迁移结构
+  Common(shared) -> net472 + net10.0
+  Server 专属项目 -> net10.0
 
 第二阶段：
-  根据工具链和依赖清理结果继续升到更高版本
+  Server host -> net10.0
+  Docker 与部署链路切到 .NET 原生容器
 ```
 
 原因很简单：
@@ -619,9 +967,235 @@ core 越来越懂业务
 当前 Server 仍依赖 net472
 Docker 仍使用 mono
 线程与宿主模型仍偏旧
+Client 又不能脱离 Unity/Mono 生态同步迁移
 ```
 
 只要这一层不动，后续真正的插件化、可维护部署、现代诊断工具链都会被持续拖累。
+
+这里还要补一条非常关键的实施约束：
+
+> 由于当前 `Server` 并不是只依赖自己目录下的代码，而是直接依赖 `Common\Utils`、`Common\Connections`、`Common\Authentication`、`Common\UserManagement` 以及 `Extensions\Chat\Contracts`、`Extensions\Trade\Contracts` 等共享项目，所以 `Server` 不能孤立地单独切到 `net10.0`；必须先把服务端依赖到的共享程序集迁成可同时面向 `net472` 和 `net10.0` 的双目标项目。
+
+因此，`Phase 3` 更合适的实施顺序应改写为：
+
+```text
+1. 先识别 Server 依赖链上的 shared 项目
+2. 把这些 shared 项目从 net472 单目标改成 net472 + net10.0 双目标
+3. 保证 Client 继续只消费 net472 输出，不改其运行时前提
+4. 再把 ServerRuntime / Authentication.Server / UserManagement.Server / ChatExtension.Server / TradeExtension.Server 迁到 net10.0
+5. 最后把 Server host 自身迁到 net10.0
+6. 收尾 Dockerfile、发布物结构和诊断/运行命令
+```
+
+结合当前仓库，优先需要进入双目标或 modern .NET 迁移链的项目大致是：
+
+```text
+需要双目标（至少 net472 + net10.0）：
+  Common/Utils
+  Common/Connections
+  Common/Authentication
+  Common/UserManagement
+  Extensions/Chat/Contracts
+  Extensions/Trade/Contracts
+
+继续保持 net472：
+  Client
+  ClientExtensionAbstractions
+  ChatExtension.Client
+  TradeExtension.Client
+
+迁移到 net10.0：
+  ServerRuntime
+  Authentication.Server
+  UserManagement.Server
+  ChatExtension.Server
+  TradeExtension.Server
+  Server
+```
+
+这里还有一个口径需要明确写进文档，避免后续在实现中再次把 Common 做厚：
+
+> Common 在 `Phase 3` 中的目标不是“继续兼容所以什么都能放”，而是“为了双端兼容，只保留共享契约级业务语义和 runtime-neutral 基础设施”。任何具体业务流程、状态管理、日志宿主行为、UI 行为和 host 特判，都不应借着 multi-target 的名义重新回流到 Common。
+
+从 Visual Studio / 工具链角度，也建议把目标表述修正得更落地一些：
+
+```text
+开发机侧：
+  Visual Studio 2026 18.x
+  .NET 10 SDK
+  .NET Framework 4.7.2 targeting pack
+
+原因：
+  需要同时构建 net10.0 的 Server 侧项目
+  也需要继续构建 net472 的 Client 与 shared 输出
+```
+
+因此，`Phase 3` 的完成条件不应只写成“Server 能在 modern .NET 上运行”，而应更具体地定义为：
+
+```text
+1. Client 仍可按原有 net472 / Unity 前提编译
+2. Server 及其 server-only 依赖可在 net10.0 下编译和运行
+3. Server 所依赖的 Common/shared 项目已完成 net472 + net10.0 双目标
+4. Common 未因兼容而重新吸纳 server-only / client-only 实现
+5. Docker 构建与运行不再依赖 mono
+```
+
+---
+
+### Phase 3.5：完成 Phase 3 的运行时与发布链收尾
+
+当 `Phase 3` 的代码迁移主目标完成后，还需要补一个单独的小阶段来处理“已经能在 VS 中编译通过，但运行时与发布链尚未完全跟上”的问题。
+
+这一阶段不再以“目标框架切换”为核心，而是以：
+
+```text
+modern .NET 运行时兼容清理
+服务端宿主行为收尾
+容器与发布链同步更新
+迁移后技术债收口
+```
+
+为核心。
+
+之所以建议单列 `Phase 3.5`，是因为当前仓库非常容易出现一种误判：
+
+> 只要 `Server`、`Common`、`ChatExtension.Server`、`TradeExtension.Server` 在 Visual Studio 里全部重建通过，就意味着 modern .NET 迁移已经彻底完成。
+
+这在代码迁移层面大体成立，但在运行时与部署层面并不成立。
+
+更准确地说：
+
+```text
+Phase 3 完成的是：
+  代码结构与目标框架迁移
+  VS 构建链打通
+  shared/server 边界在 modern .NET 下可编译
+
+Phase 3.5 负责的是：
+  modern .NET 下的运行时兼容问题
+  过时 API 清理
+  Dockerfile 与发布物结构迁移
+  对旧版 host / extension 假设的最终收口
+```
+
+#### 当前需要进入 Phase 3.5 的原因
+
+结合当前仓库状态，可以明确判断：
+
+```text
+1. Server / Common / Chat / Trade 的 modern .NET 编译链已经打通
+2. 但仍然存在 Thread.Abort、RNGCryptoServiceProvider 等迁移后遗留警告
+3. Google.Protobuf 本地工程仍有 modern SDK 警告噪声
+4. Dockerfile 仍然没有跟随 Phase 3 做任何实质更新
+```
+
+尤其是最后一点需要单独强调：
+
+> 当前 `Dockerfile` 仍然基本保持旧版本形态，没有体现 `Server -> net10.0` 的发布方式，也没有体现 chat/trade 已经迁移为 framework v2 下的官方扩展服务端实现。
+
+这意味着目前的完成状态应理解为：
+
+```text
+代码迁移完成
+!=
+容器化发布链完成
+```
+
+进一步说，`Dockerfile` 当前仍然继承的是：
+
+```text
+Mono / net472 时代的服务端运行方式
+旧版 PhinixServer.exe 容器启动语义
+chat / trade 仍像早期那样随旧服务端形态一起发布的假设
+```
+
+而不是当前已经实现的：
+
+```text
+Server host = net10.0
+ChatExtension.Server / TradeExtension.Server = Server 侧扩展程序集
+shared contracts = net472 + net10.0 双目标
+```
+
+因此，`Phase 3.5` 需要把“编译通过”补全为“可按当前架构正确部署和运行”。
+
+#### Phase 3.5 的核心任务
+
+建议这一阶段聚焦以下四类任务：
+
+```text
+1. 清理 modern .NET 运行时不再安全或不再支持的旧 API
+2. 收敛 shared/server 迁移后残留的构建与 SDK 警告
+3. 迁移 Dockerfile、容器运行方式和发布物结构
+4. 明确迁移完成后的 host / extension 发布边界
+```
+
+可以更具体地写成：
+
+```text
+API 清理：
+  - Connections 中移除或替换 Thread.Abort
+  - Authentication 中将 RNGCryptoServiceProvider 替换为 RandomNumberGenerator 新写法
+  - 评估其他仅在 modern .NET 下出现的过时 API 或平台兼容警告
+
+构建噪声收口：
+  - 评估并清理 Google.Protobuf 本地工程的 NETSDK1212 等 warning
+  - 区分“可接受历史兼容 warning”和“会影响未来维护的真实 warning”
+
+服务端发布链迁移：
+  - 将 Dockerfile 从 Mono / net472 时代的构建与运行方式迁移到 modern .NET
+  - 调整发布物输出结构，使其符合 net10.0 Server host 的运行方式
+  - 更新容器入口命令、工作目录和依赖复制方式
+
+架构口径收尾：
+  - 明确 chat / trade 虽然仍可作为官方随发扩展存在，但其发布方式应体现为 extension 体系的一部分
+  - 避免 Dockerfile、部署脚本或运行目录重新把 chat / trade 写回“半内建直接实现”的旧语义
+```
+
+这里尤其要加一条发布边界要求：
+
+> `Phase 3.5` 中对 Dockerfile 和发布链的调整，不能只是把 `mono PhinixServer.exe` 机械替换成 `dotnet` 启动命令；更重要的是让发布物结构与当前 framework v2 + official extensions 的真实架构一致。
+
+也就是说，这一阶段要防止出现一种“表面 modern .NET，内里还是旧架构打包思路”的半迁移状态。
+
+#### Dockerfile 需要特别补充的修订口径
+
+建议在这一阶段把 `Dockerfile` 的状态明确记成：
+
+```text
+当前 Dockerfile 未完成迁移
+它仍然是旧版部署脚本
+并且仍然停留在早期 chat / trade 直接实现版服务端的发布语境
+```
+
+这里的“未完成迁移”不仅仅指基础镜像旧，还包括：
+
+```text
+没有体现 Server -> net10.0 的发布流程
+没有体现 shared/server 项目已经重新分层
+没有体现 ChatExtension.Server / TradeExtension.Server 作为服务端扩展程序集的当前结构
+没有体现未来继续向 Mods/外部插件方向演进所需要的目录边界
+```
+
+因此，文档里应当避免把 `Phase 3` 的完成直接写成“服务端 modern .NET 与 Docker 部署都已完成”，更准确的表达是：
+
+> `Phase 3` 完成的是代码与 VS 构建链迁移；`Phase 3.5` 才负责把 Dockerfile、发布链和运行时技术债补齐。
+
+#### Phase 3.5 的完成条件
+
+建议把这一阶段的完成条件写得比 `Phase 3` 更运行时导向：
+
+```text
+1. Server 侧 modern .NET 代码迁移后的主要过时 API 已完成替换或有明确处置策略
+2. 共享层与服务端链路只剩可接受的历史兼容 warning，不再存在高风险运行时 warning
+3. Dockerfile 已从旧 Mono / net472 方案迁移到 modern .NET 服务端发布方式
+4. 容器入口、发布物结构和工作目录与当前 extension 架构一致
+5. chat / trade 在发布链中被表述为官方扩展，而不是重新退回“主程序内建直接实现”的旧口径
+```
+
+如果以上五点完成，才更适合说：
+
+> 服务端 modern .NET 迁移不仅在代码层完成，也在运行时和部署层真正完成。
 
 ---
 

@@ -181,15 +181,15 @@
       <Project>{E983D5C7-A573-44E4-A8BB-D5A9D78EA538}</Project>
       <Name>Authentication</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
+    <ProjectReference Include="..\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\ChatExtension\ChatExtension.csproj">
+    <ProjectReference Include="..\..\Extensions\Chat\Contracts\ChatExtension.csproj">
       <Project>{7B7D7B5F-D806-4A6B-B1AB-2D6EA7B4D5F4}</Project>
       <Name>ChatExtension</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\ChatExtension.Client\ChatExtension.Client.csproj">
+    <ProjectReference Include="..\..\Extensions\Chat\Client\ChatExtension.Client.csproj">
       <Project>{0E62A5A2-C95D-4CE4-B77B-6D5C698A2101}</Project>
       <Name>ChatExtension.Client</Name>
     </ProjectReference>
@@ -197,11 +197,11 @@
       <Project>{38cb6bed-e751-42fe-a847-c0ddd482ac62}</Project>
       <Name>Connections</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\TradeExtension\TradeExtension.csproj">
+    <ProjectReference Include="..\..\Extensions\Trade\Contracts\TradeExtension.csproj">
       <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
       <Name>TradeExtension</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\TradeExtension.Client\TradeExtension.Client.csproj">
+    <ProjectReference Include="..\..\Extensions\Trade\Client\TradeExtension.Client.csproj">
       <Project>{0D9D0722-46D1-4330-9177-C5E4D2452102}</Project>
       <Name>TradeExtension.Client</Name>
     </ProjectReference>

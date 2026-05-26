@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{4C930CBF-1A5A-4208-AAC8-F16625DE2103}</ProjectGuid>
+    <ProjectGuid>{0D9D0722-46D1-4330-9177-C5E4D2452102}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Phinix.ChatExtension.Server</RootNamespace>
-    <AssemblyName>ChatExtension.Server</AssemblyName>
+    <RootNamespace>Phinix.TradeExtension.Client</RootNamespace>
+    <AssemblyName>TradeExtension.Client</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -34,36 +34,29 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51">
-      <HintPath>..\..\.nuget\System.Memory.4.5.3\lib\netstandard2.0\System.Memory.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <HintPath>..\..\.nuget\System.Runtime.CompilerServices.Unsafe.4.5.2\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Google.Protobuf">
-      <HintPath>..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\bin\$(Configuration)\net45\Google.Protobuf.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="System.Runtime.Serialization" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BuiltInChatServerExtension.cs" />
-    <Compile Include="PhinixFrameworkChatBroadcast.cs" />
-    <Compile Include="PhinixFrameworkChatService.cs" />
+    <Compile Include="BuiltInTradeClientExtension.cs" />
+    <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
+    <Compile Include="PhinixFrameworkTradeClientRepository.cs" />
+    <Compile Include="PhinixFrameworkTradeClientService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ChatExtension\ChatExtension.csproj">
-      <Project>{7B7D7B5F-D806-4A6B-B1AB-2D6EA7B4D5F4}</Project>
-      <Name>ChatExtension</Name>
+    <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
+      <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
+      <Name>ClientExtensionAbstractions</Name>
     </ProjectReference>
-    <ProjectReference Include="..\UserManagement\UserManagement.csproj">
+    <ProjectReference Include="..\Contracts\TradeExtension.csproj">
+      <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
+      <Name>TradeExtension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Common\UserManagement\UserManagement.csproj">
       <Project>{4E8C099F-DCAB-418A-A2FE-2705A7065EC3}</Project>
       <Name>UserManagement</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Utils\Utils.csproj">
+    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj">
       <Project>{B6FF1583-C75A-42C1-9B75-2B16215A0CF7}</Project>
       <Name>Utils</Name>
     </ProjectReference>
