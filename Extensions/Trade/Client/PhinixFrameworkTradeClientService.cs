@@ -258,7 +258,12 @@ namespace Phinix.TradeExtension.Client
                     bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true);
                     if (!emittedPendingEvent && TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
                     {
+                        Verse.Log.Message($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}");
                         OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
+                    }
+                    else
+                    {
+                        Verse.Log.Message($"[TradeService] HandleSnapshot: skipped update for tradeId={trade.TradeId}, emittedPending={emittedPendingEvent}");
                     }
                 }
             }
@@ -304,9 +309,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeOfferUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
+                Verse.Log.Message("[TradeService] HandleOfferUpdateResponse: payload is null");
                 return;
             }
 
+            Verse.Log.Message($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}");
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -331,9 +338,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeStatusUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeStatusUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
+                Verse.Log.Message("[TradeService] HandleStatusUpdateResponse: payload is null");
                 return;
             }
 
+            Verse.Log.Message($"[TradeService] HandleStatusUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}, failureMessage={payload.FailureMessage ?? "null"}");
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -361,6 +370,7 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
+            Verse.Log.Message($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
             OnTradeCompleted?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
@@ -375,6 +385,7 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
+            Verse.Log.Message($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
             OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));

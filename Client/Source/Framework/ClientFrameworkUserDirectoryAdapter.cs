@@ -13,6 +13,11 @@ namespace PhinixClient.Framework
 
         public string Uuid => userManager?.Uuid ?? string.Empty;
 
+        public ImmutableUser[] GetUsers(bool loggedIn = false)
+        {
+            return userManager?.GetUsers(loggedIn) ?? new ImmutableUser[0];
+        }
+
         public bool TryGetUser(string uuid, out ImmutableUser user)
         {
             if (userManager != null)

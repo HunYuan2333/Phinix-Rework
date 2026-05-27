@@ -31,17 +31,60 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <Choose>
+    <When Condition="Exists('$(SolutionDir)\GameDlls\1.6')">
+      <PropertyGroup>
+        <RimWorldDepDir>$(SolutionDir)\GameDlls\1.6</RimWorldDepDir>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\GameDlls\1.6')">
+      <PropertyGroup>
+        <RimWorldDepDir>$(MSBuildThisFileDirectory)..\..\..\GameDlls\1.6</RimWorldDepDir>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <RimWorldDepDir>$(MSBuildThisFileDirectory)..\..\..\GameDlls</RimWorldDepDir>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldDepDir)\Assembly-CSharp.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="UnityEngine">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BuiltInTradeClientExtension.cs" />
+    <Compile Include="ClientTradeUiHostContext.cs" />
+    <Compile Include="DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
+    <Compile Include="FrameworkClientTradeServiceAdapter.cs" />
+    <Compile Include="PendingThings.cs" />
+    <Compile Include="PhinixDefaultTradeBehaviour.cs" />
     <Compile Include="PhinixFrameworkTradeClientRepository.cs" />
     <Compile Include="PhinixFrameworkTradeClientService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StackedThings.cs" />
+    <Compile Include="TradeClientItemPipeline.cs" />
+    <Compile Include="TradeItemConverter.cs" />
+    <Compile Include="TradeList.cs" />
+    <Compile Include="TradeMainTabProvider.cs" />
+    <Compile Include="TradeWindow.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
@@ -62,4 +105,8 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="AfterBuild">
+    <MakeDir Directories="$(SolutionDir)\Client\Common\Assemblies" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\11-TradeExtension.Client.dll" />
+  </Target>
 </Project>

@@ -41,15 +41,23 @@ namespace Connections
         private NetPeer serverPeer;
 
         /// <summary>
-        /// Thread that polls the client backend for incoming packets.
+         /// Thread that polls the client backend for incoming packets.
+         /// </summary>
+         private Thread pollThread;
+        /// <summary>
+        /// Signals that the polling thread should exit.
         /// </summary>
-        private Thread pollThread;
+        private volatile bool pollThreadStopRequested;
 
         /// <summary>
         /// Thread that probes multiple server addresses to determine which one to connect to.
         /// Should be terminated on disconnect along with the associated <see cref="probePeers"/>.
         /// </summary>
         private Thread probeThread;
+        /// <summary>
+        /// Signals that the probe thread should exit.
+        /// </summary>
+        private volatile bool probeThreadStopRequested;
         /// <summary>
         /// Collection of <see cref="NetPeer"/>s currently probing for a valid connection address.
         /// Should be gracefully disconnected and cleared on disconnect.
@@ -88,16 +96,7 @@ namespace Connections
             clientNetManager.Start();
             serverPeer = clientNetManager.Connect(endpoint.Address.ToString(), endpoint.Port);
 
-            // Start a polling thread to check for incoming packets
-            pollThread = new Thread(() =>
-            {
-                while (true)
-                {
-                    clientNetManager.PollEvents();
-                    Thread.Sleep(10);
-                }
-            });
-            pollThread.Start();
+            startPollThread();
 
             // Raise the connection event
             OnConnecting?.Invoke(this, EventArgs.Empty);
@@ -121,25 +120,17 @@ namespace Connections
                 probePeers.Add(clientNetManager.Connect(endpoint.Address.ToString(), endpoint.Port));
             }
 
-            // Start a polling thread to check for incoming packets
-            pollThread = new Thread(() =>
-            {
-                while (true)
-                {
-                    clientNetManager.PollEvents();
-                    Thread.Sleep(10);
-                }
-            });
-            pollThread.Start();
+            startPollThread();
 
             // Invoke the OnConnecting event early before we shard off into another thread
             OnConnecting?.Invoke(this, EventArgs.Empty);
 
             // Connect to each peer asynchronously and keep the one that works
+            probeThreadStopRequested = false;
             probeThread = new Thread(() =>
             {
                 // Spin until one of the peers connects
-                while (true)
+                while (!probeThreadStopRequested)
                 {
                     // Make sure there is at least one non-null peer
                     if (probePeers.All(peer => peer == null)) break;
@@ -149,6 +140,11 @@ namespace Connections
                     if (probePeers.Where(peer => peer != null).All(peer => peer.ConnectionState == ConnectionState.Disconnected)) break;
 
                     Thread.Sleep(10);
+                }
+
+                if (probeThreadStopRequested)
+                {
+                    return;
                 }
 
                 NetPeer connectedPeer;
@@ -169,6 +165,7 @@ namespace Connections
                 probePeers.RemoveAll(peer => peer == null || peer.Equals(connectedPeer));
                 clearProbePeers();
             });
+            probeThread.IsBackground = true;
             probeThread.Start();
         }
 
@@ -232,13 +229,8 @@ namespace Connections
         /// </summary>
         public void Disconnect()
         {
-            // Kill the probe thread and clear the variable
-            if (probeThread != null)
-            {
-                probeThread.Abort();
-                probeThread = null;
-                clearProbePeers();
-            }
+            stopProbeThread();
+            clearProbePeers();
 
             // Check if the client is running
             if (clientNetManager.IsRunning)
@@ -250,11 +242,46 @@ namespace Connections
                 OnDisconnect?.Invoke(this, EventArgs.Empty);
             }
 
-            // Kill the poll thread and clear the variable
-            if (pollThread != null)
+            stopPollThread();
+        }
+
+        private void startPollThread()
+        {
+            stopPollThread();
+            pollThreadStopRequested = false;
+            pollThread = new Thread(() =>
             {
-                pollThread.Abort();
-                pollThread = null;
+                while (!pollThreadStopRequested)
+                {
+                    clientNetManager.PollEvents();
+                    Thread.Sleep(10);
+                }
+            });
+            pollThread.IsBackground = true;
+            pollThread.Start();
+        }
+
+        private void stopPollThread()
+        {
+            pollThreadStopRequested = true;
+            Thread activePollThread = pollThread;
+            pollThread = null;
+
+            if (activePollThread != null && activePollThread != Thread.CurrentThread)
+            {
+                activePollThread.Join(1000);
+            }
+        }
+
+        private void stopProbeThread()
+        {
+            probeThreadStopRequested = true;
+            Thread activeProbeThread = probeThread;
+            probeThread = null;
+
+            if (activeProbeThread != null && activeProbeThread != Thread.CurrentThread)
+            {
+                activeProbeThread.Join(1000);
             }
         }
 
@@ -266,6 +293,8 @@ namespace Connections
         /// <exception cref="ArgumentNullException"><see cref="module"/> cannot be null or empty</exception>
         /// <exception cref="ArgumentNullException"><see cref="serialisedMessage"/> cannot be null</exception>
         /// <exception cref="NotConnectedException">Must be connected to send a message</exception>
+        private readonly object sendLock = new object();
+
         public void Send(string module, byte[] serialisedMessage)
         {
             // Disallow null parameters
@@ -280,8 +309,11 @@ namespace Connections
             writer.Put(module);
             writer.Put(serialisedMessage);
 
-            // Send the message in a reliable and ordered fashion
-            serverPeer.Send(writer, SendOptions.ReliableOrdered);
+            // Serialise access to LiteNetLib's NetPeer.Send which is not thread-safe
+            lock (sendLock)
+            {
+                serverPeer.Send(writer, SendOptions.ReliableOrdered);
+            }
         }
 
         /// <summary>

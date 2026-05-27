@@ -13,8 +13,6 @@ namespace Phinix.ChatExtension.Client
 {
     public class PhinixFrameworkChatService : IFrameworkChatClientApi
     {
-        public event EventHandler HistorySynced;
-
         public FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context)
         {
             global::Phinix.Framework.BuiltInChatMessagePayload payload = new global::Phinix.Framework.BuiltInChatMessagePayload
@@ -166,9 +164,14 @@ namespace Phinix.ChatExtension.Client
                 source: message.Source);
         }
 
-        public void NotifyHistorySynced()
+        public bool CanFormat(FrameworkDisplayMessage message)
         {
-            HistorySynced?.Invoke(this, EventArgs.Empty);
+            return message != null && message.Source == "builtin_chat";
+        }
+
+        public UIChatMessage Format(FrameworkDisplayMessage message, IClientUserDirectory userDirectory)
+        {
+            return ToUiMessage(message, userDirectory);
         }
 
         private string ResolveDisplayText(FrameworkDisplayMessage message)

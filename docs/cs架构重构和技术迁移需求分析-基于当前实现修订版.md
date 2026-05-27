@@ -1199,33 +1199,383 @@ API 清理：
 
 ---
 
-### Phase 4：明确服务端消息处理语义
+### Phase 4：引入新的服务端处理流水线，提供 extension 可拦截的统一入口
 
-当前 handler action 已经存在，但“默认 relay / 显式接管 / 拦截”的语义还不够清楚。
+当前 `Server\Framework\PhinixFrameworkServer.cs` 的真实行为仍然是：
 
-建议在现有 `MessageHandlingResultAction` 基础上重新定义服务端约定：
+```text
+1. 做认证、登录态与 capability 校验
+2. 遍历命中的 server message / command handler
+3. 命中 handler 后根据 result.Action 决定继续还是返回
+4. 没有统一的 default process 节点
+5. 没有统一的 outbound interception 节点
+```
+
+这意味着当前框架虽然已经具备 handler/action 雏形，但它仍然不是一个“extension 可明确插入、接管、阻断、审计”的服务端流程模型。
+
+因此，`Phase 4` 的目标不应再是继续解释旧的 `handler + action` 语义，而应当升级为：
+
+> 在 server framework 层引入一套显式的处理流水线，把入站消息、入站命令、服务端主动发送与广播统一纳入可拦截流程，为 extension 提供稳定且平权的接入点。
+
+这里要特别强调：
+
+> `Phase 4` 的优先级高于历史实现习惯。原先的业务逻辑如果不符合这套新流程，就不为了兼容它去扭曲 Phase 4 设计，而是按新的服务端边界重写。
+
+换句话说，这一步要建立的是长期有效的 server-side interception boundary，而不是围绕旧实现做最小代价适配。
+
+#### Phase 4 的目标流程
+
+建议把服务端的目标流程明确定义为下面五段，而不是继续隐式依赖“谁先命中 handler 谁就结束”的遍历语义：
+
+```text
+IngressValidation
+  认证、登录态、capability、基础包合法性校验
+  校验失败直接拒绝，不进入 extension 流程
+
+PreHandleInterception
+  extension 可读取、改写、阻断、声明接管当前消息或命令
+
+DefaultProcess
+  若没有 extension 接管或阻断，则进入默认服务端流程
+
+PostHandleObservation
+  用于记录、审计、补充副作用，不再承担主要业务接管职责
+
+OutboundInterception
+  所有 SendMessage / BroadcastMessage 都必须先经过出站拦截层，再真正发给连接
+```
+
+这五段分别承担不同职责：
+
+#### 1. IngressValidation
+
+这一层只负责宿主必须保证的前置条件，例如：
+
+```text
+是否已认证
+是否已登录
+session 是否有效
+capability 是否协商成功
+packet 基础结构是否合法
+```
+
+这部分不应交给业务扩展决定，因为它属于 host 安全边界。
+
+#### 2. PreHandleInterception
+
+这是 `Phase 4` 真正新增的核心能力。
+
+extension 应在这里获得统一的前置拦截入口，用于：
+
+```text
+读取当前 packet / command
+改写 payload
+基于 sender / capability / content 决定是否放行
+直接接管默认流程
+完全阻断默认流程
+```
+
+这一步的意义不是“再加一层 handler”，而是明确告诉后续实现者：
+
+> extension 的主要接管点应该在 default process 之前，而不是靠宿主或官方扩展内部的零散分支去实现插桩。
+
+#### 3. DefaultProcess
+
+如果前置拦截阶段没有接管也没有阻断，才进入默认服务端流程。
+
+这里需要明确一个过去容易模糊的问题：
+
+> `chat`、`trade` 虽然仍可以是官方随发扩展，但它们在流程地位上不应高于其他 extension。它们属于 `DefaultProcess` 的默认处理能力，而不是绕过统一入口的“半内建特殊模块”。
+
+因此，这一阶段的设计必须满足：
+
+```text
+chat 是 default process 的一种
+trade 是 default process 的一种
+future plugins 也应能以相同方式挂接
+任何 extension 都可以在 PreHandleInterception 中改写、阻断或接管这些默认流程
+```
+
+同时必须补充一条硬约束：
+
+```text
+原先 chat / trade 或其他业务流程如果与新 pipeline 冲突，不保留旧特判
+不允许为了迁就历史业务逻辑而让官方扩展继续绕过统一入口
+旧业务只要不符合新流程，就按新的服务端边界重写
+```
+
+#### 4. PostHandleObservation
+
+这一层不是为了再做一次主业务处理，而是用于：
+
+```text
+审计
+日志
+指标
+通知型副作用
+非主链的扩展观察
+```
+
+它的职责应显式弱于 `PreHandleInterception` 和 `DefaultProcess`。
+
+也就是说，后置阶段应主要承担“看见已经发生的事并做补充”，而不是重新争夺主控制权。
+
+从阶段划分上看，这部分不应被推迟到未来插件化阶段，而应算作 `Phase 4` 本身的完成条件之一。
+
+原因很简单：
+
+```text
+没有 PostHandleObservation 的实际使用者
+=
+服务端虽然声明支持 observation
+但 pipeline 仍然缺少真实的后置职责承载点
+```
+
+因此，`Phase 4` 更合适的收口口径应补充为：
+
+> 在 framework 层补齐 `IServerMessageObserver` / `IServerCommandObserver` 的真实执行链，并至少提供一个内置的日志观察器作为官方后置职责落点；示例代码不是目标，但“日志/审计类观察器已经实际接入 pipeline”应视为本阶段完成条件之一。
+
+#### 5. OutboundInterception
+
+这也是当前实现里缺失、但为了 extension 可拦截而必须新增的一层。
+
+当前真实情况是：
+
+```text
+服务端扩展通过 ServerFrameworkContext.SendMessage / BroadcastMessage 直接发包
+当前没有统一的出站扩展点
+一旦扩展自己发包，宿主没有机会统一做审计、改写、过滤或按连接裁剪
+```
+
+因此，`Phase 4` 之后，所有服务端出站都应先进入 `OutboundInterception`，再真正写入 socket。
+
+这一层至少应支持：
+
+```text
+按目标连接、目标 capability、消息类型决定是否放行
+改写出站 packet
+阻断单个连接或整个广播
+把日志、审计、过滤逻辑从业务 handler 中抽离出来
+```
+
+这里也要同步更新语义约束：
+
+> `SendMessage` / `BroadcastMessage` 的目标语义应从“直接发 socket”改成“提交到 outbound pipeline”，由 pipeline 决定最终如何发送。
+
+#### 结果语义需要重新定义
+
+`MessageHandlingResultAction` 当前虽然已经存在，但其语义对于新流程来说不够稳定，尤其是：
+
+```text
+Handled 更接近“消费完成”
+ReplacePayload 更接近“改写后重试”
+SuppressDefault / StopPropagation 存在明显重叠
+LegacyFallback 带有过渡期味道，不适合作为长期模型
+```
+
+因此，文档中的目标态语义应改写为一套更适合显式流水线的动作集合：
 
 ```text
 Continue:
-  继续交给下一个 handler
+  不做决定，交给当前阶段下一个 extension
 
-Handled:
-  当前 handler 已消费，结束
+Replace:
+  替换当前 packet / command 后继续当前阶段
 
-ReplacePayload:
-  改写后继续
+Handle:
+  当前 extension 接管处理，跳过 DefaultProcess
 
-StopPropagation / SuppressDefault:
-  需要重新审视是否保留双重语义
+Block:
+  终止处理并丢弃，不进入默认流程，也不产生出站
+
+Observe:
+  仅用于后置观察阶段，不改变主流程
 ```
 
-如果未来确实想引入“默认 relay”，应该在 server framework 层明确补一个 fallback policy，而不是把它写成文档默认前提。
+与现有实现的迁移口径可明确写成：
+
+```text
+ReplacePayload -> Replace
+Handled -> Handle
+SuppressDefault + StopPropagation -> Block
+LegacyFallback -> 不再作为长期语义保留，只允许作为过渡兼容说明
+```
+
+这里要特别防止一种常见误区：
+
+> `Phase 4` 的目标不是“给现有枚举换个名字”，而是让这些动作能够明确地对应到前置拦截、默认处理、后置观察和出站处理的各自职责。
+
+#### 旧业务服从新流程，而不是新流程兼容旧业务
+
+这一节建议作为 `Phase 4` 的显式迁移原则保留在文档中。
+
+核心判断标准不应是：
+
+```text
+旧代码还能不能继续跑
+```
+
+而应是：
+
+```text
+是否符合统一校验
+是否符合统一拦截
+是否符合统一默认处理
+是否符合统一出站
+```
+
+如果某段历史业务逻辑仍依赖下面这些旧模式：
+
+```text
+主程序直达处理
+官方扩展特判
+绕开统一出站链路
+先有业务结论、后补 framework 包装
+```
+
+则它应被视为待重写逻辑，而不是 `Phase 4` 的兼容例外。
+
+换句话说：
+
+> `Phase 4` 要建立的是未来几年都可复用的 server framework 边界，而不是把旧流程原封不动搬进一个新名字下面。
+
+#### 后续实现应围绕哪些接口和上下文设计
+
+这一轮文档修订不要求马上把接口写进代码，但应提前把目标接口层级写清楚，作为后续实现的设计依据：
+
+```text
+IServerInboundMessageInterceptor
+IServerInboundCommandInterceptor
+IServerDefaultMessageHandler
+IServerDefaultCommandHandler
+IServerMessageObserver
+IServerCommandObserver
+IServerOutboundPacketInterceptor
+```
+
+同时建议把上下文需求也写明，避免实现时再回到“直接把宿主细节塞进 handler”：
+
+```text
+入站上下文保留：
+  ConnectionId
+  SessionId
+  SenderUuid
+  capability 查询
+  日志接口
+
+出站上下文补充：
+  目标连接集合
+  发送来源
+  原始触发扩展标识
+```
+
+这里的关键不只是接口数量，而是接口边界：
+
+> extension 应通过统一的 inbound / default / outbound contract 参与流程，而不是继续直接耦合宿主内部发送细节。
+
+#### 当前客户端是否仍能支持这一版服务端
+
+基于当前实现，答案是：
+
+> 只要 `Phase 4` 的改动继续保持在服务端内部处理流程层，而不改变 framework packet kind、messageType、payload 契约和 capability negotiation 基础语义，那么当前 client 仍然可以继续对接这版 server。
+
+原因在于，当前客户端真正依赖的是：
+
+```text
+KindHello / KindCapabilities / KindMessage / KindCommand
+messageType 与 payload 契约
+capability negotiation 结果
+render / client handler / display message 语义
+```
+
+而不是服务端内部到底是：
+
+```text
+直接遍历 handler
+还是先经过 pre-handle / default / observation / outbound pipeline
+```
+
+这意味着 `Phase 4` 当前这类“服务端内部流程重构”对 client 是相对透明的。
+
+但这里也要明确写出边界条件，防止后续实现者误判：
+
+```text
+如果改动只发生在 server 内部 pipeline 分层，client 仍可继续支持 server
+如果改动改变了现有 messageType / commandType / payload 结构，client 就需要同步迁移
+如果改动引入新的 capability 前提而 client 未声明对应能力，也会出现功能退化或被 server 拒绝
+```
+
+因此，这一阶段对客户端兼容性的更准确结论应写成：
+
+> `Phase 4` 当前目标并不要求 client 同步重写；但它要求后续任何服务端 pipeline 重构都不得随意变更既有 wire contract。只要 wire contract 保持稳定，当前 client 仍然可以支持当前 server。
+
+#### 文档中应保留的验收场景
+
+为了让后续实现者知道 `Phase 4` 是否真正落地，建议在文档中至少保留下面这些验收场景：
+
+```text
+1. 未命中任何 pre-handle extension 时，消息进入默认 chat / trade 处理
+2. 扩展在 pre-handle 阶段把聊天消息改写后，官方 chat 默认流程处理改写后的内容
+3. 扩展在 pre-handle 阶段返回 Block 后，官方默认流程不再执行，且无出站发送
+4. 扩展在 pre-handle 阶段返回 Handle 并主动广播时，官方默认流程被跳过，但广播仍会进入出站拦截层
+5. 出站拦截器可按连接 capability 阻止广播发往部分客户端，而不影响其余目标
+6. 若没有默认处理器且也没有 extension 接管，框架记录 warning 并安全丢弃
+7. 某个历史业务流程若依赖绕过统一 pipeline 的旧入口，在 Phase 4 设计下应被标记为需重写，而不是继续保留特殊分支
+```
+
+如果这些场景无法成立，就说明实现者只是给旧 handler 模式补了几层包装，而没有真正完成 `Phase 4`。
 
 ---
 
 ### Phase 5：把“动态发现”升级为“外部插件加载”
 
-当前只有程序集内反射发现，没有外部插件目录。
+结合当前代码，`Phase 5` 的起点需要写得更准确一些：
+
+```text
+Server:
+  已经进入“official extension 独立编译 + 构建复制到输出目录 + 宿主启动时显式预加载程序集”的过渡态
+
+Client:
+  仍然直接 ProjectReference ChatExtension.Client / TradeExtension.Client
+  启动期仍然要求 built-in chat / trade API 必须存在
+
+Registry:
+  仍然只会对“已经加载到 AppDomain 的程序集”做反射发现
+  还没有真正的插件目录扫描和外部装载策略
+```
+
+因此，当前并不是“client/server 都还停留在纯程序集内发现”，而是：
+
+> 服务端已经部分进入 `Phase 5` 前的运行时装载过渡态；客户端则仍然明显停留在编译期强耦合阶段；两端尚未形成一致的 official extension 装载语义。
+
+这里还需要再把 `Phase 5` 的最终目标写得更严格一些，避免后续实现停留在“宿主不再依赖具体实现类，但仍然写死依赖某几个官方业务接口”的半解耦状态。
+
+> `Phase 5` 的理想完成标准，不是 `Client` / `Server` 从依赖 `ChatExtension.*` / `TradeExtension.*` 具体实现，升级成依赖 `IClientChatService` / `IClientTradeService` 这类固定业务接口；而是宿主只依赖通用扩展契约与通用挂载点，未来新增业务扩展不需要修改 host/core 代码即可被发现、加载、激活并接入系统。
+
+换句话说，判断 `Phase 5` 是否真正完成的更高标准应是：
+
+```text
+如果未来新增一个全新的业务扩展（例如某种新的经济/通知/信息面板扩展），
+只要它满足统一的 extension contract 并被放入扩展目录，
+host 就不需要为了“认识它”而新增专用字段、专用接口解析、专用 UI 入口或专用启动逻辑。
+```
+
+这也是“插件平权”是否落到运行时现实中的最直接验证方式：
+
+```text
+增加一个新业务扩展
+不修改 host/core 代码
+扩展仍可被动态发现、激活、协商能力并挂接自己的 UI / 行为入口
+```
+
+如果做不到这一点，就说明当前系统仍然停留在：
+
+```text
+宿主不再硬编码具体实现类
+但仍然硬编码若干官方业务接口
+```
+
+这种状态比旧架构更好，但还不能算 `Phase 5` 终态，只能算插件化过渡态。
 
 未来如果要支持 Docker 中的 Mods 目录，至少要补：
 
@@ -1244,11 +1594,175 @@ StopPropagation / SuppressDefault:
 
 但需要明确：
 
-> 这是未来阶段目标，当前仓库尚未实现。
+> 这是未来阶段目标，当前仓库尚未实现；当前 registry 仍然只负责发现“已加载程序集中的 extension module”，并不负责从 `Mods` 目录主动装载程序集。
 
 而且这一阶段还有一个重要的架构目标：
 
 > 外部插件加载机制一旦建立，就必须同时适用于 `chat` / `trade` 这类官方扩展和未来新增扩展，而不是只给“第三方插件”走另一条弱化路径。
+
+因此，`Phase 5` 中宿主真正应该直接依赖的，不应再是 `chat` / `trade` 这类业务语义接口本身，而应逐步收敛到更通用的扩展点，例如：
+
+```text
+feature / panel / tab / window provider
+notification / badge / unread count provider
+command / action / menu contribution provider
+lifecycle / capability / host service contract
+```
+
+而不应长期停留在：
+
+```text
+host 直接解析 IClientChatService
+host 直接解析 IClientTradeService
+host 为每个官方业务扩展保留一组专用字段和专用 UI 流程
+```
+
+否则未来每增加一个新业务扩展，仍然需要：
+
+```text
+改 host 字段
+改 host 初始化
+改 host UI
+改 host 路由或事件转发
+```
+
+这与真正的插件平台目标是冲突的。
+
+这里还需要明确一条阶段边界，避免把不同层次的工作混在一起：
+
+> `Phase 4` 负责的是“服务端内部 pipeline 平台化”；而 `Phase 5` 负责的是“官方扩展与未来插件在装载、发布、协作和运行时地位上的彻底平权化”。
+
+换句话说，下面这些内容更适合放在 `Phase 5`，而不应继续算作 `Phase 4`：
+
+```text
+chat / trade 的彻底去特权化收口
+官方扩展从“显式预加载 + 构建复制”过渡到真正插件目录装载
+宿主不再显式知道某几个官方扩展程序集名
+客户端与服务端对 official extensions 采用一致的装载语义
+```
+
+这里还需要把“官方扩展如何从当前过渡态进入真正插件化”写得更明确一些。
+
+按当前代码看，服务端和客户端并不处于同一个起跑线：
+
+```text
+Server 当前可接受的过渡态：
+  不直接 ProjectReference ChatExtension.Server / TradeExtension.Server 实现工程
+  构建时单独编译 official server extensions
+  将 DLL 复制到宿主输出目录
+  启动期用程序集名显式预加载，再交给 registry discovery
+
+Client 当前仍未达到的过渡态：
+  仍直接 ProjectReference ChatExtension.Client / TradeExtension.Client
+  仍把官方扩展 API 视为宿主启动成功的硬前提
+```
+
+> 理想目标不应再是 `Client.csproj` / `Server.csproj` 直接通过 `ProjectReference` 强绑定 `ChatExtension.*` / `TradeExtension.*`，然后把它们当作宿主构建产物的一部分复制到最终目录；更合理的目标是：`chat` / `trade` 先各自独立编译成 official extension DLL，再由客户端和服务端宿主从各自的 extension/plugin 目录扫描、加载并发现它们。
+
+这里还需要补一个过渡期口径，避免实现者在拆除编译期耦合后不小心把当前功能做没：
+
+> 在真正的 extension/plugin 目录扫描与装载体系完成之前，可以暂时保留“宿主显式预加载官方扩展程序集”的启动逻辑，也可以暂时保留“构建时把官方扩展 DLL 复制到宿主输出目录”的打包步骤；但这类过渡措施只能解决“如何把 DLL 放到运行目录”这个部署问题，不能重新引入 `Server.csproj` / `Client.csproj` 对扩展实现工程的编译期类型依赖。
+
+换句话说，过渡期可以接受的是：
+
+```text
+宿主不直接引用扩展实现类型
+宿主通过程序集名显式加载官方扩展
+构建链把 official extension DLL 复制到宿主输出目录
+```
+
+而不应重新退回：
+
+```text
+Server/Client 主工程重新 ProjectReference 扩展实现工程并直接使用扩展实现类型
+```
+
+但如果目标是“完全插件平权”，`Phase 5` 还应继续把过渡措施本身纳入清理范围，而不是长期保留：
+
+```text
+Server.cs / Client.cs 中按程序集名显式预加载官方扩展
+构建期在宿主 csproj 中写死 official extension DLL 复制步骤
+官方扩展继续以“宿主默认知道它存在”为前提组织启动流程
+```
+
+这些做法在 `Phase 4` 结束时可以接受，因为它们仍然是“运行时装载过渡措施”。
+但如果到了 `Phase 5` 还长期保留，就说明：
+
+```text
+官方扩展仍然是特殊公民
+宿主仍然知道谁是“内定插件”
+第三方插件与官方插件仍不是同一套装载路径
+```
+
+这会让“插件平权”停留在口径上，而不是落到运行时现实里。
+
+同理，如果到了 `Phase 5` 宿主仍然需要显式写出：
+
+```text
+chat service 字段
+trade service 字段
+chat tab / trade tab 固定入口
+某个业务扩展的专用未读计数或通知逻辑
+```
+
+那么这说明“程序集装载”虽然变动态了，但“业务挂载”仍然是静态的，阶段目标也仍未完全达成。
+
+也就是说，到了这一阶段，官方扩展的理想发布与装载路径应逐步变成：
+
+```text
+1. host / core 单独编译
+2. ChatExtension.Client / TradeExtension.Client 独立编译
+3. ChatExtension.Server / TradeExtension.Server 独立编译
+4. 客户端从自己的 extension 目录加载官方客户端扩展
+5. 服务端从自己的 extension 目录加载官方服务端扩展
+6. registry 再对“已加载程序集”执行 module discovery / register / activate
+```
+
+这样做的意义不是“把 DLL 换个地方放”，而是明确宿主与官方扩展的真实边界：
+
+```text
+host 负责启动与加载
+extension 负责 capability / handler / API / 状态
+chat/trade 只是 official extensions
+而不是宿主内部模块
+```
+
+如果进一步追求“完全插件平权”，`Phase 5` 还应补一条更强的目标：
+
+> `chat` / `trade` 不仅要在发布形态上变成 official extensions，还要在代码组织与运行职责上逐步摆脱“默认官方功能思维”，最终与未来插件共享同一套装载、发现、能力协商、默认处理、观察与降级机制。
+
+进一步说，`Phase 5` 后期应把“官方业务功能如何进入 UI/宿主主流程”也统一到通用扩展模型中，而不是继续让 host 直接拥有：
+
+```text
+固定 chat 页签
+固定 trade 页签
+固定 chat/trade 专属入口控件
+固定 chat/trade 专属状态聚合逻辑
+```
+
+更合理的终态应是：
+
+```text
+host 提供通用 UI 挂载点
+扩展自己声明要贡献的 tab / panel / window / badge / action
+host 只负责容器与生命周期，不负责认识具体业务名字
+```
+
+这并不等于要在 `Phase 5` 一开始就推倒重写 `chat` / `trade`，但它要求文档把下面这件事说清楚：
+
+```text
+chat / trade 可以在 Phase 4 结束时继续作为 default process 的官方实现存在
+但它们在 Phase 5 中应继续去掉剩余特权
+最终目标是：它们只是 official extensions，不再是“宿主预设功能”
+```
+
+从客户端协同角度，也建议把 `Phase 5` 的边界写得更准确一些：
+
+> `Phase 5` 不是要求 client 先于 server 全量重写，但它要求 client 与 server 最终采用一致的 official extension 装载语义。当前代码里 server 已经先走到“显式预加载 + 构建复制”的过渡态，因此 `Phase 5` 的直接前置任务之一其实是先把 client 也收口到至少同等级的过渡形态，再继续推进真正的插件目录发现。
+
+需要特别强调的是：
+
+> 这一步并不要求 `chat` / `trade` 立刻变成“网络下载式第三方插件”，但它至少要求它们先摆脱“宿主主项目强引用 + 主构建链直接内嵌”的当前路径，转而进入“独立编译、独立落位、由宿主加载”的 official extension 形态。若在过渡期仍需保留显式预加载逻辑，也应把它理解为运行时装载过渡措施，而不是重新接受编译期反向耦合。
 
 否则会出现两套插件等级：
 
@@ -1258,6 +1772,281 @@ StopPropagation / SuppressDefault:
 ```
 
 这会直接破坏前面建立的平权边界。
+同时需要清理掉之前的显式加载逻辑
+
+另外，结合当前仓库，`Phase 5` 还有一个很现实的配套任务不能省略：
+
+> Docker / 发布链必须先对齐现在的项目结构与扩展产物结构，否则即使本地完成目录扫描，容器镜像和发布目录也无法正确承载 official extensions。当前根目录 `Dockerfile` 仍是 Mono 时代写法，而且还没有把 `Extensions/` 目录纳入构建上下文，这说明部署链本身还停留在更早的阶段。
+
+因此，`Phase 5` 更合适的完成条件还应补充为：
+
+```text
+1. 宿主不再通过实现工程引用或显式程序集名特判官方扩展
+2. official extensions 与第三方 extensions 走同一套目录发现与装载流程
+3. chat / trade 在运行时地位上不再高于未来插件
+4. client 与 server 对 official extensions 的装载语义保持一致
+5. Phase 4 中保留的“显式预加载 + 构建复制”过渡措施已退出主路径
+6. Docker / 发布产物结构已经能够承载 official extensions 与未来 Mods 目录
+```
+
+如果按更严格的“完全插件平权”口径来写，建议再追加两条完成条件：
+
+```text
+7. host 不再为 chat / trade 保留专用业务接口解析与专用启动分支
+8. 新增一个新的业务扩展时，不需要修改 host/core 代码即可完成发现、激活与基础 UI 挂接
+```
+
+这两条非常关键，因为它们决定了 `Phase 5` 的工作量判断不能再按“只做目录扫描和加载器改造”来估计，而必须按“运行时装载 + 业务挂载模型 + 宿主职责收缩 + 官方扩展去特权化”这一整组改动来估算。
+
+因此，基于当前仓库现状，更准确的工作量判断应写成：
+
+> `Phase 5` 不是一个“小型加载器重构阶段”，而是一个中到大型架构收口阶段。它既包含扩展目录发现、程序集装载、发布链对齐，也包含 host 对官方业务接口和固定 UI 入口的去特权化收口。如果目标是“未来新增业务扩展不改 host 代码即可接入”，那么 `Phase 5` 的复杂度显著高于单纯的 DLL 扫描加载改造。
+
+### Phase 5.5：按“只保留双端共享实现”的标准继续硬化 Common 边界
+
+在 `Phase 5` 之后，还应补一个专门的小阶段，用来处理一个很容易在插件化推进过程中再次恶化的问题：
+
+> 即使 official extension 的装载方式已经逐步平权，如果 `Common` 里仍长期混放 client-only / server-only 运行时实现，那么宿主边界和编译边界仍然会继续彼此污染。
+
+这一阶段的目标不是把所有代码都机械拆成更多项目，而是按照更严格的工程标准重新判断：
+
+```text
+什么可以继续留在 Common
+什么应该只保留抽象/契约
+什么必须拆成 Client / Server 各自实现
+```
+
+这里建议明确采用下面这个判断规则：
+
+> `Common` 里可以保留“协议、抽象、DTO、纯工具逻辑、以及确实双端都会直接复用的 runtime-neutral 实现”；但只要某段代码已经绑定某一端的连接生命周期、宿主事件、状态管理、文件落位策略或业务处理流程，就不应继续以“共享实现”的名义长期停留在 Common。
+
+#### 当前扫描后，仍适合保留在 Common 的部分
+
+结合当前代码，下面这些内容仍然属于合理的共享层范畴：
+
+```text
+FrameworkPacket / FrameworkSerialization / protobuf contracts
+extension interfaces / API registry / context DTO
+ILoggable / IPersistent / LogEventArgs / LogLevel
+TypeUrl / ProtobufPacketHelper / 一般性文本或协议辅助工具
+FileSystemExtensionStorageProvider
+ExtensionHostContext
+PhinixExtensionRegistry（至少其 discovery / register / activate 主体逻辑）
+```
+
+这些内容虽然有的会触碰文件系统、反射或时间/ID 生成，但它们仍然满足两个关键条件：
+
+```text
+1. 不直接包含 client-only 或 server-only 业务流程
+2. 两端都可以在不改变语义的前提下直接复用
+```
+
+因此，`Common` 并不是要变成“只能放 enum 和 proto”，而是应保留：
+
+```text
+共享协议
+共享抽象
+双端共用且运行时中立的基础实现
+```
+
+#### 当前最明确应该拆出不同实现的部分
+
+这次扫描后，有几类代码已经明显越过了“共享实现”边界。
+
+##### 1. Authentication 中的 ClientAuthenticator
+
+当前 `Common/Authentication/ClientAuthenticator.cs` 明确绑定了：
+
+```text
+NetClient 生命周期
+客户端凭据存储文件
+客户端凭据请求回调
+客户端会话续期定时器
+```
+
+这不是共享抽象，而是典型的 client runtime implementation。
+
+更合适的结构应是：
+
+```text
+Authentication(shared):
+  Authenticator 抽象
+  wire packets / auth enums / shared credential DTO
+
+Authentication.Client:
+  ClientAuthenticator
+  凭据读取/保存
+  凭据请求回调适配
+```
+
+如果后续还要进一步解耦，本地凭据落盘模型 `CredentialStore` 其实也更偏客户端本地状态，而不是严格意义上的双端共享协议。
+
+##### 2. UserManagement 中的 ClientUserManager
+
+`Common/UserManagement/ClientUserManager.cs` 当前明确绑定了：
+
+```text
+NetClient
+ClientAuthenticator
+客户端登录成功/失败事件
+本地用户缓存同步
+断线后本地状态清理
+```
+
+这同样不是共享实现，而是客户端会话与用户目录同步逻辑。
+
+更合适的结构应是：
+
+```text
+UserManagement(shared):
+  UserManager 抽象
+  ImmutableUser
+  登录/同步/更新协议
+  共享事件参数类型
+
+UserManagement.Client:
+  ClientUserManager
+  客户端用户缓存同步与事件派发
+```
+
+也就是说，`UserManagement` 当前的问题不在协议，而在于客户端运行时管理器仍编译进了共享程序集。
+
+##### 3. Connections 中的 NetClient / NetServer
+
+这部分是一个很典型、也很容易因为“反正两边都用 LiteNetLib”而被误判的边界。
+
+从“代码都在同一个网络库之上”这个角度看，它们像是共享实现；但从软件工程职责边界看，它们其实分别承担：
+
+```text
+NetClient:
+  客户端连接建立、探测、断线事件、客户端轮询线程
+
+NetServer:
+  服务端监听、连接表、连接建立/关闭事件、服务端轮询线程
+```
+
+这说明它们不是“同一个实现的双端复用”，而是：
+
+```text
+同一技术栈下的两套端侧实现
+```
+
+因此，更符合长期边界的结构应是：
+
+```text
+Connections(shared or abstractions):
+  NetCommon
+  packet handler delegate
+  共享异常/事件参数
+
+Connections.Client:
+  NetClient
+
+Connections.Server:
+  NetServer
+```
+
+这一项的优先级可以略低于 `ClientAuthenticator` / `ClientUserManager`，因为它不直接阻塞当前插件装载工作；但从“Common 只保留双端共享实现”的标准看，它同样属于应拆项。
+
+##### 4. Framework 中的 ServerPipelineRunner
+
+`Common/Utils/Framework/ServerPipelineRunner.cs` 目前已经是一个命名上就非常明确的 server-only runtime component。
+
+它承担的是：
+
+```text
+服务端 inbound / default / observation / outbound 执行链编排
+```
+
+这不属于共享实现，也不应继续放在 `Common` 运行时层里。
+
+更合适的归位是：
+
+```text
+Server/Framework
+或单独的 Framework.ServerRuntime
+```
+
+这里要强调：
+
+> `ServerPipelineRunner` 可以继续依赖 Common 中的 handler contracts 和 context DTO，但它自己的执行编排实现不应继续作为 shared runtime 的一部分存在。
+
+#### 暂时不建议过度拆分，但应继续观察的部分
+
+有几块逻辑虽然目前还放在 Common，但不建议在这一阶段机械地立刻继续拆碎。
+
+##### 1. PhinixExtensionRegistry
+
+当前 `PhinixExtensionRegistry` 会同时登记：
+
+```text
+client handlers
+server handlers
+server interceptors / observers / outbound interceptors
+legacy adapter
+```
+
+从“纯粹性”上看，它内部确实已经知道了一部分 server-specific handler shape。  
+但从当前工程现实看，它仍然是：
+
+```text
+client 和 server 都共同使用的模块发现/注册核心
+```
+
+所以更合理的判断不是“现在立刻拆”，而是：
+
+> 可以在 `Phase 5.5` 先保留 registry 主体于 Common，但在后续若要继续严格收口，可再把 server-specific registration glue 从 registry 主体中分离出去，让 Common 保留 discovery + module-first registration core。
+
+##### 2. FileSystemExtensionStorageProvider
+
+这个实现确实依赖文件系统，但它目前并不直接绑定 client-only / server-only 行为，也没有混入业务流程。
+
+因此它更适合被视为：
+
+```text
+runtime-neutral 的默认存储适配器
+```
+
+只要未来不把客户端落位规则、服务端专用目录策略或容器部署特判继续硬塞进去，它可以继续留在 Common。
+
+#### Phase 5.5 的推荐任务清单
+
+基于当前代码，`Phase 5.5` 更适合定义为下面几项：
+
+```text
+1. 把 ClientAuthenticator 从 Common/Authentication 拆到独立的客户端实现项目
+2. 把 ClientUserManager 从 Common/UserManagement 拆到独立的客户端实现项目
+3. 把 NetClient / NetServer 从 Common/Connections 拆成 shared abstractions + client/server implementations
+4. 把 ServerPipelineRunner 从 Common/Utils/Framework 迁到 Server 侧运行时层
+5. 保留 Common 中真正双端共享的 framework contract、registry core、DTO 和工具逻辑
+6. 对仍暂留 Common 的 runtime 实现逐项标注“保留理由”，防止后续继续混入宿主逻辑
+```
+
+#### Phase 5.5 的完成标准
+
+这个阶段不应以“目录看起来更整洁”作为完成定义，而应以更硬的边界标准来判断：
+
+```text
+1. Common 程序集不再直接编译 client-only 生命周期管理器
+2. Common 程序集不再直接编译 server-only pipeline runner
+3. 双端仍可共享同一套 wire contract、framework contract 和基础 DTO
+4. Client / Server 的宿主实现通过抽象或共享 contract 协作，而不是继续把端侧实现塞回 Common
+5. 新增功能若属于某一端运行时实现，默认不再进入 Common
+```
+
+如果 `Phase 5` 解决的是：
+
+```text
+official extension 的装载平权
+```
+
+那么 `Phase 5.5` 解决的就是：
+
+```text
+Common 自身的边界平权
+```
+
+也就是让 `Common` 不再因为历史便利而继续充当“任何双端都可能碰到、于是都先塞进来”的中间层。
 
 ---
 

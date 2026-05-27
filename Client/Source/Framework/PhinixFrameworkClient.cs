@@ -11,15 +11,19 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed
     {
-        public delegate void CompatibilityModeChangedDelegate(object sender, FrameworkCompatibilityMode compatibilityMode);
-
         public event EventHandler<LogEventArgs> OnLogEntry;
 
-        public event EventHandler<UIChatMessageEventArgs> OnDisplayMessageReceived;
+        public event EventHandler<FrameworkDisplayMessageEventArgs> OnDisplayMessageReceived;
 
-        public event CompatibilityModeChangedDelegate OnCompatibilityModeChanged;
+        event EventHandler<FrameworkDisplayMessageEventArgs> IClientDisplayMessageFeed.DisplayMessageReceived
+        {
+            add => OnDisplayMessageReceived += value;
+            remove => OnDisplayMessageReceived -= value;
+        }
+
+        public event EventHandler<FrameworkCompatibilityModeChangedEventArgs> CompatibilityModeChanged;
 
         public void RaiseLogEntry(LogEventArgs e) => OnLogEntry?.Invoke(this, e);
 
@@ -42,6 +46,10 @@ namespace PhinixClient.Framework
             this.authenticator = authenticator;
             this.userManager = userManager;
             this.extensionHostContext = extensionHostContext ?? ExtensionHostContext.Empty;
+            this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
+            this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
+            this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
+            this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
             this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
             this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
             PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
@@ -236,7 +244,12 @@ namespace PhinixClient.Framework
 
         public IReadOnlyList<T> ResolveExtensionApis<T>() where T : class
         {
-            return discoveredExtensions.ApiRegistry?.ResolveAll<T>() ?? Array.Empty<T>();
+            if (discoveredExtensions.ApiRegistry != null)
+            {
+                return discoveredExtensions.ApiRegistry.ResolveAll<T>();
+            }
+
+            return Array.Empty<T>();
         }
 
         private void packetHandler(string module, string connectionId, byte[] data)
@@ -410,18 +423,7 @@ namespace PhinixClient.Framework
                 displayMessages.Add(message);
             }
 
-            UIChatMessage uiMessage = TryResolveExtensionApi(out IFrameworkChatClientApi chatApi)
-                ? chatApi.ToUiMessage(message, extensionHostContext.GetRequiredService<IClientUserDirectory>())
-                : new UIChatMessage(
-                    message.MessageId,
-                    message.SenderUuid,
-                    message.Text ?? string.Empty,
-                    new DateTime(message.TimestampUtcTicks, DateTimeKind.Utc),
-                    UIChatMessageStatus.Confirmed,
-                    new ImmutableUser(message.SenderUuid),
-                    message.Source);
-
-            OnDisplayMessageReceived?.Invoke(this, new UIChatMessageEventArgs(uiMessage));
+            OnDisplayMessageReceived?.Invoke(this, new FrameworkDisplayMessageEventArgs(message));
         }
 
         private bool shouldSuppress(FrameworkDisplayMessage message)
@@ -442,7 +444,12 @@ namespace PhinixClient.Framework
 
         private void sendPacket(FrameworkPacket packet)
         {
-            if (packet == null || !netClient.Connected) return;
+            if (packet == null) return;
+            if (!netClient.Connected)
+            {
+                Verse.Log.Warning($"[PhinixFramework] Dropping packet type={packet.MessageType} — netClient not connected");
+                return;
+            }
 
             if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Message || packet.Kind == FrameworkProtocol.KindMessage)
             {
@@ -502,7 +509,7 @@ namespace PhinixClient.Framework
 
             if (changed)
             {
-                OnCompatibilityModeChanged?.Invoke(this, CompatibilityMode);
+                CompatibilityModeChanged?.Invoke(this, new FrameworkCompatibilityModeChangedEventArgs(CompatibilityMode));
             }
 
             if (!string.IsNullOrEmpty(systemMessageKey))
