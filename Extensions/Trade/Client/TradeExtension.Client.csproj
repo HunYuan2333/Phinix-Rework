@@ -106,7 +106,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
-    <MakeDir Directories="$(SolutionDir)\Client\Common\Extensions" />
-    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Client\Common\Extensions\11-TradeExtension.Client.dll" />
+    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\11-TradeExtension.Client.dll" />
   </Target>
 </Project>
