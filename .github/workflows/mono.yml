@@ -87,13 +87,13 @@ jobs:
         mv ./Server/bin/Release/ ./PhinixServer/
 
     - name: Upload client artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: PhinixClient-${{ env.SHA8 }}-${{ matrix.version }}-${{ matrix.os }}
         path: './PhinixClient'
 
     - name: Upload server artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: PhinixServer-${{ env.SHA8 }}-${{ matrix.version }}-${{ matrix.os }}
         path: './PhinixServer'
