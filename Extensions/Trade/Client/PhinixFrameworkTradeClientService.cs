@@ -373,7 +373,16 @@ namespace Phinix.TradeExtension.Client
             Verse.Log.Message($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            OnTradeCompleted?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
+            Verse.Log.Message($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}");
+            if (OnTradeCompleted != null)
+            {
+                OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
+                Verse.Log.Message($"[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully");
+            }
+            else
+            {
+                Verse.Log.Warning($"[TradeService] HandleCompletedEvent: OnTradeCompleted has NO subscribers! Window won't close, items won't drop.");
+            }
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' completed with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
 

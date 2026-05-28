@@ -64,20 +64,30 @@ namespace PhinixClient.Framework
             netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
             netClient.OnDisconnect += (_, __) => reset();
 
-            RaiseLogEntry(new LogEventArgs($"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities."));
+            // Log discovery summary through both channels: RaiseLogEntry for
+            // subscribers (wired up after construction) and hostContext.Log so
+            // the diagnostics are visible even if no one has hooked OnLogEntry yet.
+            string summary = $"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities.";
+            RaiseLogEntry(new LogEventArgs(summary));
+            this.extensionHostContext.Log?.Invoke(summary, LogLevel.INFO);
+
             if (discoveredExtensions.Modules.Count > 0)
             {
-                RaiseLogEntry(new LogEventArgs(
+                string moduleSummary =
                     $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
-                    $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}."));
+                    $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}.";
+                RaiseLogEntry(new LogEventArgs(moduleSummary));
+                this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
             }
             foreach (string diagnostic in discoveredExtensions.Diagnostics)
             {
                 RaiseLogEntry(new LogEventArgs(diagnostic, LogLevel.DEBUG));
+                this.extensionHostContext.Log?.Invoke(diagnostic, LogLevel.DEBUG);
             }
             foreach (string warning in discoveredExtensions.Warnings)
             {
                 RaiseLogEntry(new LogEventArgs(warning, LogLevel.WARNING));
+                this.extensionHostContext.Log?.Invoke(warning, LogLevel.WARNING);
             }
         }
 
@@ -322,7 +332,18 @@ namespace PhinixClient.Framework
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleIncomingMessage(currentMessage)))
             {
                 matchedHandler = true;
-                ClientIncomingMessageResult result = handler.HandleIncomingMessage(currentMessage, context);
+                ClientIncomingMessageResult result = null;
+                try
+                {
+                    result = handler.HandleIncomingMessage(currentMessage, context);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Message handler {handler.GetType().FullName} threw for '{currentMessage.MessageType}': {ex}",
+                        LogLevel.ERROR));
+                    continue;
+                }
                 if (result == null) continue;
 
                 if (result.Action == MessageHandlingResultAction.ReplacePayload && result.Message != null)
@@ -348,7 +369,18 @@ namespace PhinixClient.Framework
 
             foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => renderer.CanRender(currentMessage)))
             {
-                FrameworkDisplayMessage renderedMessage = renderer.Render(currentMessage);
+                FrameworkDisplayMessage renderedMessage = null;
+                try
+                {
+                    renderedMessage = renderer.Render(currentMessage);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Message renderer {renderer.GetType().FullName} threw for '{currentMessage.MessageType}': {ex}",
+                        LogLevel.ERROR));
+                    continue;
+                }
                 if (renderedMessage != null)
                 {
                     addDisplayMessage(renderedMessage);
@@ -364,6 +396,9 @@ namespace PhinixClient.Framework
 
         private void handleCommand(FrameworkPacket command)
         {
+            // Diagnostic: log all incoming commands to trace server responses
+            Verse.Log.Message($"[PhinixFramework] handleCommand received: type={command.MessageType}, flow={command.Flow}, kind={command.Kind}");
+
             bool matchedHandler = false;
             FrameworkPacket currentCommand = command;
             ClientFrameworkContext context = new ClientFrameworkContext
@@ -380,7 +415,18 @@ namespace PhinixClient.Framework
             foreach (IClientCommandHandler handler in discoveredExtensions.ClientCommandHandlers.Where(handler => handler.CanHandleIncomingCommand(currentCommand)))
             {
                 matchedHandler = true;
-                ClientIncomingCommandResult result = handler.HandleIncomingCommand(currentCommand, context);
+                ClientIncomingCommandResult result = null;
+                try
+                {
+                    result = handler.HandleIncomingCommand(currentCommand, context);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Command handler {handler.GetType().FullName} threw for '{currentCommand.MessageType}': {ex}",
+                        LogLevel.ERROR));
+                    continue;
+                }
                 if (result == null) continue;
 
                 if (result.Action == MessageHandlingResultAction.ReplacePayload && result.Command != null)

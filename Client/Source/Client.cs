@@ -118,11 +118,20 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientSoundService>(soundService);
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
             extensionHostContext.AddService<Func<IEnumerable<Thing>, LookTargets>>(verseThings => dropPods(verseThings));
+            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories())}");
             ExtensionAssemblyLoader.LoadAssemblies(
                 GetExtensionProbeDirectories(),
-                (message, level) => Log(new LogEventArgs(message, level)));
+                (message, level) =>
+                {
+                    // Always pass through to the log handler so warnings/errors are visible
+                    // even when DevMode is off
+                    Log(new LogEventArgs(message, level));
+                });
+            Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
-            // Subscribe to log events
+            Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
+            // Subscribe to log events (after construction so constructor diagnostics
+            // already went through the hostContext.Log callback above)
             authenticator.OnLogEntry += ILoggableHandler;
             userManager.OnLogEntry += ILoggableHandler;
             frameworkClient.OnLogEntry += ILoggableHandler;

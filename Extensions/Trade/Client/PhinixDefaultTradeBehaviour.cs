@@ -77,117 +77,139 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeCreationSuccess(object sender, TradeCreationEventArgs args)
         {
-            if (args?.Trade == null)
+            try
             {
-                return;
-            }
+                if (args?.Trade == null) return;
+                if (!shouldDisplayTradeEvent(args.OtherPartyUuid)) return;
+                if (tryQueueTradeWindow(args.OtherPartyUuid, args.Trade)) return;
 
-            if (!shouldDisplayTradeEvent(args.OtherPartyUuid))
-            {
-                return;
+                string displayName = resolveDisplayName(args.OtherPartyUuid);
+                dispatcher.Enqueue(() =>
+                {
+                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
+                    Find.LetterStack.ReceiveLetter(
+                        "Phinix_trade_tradeReceivedLetter_label".Translate(displayName),
+                        "Phinix_trade_tradeReceivedLetter_description".Translate(displayName),
+                        letterDef);
+                });
             }
-
-            if (tryQueueTradeWindow(args.OtherPartyUuid, args.Trade))
+            catch (Exception ex)
             {
-                return;
+                log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeCreationSuccess threw: {ex}",
+                    LogLevel.ERROR));
             }
-
-            string displayName = resolveDisplayName(args.OtherPartyUuid);
-            dispatcher.Enqueue(() =>
-            {
-                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
-                Find.LetterStack.ReceiveLetter(
-                    "Phinix_trade_tradeReceivedLetter_label".Translate(displayName),
-                    "Phinix_trade_tradeReceivedLetter_description".Translate(displayName),
-                    letterDef);
-            });
         }
 
         private void onTradeCreationFailure(object sender, TradeCreationEventArgs args)
         {
-            if (args == null)
+            try
             {
-                return;
-            }
+                if (args == null) return;
 
-            lock (waitingLock)
+                lock (waitingLock)
+                {
+                    waitingForTradeCreationWith.Remove(args.OtherPartyUuid);
+                }
+
+                dispatcher.Enqueue(() =>
+                    windowService.Open(new Dialog_MessageBox(
+                        title: "Phinix_error_tradeCreationFailedTitle".Translate(),
+                        text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString()))));
+            }
+            catch (Exception ex)
             {
-                waitingForTradeCreationWith.Remove(args.OtherPartyUuid);
+                log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeCreationFailure threw: {ex}",
+                    LogLevel.ERROR));
             }
-
-            dispatcher.Enqueue(() =>
-                windowService.Open(new Dialog_MessageBox(
-                    title: "Phinix_error_tradeCreationFailedTitle".Translate(),
-                    text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString()))));
         }
 
         private void onTradeCompleted(object sender, TradeCompletionEventArgs args)
         {
-            if (args == null)
+            try
             {
-                return;
+                if (args == null) return;
+
+                string displayName = resolveDisplayName(args.OtherPartyUuid);
+                Thing[] verseItems = args.Items
+                    .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
+                    .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
+                    .ToArray();
+
+                dispatcher.Enqueue(() =>
+                {
+                    LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
+                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeAccepted");
+                    Find.LetterStack.ReceiveLetter(
+                        "Phinix_trade_tradeCompletedLetter_label".Translate(),
+                        "Phinix_trade_tradeCompletedLetter_description".Translate(displayName),
+                        letterDef,
+                        dropSpotLookTarget);
+                });
             }
-
-            string displayName = resolveDisplayName(args.OtherPartyUuid);
-            Thing[] verseItems = args.Items
-                .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
-                .Where(thing => thing != null && thing.def.defName != "UnknownItem")
-                .ToArray();
-
-            dispatcher.Enqueue(() =>
+            catch (Exception ex)
             {
-                LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
-                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeAccepted");
-                Find.LetterStack.ReceiveLetter(
-                    "Phinix_trade_tradeCompletedLetter_label".Translate(),
-                    "Phinix_trade_tradeCompletedLetter_description".Translate(displayName),
-                    letterDef,
-                    dropSpotLookTarget);
-            });
+                log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeCompleted threw: {ex}",
+                    LogLevel.ERROR));
+            }
         }
 
         private void onTradeCancelled(object sender, TradeCompletionEventArgs args)
         {
-            if (args == null || !shouldDisplayTradeEvent(args.OtherPartyUuid))
+            try
             {
-                return;
+                if (args == null || !shouldDisplayTradeEvent(args.OtherPartyUuid)) return;
+
+                string displayName = resolveDisplayName(args.OtherPartyUuid);
+                Thing[] verseItems = args.Items
+                    .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
+                    .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
+                    .ToArray();
+
+                dispatcher.Enqueue(() =>
+                {
+                    LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
+                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCancelled");
+                    Find.LetterStack.ReceiveLetter(
+                        "Phinix_trade_tradeCancelled_label".Translate(),
+                        "Phinix_trade_tradeCancelled_description".Translate(displayName),
+                        letterDef,
+                        dropSpotLookTarget);
+                });
             }
-
-            string displayName = resolveDisplayName(args.OtherPartyUuid);
-            Thing[] verseItems = args.Items
-                .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
-                .Where(thing => thing != null && thing.def.defName != "UnknownItem")
-                .ToArray();
-
-            dispatcher.Enqueue(() =>
+            catch (Exception ex)
             {
-                LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
-                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCancelled");
-                Find.LetterStack.ReceiveLetter(
-                    "Phinix_trade_tradeCancelled_label".Translate(),
-                    "Phinix_trade_tradeCancelled_description".Translate(displayName),
-                    letterDef,
-                    dropSpotLookTarget);
-            });
+                log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeCancelled threw: {ex}",
+                    LogLevel.ERROR));
+            }
         }
 
         private void onTradeUpdateFailure(object sender, TradeUpdateEventArgs args)
         {
-            if (args == null)
+            try
             {
-                return;
-            }
+                if (args == null) return;
 
-            string displayName = "???";
-            if (tradeService.TryGetOtherPartyUuid(args.Trade.TradeId, out string otherPartyUuid))
+                string displayName = "???";
+                if (tradeService.TryGetOtherPartyUuid(args.Trade.TradeId, out string otherPartyUuid))
+                {
+                    displayName = resolveDisplayName(otherPartyUuid);
+                }
+
+                dispatcher.Enqueue(() =>
+                    windowService.Open(new Dialog_MessageBox(
+                        title: "Phinix_error_tradeUpdateFailedTitle".Translate(),
+                        text: "Phinix_error_tradeUpdateFailedMessage".Translate(displayName, args.FailureMessage, args.FailureReason.ToString()))));
+            }
+            catch (Exception ex)
             {
-                displayName = resolveDisplayName(otherPartyUuid);
+                log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeUpdateFailure threw: {ex}",
+                    LogLevel.ERROR));
             }
-
-            dispatcher.Enqueue(() =>
-                windowService.Open(new Dialog_MessageBox(
-                    title: "Phinix_error_tradeUpdateFailedTitle".Translate(),
-                    text: "Phinix_error_tradeUpdateFailedMessage".Translate(displayName, args.FailureMessage, args.FailureReason.ToString()))));
         }
 
         private bool shouldDisplayTradeEvent(string otherPartyUuid)

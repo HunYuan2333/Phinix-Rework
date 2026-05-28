@@ -46,12 +46,21 @@ namespace Phinix.ChatExtension.Client
 
             chatMessageList.Draw(chatRect);
 
-            UnityEngine.GUI.SetNextControlName("Phinix_chatMessageField");
+            // Save Enter before TextField consumes it.
+            bool enterPressed = Event.current != null &&
+                Event.current.type == EventType.KeyDown &&
+                (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
+
             message = Widgets.TextField(messageBoxRect, message);
-            if (isMessageFieldSubmitEvent(Event.current))
+
+            if (enterPressed && !string.IsNullOrEmpty(message))
             {
                 sendChatMessage();
+                // Use() changes type to Used but leaves keyCode intact.
+                // RimWorld may check keyCode directly; wipe it to prevent
+                // the window shortcut from picking up Enter.
                 Event.current.Use();
+                Event.current.keyCode = KeyCode.None;
             }
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))
@@ -68,14 +77,6 @@ namespace Phinix.ChatExtension.Client
                 chatMessageList.ScrollToBottom();
                 message = "";
             }
-        }
-
-        private static bool isMessageFieldSubmitEvent(Event currentEvent)
-        {
-            return currentEvent != null &&
-                   currentEvent.type == EventType.KeyDown &&
-                   (currentEvent.keyCode == KeyCode.Return || currentEvent.keyCode == KeyCode.KeypadEnter) &&
-                   UnityEngine.GUI.GetNameOfFocusedControl() == "Phinix_chatMessageField";
         }
     }
 }

@@ -191,7 +191,7 @@ namespace Phinix.TradeExtension.Client
             lock (tradesLock)
             {
                 // Remove the trade and mark the rows to be updated
-                trades.RemoveAll(t => t.TradeId == args.Trade.TradeId);
+                trades.RemoveAll(t => t.TradeId == args.TradeId);
                 tradesChanged = true;
             }
         }

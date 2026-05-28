@@ -91,6 +91,10 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <HintPath>..\..\.nuget\System.Numerics.Vectors.4.4.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Runtime.InteropServices.RuntimeInformation" />
     <Reference Include="System.Xml.Linq" />
@@ -207,6 +211,7 @@
     <Copy SourceFiles="$(TargetDir)\LiteNetLib.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\01-LiteNetLib.dll" />
     <Copy SourceFiles="$(TargetDir)\Google.Protobuf.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\02-Protobuf.dll" />
     <Copy SourceFiles="$(TargetDir)\System.Memory.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\System.Memory.dll" />
+    <Copy SourceFiles="$(TargetDir)\System.Numerics.Vectors.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\System.Numerics.Vectors.dll" />
     <Copy SourceFiles="$(TargetDir)\System.Runtime.CompilerServices.Unsafe.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\System.Runtime.CompilerServices.Unsafe.dll" />
     <Copy SourceFiles="$(TargetDir)\Utils.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\03-Utils.dll" />
     <Copy SourceFiles="$(TargetDir)\Connections.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\04-Connections.dll" />
