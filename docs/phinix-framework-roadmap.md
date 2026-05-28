@@ -16,14 +16,17 @@
 - extension 之间的协作走最小 API registry，不引入复杂 DI / IoC / dependency solver。
 
 ## Current Focus
-当前开发主线已经进入 `Phase 6`。
+当前开发主线处于 `Phase 6 / Step 5`。
 
-当前优先级不是继续扩展 trade 功能，而是先完成 `Phase 6 / Step 1`：
+`Step 1` 到 `Step 4` 已完成的代码迁移包括：
 
-- 先把文档边界定死。
-- 明确 server host 只保留 core 能力。
-- 明确 extension 只能通过 `content / command / item` 三条 pipeline 接入。
-- 明确 chat 也必须被视为 official extension/plugin，而不是 built-in 特例。
+- 文档边界定死（`设计哲学.md`、`phase6-core-only-extension-architecture.md`）
+- `IExtensionBuilder` 与 `IExtensionApiRegistry` 已抽出
+- registry 主发现对象已从散装 handler 切换到 module-first
+- chat 协议常量与 proto ownership 已从 core 迁至独立 `Extensions/Chat/Contracts`
+- `BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 已删除
+
+当前焦点：`Step 5` — 用 core 级 host services 替换业务专用装配，host 不再保留对官方扩展的业务认知。
 
 Phase 6 设计基线见：
 
@@ -126,7 +129,7 @@ Phase 6 设计基线见：
 - 只迁移真正去业务化、可复用的共享契约。
 
 ### Phase 6: core-only host 与动态 extension 架构收口
-状态：进行中，`Step 1` 到 `Step 4` 代码迁移已基本完成，待最终验收
+状态：进行中，`Step 1` 到 `Step 4` 已完成，当前在 `Step 5`
 
 目标：
 
@@ -134,32 +137,30 @@ Phase 6 设计基线见：
 - extension 只能通过 `content / command / item` 三条 pipeline 接入。
 - chat 必须与 trade 一样，被当成 official extension/plugin 处理。
 - 引入最小 `API registry`，支持 `RegisterApi<T>()` / `TryResolve<T>()` / `ResolveAll<T>()`。
-- 把 extension 注册入口从“散装 handler 发现”收敛为 “module + builder”。
+- 把 extension 注册入口从”散装 handler 发现”收敛为 “module + builder”。
 
-当前已完成：
+已完成（Step 1–4）：
 
 - 更新 roadmap，明确 `Phase 6` 是当前主线。
-- 以 `docs/phase6-core-only-extension-architecture.md` 作为新的边界基线。
-- 清理已被新设计文档覆盖的旧草稿，避免后续继续按过时边界推进。
-- 已抽出 `IExtensionBuilder` 与 `IExtensionApiRegistry`。
-- registry 主发现对象已从散装 handler 类推进到 module-first。
-- 非 module 自动发现已降级为兼容路径，不再作为主注册模型。
-- chat 协议常量已从 `Utils.Framework.FrameworkProtocol` 迁出，改由独立 `Common/ChatExtension` 契约承载。
-- chat proto / generated payload ownership 已从 `Common/Utils` 转移到 `Common/ChatExtension`。
-- client/server chat 代码已切到 chat extension contract 引用，不再依赖 core 私有 `BuiltInChat*` 常量。
+- 以 `docs/phase6-core-only-extension-architecture.md` 作为边界基线。
+- 已抽出 `IExtensionBuilder` 与 `IExtensionApiRegistry`（Step 2）。
+- registry 主发现对象已从散装 handler 类推进到 module-first，非 module 自动发现已降级为兼容路径（Step 3）。
+- chat 协议常量已从 `Utils.Framework.FrameworkProtocol` 迁出，改由 `Extensions/Chat/Contracts` 独立承载（Step 4）。
+- chat proto / generated payload ownership 已从 `Common/Utils` 转移到 `Extensions/Chat/Contracts`（Step 4）。
+- client/server chat 代码已切到 chat extension contract 引用，不再依赖 core 私有 `BuiltInChat*` 常量（Step 4）。
+- `BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 已删除，host 不再通过这些 wrapper 做业务装配。
 
-后续实现步骤：
+当前执行（Step 5）：
 
-1. 完成 `Step 4` 最终验收：
-   - 补齐编译验证
-   - 补齐 chat capability / send / history sync 轻量黑盒验证
-   - 确认仓库里不再残留 `FrameworkProtocol.BuiltInChat*` 有效引用
-2. 逐步把 `message pipeline` 正式收口为 `content pipeline` 语义。
-3. 用 core 级 host services 替换 `BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 这类业务专用装配。
-4. 在 `Step 5` 中只引入轻量 lifecycle 约束：
-   - extension 自己负责初始化、持久化、清理
-   - 这些行为挂在通用 lifecycle phase 上
-   - host 不再为具体业务扩展补专用时序钩子
+- 用 core 级 host services 替换剩余业务专用装配入口。
+- 明确 extension 之间只能通过 API registry 暴露的 contract 协作。
+- 防止 host 以”另一种形式”重新把 chat/trade 装回自己体内。
+- 逐步把 `message pipeline` 正式收口为 `content pipeline` 语义。
+
+后续（Step 6）：
+
+- 把 official extension 代码从 host 主项目边界上拆开。
+- 新增 official extension 不需要改 core 设计。
 
 release 后可考虑的增强，但不属于当前 `Phase 6` 的收口目标：
 
@@ -213,4 +214,7 @@ release 后可考虑的增强，但不属于当前 `Phase 6` 的收口目标：
 ## Related Docs
 - `docs/phase6-core-only-extension-architecture.md`
 - `docs/phinix-core-extension-boundary-assessment.md`
-- `docs/phinix-trade-phase5-session-context.md`
+- `docs/设计哲学.md`
+- `docs/架构耦合度与内聚度评估.md`
+- `docs/cs架构重构和技术迁移需求分析-基于当前实现修订版.md`
+- `docs/现存问题.md`

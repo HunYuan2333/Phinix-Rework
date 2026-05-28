@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+    <Phinix_chat_sendButton>发送</Phinix_chat_sendButton>
+    <Phinix_chat_settingsButton>设置</Phinix_chat_settingsButton>
+    <Phinix_chat_pleaseLogInPlaceholder>未登录。\n尝试在"设置"菜单（聊天选项卡右上角）中连接到服务器。</Phinix_chat_pleaseLogInPlaceholder>
+    <Phinix_chat_blockedUsers>已屏蔽用户</Phinix_chat_blockedUsers>
+    <Phinix_chat_contextMenu_tradeWith>与{0}交易</Phinix_chat_contextMenu_tradeWith>
+    <Phinix_chat_contextMenu_blockUser>屏蔽用户</Phinix_chat_contextMenu_blockUser>
+    <Phinix_chat_contextMenu_unblockUser>取消屏蔽用户</Phinix_chat_contextMenu_unblockUser>
+    <Phinix_chat_contextMenu_copyToClipboard>复制信息到剪贴板</Phinix_chat_contextMenu_copyToClipboard>
+    <Phinix_chat_contextMenu_openInBrowser>在浏览器中打开链接：{0}</Phinix_chat_contextMenu_openInBrowser>
+</LanguageData>

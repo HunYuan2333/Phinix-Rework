@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+    <Phinix_chat_sendButton>Send</Phinix_chat_sendButton>
+    <Phinix_chat_settingsButton>Settings</Phinix_chat_settingsButton>
+    <Phinix_chat_pleaseLogInPlaceholder>You are not logged in.\nTry connecting to a server in the settings menu (top right of the chat tab).</Phinix_chat_pleaseLogInPlaceholder>
+    <Phinix_chat_blockedUsers>Blocked users</Phinix_chat_blockedUsers>
+    <Phinix_chat_contextMenu_tradeWith>Trade with {0}</Phinix_chat_contextMenu_tradeWith>
+    <Phinix_chat_contextMenu_blockUser>Block user</Phinix_chat_contextMenu_blockUser>
+    <Phinix_chat_contextMenu_unblockUser>Unblock user</Phinix_chat_contextMenu_unblockUser>
+    <Phinix_chat_contextMenu_copyToClipboard>Copy to clipboard</Phinix_chat_contextMenu_copyToClipboard>
+    <Phinix_chat_contextMenu_openInBrowser>Open {0} in browser</Phinix_chat_contextMenu_openInBrowser>
+</LanguageData>

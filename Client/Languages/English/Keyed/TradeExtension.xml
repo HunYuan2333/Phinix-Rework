@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+    <!-- Trade window -->
+    <Phinix_trade_tradeTitle>Trade with {0}</Phinix_trade_tradeTitle>
+    <Phinix_trade_ourOfferLabel>Our offer</Phinix_trade_ourOfferLabel>
+    <Phinix_trade_theirOfferLabel>Their offer</Phinix_trade_theirOfferLabel>
+    <Phinix_trade_confirmOurTradeCheckboxChecked>You have confirmed</Phinix_trade_confirmOurTradeCheckboxChecked>
+    <Phinix_trade_confirmOurTradeCheckboxUnchecked>You have not confirmed</Phinix_trade_confirmOurTradeCheckboxUnchecked>
+    <Phinix_trade_confirmTheirTradeCheckboxChecked>{0} has confirmed</Phinix_trade_confirmTheirTradeCheckboxChecked>
+    <Phinix_trade_confirmTheirTradeCheckboxUnchecked>{0} has not confirmed</Phinix_trade_confirmTheirTradeCheckboxUnchecked>
+    <Phinix_trade_updateButton>Update</Phinix_trade_updateButton>
+    <Phinix_trade_resetButton>Reset</Phinix_trade_resetButton>
+    <Phinix_trade_cancelButton>Cancel</Phinix_trade_cancelButton>
+    <Phinix_trade_sortByLabel>Sort by</Phinix_trade_sortByLabel>
+    <Phinix_trade_searchLabel>Search</Phinix_trade_searchLabel>
+    <Phinix_trade_noItemsAvailable>No items available</Phinix_trade_noItemsAvailable>
+    <Phinix_trade_noItemsAvailableWithSearch>No items match your search</Phinix_trade_noItemsAvailableWithSearch>
+
+    <!-- Trade list -->
+    <Phinix_trade_noActiveTradesPlaceholder>You have no active trades.</Phinix_trade_noActiveTradesPlaceholder>
+    <Phinix_trade_activeTrade_tradeWithLabel>Trade with {0}</Phinix_trade_activeTrade_tradeWithLabel>
+    <Phinix_trade_activeTrade_theyHaveAccepted>They have accepted</Phinix_trade_activeTrade_theyHaveAccepted>
+    <Phinix_trade_activeTrade_theyHaveNotAccepted>They have not accepted</Phinix_trade_activeTrade_theyHaveNotAccepted>
+    <Phinix_trade_activeTrade_openButton>Open</Phinix_trade_activeTrade_openButton>
+    <Phinix_trade_activeTrade_cancelButton>Cancel</Phinix_trade_activeTrade_cancelButton>
+
+    <!-- Trade letters -->
+    <Phinix_trade_tradeReceivedLetter_label>Trade from {0}</Phinix_trade_tradeReceivedLetter_label>
+    <Phinix_trade_tradeReceivedLetter_description>{0} has sent you a trade offer.\n\nCheck the 'Trades' tab in the Phinix chat panel for details.</Phinix_trade_tradeReceivedLetter_description>
+    <Phinix_trade_tradeCompletedLetter_label>Trade successful</Phinix_trade_tradeCompletedLetter_label>
+    <Phinix_trade_tradeCompletedLetter_description>Your trade with {0} was successful.</Phinix_trade_tradeCompletedLetter_description>
+    <Phinix_trade_tradeCancelled_label>Trade cancelled</Phinix_trade_tradeCancelled_label>
+    <Phinix_trade_tradeCancelled_description>Your trade with {0} was cancelled.\n\nYour items have been shipped back to you.</Phinix_trade_tradeCancelled_description>
+
+    <!-- Trade errors -->
+    <Phinix_error_tradeCreationFailedTitle>Trade creation failed</Phinix_error_tradeCreationFailedTitle>
+    <Phinix_error_tradeCreationFailedMessage>Could not start a trade: {0} ({1})</Phinix_error_tradeCreationFailedMessage>
+    <Phinix_error_tradeUpdateFailedTitle>Trade update failed</Phinix_error_tradeUpdateFailedTitle>
+    <Phinix_error_tradeUpdateFailedMessage>Could not update your trade with {0}: {1} ({2})\nYour items have been shipped back to you.</Phinix_error_tradeUpdateFailedMessage>
+</LanguageData>

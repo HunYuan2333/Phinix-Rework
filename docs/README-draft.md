@@ -1,127 +1,85 @@
-<h1 align="center">phinix-rework</h1>
-<h4 align="center"><i>A reworked RimWorld chat and trading mod built on top of Phinix</i></h4>
-<p align="center"><img src="../Client/About/Preview.png" alt="phinix-rework preview"></p>
+<h1 align="center">Phinix</h1>
+<h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
+<p align="center"><img src="../Client/About/Preview.png" alt="Phinix preview"></p>
 <br><br>
 
-> Draft README for review only.  
+> Draft README for review only.
 > The production README in `.github/README.md` is intentionally left unchanged for now.
 
 中文版本: [README-draft.zh-CN.md](./README-draft.zh-CN.md)
 
 # About
-`phinix-rework` is a continuation and rework of **Phinix**, the RimWorld chat and trading mod originally created by the Phinix team.
 
-Like the original project, it allows players to:
+Phinix adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a continuation of the original Phinix mod, rebuilt around a plugin-oriented framework architecture.
 
-- chat with each other in-game
-- trade items between colonies
-- use an external dedicated server
-- handle asynchronous trade flow without requiring both sides to respond instantly
+Core capabilities:
 
-This rework keeps that foundation, but puts more emphasis on long-term maintainability and extension support.
+- in-game chat between colonies
+- asynchronous item trading (no simultaneous online required)
+- dedicated server with authentication and user management
+- extensible plugin system for third-party submods
 
-Compared with the original mod, this rework is not just a rename. It is gradually restructuring Phinix into a cleaner framework-driven architecture so future features and submods can plug in more naturally.
+# Architecture
 
-Current rework direction includes:
+Phinix has been restructured into a layered, plugin-first architecture:
 
-- a framework-oriented message pipeline on top of the existing client/server flow
-- capability negotiation between client and server
-- reflection-based extension discovery
-- clearer separation between default built-in behavior and extension behavior
-- legacy fallback behavior when framework support is unavailable
-- groundwork for custom message types, renderers, item codecs, and trade completion handlers
+```
+Plugins (Extensions/Chat, Extensions/Trade, third-party)
+  → Shared contracts (ClientExtensionAbstractions)
+    → Host (Client / Server)
+      → Infrastructure (Common: networking, auth, user management)
+```
 
-In short, the project is moving from a fixed built-in implementation toward an extensible base that still preserves the original Phinix experience.
+Key principles:
 
-# What's New In The Rework
-The original Phinix already offered a strong gameplay base, including:
-
-- chat message timestamps
-- unread message alerts
-- two-way trading GUI
-- asynchronous trades
-- configurable chat presentation
-
-`phinix-rework` builds on that and focuses on architectural improvements such as:
-
-- moving chat and trading behavior toward framework-managed pipelines
-- introducing negotiated feature support between client and server
-- preparing the codebase for submods and custom protocol extensions
-- improving the boundary between legacy compatibility and newer framework features
-- reducing the amount of hardcoded core-only behavior
-
-This makes the project easier to evolve without repeatedly rewriting the same central systems.
+- **Plugin parity** — Chat and Trade are plugins, not built-in special cases. Third-party submods use the exact same discovery → registration → activation path.
+- **Host doesn't depend on plugins** — The host only references `ClientExtensionAbstractions` (generic contracts). No compile-time dependency on any specific plugin project.
+- **Three pipelines** — All network communication flows through `message` (display), `command` (control), and `item` (payload) lanes.
+- **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`. The host provides only the shell.
+- **API registry** — Plugins expose and discover capabilities through `RegisterApi<T>()` / `TryResolve<T>()` without host mediation.
 
 # Installation
+
 ## Client
-1. Build or obtain the client package for `phinix-rework`.
-2. Extract it into your `RimWorld/Mods` folder.
+
+1. Build or download the client package.
+2. Extract into `RimWorld/Mods`.
 3. Install the required Harmony dependency.
-4. Start RimWorld and enable the mod.
-5. Restart the game if RimWorld requests it.
+4. Enable the mod in RimWorld and restart.
 
-The repository currently declares support for RimWorld:
-
-- `1.3`
-- `1.4`
-- `1.5`
-- `1.6`
+Supported RimWorld versions: 1.3, 1.4, 1.5, 1.6.
 
 ## Server
-Server configuration is stored in `server.conf`.
 
-The default server values currently include:
+Server configuration is stored in `server.conf` (defaults: port `16200`, max connections `1000`, auth type `ClientKey`).
 
-- port `16200`
-- max connections `1000`
-- authentication type `ClientKey`
-
-To run the server:
-
-1. Open `server.conf` and adjust settings as needed.
-2. Build the server project.
-3. Run `PhinixServer.exe`.
-4. Optionally use the server console commands such as `help` and `version`.
+1. Edit `server.conf` as needed.
+2. Build the server project (requires .NET 10 SDK).
+3. Run the server.
+4. Use console commands such as `help` and `version`.
 
 ## Docker
-This repository still contains Docker files for server deployment:
 
-- `Dockerfile`
-- `docker-compose.yml`
-
-That means container-based server hosting remains part of the intended workflow for the project.
+Docker deployment is supported via `Dockerfile` and `docker-compose.yml`. Container-based hosting remains part of the intended workflow.
 
 # Usage
-## Client
-1. Load a save or create a new colony.
-2. Open the `Chat` tab in-game.
-3. Open `Settings`.
-4. Enter the server address and port.
-5. Connect to the server.
 
-When connected successfully, the chat UI should become active and the user list should update to show online players.
+## Client
+
+1. Load a save or create a new colony.
+2. Open the Phinix tab (chat icon in the bottom toolbar).
+3. Go to Settings and enter the server address and port.
+4. Connect to the server.
 
 ## Server
-The server is designed to:
 
-- accept client connections
-- authenticate users
-- synchronize chat
-- synchronize trade state
-- expose framework capabilities for newer clients when supported
-
-The rework also aims to keep graceful fallback behavior when newer framework features are not available on both sides.
+The server handles: connection management, authentication, chat message relay, trade state synchronization, and framework capability negotiation.
 
 # Developers
-## Setting Up Your Environment
-### Game DLLs
-The client project depends on RimWorld assemblies from the game install directory, typically under:
 
-`<RimWorldDir>/RimWorldXXX_Data/Managed/`
+## Environment Setup
 
-The required DLLs should be placed in `GameDlls/`.
-
-Common examples include:
+The client project depends on RimWorld assemblies. Place the required DLLs in `GameDlls/`:
 
 - `Assembly-CSharp.dll`
 - `UnityEngine.dll`
@@ -130,48 +88,40 @@ Common examples include:
 - `UnityEngine.InputLegacyModule.dll`
 - `UnityEngine.TextRenderingModule.dll`
 
-If you keep multiple RimWorld versions, version-specific DLL folders can also be used under `GameDlls/`.
+Version-specific subdirectories under `GameDlls/` are supported.
 
-### Building
-The repository includes:
+## Building
 
-- `Phinix.sln`
-- client, common, and server C# projects
-- a `TravisCI` build profile for builds that do not require the RimWorld game assemblies
+The solution (`Phinix.sln`) contains client, common, server, and extension projects. A `TravisCI` build profile is available for builds that do not require RimWorld game assemblies.
 
-If you only need to build the shared libraries and server side, the non-client profile remains the easier route.
+- **Client**: .NET Framework 4.7.2 (Unity/Mono ecosystem)
+- **Common projects**: multi-target `net472;net10.0`
+- **Server**: .NET 10.0
 
-### Protocol Work
-This project uses Protobuf for packet definitions and generated packet code.
+## Protocol
 
-If packet structures are changed, you will also need an appropriate `protoc` toolchain with C# support.
+Packet definitions use Protobuf. If you modify packet structures, you will need a `protoc` toolchain with C# support.
 
-## Rework Focus For Developers
-If you are reading this repository as a developer, the most important difference in `phinix-rework` is the shift toward framework extension points.
+## Extension Development
 
-Ongoing architecture work is centered around:
+Plugins implement `IPhinixExtensionModule` and register handlers, renderers, codecs, and APIs through `IExtensionBuilder`:
 
-- framework envelopes
-- capability negotiation
-- extension discovery
-- client/server message handlers
-- renderers and interceptors
-- item pipelines and trade completion contracts
+```csharp
+public class MyExtension : IPhinixExtensionModule
+{
+    public string ExtensionId => "my.extension";
 
-The long-term goal is for future gameplay additions to integrate through these interfaces instead of patching the core mod repeatedly.
+    public void Register(IExtensionBuilder builder)
+    {
+        builder.AddCapability("my.extension");
+        builder.AddClientMessageHandler(this);
+        builder.RegisterApi<IMyService>(this);
+    }
+}
+```
 
-# Credit And Thanks
-Special thanks to the original **Phinix** creators and contributors for building the codebase this rework is based on.
+See [设计哲学.md](./设计哲学.md) for the full architecture guide and design rules.
 
-This project also acknowledges the earlier lineage behind Phinix itself, including [Longwelwind's Phi mod](https://github.com/longwelwind/phi).
+# Credit
 
-The original work made this rework possible, and that foundation deserves clear credit.
-
-# Draft Notes
-This version is meant to help shape the final README before replacing `.github/README.md`.
-
-Possible next improvements:
-
-- add release/download links once the new distribution target is finalized
-- add screenshots for chat UI and trade UI if you want a more visual README
-- continue polishing the Chinese companion README and keep both versions in sync
+Special thanks to the original Phinix creators and contributors, and to [Longwelwind's Phi mod](https://github.com/longwelwind/phi) for the earlier foundation.

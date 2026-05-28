@@ -54,92 +54,53 @@ Phase 6 的主要目标不是继续搬业务代码，而是重新把 framework /
 
 ### Current Coupling Problems
 
-当前架构仍然没有完全达到 “core-only host + pipeline-only extension/plugin”。
+当前架构仍然没有完全达到 “core-only host + pipeline-only extension/plugin”。以下标注了各问题的当前解决状态（2026-05-29）。
 
-#### 1. Core still contains chat-specific protocol constants
+#### 1. Core still contains chat-specific protocol constants ✅ 已解决（Step 4）
 
-当前 `Common/Utils/Framework/FrameworkTypes.cs` 中仍然定义了：
+~~当前 `Common/Utils/Framework/FrameworkTypes.cs` 中仍然定义了：~~
 
-- `BuiltInChatMessageType`
-- `BuiltInChatHistoryRequestType`
-- `BuiltInChatHistorySyncCompleteType`
+- ~~`BuiltInChatMessageType`~~
+- ~~`BuiltInChatHistoryRequestType`~~
+- ~~`BuiltInChatHistorySyncCompleteType`~~
 
-这说明 `core` 仍然理解 chat 的具体 capability/type。
-这不符合 “core 不理解具体业务” 的 Phase 6 边界。
+这些常量已从 `FrameworkProtocol` 中移除，chat 协议常量现由 `Extensions/Chat/Contracts` 独立承载。
 
-同时这也说明：
+#### 2. Host still performs business-specific composition 🔧 部分解决（Step 5 进行中）
 
-- chat 目前还没有彻底插件化
-- chat 仍然拥有高于其他 extension 的特殊地位
+~~当前 `Server/Server.cs` 与 `Client/Source/Client.cs` 仍然显式创建并注入：~~
 
-这正是本阶段必须修掉的点。
+- ~~`BuiltInChat*HostServices`~~
+- ~~`BuiltInTrade*HostServices`~~
 
-#### 2. Host still performs business-specific composition
+`BuiltInChat*HostServices` / `BuiltInTrade*HostServices` 已删除。但 `Server.cs` 仍直接引用 Chat/Trade Contracts 项目，host 侧业务装配尚未完全消除。
 
-当前 `Server/Server.cs` 与 `Client/Source/Client.cs` 仍然显式创建并注入：
+#### 3. Built-in extensions are still compiled into host assemblies ⬜ 仍然存在
 
-- `PhinixFrameworkChatService`
-- `PhinixFrameworkTradeServerService`
-- `BuiltInChat*HostServices`
-- `BuiltInTrade*HostServices`
+当前 `BuiltInChatClientExtension`、`BuiltInTradeClientExtension` 等仍存在于 `Client`/`Server` 主项目的编译范围内（通过 `Extensions/` 目录下的独立 csproj，但构建时由宿主 MSBuild 触发）。
 
-这说明 extension 虽然通过 registry 被发现，但宿主仍然在做具体业务装配。
+这导致 extension 的发布边界和 host 的发布边界没有真正分开。这是 Phase 6 / Step 6 的目标。
 
-这类装配意味着：
+#### 4. Extension registration is dynamic, but API discovery is missing ✅ 已解决（Step 2）
 
-- 新增一个 official extension，就要继续修改 host；
-- “动态注册”仍然只是 handler 层动态，不是 extension 层动态；
-- server 并没有真正退化成只保留 core 的宿主。
+~~还不能收集 extension 对外暴露的 typed API~~
 
-#### 3. Built-in extensions are still compiled into host assemblies
+`IExtensionApiRegistry` 已实现，支持：
+- `RegisterApi<T>(string extensionId, T implementation)`
+- `TryResolve<T>(out T implementation)`
+- `ResolveAll<T>()`
 
-当前 `BuiltInChatClientExtension`、`BuiltInTradeClientExtension`、`BuiltInChatServerExtension`、`BuiltInTradeServerExtension` 仍直接存在于 `Client` / `Server` 主项目中。
+chat/trade 已通过此机制暴露和发现 API contract。
 
-这导致两个问题：
+#### 5. Pipeline semantics are not fully normalized yet ⬜ 仍然存在
 
-- extension 的发布边界和 host 的发布边界没有真正分开；
-- “built-in extension” 更像“宿主内部模块”，而不是“由宿主加载的 official extension”。
+以下命名和契约仍未完全去业务化：
+- `FrameworkPacket.MessageType` 命名仍偏向 chat 时代的 message 语义
+- `IClientMessageHandler` 同时承担”处理文本输入”和”处理入站 message”
+- `FrameworkDisplayMessage` 仍然带着明显 chat/UI 影子
+- item pipeline 还偏向”trade 的一个附属能力”
 
-对 chat 来说，这个问题尤其严重，因为它最容易被误认为“天然属于 framework 主链”。
-Phase 6 必须明确否定这个前提。
-
-#### 4. Extension registration is dynamic, but API discovery is missing
-
-当前 registry 能收集：
-
-- handlers
-- renderers
-- codecs
-- capabilities
-
-但还不能收集：
-
-- extension 对外暴露的 typed API
-- extension 提供的 facade / service contract
-- extension 之间的能力协作入口
-
-因此现在还没有真正意义上的：
-
-- `RegisterApi<T>()`
-- `TryResolve<T>()`
-- `TryResolveAll<T>()`
-
-这意味着 extension 之间一旦需要协作，很容易重新退回到：
-
-- 硬依赖具体实现类
-- 宿主提前注入专用 service
-- 静态入口
-
-#### 5. Pipeline semantics are not fully normalized yet
-
-虽然当前主链实际上已经接近三条 pipeline，但语义上仍然有历史包袱：
-
-- `FrameworkPacket.MessageType` 命名仍偏向 chat 时代的 message 语义；
-- `IClientMessageHandler` 同时承担“处理文本输入”和“处理入站 message”；
-- `FrameworkDisplayMessage` 仍然带着明显 chat/UI 影子；
-- item pipeline 还偏向“trade 的一个附属能力”，尚未完全成为独立基础设施。
-
-这并不代表当前设计错误，而是说明命名和契约还没有完全完成去业务化。
+这属于 Phase 6 Step 5 的 `message pipeline → content pipeline` 命名收口范围。
 
 其中最容易制造误会的一点就是：
 

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+    <!-- Trade window -->
+    <Phinix_trade_tradeTitle>与{0}交易</Phinix_trade_tradeTitle>
+    <Phinix_trade_ourOfferLabel>己方清单</Phinix_trade_ourOfferLabel>
+    <Phinix_trade_theirOfferLabel>对方清单</Phinix_trade_theirOfferLabel>
+    <Phinix_trade_confirmOurTradeCheckboxChecked>你已经确认</Phinix_trade_confirmOurTradeCheckboxChecked>
+    <Phinix_trade_confirmOurTradeCheckboxUnchecked>你尚未确认</Phinix_trade_confirmOurTradeCheckboxUnchecked>
+    <Phinix_trade_confirmTheirTradeCheckboxChecked>{0}已确认</Phinix_trade_confirmTheirTradeCheckboxChecked>
+    <Phinix_trade_confirmTheirTradeCheckboxUnchecked>{0}未确认</Phinix_trade_confirmTheirTradeCheckboxUnchecked>
+    <Phinix_trade_updateButton>更新</Phinix_trade_updateButton>
+    <Phinix_trade_resetButton>重置</Phinix_trade_resetButton>
+    <Phinix_trade_cancelButton>取消</Phinix_trade_cancelButton>
+    <Phinix_trade_sortByLabel>排序</Phinix_trade_sortByLabel>
+    <Phinix_trade_searchLabel>搜索</Phinix_trade_searchLabel>
+    <Phinix_trade_noItemsAvailable>没有可用于交易的物品。</Phinix_trade_noItemsAvailable>
+    <Phinix_trade_noItemsAvailableWithSearch>未搜索到相符的物品</Phinix_trade_noItemsAvailableWithSearch>
+
+    <!-- Trade list -->
+    <Phinix_trade_noActiveTradesPlaceholder>没有活动中的交易</Phinix_trade_noActiveTradesPlaceholder>
+    <Phinix_trade_activeTrade_tradeWithLabel>与{0}交易</Phinix_trade_activeTrade_tradeWithLabel>
+    <Phinix_trade_activeTrade_theyHaveAccepted>对方已同意</Phinix_trade_activeTrade_theyHaveAccepted>
+    <Phinix_trade_activeTrade_theyHaveNotAccepted>对方不同意</Phinix_trade_activeTrade_theyHaveNotAccepted>
+    <Phinix_trade_activeTrade_openButton>打开</Phinix_trade_activeTrade_openButton>
+    <Phinix_trade_activeTrade_cancelButton>取消</Phinix_trade_activeTrade_cancelButton>
+
+    <!-- Trade letters -->
+    <Phinix_trade_tradeReceivedLetter_label>来自{0}的交易</Phinix_trade_tradeReceivedLetter_label>
+    <Phinix_trade_tradeReceivedLetter_description>{0}已向你发送一个交易请求。\n\n打开Phinix内的'交易'标签以查看详情。</Phinix_trade_tradeReceivedLetter_description>
+    <Phinix_trade_tradeCompletedLetter_label>交易成功</Phinix_trade_tradeCompletedLetter_label>
+    <Phinix_trade_tradeCompletedLetter_description>你的交易{0}已经成功完成。</Phinix_trade_tradeCompletedLetter_description>
+    <Phinix_trade_tradeCancelled_label>交易取消</Phinix_trade_tradeCancelled_label>
+    <Phinix_trade_tradeCancelled_description>你的交易{0}被取消了。\n\n你的物品已经运回。</Phinix_trade_tradeCancelled_description>
+
+    <!-- Trade errors -->
+    <Phinix_error_tradeCreationFailedTitle>交易创建失败</Phinix_error_tradeCreationFailedTitle>
+    <Phinix_error_tradeCreationFailedMessage>无法开启一项交易：{0} ({1})</Phinix_error_tradeCreationFailedMessage>
+    <Phinix_error_tradeUpdateFailedTitle>交易更新失败</Phinix_error_tradeUpdateFailedTitle>
+    <Phinix_error_tradeUpdateFailedMessage>无法更新你与{0}的交易: {1} ({2})\n你的物品已经运回。</Phinix_error_tradeUpdateFailedMessage>
+</LanguageData>
