@@ -273,3 +273,16 @@ Server/Extensions/*.dll
 # Phinix credentials
 **/PhinixCredentials.bin
 Client/Any/Assemblies/12-PhinixClient.dll
+
+# Phinix runtime data (security-sensitive, never commit)
+credentials
+users
+chatHistory
+trades
+server.conf
+
+# Phinix server runtime state
+framework-extensions/server/
+
+# Phinix test logs
+testlog/
