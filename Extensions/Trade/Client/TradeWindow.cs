@@ -90,6 +90,7 @@ namespace Phinix.TradeExtension.Client
         private object pendingItemStacksLock = new object();
 
         private volatile bool shouldClose;
+        private bool? pendingAccepted;
 
         /// <summary>
         /// Creates a new <see cref="TradeWindow"/> for the given trade ID.
@@ -198,19 +199,18 @@ namespace Phinix.TradeExtension.Client
             Widgets.DrawTextureFitted(tradeArrowsRect, tradeArrows, 1f);
 
             // Our offer
-            bool ourOfferAccepted = trade.Accepted;
+            bool ourOfferAccepted = pendingAccepted ?? trade.Accepted;
             drawOffer(inRect: ourOfferRect,
                 title: "Phinix_trade_ourOfferLabel".Translate(),
                 itemStacks: ourOfferCache,
                 scrollPos: ref ourOfferScrollPos,
                 accepted: ref ourOfferAccepted,
-                acceptedLabel: ("Phinix_trade_confirmOurTradeCheckbox" + (trade.Accepted ? "Checked" : "Unchecked")).Translate(),
+                acceptedLabel: ("Phinix_trade_confirmOurTradeCheckbox" + (ourOfferAccepted ? "Checked" : "Unchecked")).Translate(),
                 checkboxInteractive: true
             );
-            if (ourOfferAccepted != trade.Accepted)
+            if (ourOfferAccepted != (pendingAccepted ?? trade.Accepted))
             {
-                Verse.Log.Message($"[TradeWindow] Accept toggled: tradeId={trade.TradeId}, accepted={ourOfferAccepted}");
-                new Thread(() => tradeService.UpdateTradeStatus(trade.TradeId, accepted: ourOfferAccepted)).Start();
+                sendTradeStatusUpdate(ourOfferAccepted);
             }
 
             // Their offer
@@ -299,8 +299,7 @@ namespace Phinix.TradeExtension.Client
             UnityEngine.GUI.color = Color.red;
             if (Widgets.ButtonText(cancelButtonRect, "Phinix_trade_cancelButton".Translate()))
             {
-                Verse.Log.Message($"[TradeWindow] Cancel clicked: tradeId={trade.TradeId}");
-                new Thread(() => tradeService.CancelTrade(trade.TradeId)).Start();
+                sendCancelTradeRequest();
             }
 
             // Restore GUI colour
@@ -352,6 +351,17 @@ namespace Phinix.TradeExtension.Client
         private void OnTradeUpdated(object sender, TradeUpdateEventArgs args)
         {
             Verse.Log.Message($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}");
+            if (args.Trade == null || !string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (args.FailureReason != TradeFailureReason.None ||
+                (pendingAccepted.HasValue && args.Trade.Accepted == pendingAccepted.Value))
+            {
+                pendingAccepted = null;
+            }
+
             // Save the updated trade and flag the current one to be replaced
             lock (updatedTradeLock)
             {
@@ -391,6 +401,34 @@ namespace Phinix.TradeExtension.Client
                         }
                     }
                 }
+            }
+        }
+
+        private void sendTradeStatusUpdate(bool accepted)
+        {
+            Verse.Log.Message($"[TradeWindow] Accept toggled: tradeId={trade.TradeId}, accepted={accepted}");
+            pendingAccepted = accepted;
+            try
+            {
+                tradeService.UpdateTradeStatus(trade.TradeId, accepted: accepted);
+            }
+            catch (Exception exception)
+            {
+                pendingAccepted = null;
+                hostContext.Log(new LogEventArgs($"Failed to send trade status update for trade '{trade.TradeId}': {exception.Message}", LogLevel.ERROR));
+            }
+        }
+
+        private void sendCancelTradeRequest()
+        {
+            Verse.Log.Message($"[TradeWindow] Cancel clicked: tradeId={trade.TradeId}");
+            try
+            {
+                tradeService.CancelTrade(trade.TradeId);
+            }
+            catch (Exception exception)
+            {
+                hostContext.Log(new LogEventArgs($"Failed to send trade cancel request for trade '{trade.TradeId}': {exception.Message}", LogLevel.ERROR));
             }
         }
 

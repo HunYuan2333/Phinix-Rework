@@ -17,6 +17,7 @@ namespace Phinix.ChatExtension.Client
         private readonly Action openSettingsWindow;
         private readonly UserList userList;
         private string userSearch = string.Empty;
+        private bool wasOnline;
 
         public ChatSidebarProvider(
             IChatUiHostContext hostContext,
@@ -53,7 +54,15 @@ namespace Phinix.ChatExtension.Client
                 userList.Filter(userSearch);
             }
 
-            if (sessionContext.Authenticated && sessionContext.LoggedIn)
+            bool online = sessionContext.Authenticated && sessionContext.LoggedIn;
+            if (online && !wasOnline)
+            {
+                userList.Refresh();
+            }
+
+            wasOnline = online;
+
+            if (online)
             {
                 userList.Draw(userListRect);
             }

@@ -377,6 +377,7 @@ namespace PhinixClient
             {
                 yield return clientAssemblyDirectory;
                 yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Assemblies"));
+                yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions"));
             }
 
             if (!string.IsNullOrEmpty(appBaseDirectory))

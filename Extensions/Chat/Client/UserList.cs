@@ -190,6 +190,11 @@ namespace Phinix.ChatExtension.Client
             blockedUsersChanged = true;
         }
 
+        public void Refresh()
+        {
+            refreshUserLists();
+        }
+
         private void refreshUserLists()
         {
             refreshBlockedUserList();

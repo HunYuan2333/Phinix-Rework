@@ -196,10 +196,12 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="Clean">
     <RemoveDir Directories="$(SolutionDir)\Client\Common\Assemblies\" />
+    <RemoveDir Directories="$(SolutionDir)\Client\Common\Extensions\" />
     <RemoveDir Directories="$(SolutionDir)\Client\$(GameVersion)\Assemblies\" />
   </Target>
   <Target Name="AfterBuild">
     <MakeDir Directories="$(SolutionDir)\Client\Common\Assemblies" />
+    <MakeDir Directories="$(SolutionDir)\Client\Common\Extensions" />
     <MakeDir Directories="$(SolutionDir)\Client\$(GameVersion)\Assemblies" />
     <MakeDir Condition="'$(GameVersion)' == 'Any'" Directories="$(SolutionDir)\Client\1.6\Assemblies" />
     <Copy SourceFiles="$(TargetDir)\LiteNetLib.dll" DestinationFiles="$(SolutionDir)\Client\Common\Assemblies\01-LiteNetLib.dll" />

@@ -48,6 +48,11 @@ namespace Phinix.ChatExtension.Client
 
             UnityEngine.GUI.SetNextControlName("Phinix_chatMessageField");
             message = Widgets.TextField(messageBoxRect, message);
+            if (isMessageFieldSubmitEvent(Event.current))
+            {
+                sendChatMessage();
+                Event.current.Use();
+            }
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))
             {
@@ -63,6 +68,14 @@ namespace Phinix.ChatExtension.Client
                 chatMessageList.ScrollToBottom();
                 message = "";
             }
+        }
+
+        private static bool isMessageFieldSubmitEvent(Event currentEvent)
+        {
+            return currentEvent != null &&
+                   currentEvent.type == EventType.KeyDown &&
+                   (currentEvent.keyCode == KeyCode.Return || currentEvent.keyCode == KeyCode.KeypadEnter) &&
+                   UnityEngine.GUI.GetNameOfFocusedControl() == "Phinix_chatMessageField";
         }
     }
 }
