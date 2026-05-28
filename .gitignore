@@ -272,3 +272,4 @@ Server/Extensions/*.dll
 
 # Phinix credentials
 **/PhinixCredentials.bin
+Client/Any/Assemblies/12-PhinixClient.dll
