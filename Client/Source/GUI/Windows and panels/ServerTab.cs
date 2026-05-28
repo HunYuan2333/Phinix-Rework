@@ -60,6 +60,16 @@ namespace PhinixClient
             {
                 sidebarProvider.Draw(rightColumnRect);
             }
+
+            // Prevent Enter/Esc from bubbling up to RimWorld's Window layer
+            // and closing this MainTabWindow. Tab content (e.g. Chat) handles
+            // these keys before this point if needed.
+            if (Event.current.type == EventType.KeyDown &&
+                (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter ||
+                 Event.current.keyCode == KeyCode.Escape))
+            {
+                Event.current.Use();
+            }
         }
     }
 }

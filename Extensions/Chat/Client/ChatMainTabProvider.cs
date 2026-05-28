@@ -47,6 +47,8 @@ namespace Phinix.ChatExtension.Client
             chatMessageList.Draw(chatRect);
 
             // Save Enter before TextField consumes it.
+            // Use type check BEFORE TextField, because TextField may call
+            // Event.current.Use() which changes type to Used.
             bool enterPressed = Event.current != null &&
                 Event.current.type == EventType.KeyDown &&
                 (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
@@ -56,11 +58,6 @@ namespace Phinix.ChatExtension.Client
             if (enterPressed && !string.IsNullOrEmpty(message))
             {
                 sendChatMessage();
-                // Use() changes type to Used but leaves keyCode intact.
-                // RimWorld may check keyCode directly; wipe it to prevent
-                // the window shortcut from picking up Enter.
-                Event.current.Use();
-                Event.current.keyCode = KeyCode.None;
             }
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))
