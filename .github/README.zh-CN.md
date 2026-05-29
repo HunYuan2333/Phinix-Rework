@@ -1,4 +1,4 @@
-<h1 align="center">Phinix</h1>
+<h1 align="center">Phinix Rework</h1>
 <h4 align="center"><i>RimWorld 多人模组 — 聊天、交易与可扩展插件框架</i></h4>
 
 [English](./README.md)

@@ -1,4 +1,4 @@
-<h1 align="center">Phinix</h1>
+<h1 align="center">Phinix Rework</h1>
 <h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
 
 > Draft README. Will be moved to repository root later. 中文版：[README-draft.zh-CN.md](./README-draft.zh-CN.md)
