@@ -374,10 +374,12 @@ namespace Phinix.TradeExtension.Client
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
             Verse.Log.Message($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}");
-            if (OnTradeCompleted != null)
+            if (RaiseEventSafely(
+                    OnTradeCompleted,
+                    new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)),
+                    nameof(OnTradeCompleted)))
             {
-                OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
-                Verse.Log.Message($"[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully");
+                Verse.Log.Message($"[TradeService] HandleCompletedEvent: OnTradeCompleted dispatch finished");
             }
             else
             {
@@ -397,8 +399,47 @@ namespace Phinix.TradeExtension.Client
             Verse.Log.Message($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
+            RaiseEventSafely(
+                OnTradeCancelled,
+                new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)),
+                nameof(OnTradeCancelled));
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' cancelled with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
+        }
+
+        private bool RaiseEventSafely<TEventArgs>(EventHandler<TEventArgs> handlers, TEventArgs args, string eventName)
+            where TEventArgs : EventArgs
+        {
+            if (handlers == null)
+            {
+                return false;
+            }
+
+            foreach (Delegate subscriber in handlers.GetInvocationList())
+            {
+                try
+                {
+                    ((EventHandler<TEventArgs>)subscriber).Invoke(this, args);
+                }
+                catch (Exception exception)
+                {
+                    log?.Invoke(new LogEventArgs(
+                        $"Framework trade event subscriber '{describeSubscriber(subscriber)}' threw while handling {eventName}: {exception}",
+                        LogLevel.ERROR));
+                }
+            }
+
+            return true;
+        }
+
+        private static string describeSubscriber(Delegate subscriber)
+        {
+            if (subscriber == null || subscriber.Method == null)
+            {
+                return "unknown";
+            }
+
+            string declaringType = subscriber.Method.DeclaringType?.FullName ?? "unknown";
+            return $"{declaringType}.{subscriber.Method.Name}";
         }
 
         private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)
