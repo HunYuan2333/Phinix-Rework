@@ -1,9 +1,9 @@
-﻿// Original file provided by Longwelwind (https://github.com/Longwelwind)
+// Original file provided by Longwelwind (https://github.com/Longwelwind)
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using Pastel;
 
 namespace Utils
 {
@@ -19,6 +19,11 @@ namespace Utils
 		private static readonly string[] unsafeTags = {"size"};
 
 		/// <summary>
+		/// Precompiled regex cache keyed by tag name to avoid per-call allocation.
+		/// </summary>
+		private static readonly Dictionary<string, Regex> regexCache = new Dictionary<string, Regex>();
+
+		/// <summary>
 		/// Strips the given set of tags from the input string.
 		/// </summary>
 		/// <param name="input">String to strip</param>
@@ -27,11 +32,13 @@ namespace Utils
 		private static string stripRichText(string input, params string[] strippedTags)
 		{
 			foreach (string tag in strippedTags) {
-				// Maybe a better way than a Regex to parse RichText?
-				// Unfortunately not, I'm afraid
-				string pattern = @"<\/?" + tag + @"(=[\w#]+)?>";
+				if (!regexCache.TryGetValue(tag, out Regex regex))
+				{
+					string pattern = @"<\/?" + tag + @"(=[\w#]+)?>";
+					regex = new Regex(pattern, RegexOptions.Compiled);
+					regexCache[tag] = regex;
+				}
 
-				Regex regex = new Regex(pattern);
 				input = regex.Replace (input, "");
 			}
 
@@ -58,44 +65,5 @@ namespace Utils
 		{
 			return stripRichText(input, unsafeTags);
 		}
-
-		/// <summary>
-		/// Highlights a string with ANSI colour codes according to the given <see cref="HighlightType"/>.
-		/// Intended for making the server log more readable.
-		/// </summary>
-		/// <param name="str"></param>
-		/// <param name="highlightType"></param>
-		/// <returns></returns>
-		public static string Highlight(this string str, HighlightType highlightType)
-		{
-			switch (highlightType)
-			{
-				case HighlightType.ConnectionID:
-					return str.Pastel("bf616a");
-				case HighlightType.SessionID:
-					return str.Pastel("d08770");
-				case HighlightType.UUID:
-					return str.Pastel("ebcb8b");
-				case HighlightType.ChatMessageID:
-					return str.Pastel("a3be8c");
-				case HighlightType.TradeID:
-					return str.Pastel("b48ead");
-				case HighlightType.Username:
-					return str.Pastel("88c0d0");
-				default:
-					return str;
-			}
-		}
-	}
-
-	public enum HighlightType
-	{
-		ConnectionID,
-		SessionID,
-		UUID,
-		ChatMessageID,
-		TradeID,
-		Username
 	}
 }
-

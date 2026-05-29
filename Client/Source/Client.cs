@@ -1,11 +1,10 @@
 ﻿using Authentication;
-using Chat;
 using Connections;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using Trading;
 using UnityEngine;
 using UserManagement;
 using Utils;
@@ -57,53 +56,19 @@ namespace PhinixClient
 
         public bool Online => Connected && Authenticated && LoggedIn;
 
-        private ClientChat chat;
+        public bool CanUseFrameworkChat => frameworkClient != null && frameworkClient.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2;
         public void SendMessage(string message)
         {
-            if (!frameworkClient.TryHandleOutgoingMessage(message))
-            {
-                chat.Send(message);
-            }
+            frameworkClient.TryHandleOutgoingMessage(message);
         }
-        public bool ShouldDisplayChatMessage(UIChatMessage message) => frameworkClient.ShouldDisplayChatMessage(message, Settings.BlockedUsers, false);
-        public bool ShouldPlayChatNotification(UIChatMessage message) => frameworkClient.ShouldPlayNotification(message, Uuid, Settings.PlayNoiseOnMessageReceived, Current.Game != null, Settings.BlockedUsers);
-        public void MarkAsRead() => chat.MarkAsRead();
-        public UIChatMessage[] GetUnreadChatMessages(bool markAsRead = true) => GetChatMessages(markAsRead, true);
-        public int UnreadMessages => chat.UnreadMessages;
-        public int UnreadMessagesExcludingBlocked => chat.GetUnreadMessagesExcluding(Settings.BlockedUsers);
-        public event EventHandler<UIChatMessageEventArgs> OnChatMessageReceived;
-        public event EventHandler OnChatSync;
-
-        private ClientTrading trading;
-        public void CancelTrade(string tradeId) => trading.CancelTrade(tradeId);
-        public string[] GetTradeIds() => trading.GetTradeIds();
-        public string[] GetTradeIdsExceptWith(IEnumerable<string> otherPartyUuids) => trading.GetTradeIdsExceptWith(otherPartyUuids);
-        public ImmutableTrade[] GetTrades() => trading.GetTrades();
-        public ImmutableTrade[] GetTradesExceptWith(IEnumerable<string> otherPartyUuids) => trading.GetTradesExceptWith(otherPartyUuids);
-        public bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid) => trading.TryGetOtherPartyUuid(tradeId, out otherPartyUuid);
-        public bool TryGetOtherPartyAccepted(string tradeId, out bool otherPartyAccepted) => trading.TryGetOtherPartyAccepted(tradeId, out otherPartyAccepted);
-        public bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted) => trading.TryGetPartyAccepted(tradeId, partyUuid, out accepted);
-        public bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<Trading.ProtoThing> items) => trading.TryGetItemsOnOffer(tradeId, uuid, out items);
-        public void UpdateTradeItems(string tradeId, IEnumerable<ProtoThing> items, string token = "") => trading.UpdateItems(tradeId, items, token);
-        public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null) => trading.UpdateStatus(tradeId, accepted, cancelled);
+        public IReadOnlyList<IMainTabProvider> MainTabProviders => frameworkClient?.ResolveExtensionApis<IMainTabProvider>() ?? Array.Empty<IMainTabProvider>();
+        public IReadOnlyList<IServerSidebarProvider> SidebarProviders => frameworkClient?.ResolveExtensionApis<IServerSidebarProvider>() ?? Array.Empty<IServerSidebarProvider>();
         public LookTargets DropPods(IEnumerable<Thing> verseThings) => dropPods(verseThings);
-        public event EventHandler<UICreateTradeEventArgs> OnTradeCreationSuccess;
-        public event EventHandler<UICreateTradeEventArgs> OnTradeCreationFailure;
-        public event EventHandler<UICompleteTradeEventArgs> OnTradeCompleted;
-        public event EventHandler<UICompleteTradeEventArgs> OnTradeCancelled;
-        public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateSuccess;
-        public event EventHandler<UITradeUpdateEventArgs> OnTradeUpdateFailure;
-        public event EventHandler<UITradesSyncedEventArgs> OnTradesSynced;
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
-        private PhinixClientItemPipeline itemPipeline;
-        private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
-        private PhinixClientTradeCompletionPipeline tradeCompletionPipeline;
-
-        public event EventHandler<BlockedUsersChangedEventArgs> OnBlockedUsersChanged;
-        public event EventHandler OnChatMessageLimitChanged;
-
+        private ClientUserEventStream userEventStream;
+        private ClientMainThreadDispatcher mainThreadDispatcher;
         public Settings Settings { get; }
 
         /// <summary>
@@ -116,26 +81,6 @@ namespace PhinixClient
         /// </summary>
         private object soundQueueLock = new object();
 
-        /// <summary>
-        /// Collection of UUIDs that we have created trades with and are waiting for a confirmation from the server for.
-        /// Used to display the trade immediately once it's confirmed.
-        /// </summary>
-        private HashSet<string> waitingForTradeCreationWith = new HashSet<string>();
-        /// <summary>
-        /// Lock object protecting <see cref="waitingForTradeCreationWith"/>
-        /// </summary>
-        private object waitingForTradeCreationWithLock = new object();
-
-        /// <summary>
-        /// Collection of trades queued to be opened on the next frame.
-        /// Necessary because textures and other assets can only be gotten on the main Unity thread.
-        /// </summary>
-        private List<ImmutableTrade> tradeWindowQueue = new List<ImmutableTrade>();
-        /// <summary>
-        /// Lock object protecting <see cref="tradeWindowQueue"/>.
-        /// </summary>
-        private object tradeWindowQueueLock = new object();
-
         public Client(ModContentPack content) : base(content)
         {
             Instance = this;
@@ -146,31 +91,55 @@ namespace PhinixClient
             // Load in Settings
             Settings = GetSettings<Settings>();
             if (!Settings.Migrated) Settings.MigrateFromHugsLib();
-
             // Set up our module instances
             netClient = new NetClient();
             authenticator = new ClientAuthenticator(netClient, getCredentials);
             userManager = new ClientUserManager(netClient, authenticator);
-            chat = new ClientChat(netClient, authenticator, userManager);
-            trading = new ClientTrading(netClient, authenticator, userManager);
-            frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager);
-            itemPipeline = new PhinixClientItemPipeline(Log, frameworkClient.CompatibilityMode);
-            defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(trading, userManager, itemPipeline, dropPods, Log);
-            tradeCompletionPipeline = new PhinixClientTradeCompletionPipeline(itemPipeline, Log, new DefaultTradeCompletionHandler(defaultTradeBehaviour));
-
-            // Subscribe to log events
+            IClientUserDirectory frameworkUserDirectory = new ClientFrameworkUserDirectoryAdapter(userManager);
+            IClientSessionContext sessionContext = new ClientSessionContextAdapter(authenticator, userManager);
+            IClientSettingsContext settingsContext = new ClientSettingsContextAdapter(this);
+            userEventStream = new ClientUserEventStream();
+            mainThreadDispatcher = new ClientMainThreadDispatcher();
+            IClientWindowService windowService = new ClientWindowService();
+            IClientSoundService soundService = new ClientSoundService(this);
+            ExtensionHostContext extensionHostContext = new ExtensionHostContext
+            {
+                HostKind = "client",
+                Log = (message, level) => Log(new LogEventArgs(message, level)),
+                StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "client"))
+            };
+            extensionHostContext.AddService(userManager);
+            extensionHostContext.AddService(frameworkUserDirectory);
+            extensionHostContext.AddService(sessionContext);
+            extensionHostContext.AddService(settingsContext);
+            extensionHostContext.AddService<IClientUserEventStream>(userEventStream);
+            extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
+            extensionHostContext.AddService<IClientWindowService>(windowService);
+            extensionHostContext.AddService<IClientSoundService>(soundService);
+            extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
+            extensionHostContext.AddService<Func<IEnumerable<Thing>, LookTargets>>(verseThings => dropPods(verseThings));
+            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories())}");
+            ExtensionAssemblyLoader.LoadAssemblies(
+                GetExtensionProbeDirectories(),
+                (message, level) =>
+                {
+                    // Always pass through to the log handler so warnings/errors are visible
+                    // even when DevMode is off
+                    Log(new LogEventArgs(message, level));
+                });
+            Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
+            frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
+            Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
+            // Subscribe to log events (after construction so constructor diagnostics
+            // already went through the hostContext.Log callback above)
             authenticator.OnLogEntry += ILoggableHandler;
             userManager.OnLogEntry += ILoggableHandler;
-            chat.OnLogEntry += ILoggableHandler;
-            trading.OnLogEntry += ILoggableHandler;
             frameworkClient.OnLogEntry += ILoggableHandler;
-
             #region Module Event Handlers
             // Subscribe to connection events
             netClient.OnDisconnect += (sender, args) =>
             {
-                // Clear the waiting list for opening trades
-                lock (waitingForTradeCreationWithLock) waitingForTradeCreationWith.Clear();
+                userEventStream.RaiseDisconnected();
             };
 
             // Subscribe to authentication events
@@ -207,82 +176,27 @@ namespace PhinixClient
             };
             userManager.OnUserDisplayNameChanged += (sender, args) =>
             {
+                userEventStream.RaiseUsersChanged();
+                userEventStream.RaiseUserDisplayNameChanged(args);
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("User with UUID {0} changed their display name from \"{1}\" to \"{2}\"", args.Uuid, args.OldDisplayName, args.NewDisplayName));
             };
             userManager.OnUserLoggedIn += (sender, args) =>
             {
+                userEventStream.RaiseUsersChanged();
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("User {0} logged in", args.Uuid));
             };
             userManager.OnUserLoggedOut += (sender, args) =>
             {
+                userEventStream.RaiseUsersChanged();
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("User {0} logged out", args.Uuid));
             };
             userManager.OnUserCreated += (sender, args) =>
             {
+                userEventStream.RaiseUsersChanged();
                 if (Prefs.DevMode) Verse.Log.Message(string.Format("New user created: {0} ({1}) - {2}ogged in", args.DisplayName, args.Uuid, args.LoggedIn ? "L" : "Not l"));
             };
+            userManager.OnUserSync += (sender, args) => userEventStream.RaiseUsersChanged();
 
-            // Subscribe to chat events
-            chat.OnChatMessageReceived += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message("Received chat message from UUID " + args.Message.SenderUuid);
-
-                UIChatMessage uiMessage = new UIChatMessage(userManager, args.Message);
-                if (ShouldPlayChatNotification(uiMessage))
-                {
-                    lock (soundQueueLock)
-                    {
-                        soundQueue.Add(SoundDefOf.Tick_Tiny);
-                    }
-                }
-            };
-            frameworkClient.OnDisplayMessageReceived += (sender, args) =>
-            {
-                if (ShouldPlayChatNotification(args.Message))
-                {
-                    lock (soundQueueLock)
-                    {
-                        soundQueue.Add(SoundDefOf.Tick_Tiny);
-                    }
-                }
-            };
-            frameworkClient.OnCompatibilityModeChanged += (_, compatibilityMode) => itemPipeline.SetCompatibilityMode(compatibilityMode);
-
-            // Subscribe to trading events
-            trading.OnTradeCreationSuccess += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Created trade {0} with {1}", args.TradeId, args.OtherPartyUuid));
-                defaultTradeBehaviour.HandleTradeCreationSuccess(args, Settings.ShowBlockedTrades, Settings.BlockedUsers, waitingForTradeCreationWith, waitingForTradeCreationWithLock, tradeWindowQueue, tradeWindowQueueLock);
-            };
-            trading.OnTradeCreationFailure += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Failed to create trade with {0}: {1} ({2})", args.OtherPartyUuid, args.FailureMessage, args.FailureReason.ToString()));
-
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_tradeCreationFailedTitle".Translate(), text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
-
-                // Remove the other party from the waiting list
-                lock (waitingForTradeCreationWithLock) waitingForTradeCreationWith.Remove(args.OtherPartyUuid);
-            };
-            trading.OnTradeCompleted += (sender, args) =>
-            {
-                tradeCompletionPipeline.HandleTradeCompleted(args);
-
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Trade with {0} completed successfully", args.OtherPartyUuid));
-            };
-            trading.OnTradeCancelled += (sender, args) =>
-            {
-                defaultTradeBehaviour.HandleTradeCancelled(args, Settings.ShowBlockedTrades, Settings.BlockedUsers);
-
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Trade with {0} cancelled", args.OtherPartyUuid));
-            };
-            trading.OnTradeUpdateFailure += (sender, args) =>
-            {
-                defaultTradeBehaviour.HandleTradeUpdateFailure(args);
-            };
-            trading.OnTradesSynced += (sender, args) =>
-            {
-                if (Prefs.DevMode) Verse.Log.Message(string.Format("Synced {0} trade{1} from server", args.TradeIds.Length, args.TradeIds.Length != 1 ? "s" : ""));
-            };
             #endregion
 
             // Forward events so the UI can handle them
@@ -297,31 +211,6 @@ namespace PhinixClient
             userManager.OnUserLoggedOut += (sender, e) => { OnUserLoggedOut?.Invoke(sender, e); };
             userManager.OnUserCreated += (sender, e) => { OnUserCreated?.Invoke(sender, e); };
             userManager.OnUserSync += (sender, e) => { OnUserSync?.Invoke(sender, e); };
-            chat.OnChatMessageReceived += (sender, e) =>
-            {
-                UIChatMessage uiMessage = new UIChatMessage(userManager, e.Message);
-                if (frameworkClient.TryBuildLegacyDisplayMessage(uiMessage, out UIChatMessage displayMessage) &&
-                    ShouldDisplayChatMessage(displayMessage))
-                {
-                    OnChatMessageReceived?.Invoke(sender, new UIChatMessageEventArgs(displayMessage));
-                }
-            };
-            chat.OnChatSync += (sender, e) => { OnChatSync?.Invoke(sender, e); };
-            frameworkClient.OnDisplayMessageReceived += (sender, e) =>
-            {
-                if (ShouldDisplayChatMessage(e.Message))
-                {
-                    OnChatMessageReceived?.Invoke(sender, e);
-                }
-            };
-            trading.OnTradeCreationSuccess += (sender, e) => { OnTradeCreationSuccess?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, userManager)); };
-            trading.OnTradeCreationFailure += (sender, e) => { OnTradeCreationFailure?.Invoke(sender, UICreateTradeEventArgs.FromCreateTradeEventArgs(e, userManager)); };
-            trading.OnTradeCompleted += (sender, e) => { OnTradeCompleted?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
-            trading.OnTradeCancelled += (sender, e) => { OnTradeCancelled?.Invoke(sender, UICompleteTradeEventArgs.FromCompleteTradeEventArgs(e, userManager)); };
-            trading.OnTradeUpdateSuccess += (sender, e) => { OnTradeUpdateSuccess?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, trading)); };
-            trading.OnTradeUpdateFailure += (sender, e) => { OnTradeUpdateFailure?.Invoke(sender, UITradeUpdateEventArgs.FromTradeUpdateEventArgs(e, trading)); };
-            trading.OnTradesSynced += (sender, e) => { OnTradesSynced?.Invoke(sender, UITradesSyncedEventArgs.FromTradesSyncedEventArgs(e, trading, userManager)); };
-
             // Connect to the server set in the config
             Connect(Settings.ServerAddress, Settings.ServerPort);
         }
@@ -413,7 +302,7 @@ namespace PhinixClient
 
             Settings.AcceptChanges();
 
-            OnBlockedUsersChanged?.Invoke(this, new BlockedUsersChangedEventArgs(senderUuid, true));
+            userEventStream.RaiseBlockedUsersChanged(new UserBlockStateChangedEventArgs(senderUuid, true));
         }
 
         /// <summary>
@@ -426,7 +315,7 @@ namespace PhinixClient
 
             Settings.AcceptChanges();
 
-            OnBlockedUsersChanged?.Invoke(this, new BlockedUsersChangedEventArgs(senderUuid, false));
+            userEventStream.RaiseBlockedUsersChanged(new UserBlockStateChangedEventArgs(senderUuid, false));
         }
 
         /// <summary>
@@ -445,16 +334,7 @@ namespace PhinixClient
                     sound.PlayOneShotOnCamera();
                 }
             }
-
-            lock (tradeWindowQueueLock)
-            {
-                // Check if we have any trade windows to open
-                while (tradeWindowQueue.Any())
-                {
-                    // Dequeue and open the window
-                    Find.WindowStack.Add(new TradeWindow(tradeWindowQueue.Pop()));
-                }
-            }
+            mainThreadDispatcher?.DrainPendingActions();
         }
 
         /// <summary>
@@ -497,66 +377,22 @@ namespace PhinixClient
             userManager.UpdateSelf(displayName);
         }
 
-        /// <summary>
-        /// Gets the current chat message buffer, optionally marking them as read.
-        /// </summary>
-        /// <param name="markAsRead">Whether to mark the messages as read</param>
-        /// <param name="unreadOnly">Whether to only get unread messages</param>
-        /// <returns>List of chat messages</returns>
-        public UIChatMessage[] GetChatMessages(bool markAsRead = true, bool unreadOnly = false)
+        private static IEnumerable<string> GetExtensionProbeDirectories()
         {
-            IEnumerable<UIChatMessage> legacyMessages = (unreadOnly ? chat.GetUnreadMessages(markAsRead) : chat.GetMessages(markAsRead))
-                .Select(message => new UIChatMessage(userManager, message));
+            string clientAssemblyDirectory = Path.GetDirectoryName(typeof(Client).Assembly.Location);
+            string appBaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
 
-            return frameworkClient.BuildChatFeed(legacyMessages);
-        }
-
-        /// <summary>
-        /// Tries to get the chat message with the given ID.
-        /// </summary>
-        /// <param name="messageId">ID of the chat message to retrieve</param>
-        /// <param name="message">Chat message output</param>
-        /// <returns>Whether the chat message was retrieved successfully</returns>
-        public bool TryGetMessage(string messageId, out UIChatMessage message)
-        {
-            message = null;
-
-            // Try pull out the message
-            if (!chat.TryGetMessage(messageId, out ClientChatMessage clientChatMessage))
+            if (!string.IsNullOrEmpty(clientAssemblyDirectory))
             {
-                return frameworkClient.TryGetDisplayMessage(messageId, out message);
+                yield return clientAssemblyDirectory;
+                yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Assemblies"));
+                yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions"));
             }
 
-            // Wrap it with the sender's user details
-            UIChatMessage legacyMessage = new UIChatMessage(userManager, clientChatMessage);
-            if (!frameworkClient.TryBuildLegacyDisplayMessage(legacyMessage, out message))
+            if (!string.IsNullOrEmpty(appBaseDirectory))
             {
-                message = null;
-                return false;
+                yield return appBaseDirectory;
             }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Creates a trade with the given user.
-        /// </summary>
-        /// <param name="uuid">Other party's UUID</param>
-        /// <exception cref="ArgumentException">UUID cannot be null or empty</exception>
-        public void CreateTrade(string uuid)
-        {
-            if (string.IsNullOrEmpty(uuid))
-            {
-                throw new ArgumentException("UUID cannot be null or empty", nameof(uuid));
-            }
-
-            // Add the other party to the waiting list so we can open it immediately
-            lock (waitingForTradeCreationWithLock)
-            {
-                waitingForTradeCreationWith.Add(uuid);
-            }
-
-            trading.CreateTrade(uuid);
         }
 
         /// <summary>
@@ -623,5 +459,19 @@ namespace PhinixClient
 
             return new LookTargets(dropSpot, map);
         }
+
+        internal void EnqueueSound(SoundDef soundDef)
+        {
+            if (soundDef == null)
+            {
+                return;
+            }
+
+            lock (soundQueueLock)
+            {
+                soundQueue.Add(soundDef);
+            }
+        }
+
     }
 }

@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  
+  <!-- EN: chat -->
+  <Chat.label>Phinix</Chat.label>
+  <!-- EN: Open the Phinix chat -->
+  <Chat.description>打开Phinix会话框</Chat.description>
+  
+</LanguageData>

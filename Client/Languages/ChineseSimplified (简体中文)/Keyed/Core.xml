@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+    <!-- Tab labels -->
+    <Phinix_tabs_chat>会话</Phinix_tabs_chat>
+    <Phinix_tabs_trades>交易</Phinix_tabs_trades>
+
+    <!-- Settings -->
+    <Phinix_settings_connectButton>连接</Phinix_settings_connectButton>
+    <Phinix_settings_disconnectButton>断开</Phinix_settings_disconnectButton>
+    <Phinix_settings_connectedToLabel>已连接至{0}</Phinix_settings_connectedToLabel>
+    <Phinix_settings_addressLabel>地址</Phinix_settings_addressLabel>
+    <Phinix_settings_portLabel>端口</Phinix_settings_portLabel>
+    <Phinix_settings_setDisplayNameButton>设置名称</Phinix_settings_setDisplayNameButton>
+    <Phinix_settings_displayNamePreview>你的ID将会显示成：{0}</Phinix_settings_displayNamePreview>
+
+    <!-- Mod settings -->
+    <Phinix_modSettings_serverAddressTitle>服务器地址</Phinix_modSettings_serverAddressTitle>
+    <Phinix_modSettings_serverPortTitle>服务器端口</Phinix_modSettings_serverPortTitle>
+    <Phinix_modSettings_displayNameTitle>显示名称</Phinix_modSettings_displayNameTitle>
+    <Phinix_modSettings_acceptingTradesTitle>接受交易</Phinix_modSettings_acceptingTradesTitle>
+    <Phinix_modSettings_showNameFormatting>显示带格式的名称</Phinix_modSettings_showNameFormatting>
+    <Phinix_modSettings_showChatFormatting>显示带格式的会话</Phinix_modSettings_showChatFormatting>
+    <Phinix_modSettings_playNoiseOnMessageReceived>消息提示音</Phinix_modSettings_playNoiseOnMessageReceived>
+    <Phinix_modSettings_showUnreadMessageCount>显示未读消息数量</Phinix_modSettings_showUnreadMessageCount>
+    <Phinix_modSettings_showBlockedUnreadMessageCount>显示已屏蔽用户的未读消息数</Phinix_modSettings_showBlockedUnreadMessageCount>
+    <Phinix_modSettings_chatMessageLimit>保留显示的聊天消息数</Phinix_modSettings_chatMessageLimit>
+    <Phinix_modSettings_forceMessageFieldFocus>保持聊天消息输入框的光标</Phinix_modSettings_forceMessageFieldFocus>
+    <Phinix_modSettings_allItemsTradable>允许交易不在储存区中的物品</Phinix_modSettings_allItemsTradable>
+    <Phinix_modSettings_showBlockedTrades>显示屏蔽用户的交易请求</Phinix_modSettings_showBlockedTrades>
+    <Phinix_modSettings_dropCurrentMap>始终将交易物品降落至当前地图</Phinix_modSettings_dropCurrentMap>
+
+    <!-- Login -->
+    <Phinix_login_logInLabel>登录至</Phinix_login_logInLabel>
+    <Phinix_login_submitButton>提交</Phinix_login_submitButton>
+
+    <!-- Framework system messages -->
+    <Phinix_framework_systemDisplayName>系统</Phinix_framework_systemDisplayName>
+    <Phinix_framework_connectedFrameworkServer>已连接至 Phinix 框架服务器。</Phinix_framework_connectedFrameworkServer>
+    <Phinix_framework_connectedLegacyServer>已连接至旧版服务器，部分功能可能不可用。</Phinix_framework_connectedLegacyServer>
+    <Phinix_framework_legacyExtensionUnavailable>此功能需要 Phinix 框架服务器。</Phinix_framework_legacyExtensionUnavailable>
+    <Phinix_framework_unsupportedIncomingMessageType>收到不支持的消息类型 '{0}'。</Phinix_framework_unsupportedIncomingMessageType>
+    <Phinix_framework_redPacketEmptyWarning>红包为空。</Phinix_framework_redPacketEmptyWarning>
+
+    <!-- Core errors -->
+    <Phinix_error_loginFailedTitle>登录失败</Phinix_error_loginFailedTitle>
+    <Phinix_error_loginFailedMessage>尝试登录服务器失败：{0} ({1})</Phinix_error_loginFailedMessage>
+    <Phinix_error_authFailedTitle>身份验证失败</Phinix_error_authFailedTitle>
+    <Phinix_error_authFailedMessage>尝试在服务器验证身份失败：{0} ({1})</Phinix_error_authFailedMessage>
+    <Phinix_error_connectionFailedTitle>连接失败</Phinix_error_connectionFailedTitle>
+    <Phinix_error_connectionFailedMessage>无法连接至服务器{0}:{1}</Phinix_error_connectionFailedMessage>
+</LanguageData>

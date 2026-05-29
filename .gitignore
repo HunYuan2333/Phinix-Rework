@@ -26,7 +26,7 @@ bld/
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
-
+.vscode
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
@@ -39,7 +39,7 @@ TestResult.xml
 [Dd]ebugPS/
 [Rr]eleasePS/
 dlldata.c
-.vscode
+
 # DNX
 project.lock.json
 project.fragment.lock.json
@@ -261,15 +261,25 @@ paket-files/
 __pycache__/
 *.pyc
 
-# Phinix Client Binaries
-Client/Common/Assemblies/*.dll
-Client/1.*/Assemblies/*.dll
+# Phinix build output
+Output/
+Server/Extensions/*.dll
 
 # Git rubbish
 *.orig
 
 # Phinix credentials
 **/PhinixCredentials.bin
-users
 
-Client/Any/Assemblies/9-PhinixClient.dll
+# Phinix runtime data (security-sensitive, never commit)
+credentials
+users
+chatHistory
+trades
+server.conf
+
+# Phinix server runtime state
+framework-extensions/server/
+
+# Phinix test logs
+testlog/

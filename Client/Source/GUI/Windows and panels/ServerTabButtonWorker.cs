@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using PhinixClient.GUI;
 using RimWorld;
 using UnityEngine;
@@ -13,20 +15,17 @@ namespace PhinixClient
         {
             base.DoButton(inRect);
 
-            // Check if we should draw the unread messages count
-            if (Client.Instance.UnreadMessages > 0 && Client.Instance.Settings.ShowUnreadMessageCount)
+            var badgeProviders = Client.Instance.MainTabProviders
+                .OfType<IBadgeProvider>();
+
+            Rect iconRect = inRect.RightPartPixels(inRect.height + PADDING).LeftPartPixels(inRect.height);
+            foreach (var badge in badgeProviders)
             {
-                // Get a square on the right of the tab with some padding on the right side
-                Rect iconRect = inRect.RightPartPixels(inRect.height + PADDING).LeftPartPixels(inRect.height);
-
-                // Get the number of unread messages depending on if blocked users should be included
-                int messageCount = Client.Instance.Settings.ShowBlockedUnreadMessageCount ? Client.Instance.UnreadMessages : Client.Instance.UnreadMessagesExcludingBlocked;
-
-                // Format the unread message count
-                string formattedMessageCount = messageCount > 99 ? "99+" : messageCount.ToString();
-
-                // Draw the count within the square
-                new TextWidget(formattedMessageCount, anchor: TextAnchor.MiddleCenter).Draw(iconRect);
+                if (!string.IsNullOrEmpty(badge.BadgeText))
+                {
+                    Widgets.Label(iconRect, badge.BadgeText);
+                    break; // show first badge only
+                }
             }
         }
     }

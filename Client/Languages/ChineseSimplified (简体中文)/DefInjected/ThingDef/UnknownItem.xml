@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  
+  <!-- EN: Unknown item -->
+  <UnknownItem.label>未知物品</UnknownItem.label>
+  <!-- EN: Placeholder for unknown items in trade offers. -->
+  <UnknownItem.description>交易清单中未知项目的占位符。</UnknownItem.description>
+  
+</LanguageData>

@@ -256,8 +256,10 @@ namespace Authentication
         private static string generateClientKey()
         {
             byte[] randomBytes = new byte[64];
-            RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
-            rng.GetBytes(randomBytes);
+            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
 
             return Convert.ToBase64String(randomBytes);
         }
@@ -484,6 +486,7 @@ namespace Authentication
         {
             Authenticated = false;
             SessionId = null;
+            sessionExtendTimer.Stop();
         }
     }
 }

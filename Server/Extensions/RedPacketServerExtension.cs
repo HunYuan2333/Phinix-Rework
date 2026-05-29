@@ -5,30 +5,36 @@ using Utils.Framework;
 namespace PhinixServer.Extensions
 {
     [PhinixExtension("sample.red_packet")]
-    public class RedPacketServerExtension : IPhinixExtension, ICapabilityProvider, IServerMessageHandler
+    public sealed class RedPacketServerExtension : IPhinixExtensionModule, ICapabilityProvider, IServerDefaultMessageHandler
     {
         public string ExtensionId => "sample.red_packet";
 
         public int Priority => 100;
+
+        public void Register(IExtensionBuilder builder)
+        {
+            builder.AddCapabilityProvider(this);
+            builder.AddServerDefaultMessageHandler(this);
+        }
 
         public IEnumerable<string> GetCapabilities()
         {
             yield return "sample.red_packet";
         }
 
-        public bool CanHandleIncomingEnvelope(FrameworkEnvelope envelope)
+        public bool CanHandleIncomingMessage(FrameworkPacket message)
         {
-            return envelope != null && envelope.MessageType == ExtensionId;
+            return message != null && message.MessageType == ExtensionId;
         }
 
-        public ServerIncomingMessageResult HandleIncomingEnvelope(FrameworkEnvelope envelope, ServerFrameworkContext context)
+        public ServerIncomingMessageResult HandleIncomingMessage(FrameworkPacket message, ServerFrameworkContext context)
         {
             context.Log?.Invoke($"Broadcasting red packet message from {context.SenderUuid.Highlight(HighlightType.UUID)}", LogLevel.DEBUG);
-            context.BroadcastEnvelope?.Invoke(envelope, null);
+            context.BroadcastMessage?.Invoke(message, null);
 
             return new ServerIncomingMessageResult
             {
-                Action = MessageHandlingResultAction.Handled
+                Action = MessageHandlingResultAction.Handle
             };
         }
     }

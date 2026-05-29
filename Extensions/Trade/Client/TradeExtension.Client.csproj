@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{0D9D0722-46D1-4330-9177-C5E4D2452102}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Phinix.TradeExtension.Client</RootNamespace>
+    <AssemblyName>TradeExtension.Client</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <Choose>
+    <When Condition="Exists('$(SolutionDir)\GameDlls\1.6')">
+      <PropertyGroup>
+        <RimWorldDepDir>$(SolutionDir)\GameDlls\1.6</RimWorldDepDir>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\GameDlls\1.6')">
+      <PropertyGroup>
+        <RimWorldDepDir>$(MSBuildThisFileDirectory)..\..\..\GameDlls\1.6</RimWorldDepDir>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <RimWorldDepDir>$(MSBuildThisFileDirectory)..\..\..\GameDlls</RimWorldDepDir>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldDepDir)\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="UnityEngine">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BuiltInTradeClientExtension.cs" />
+    <Compile Include="ClientTradeUiHostContext.cs" />
+    <Compile Include="DefaultLegacyTradeItemCodec.cs" />
+    <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
+    <Compile Include="FrameworkClientTradeServiceAdapter.cs" />
+    <Compile Include="PendingThings.cs" />
+    <Compile Include="PhinixDefaultTradeBehaviour.cs" />
+    <Compile Include="PhinixFrameworkTradeClientRepository.cs" />
+    <Compile Include="PhinixFrameworkTradeClientService.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StackedThings.cs" />
+    <Compile Include="TradeClientItemPipeline.cs" />
+    <Compile Include="TradeItemConverter.cs" />
+    <Compile Include="TradeList.cs" />
+    <Compile Include="TradeMainTabProvider.cs" />
+    <Compile Include="TradeWindow.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
+      <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
+      <Name>ClientExtensionAbstractions</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Contracts\TradeExtension.csproj">
+      <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
+      <Name>TradeExtension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Common\UserManagement\UserManagement.csproj">
+      <Project>{4E8C099F-DCAB-418A-A2FE-2705A7065EC3}</Project>
+      <Name>UserManagement</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj">
+      <Project>{B6FF1583-C75A-42C1-9B75-2B16215A0CF7}</Project>
+      <Name>Utils</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="AfterBuild">
+    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\11-TradeExtension.Client.dll" />
+  </Target>
+</Project>

@@ -6,13 +6,20 @@ using Verse;
 namespace PhinixClient.Extensions
 {
     [PhinixExtension("sample.red_packet")]
-    public class RedPacketClientExtension : IPhinixExtension, ICapabilityProvider, IClientMessageHandler, IMessageRenderer
+    public sealed class RedPacketClientExtension : IPhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IMessageRenderer
     {
         private const string Prefix = "/redpacket ";
 
         public string ExtensionId => "sample.red_packet";
 
         public int Priority => 100;
+
+        public void Register(IExtensionBuilder builder)
+        {
+            builder.AddCapabilityProvider(this);
+            builder.AddClientMessageHandler(this);
+            builder.AddMessageRenderer(this);
+        }
 
         public IEnumerable<string> GetCapabilities()
         {
@@ -39,8 +46,9 @@ namespace PhinixClient.Extensions
             return new ClientOutgoingMessageResult
             {
                 Action = MessageHandlingResultAction.Handled,
-                Envelope = new FrameworkEnvelope
+                Message = new FrameworkPacket
                 {
+                    Flow = global::Phinix.Framework.FrameworkFlow.Message,
                     MessageType = ExtensionId,
                     PayloadJson = FrameworkSerialization.SerializePayload(new RedPacketPayload
                     {
@@ -50,29 +58,29 @@ namespace PhinixClient.Extensions
             };
         }
 
-        public bool CanHandleIncomingEnvelope(FrameworkEnvelope envelope)
+        public bool CanHandleIncomingMessage(FrameworkPacket message)
         {
             return false;
         }
 
-        public ClientIncomingMessageResult HandleIncomingEnvelope(FrameworkEnvelope envelope, ClientFrameworkContext context)
+        public ClientIncomingMessageResult HandleIncomingMessage(FrameworkPacket message, ClientFrameworkContext context)
         {
             return null;
         }
 
-        public bool CanRender(FrameworkEnvelope envelope)
+        public bool CanRender(FrameworkPacket message)
         {
-            return envelope != null && envelope.MessageType == ExtensionId;
+            return message != null && message.MessageType == ExtensionId;
         }
 
-        public FrameworkDisplayMessage Render(FrameworkEnvelope envelope)
+        public FrameworkDisplayMessage Render(FrameworkPacket message)
         {
-            RedPacketPayload payload = FrameworkSerialization.DeserializePayload<RedPacketPayload>(envelope.PayloadJson);
+            RedPacketPayload payload = FrameworkSerialization.DeserializePayload<RedPacketPayload>(message.PayloadJson);
             return new FrameworkDisplayMessage
             {
-                MessageId = envelope.MessageId,
-                SenderUuid = envelope.SenderUuid,
-                TimestampUtcTicks = envelope.TimestampUtcTicks,
+                MessageId = message.MessageId,
+                SenderUuid = message.SenderUuid,
+                TimestampUtcTicks = message.TimestampUtcTicks,
                 Source = "red_packet",
                 TranslationKey = "Phinix_framework_redPacketMessage",
                 TranslationArgs = new List<string> { payload.Body }

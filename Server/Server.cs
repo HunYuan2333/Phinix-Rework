@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Timers;
 using Authentication;
-using Chat;
 using Connections;
 using PhinixServer.Framework;
-using Trading;
 using UserManagement;
 using Utils;
+using Utils.Framework;
 
 namespace PhinixServer
 {
@@ -27,8 +27,6 @@ namespace PhinixServer
         public static NetServer Connections;
         public static ServerAuthenticator Authenticator;
         public static ServerUserManager UserManager;
-        public static ServerChat Chat;
-        public static ServerTrading Trading;
         public static PhinixFrameworkServer Framework;
 
         // Exiting flag to stop the main run loop
@@ -52,22 +50,31 @@ namespace PhinixServer
                 authType: Config.AuthType
             );
             UserManager = new ServerUserManager(Connections, Authenticator, Config.MaxDisplayNameLength);
-            Chat = new ServerChat(Connections, Authenticator, UserManager, Config.ChatHistoryLength);
-            Trading = new ServerTrading(Connections, Authenticator, UserManager);
-            Framework = new PhinixFrameworkServer(Connections, Authenticator, UserManager);
+            ExtensionHostContext extensionHostContext = new ExtensionHostContext
+            {
+                HostKind = "server",
+                Log = (message, level) => ILoggableHandler(typeof(Server), new LogEventArgs(message, level)),
+                StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "server"))
+            };
+            extensionHostContext.AddService(UserManager);
+            FrameworkServerPacketDispatcher frameworkPacketDispatcher = new FrameworkServerPacketDispatcher();
+            extensionHostContext.AddService<IFrameworkServerPacketDispatcher>(frameworkPacketDispatcher);
+            extensionHostContext.SetOption("builtin.chat.history-capacity", Config.ChatHistoryLength.ToString());
+            ExtensionAssemblyLoader.LoadAssemblies(
+                GetExtensionProbeDirectories(),
+                (message, level) => ILoggableHandler(typeof(Server), new LogEventArgs(message, level)));
+            Framework = new PhinixFrameworkServer(Connections, Authenticator, UserManager, extensionHostContext);
+            frameworkPacketDispatcher.Configure((connectionId, sourceExtensionId, packet) =>
+                Framework?.DispatchExtensionPacket(sourceExtensionId, connectionId, packet));
 
             // Add handler for ILoggable modules
             Authenticator.OnLogEntry += ILoggableHandler;
             UserManager.OnLogEntry += ILoggableHandler;
-            Chat.OnLogEntry += ILoggableHandler;
-            Trading.OnLogEntry += ILoggableHandler;
             Framework.OnLogEntry += ILoggableHandler;
 
             // Load saved data
             Authenticator.Load(Config.CredentialDatabasePath);
             UserManager.Load(Config.UserDatabasePath);
-            Chat.Load(Config.ChatHistoryPath);
-            Trading.Load(Config.TradeDatabasePath);
 
             // Set up the save timer
             saveTimer = new Timer
@@ -117,6 +124,18 @@ namespace PhinixServer
             }
         }
 
+        private static IEnumerable<string> GetExtensionProbeDirectories()
+        {
+            string appBaseDirectory = AppContext.BaseDirectory;
+            if (string.IsNullOrEmpty(appBaseDirectory))
+            {
+                yield break;
+            }
+
+            yield return Path.Combine(appBaseDirectory, "Extensions");
+            yield return Path.Combine(appBaseDirectory, "UserExtensions");
+        }
+
         /// <summary>
         /// Handles save events.
         /// Used by <see cref="saveTimer"/> to save each module state periodically.
@@ -130,8 +149,7 @@ namespace PhinixServer
             // Save module states
             Authenticator.Save(Config.CredentialDatabasePath);
             UserManager.Save(Config.UserDatabasePath);
-            Chat.Save(Config.ChatHistoryPath);
-            Trading.Save(Config.TradeDatabasePath);
+            Framework.SaveExtensionState();
 
             // Save config too
             Config.Save(CONFIG_FILE);
@@ -151,6 +169,7 @@ namespace PhinixServer
 
             // Stop the save timer
             saveTimer.Stop();
+            saveTimer.Dispose();
 
             // Log everyone out
             UserManager.LogOutAll();
@@ -159,10 +178,11 @@ namespace PhinixServer
             Connections.Stop();
 
             // Save module states
+            Authenticator.Stop();
             Authenticator.Save(Config.CredentialDatabasePath);
             UserManager.Save(Config.UserDatabasePath);
-            Chat.Save(Config.ChatHistoryPath);
-            Trading.Save(Config.TradeDatabasePath);
+            Framework.SaveExtensionState();
+            Framework.ShutdownExtensions();
 
             // Save the config
             Config.Save(CONFIG_FILE);
