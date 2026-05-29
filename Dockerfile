@@ -19,7 +19,7 @@ RUN dotnet restore Server/Server.csproj && \
 
 # Build server (this also builds extension Server DLLs via CopyOfficialServerExtensions target)
 RUN dotnet build Server/Server.csproj -c Release -o /out --no-restore && \
-    cp /src/libs/*.dll /out/
+    cp /src/libs/netstandard2.0/LiteNetLib.dll /out/
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/runtime:10.0
