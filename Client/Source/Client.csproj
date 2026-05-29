@@ -231,5 +231,19 @@
     <Copy SourceFiles="@(LanguagesResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Languages\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TexturesResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Textures\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(SolutionDir)\Client\versions.txt" DestinationFolder="$(SolutionDir)\Output\phinix-rework\" SkipUnchangedFiles="true" />
+
+    <!-- Copy client source code to output for reference -->
+    <ItemGroup>
+      <SourceResource Include="$(SolutionDir)\Client\Source\**\*.cs" />
+      <SourceResource Include="$(SolutionDir)\Client\Source\**\*.csproj" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SourceResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Source\%(RecursiveDir)" SkipUnchangedFiles="true" />
+
+    <!-- Copy ClientExtensionAbstractions source for reference -->
+    <ItemGroup>
+      <AbstractionsSource Include="$(SolutionDir)\Client\ClientExtensionAbstractions\**\*.cs" />
+      <AbstractionsSource Include="$(SolutionDir)\Client\ClientExtensionAbstractions\**\*.csproj" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AbstractionsSource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Abstractions\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>
