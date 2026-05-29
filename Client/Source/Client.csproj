@@ -199,25 +199,25 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="Clean">
-    <RemoveDir Directories="$(SolutionDir)\Output\Client\Common\Assemblies\" />
-    <RemoveDir Directories="$(SolutionDir)\Output\Client\$(GameVersion)\Assemblies\" />
+    <RemoveDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\" />
+    <RemoveDir Directories="$(SolutionDir)\Output\phinix-rework\$(GameVersion)\Assemblies\" />
   </Target>
   <Target Name="AfterBuild">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Assemblies" />
-    <MakeDir Directories="$(SolutionDir)\Output\Client\$(GameVersion)\Assemblies" />
-    <MakeDir Condition="'$(GameVersion)' == 'Any'" Directories="$(SolutionDir)\Output\Client\1.6\Assemblies" />
-    <Copy SourceFiles="$(TargetDir)\LiteNetLib.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\01-LiteNetLib.dll" />
-    <Copy SourceFiles="$(TargetDir)\Google.Protobuf.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\02-Protobuf.dll" />
-    <Copy SourceFiles="$(TargetDir)\Utils.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\03-Utils.dll" />
-    <Copy SourceFiles="$(TargetDir)\Connections.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\04-Connections.dll" />
-    <Copy SourceFiles="$(TargetDir)\Authentication.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\05-Authentication.dll" />
-    <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\06-UserManagement.dll" />
-    <Copy SourceFiles="$(TargetDir)\ClientExtensionAbstractions.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\07-ClientExtensionAbstractions.dll" />
-    <Copy SourceFiles="$(TargetDir)\System.Memory.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\System.Memory.dll" />
-    <Copy SourceFiles="$(TargetDir)\System.Runtime.CompilerServices.Unsafe.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\System.Runtime.CompilerServices.Unsafe.dll" />
-    <Copy SourceFiles="$(TargetDir)\System.Numerics.Vectors.dll" DestinationFiles="$(SolutionDir)\Output\Client\Common\Assemblies\System.Numerics.Vectors.dll" />
-    <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\Client\$(GameVersion)\Assemblies\12-PhinixClient.dll" />
-    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\Client\1.6\Assemblies\12-PhinixClient.dll" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Assemblies" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\$(GameVersion)\Assemblies" />
+    <MakeDir Condition="'$(GameVersion)' == 'Any'" Directories="$(SolutionDir)\Output\phinix-rework\1.6\Assemblies" />
+    <Copy SourceFiles="$(TargetDir)\LiteNetLib.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\01-LiteNetLib.dll" />
+    <Copy SourceFiles="$(TargetDir)\Google.Protobuf.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\02-Protobuf.dll" />
+    <Copy SourceFiles="$(TargetDir)\Utils.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\03-Utils.dll" />
+    <Copy SourceFiles="$(TargetDir)\Connections.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\04-Connections.dll" />
+    <Copy SourceFiles="$(TargetDir)\Authentication.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\05-Authentication.dll" />
+    <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\06-UserManagement.dll" />
+    <Copy SourceFiles="$(TargetDir)\ClientExtensionAbstractions.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\07-ClientExtensionAbstractions.dll" />
+    <Copy SourceFiles="$(TargetDir)\System.Memory.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\System.Memory.dll" />
+    <Copy SourceFiles="$(TargetDir)\System.Runtime.CompilerServices.Unsafe.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\System.Runtime.CompilerServices.Unsafe.dll" />
+    <Copy SourceFiles="$(TargetDir)\System.Numerics.Vectors.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\System.Numerics.Vectors.dll" />
+    <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\$(GameVersion)\Assemblies\12-PhinixClient.dll" />
+    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\1.6\Assemblies\12-PhinixClient.dll" />
 
     <!-- Copy static resources from Client source to output -->
     <ItemGroup>
@@ -226,10 +226,10 @@
       <LanguagesResource Include="$(SolutionDir)\Client\Languages\**\*.*" />
       <TexturesResource Include="$(SolutionDir)\Client\Textures\**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(AboutResource)" DestinationFolder="$(SolutionDir)\Output\Client\About\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(DefsResource)" DestinationFolder="$(SolutionDir)\Output\Client\Defs\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(LanguagesResource)" DestinationFolder="$(SolutionDir)\Output\Client\Languages\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TexturesResource)" DestinationFolder="$(SolutionDir)\Output\Client\Textures\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(SolutionDir)\Client\versions.txt" DestinationFolder="$(SolutionDir)\Output\Client\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(AboutResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\About\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(DefsResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Defs\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(LanguagesResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Languages\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TexturesResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Textures\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(SolutionDir)\Client\versions.txt" DestinationFolder="$(SolutionDir)\Output\phinix-rework\" SkipUnchangedFiles="true" />
   </Target>
 </Project>
