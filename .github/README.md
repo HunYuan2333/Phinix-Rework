@@ -5,12 +5,28 @@
 
 # About
 
-Phinix adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a ground-up rebuild of the original Phinix mod, built on a plugin-oriented framework — Chat and Trade themselves are plugins, not built-in special cases.
+Phinix Rework adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a ground-up rebuild of the original Phinix mod, built on a plugin-oriented framework — Chat and Trade themselves are plugins, not built-in special cases.
 
 - In-game chat between colonies (rich text support, colourable names and messages)
 - Asynchronous item trading (no simultaneous online required)
 - Dedicated server with authentication and user management
 - Extensible plugin system — third-party submods have the same status as official extensions
+
+### vs. Original Phinix
+
+Phinix Rework is a complete rewrite of the original [Phinix](https://github.com/hunyuan2333/Phinix) mod, not a patch or upgrade. The two are incompatible — saves and server configs from the original will not work.
+
+| | Original Phinix | Phinix Rework |
+|---|---|---|
+| Server runtime | .NET Framework 4.7.2 + Mono | .NET 10, official Docker image |
+| Architecture | Chat/trade logic baked into the host | Plugin framework — Chat & Trade are plugins |
+| Third-party extensions | Requires modifying host code | Implement interfaces, no host changes needed |
+| Message handling | Single channel | Message / Command / Item three-channel pipeline |
+| Server flow | Handler traversal | Five-stage Pipeline with interception at any point |
+| Compatibility | — | Does not support original saves or configs; adapter may come later |
+| RimWorld support | 1.3–1.6 | 1.6 |
+
+> At this stage, Phinix Rework is an architectural rebuild that reaches feature parity with the original. New gameplay features will follow once the foundation is stable.
 
 # Quick Start
 
@@ -61,7 +77,7 @@ Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console
 
 # Architecture
 
-Phinix uses a layered, plugin-first architecture:
+Phinix Rework uses a layered, plugin-first architecture:
 
 ```
 Plugins (Extensions/Chat, Extensions/Trade, third-party)
