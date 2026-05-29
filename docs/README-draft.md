@@ -1,7 +1,7 @@
 <h1 align="center">Phinix</h1>
 <h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
 
-[中文版本](./README.zh-CN.md)
+> Draft README. Will be moved to repository root later. 中文版：[README-draft.zh-CN.md](./README-draft.zh-CN.md)
 
 # About
 
@@ -57,7 +57,7 @@ Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console
 
 # Known Issues
 
-- **Translation errors in log**: RimWorld's `Translate()` may produce `No active language` red-text errors when called from network callback threads. This does not affect functionality — failed translations fall back to the key name itself (e.g. `Phinix_framework_systemDisplayName`). This is a thread-safety issue and will be resolved in a future release. These log red-text lines are harmless and can be ignored.
+- **Translation errors in log**: RimWorld's `Translate()` may produce `No active language` red-text errors when called from network callback threads. This does not affect functionality — failed translations fall back to the key name itself (e.g. `Phinix_framework_systemDisplayName`). This is a thread-safety issue and will be resolved in a future release by marshalling calls to the main thread. These log red-text lines are harmless and can be ignored.
 
 # Architecture
 
@@ -70,7 +70,7 @@ Plugins (Extensions/Chat, Extensions/Trade, third-party)
       → Infrastructure (Common: networking, auth, user management)
 ```
 
-See [设计哲学.md](../docs/设计哲学.md) for the full design guide. Key principles:
+See [设计哲学.md](./设计哲学.md) for the full design guide. Key principles:
 
 - **Plugin parity** — Chat and Trade are just plugins. Third-party submods use the exact same discovery → registration → activation path.
 - **Three pipelines** — All communication flows through `message` (display), `command` (control), and `item` (payload) lanes.
@@ -84,6 +84,7 @@ The current release covers the core foundation: one-click Docker deployment, sta
 - **Short term**: Fix remaining thread-safety issues and UI performance bottlenecks.
 - **Medium term**: True plugin system — Chat and Trade move from "built-in" to "officially shipped plugins". Third-party authors can plug their own extensions into the same system without touching any host code.
 - **Long term**: Hot-loadable Mods directory (drop in to enable), plugin marketplace, web admin panel.
+
 
 # Developers
 
@@ -117,7 +118,7 @@ public class MyExtension : IPhinixExtensionModule
 }
 ```
 
-Full guide at [设计哲学.md](../docs/设计哲学.md).
+Full guide at [设计哲学.md](./设计哲学.md).
 
 # Credit
 
