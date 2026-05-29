@@ -5,12 +5,28 @@
 
 # 关于项目
 
-Phinix 是一个通过独立服务器为 RimWorld 提供多人聊天和物品交易的模组。它在原有项目基础上进行了彻底重构，底层采用插件化框架——Chat 和 Trade 本身也是插件，不是内建特权模块。
+Phinix Rework 是一个通过独立服务器为 RimWorld 提供多人聊天和物品交易的模组。它在原有项目基础上进行了彻底重构，底层采用插件化框架——Chat 和 Trade 本身也是插件，不是内建特权模块。
 
 - 游戏内殖民地间聊天（支持富文本，名字/消息可上色）
 - 异步物品交易（无需双方同时在线）
 - 独立服务器，支持认证与用户管理
 - 可扩展插件系统，第三方 submod 与官方扩展地位平等
+
+### 与原版 Phinix 的对比
+
+Phinix Rework 是对原版 [Phinix](https://github.com/hunyuan2333/Phinix) 的彻底重写，不是补丁或升级。两者互不兼容，原版的存档和服务器配置无法直接使用。
+
+| | 原版 Phinix | Phinix Rework |
+|---|---|---|
+| 服务端运行 | .NET Framework 4.7.2 + Mono | .NET 10，提供官方 Docker 镜像 |
+| 架构 | 聊天/交易逻辑内嵌于宿主 | 插件框架，Chat 和 Trade 同为插件 |
+| 第三方扩展 | 需修改宿主代码 | 实现接口即可，无需改宿主 |
+| 消息处理 | 单一通道 | Message / Command / Item 三通道 |
+| 服务端流程 | 遍历式 handler | 五段 Pipeline，扩展可精确控制消息流向 |
+| 兼容性 | — | 不支持原版存档与配置，后续可能提供适配器 |
+| RimWorld 支持 | 1.3–1.6 | 1.6 |
+
+> 当前阶段 Phinix Rework 是先重构底层、做到功能对齐。新玩法内容会在架构稳定后逐步加入。
 
 # 快速开始
 
@@ -18,7 +34,7 @@ Phinix 是一个通过独立服务器为 RimWorld 提供多人聊天和物品交
 
 1. 从 [Releases](https://github.com/HunYuan2333/Phinix-Rework/releases) 下载客户端发布包。
 2. 解压到 RimWorld 的 `Mods` 目录。
-3. 在游戏主菜单 → Mods 中启用 Phinix，重启游戏。
+3. 在游戏主菜单 → Mods 中启用 Phinix Rework，重启游戏。
 4. 进入存档，点底部工具栏的 Phinix 按钮，在 Settings 里填服务器地址和端口，点 Connect。
 
 目前仅支持 RimWorld 1.6。
@@ -61,7 +77,7 @@ dotnet out/PhinixServer.dll
 
 # 架构
 
-Phinix 采用分层、插件优先的架构：
+Phinix Rework 采用分层、插件优先的架构：
 
 ```
 插件层 (Extensions/Chat, Extensions/Trade, 第三方)

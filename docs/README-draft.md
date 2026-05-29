@@ -5,7 +5,7 @@
 
 # About
 
-Phinix adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a ground-up rebuild of the original Phinix mod, built on a plugin-oriented framework — Chat and Trade themselves are plugins, not built-in special cases.
+Phinix Rework adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a ground-up rebuild of the original Phinix mod, built on a plugin-oriented framework — Chat and Trade themselves are plugins, not built-in special cases.
 
 - In-game chat between colonies (rich text support, colourable names and messages)
 - Asynchronous item trading (no simultaneous online required)
@@ -61,7 +61,7 @@ Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console
 
 # Architecture
 
-Phinix uses a layered, plugin-first architecture:
+Phinix Rework uses a layered, plugin-first architecture:
 
 ```
 Plugins (Extensions/Chat, Extensions/Trade, third-party)
