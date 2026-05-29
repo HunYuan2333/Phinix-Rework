@@ -20,6 +20,8 @@ namespace PhinixClient
 
         public ServerTab()
         {
+            this.closeOnAccept = false;
+
             tabProviders = Instance.MainTabProviders
                 .OrderBy(p => p.TabOrder)
                 .ToList();
@@ -64,11 +66,15 @@ namespace PhinixClient
             // Prevent Enter/Esc from bubbling up to RimWorld's Window layer
             // and closing this MainTabWindow. Tab content (e.g. Chat) handles
             // these keys before this point if needed.
+            // Event.current.Use() sets type=Used but leaves keyCode intact.
+            // RimWorld's Window layer checks keyCode directly, so we must
+            // clear it to prevent OnAcceptKeyPressed/OnCancelKeyPressed.
             if (Event.current.type == EventType.KeyDown &&
                 (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter ||
                  Event.current.keyCode == KeyCode.Escape))
             {
                 Event.current.Use();
+                Event.current.keyCode = KeyCode.None;
             }
         }
     }

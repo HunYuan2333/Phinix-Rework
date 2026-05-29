@@ -10,5 +10,6 @@
     <ProjectReference Include="..\..\Common\Authentication\Authentication.csproj" />
     <ProjectReference Include="..\..\Common\Connections\Connections.csproj" />
     <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />
+    <ProjectReference Include="..\..\Server\ServerRuntime\ServerRuntime.csproj" />
   </ItemGroup>
 </Project>

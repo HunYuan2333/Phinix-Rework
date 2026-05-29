@@ -58,6 +58,7 @@ namespace Phinix.ChatExtension.Client
             if (enterPressed && !string.IsNullOrEmpty(message))
             {
                 sendChatMessage();
+                Event.current.Use();
             }
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))

@@ -6,6 +6,7 @@ using Authentication;
 using Connections;
 using Google.Protobuf;
 using Utils.Framework;
+using ServerRuntime;
 
 internal static class Program
 {
