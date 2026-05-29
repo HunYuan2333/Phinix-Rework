@@ -10,6 +10,7 @@ COPY Server/ ./Server/
 COPY Common/ ./Common/
 COPY Dependencies/ ./Dependencies/
 COPY Extensions/ ./Extensions/
+COPY libs/ ./libs/
 
 # Restore packages (including extension server projects built by CopyOfficialServerExtensions)
 RUN dotnet restore Server/Server.csproj && \
