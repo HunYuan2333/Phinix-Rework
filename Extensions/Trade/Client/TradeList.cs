@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using PhinixClient.Framework;
 using PhinixClient.Trade;
@@ -75,7 +76,7 @@ namespace Phinix.TradeExtension.Client
                 {
                     // Repopulate the list content
                     filteredTrades.Clear();
-                    filteredTrades.AddRange(trades);
+                    filteredTrades.AddRange(trades.Where(isUsableTrade));
 
                     // Unset the changed flag and release the lock
                     tradesChanged = false;
@@ -105,6 +106,10 @@ namespace Phinix.TradeExtension.Client
             for (int i = 0; i < filteredTrades.Count; i++, currentY += ROW_HEIGHT)
             {
                 ClientTradeSnapshot trade = filteredTrades[i];
+                if (!isUsableTrade(trade))
+                {
+                    continue;
+                }
 
                 Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, ROW_HEIGHT);
                 Rect buttonAreaRect = new Rect(rowRect.xMax - (BUTTON_WIDTH * 2 + DEFAULT_SPACING), currentY, BUTTON_WIDTH * 2 + DEFAULT_SPACING, ROW_HEIGHT);
@@ -156,7 +161,7 @@ namespace Phinix.TradeExtension.Client
             {
                 // Clear and repopulate the list with active trades
                 trades.Clear();
-                trades.AddRange(tradeService.GetTrades());
+                trades.AddRange((tradeService.GetTrades() ?? Array.Empty<ClientTradeSnapshot>()).Where(isUsableTrade));
 
                 // Mark the rows to be updated
                 tradesChanged = true;
@@ -181,17 +186,22 @@ namespace Phinix.TradeExtension.Client
             {
                 // Repopulate trade list with this set and mark the rows to be updated
                 trades.Clear();
-                trades.AddRange(args.Trades);
+                trades.AddRange((args?.Trades ?? Array.Empty<ClientTradeSnapshot>()).Where(isUsableTrade));
                 tradesChanged = true;
             }
         }
 
         private void onTradeCompletedOrCancelledHandler(object sender, TradeCompletionEventArgs args)
         {
+            if (args == null || string.IsNullOrEmpty(args.TradeId))
+            {
+                return;
+            }
+
             lock (tradesLock)
             {
                 // Remove the trade and mark the rows to be updated
-                trades.RemoveAll(t => t.TradeId == args.TradeId);
+                trades.RemoveAll(t => !isUsableTrade(t) || string.Equals(t.TradeId, args.TradeId, StringComparison.OrdinalIgnoreCase));
                 tradesChanged = true;
             }
         }
@@ -201,7 +211,7 @@ namespace Phinix.TradeExtension.Client
             lock (tradesLock)
             {
                 // Add the trade and mark the rows to be updated
-                if (args.Trade != null)
+                if (isUsableTrade(args?.Trade))
                 {
                     trades.Add(args.Trade);
                     tradesChanged = true;
@@ -211,11 +221,16 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeUpdateHandler(object sender, TradeUpdateEventArgs args)
         {
+            if (!isUsableTrade(args?.Trade))
+            {
+                return;
+            }
+
             lock (tradesLock)
             {
                 // Update the trade row
-                int index = trades.FindIndex(t => t.TradeId == args.Trade.TradeId);
-                if (index >= 0 && args.Trade != null)
+                int index = trades.FindIndex(t => isUsableTrade(t) && string.Equals(t.TradeId, args.Trade.TradeId, StringComparison.OrdinalIgnoreCase));
+                if (index >= 0)
                 {
                     trades[index] = args.Trade;
                 }
@@ -227,10 +242,16 @@ namespace Phinix.TradeExtension.Client
 
         private void onUserDisplayNameChangedHandler(object sender, UserDisplayNameChangedEventArgs args)
         {
-            lock (trades)
+            if (args == null || string.IsNullOrEmpty(args.Uuid))
+            {
+                return;
+            }
+
+            lock (tradesLock)
             {
                 // Update any trade rows with the updated user
-                int matchIndex = trades.FindIndex(0, t => t.OtherPartyUuid == args.Uuid);
+                bool changed = false;
+                int matchIndex = trades.FindIndex(0, t => isUsableTrade(t) && string.Equals(t.OtherPartyUuid, args.Uuid, StringComparison.OrdinalIgnoreCase));
                 while (matchIndex >= 0)
                 {
                     // Update the user's display name and replace the trade
@@ -250,10 +271,11 @@ namespace Phinix.TradeExtension.Client
                         accepted: trades[matchIndex].Accepted,
                         otherPartyAccepted: trades[matchIndex].OtherPartyAccepted
                     );
+                    changed = true;
 
                     try
                     {
-                        matchIndex = trades.FindIndex(matchIndex + 1, t => t.OtherPartyUuid == args.Uuid);
+                        matchIndex = trades.FindIndex(matchIndex + 1, t => isUsableTrade(t) && string.Equals(t.OtherPartyUuid, args.Uuid, StringComparison.OrdinalIgnoreCase));
                     }
                     catch (ArgumentOutOfRangeException)
                     {
@@ -263,8 +285,16 @@ namespace Phinix.TradeExtension.Client
                 }
 
                 // Mark the rows to be updated if we made any changes
-                tradesChanged = matchIndex >= 0;
+                if (changed)
+                {
+                    tradesChanged = true;
+                }
             }
+        }
+
+        private static bool isUsableTrade(ClientTradeSnapshot trade)
+        {
+            return trade != null && !string.IsNullOrEmpty(trade.TradeId) && trade.OtherParty != null;
         }
     }
 }

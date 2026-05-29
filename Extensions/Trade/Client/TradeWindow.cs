@@ -340,7 +340,10 @@ namespace Phinix.TradeExtension.Client
         /// <param name="args"></param>
         private void OnTradeFinished(object sender, TradeCompletionEventArgs args)
         {
-            shouldClose = true;
+            if (args != null && string.Equals(args.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase))
+            {
+                shouldClose = true;
+            }
         }
 
         /// <summary>
