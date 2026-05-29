@@ -1,4 +1,4 @@
-<h1 align="center">Phinix</h1>
+<h1 align="center">Phinix Rework</h1>
 <h4 align="center"><i>RimWorld 多人模组 — 聊天、交易与可扩展插件框架</i></h4>
 
 > 这是开发中的 README 草稿，后续会移到仓库根目录。英文版：[README-draft.md](./README-draft.md)
