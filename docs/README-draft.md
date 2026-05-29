@@ -1,27 +1,67 @@
 <h1 align="center">Phinix</h1>
 <h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
-<p align="center"><img src="../Client/About/Preview.png" alt="Phinix preview"></p>
-<br><br>
 
-> Draft README for review only.
-> The production README in `.github/README.md` is intentionally left unchanged for now.
-
-中文版本: [README-draft.zh-CN.md](./README-draft.zh-CN.md)
+> Draft README. Will be moved to repository root later. 中文版：[README-draft.zh-CN.md](./README-draft.zh-CN.md)
 
 # About
 
-Phinix adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a continuation of the original Phinix mod, rebuilt around a plugin-oriented framework architecture.
+Phinix adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a ground-up rebuild of the original Phinix mod, built on a plugin-oriented framework — Chat and Trade themselves are plugins, not built-in special cases.
 
-Core capabilities:
+- In-game chat between colonies (rich text support, colourable names and messages)
+- Asynchronous item trading (no simultaneous online required)
+- Dedicated server with authentication and user management
+- Extensible plugin system — third-party submods have the same status as official extensions
 
-- in-game chat between colonies
-- asynchronous item trading (no simultaneous online required)
-- dedicated server with authentication and user management
-- extensible plugin system for third-party submods
+# Quick Start
+
+## Client
+
+1. Download the client package from [Releases](https://github.com/HunYuan2333/Phinix-Rework/releases).
+2. Extract into RimWorld's `Mods` directory.
+3. Enable Phinix in the in-game Mods menu, restart RimWorld.
+4. Load a save, click the Phinix button in the bottom toolbar, go to Settings, enter the server address and port, then Connect.
+
+Currently only supports RimWorld 1.6.
+
+## Server (Docker, recommended)
+
+```bash
+docker pull hunyuan23333/phinix-rework:latest
+docker run -d \
+  --name phinix \
+  --restart unless-stopped \
+  -p 16200:16200/udp \
+  -v ./server_data:/data \
+  hunyuan23333/phinix-rework:latest
+
+# View logs
+docker logs -f phinix
+```
+
+Or use [docker-compose.yml](../docker-compose.yml):
+
+```bash
+docker compose up -d --build
+```
+
+## Server (manual build)
+
+Requires .NET 10 SDK. Server project is in `Server/`, shared projects in `Common/`.
+
+```bash
+dotnet build Server/Server.csproj -c Release -o out
+dotnet out/PhinixServer.dll
+```
+
+Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console commands include `help`, `version`, `exit`.
+
+# Known Issues
+
+- **Translation errors in log**: RimWorld's `Translate()` may produce `No active language` red-text errors when called from network callback threads. This does not affect functionality — failed translations fall back to the key name itself (e.g. `Phinix_framework_systemDisplayName`). This is a thread-safety issue and will be resolved in a future release by marshalling calls to the main thread. These log red-text lines are harmless and can be ignored.
 
 # Architecture
 
-Phinix has been restructured into a layered, plugin-first architecture:
+Phinix uses a layered, plugin-first architecture:
 
 ```
 Plugins (Extensions/Chat, Extensions/Trade, third-party)
@@ -30,81 +70,39 @@ Plugins (Extensions/Chat, Extensions/Trade, third-party)
       → Infrastructure (Common: networking, auth, user management)
 ```
 
-Key principles:
+See [设计哲学.md](./设计哲学.md) for the full design guide. Key principles:
 
-- **Plugin parity** — Chat and Trade are plugins, not built-in special cases. Third-party submods use the exact same discovery → registration → activation path.
-- **Host doesn't depend on plugins** — The host only references `ClientExtensionAbstractions` (generic contracts). No compile-time dependency on any specific plugin project.
-- **Three pipelines** — All network communication flows through `message` (display), `command` (control), and `item` (payload) lanes.
-- **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`. The host provides only the shell.
-- **API registry** — Plugins expose and discover capabilities through `RegisterApi<T>()` / `TryResolve<T>()` without host mediation.
+- **Plugin parity** — Chat and Trade are just plugins. Third-party submods use the exact same discovery → registration → activation path.
+- **Three pipelines** — All communication flows through `message` (display), `command` (control), and `item` (payload) lanes.
+- **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`.
+- **Server Pipeline** — Inbound messages go through a five-stage flow (IngressValidation → PreHandle → DefaultProcess → Observation → Outbound). Extensions can intercept at any stage.
 
-# Installation
+# Roadmap
 
-## Client
+The current release covers the core foundation: one-click Docker deployment, stable chat and trading on the client. Future work is about opening up the system:
 
-1. Build or download the client package.
-2. Extract into `RimWorld/Mods`.
-3. Install the required Harmony dependency.
-4. Enable the mod in RimWorld and restart.
+- **Short term**: Fix remaining thread-safety issues and UI performance bottlenecks.
+- **Medium term**: True plugin system — Chat and Trade move from "built-in" to "officially shipped plugins". Third-party authors can plug their own extensions into the same system without touching any host code.
+- **Long term**: Hot-loadable Mods directory (drop in to enable), plugin marketplace, web admin panel.
 
-Supported RimWorld versions: 1.3, 1.4, 1.5, 1.6.
-
-## Server
-
-Server configuration is stored in `server.conf` (defaults: port `16200`, max connections `1000`, auth type `ClientKey`).
-
-1. Edit `server.conf` as needed.
-2. Build the server project (requires .NET 10 SDK).
-3. Run the server.
-4. Use console commands such as `help` and `version`.
-
-## Docker
-
-Docker deployment is supported via `Dockerfile` and `docker-compose.yml`. Container-based hosting remains part of the intended workflow.
-
-# Usage
-
-## Client
-
-1. Load a save or create a new colony.
-2. Open the Phinix tab (chat icon in the bottom toolbar).
-3. Go to Settings and enter the server address and port.
-4. Connect to the server.
-
-## Server
-
-The server handles: connection management, authentication, chat message relay, trade state synchronization, and framework capability negotiation.
 
 # Developers
 
 ## Environment Setup
 
-The client project depends on RimWorld assemblies. Place the required DLLs in `GameDlls/`:
-
-- `Assembly-CSharp.dll`
-- `UnityEngine.dll`
-- `UnityEngine.CoreModule.dll`
-- `UnityEngine.IMGUIModule.dll`
-- `UnityEngine.InputLegacyModule.dll`
-- `UnityEngine.TextRenderingModule.dll`
-
-Version-specific subdirectories under `GameDlls/` are supported.
+The client project depends on RimWorld assemblies. Place the required DLLs in `GameDlls/`: `Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`, `UnityEngine.IMGUIModule.dll`, `UnityEngine.InputLegacyModule.dll`, `UnityEngine.TextRenderingModule.dll`. Version-specific subdirectories under `GameDlls/` are supported.
 
 ## Building
 
-The solution (`Phinix.sln`) contains client, common, server, and extension projects. A `TravisCI` build profile is available for builds that do not require RimWorld game assemblies.
+`Phinix.sln` contains client, common, server, and extension projects. A `TravisCI` build profile is available for builds that don't need game assemblies.
 
 - **Client**: .NET Framework 4.7.2 (Unity/Mono ecosystem)
 - **Common projects**: multi-target `net472;net10.0`
 - **Server**: .NET 10.0
 
-## Protocol
-
-Packet definitions use Protobuf. If you modify packet structures, you will need a `protoc` toolchain with C# support.
-
 ## Extension Development
 
-Plugins implement `IPhinixExtensionModule` and register handlers, renderers, codecs, and APIs through `IExtensionBuilder`:
+Plugins implement `IPhinixExtensionModule` and register handlers, renderers, and APIs through `IExtensionBuilder`:
 
 ```csharp
 public class MyExtension : IPhinixExtensionModule
@@ -120,7 +118,7 @@ public class MyExtension : IPhinixExtensionModule
 }
 ```
 
-See [设计哲学.md](./设计哲学.md) for the full architecture guide and design rules.
+Full guide at [设计哲学.md](./设计哲学.md).
 
 # Credit
 

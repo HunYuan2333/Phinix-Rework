@@ -1,27 +1,67 @@
 <h1 align="center">Phinix</h1>
 <h4 align="center"><i>RimWorld 多人模组 — 聊天、交易与可扩展插件框架</i></h4>
-<p align="center"><img src="../Client/About/Preview.png" alt="Phinix 预览图"></p>
-<br><br>
 
-> 这是用于评审的 README 中文草稿。
-> 正式使用的 `.github/README.md` 目前仍保持不动。
-
-English version: [README-draft.md](./README-draft.md)
+> 这是开发中的 README 草稿，后续会移到仓库根目录。英文版：[README-draft.md](./README-draft.md)
 
 # 关于项目
 
-Phinix 是一个通过独立外置服务器为 RimWorld 提供多人聊天和物品交易的模组。它在原版 Phinix 基础上进行了重构，底层采用插件化框架架构。
+Phinix 是一个通过独立服务器为 RimWorld 提供多人聊天和物品交易的模组。它在原有项目基础上进行了彻底重构，底层采用插件化框架——Chat 和 Trade 本身也是插件，不是内建特权模块。
 
-核心能力：
-
-- 游戏内殖民地间聊天
+- 游戏内殖民地间聊天（支持富文本，名字/消息可上色）
 - 异步物品交易（无需双方同时在线）
 - 独立服务器，支持认证与用户管理
-- 可扩展插件系统，支持第三方 submod
+- 可扩展插件系统，第三方 submod 与官方扩展地位平等
+
+# 快速开始
+
+## 客户端
+
+1. 从 [Releases](https://github.com/HunYuan2333/Phinix-Rework/releases) 下载客户端发布包。
+2. 解压到 RimWorld 的 `Mods` 目录。
+3. 在游戏主菜单 → Mods 中启用 Phinix，重启游戏。
+4. 进入存档，点底部工具栏的 Phinix 按钮，在 Settings 里填服务器地址和端口，点 Connect。
+
+目前仅支持 RimWorld 1.6。
+
+## 服务端（Docker，推荐）
+
+```bash
+docker pull hunyuan23333/phinix-rework:latest
+docker run -d \
+  --name phinix \
+  --restart unless-stopped \
+  -p 16200:16200/udp \
+  -v ./server_data:/data \
+  hunyuan23333/phinix-rework:latest
+
+# 查看日志
+docker logs -f phinix
+```
+
+也可以直接用 [docker-compose.yml](../docker-compose.yml)：
+
+```bash
+docker compose up -d --build
+```
+
+## 服务端（手动构建）
+
+需要 .NET 10 SDK。服务端项目在 `Server/`，相关共享项目在 `Common/`。
+
+```bash
+dotnet build Server/Server.csproj -c Release -o out
+dotnet out/PhinixServer.dll
+```
+
+配置文件为 `server.conf`（默认端口 16200，认证方式 ClientKey），控制台支持 `help`、`version`、`exit` 等命令。
+
+# 已知问题
+
+- **翻译红字**：网络回调线程上调用 RimWorld 的 `Translate()` 时偶发 `No active language` 错误。不影响功能——翻译失败时会 fallback 到 key 名本身（如 `Phinix_framework_systemDisplayName`）。这本质上是线程安全问题，将在后续版本中通过主线程封送机制修复。日志里的这类红字可以忽略。
 
 # 架构
 
-Phinix 已重构为分层、插件优先的架构：
+Phinix 采用分层、插件优先的架构：
 
 ```
 插件层 (Extensions/Chat, Extensions/Trade, 第三方)
@@ -30,81 +70,38 @@ Phinix 已重构为分层、插件优先的架构：
       → 基础设施层 (Common: 网络、认证、用户管理)
 ```
 
-核心原则：
+核心原则见 [设计哲学.md](./设计哲学.md)，要点：
 
-- **插件平权**——Chat 和 Trade 只是插件，不是内建特权模块。第三方 submod 使用完全相同的发现 → 注册 → 激活路径。
-- **Host 不依赖插件**——宿主只引用 `ClientExtensionAbstractions`（通用契约层），不编译期引用任何具体插件工程。
-- **三条管道**——所有网络通信通过 `message`（展示）、`command`（控制）、`item`（物品载荷）三条管道流转。
-- **动态 UI**——Tab、侧栏、角标由插件通过 `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider` 贡献，宿主只提供容器壳。
-- **API registry**——插件通过 `RegisterApi<T>()` / `TryResolve<T>()` 暴露和发现能力，不经过宿主中转。
+- **插件平权**——Chat 和 Trade 只是插件。第三方 submod 使用完全相同的发现 → 注册 → 激活路径。
+- **三条管道**——所有通信通过 `message`（展示）、`command`（控制）、`item`（载荷）流转。
+- **动态 UI**——Tab、侧栏、角标由插件通过 `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider` 贡献。
+- **Server Pipeline**——入站消息经 IngressValidation → PreHandle → DefaultProcess → Observation → Outbound 五段流水线，扩展可在任意阶段接管。
 
-# 安装
+# 路线图
 
-## 客户端
+当前版本已完成核心基础：服务端可在 Docker 上一键部署、客户端聊天和交易功能稳定可用。后续工作重心是让整个系统更开放、更稳定：
 
-1. 构建或获取客户端发布包。
-2. 解压到 `RimWorld/Mods` 目录。
-3. 安装所需的 Harmony 依赖。
-4. 启用模组并重启游戏。
-
-支持的 RimWorld 版本：1.3、1.4、1.5、1.6。
-
-## 服务端
-
-服务端配置文件为 `server.conf`（默认：端口 `16200`，最大连接 `1000`，认证方式 `ClientKey`）。
-
-1. 编辑 `server.conf` 按需修改。
-2. 构建服务端项目（需要 .NET 10 SDK）。
-3. 运行服务端。
-4. 使用控制台命令，如 `help`、`version`。
-
-## Docker
-
-支持通过 `Dockerfile` 和 `docker-compose.yml` 进行容器化部署。
-
-# 使用方式
-
-## 客户端
-
-1. 进入存档或创建新殖民地。
-2. 打开底部工具栏的 Phinix 按钮。
-3. 进入 Settings 输入服务器地址和端口。
-4. 连接服务器。
-
-## 服务端
-
-服务端负责：连接管理、认证、聊天消息中继、交易状态同步、framework capability 协商。
+- **短期**：修完已知的线程安全问题和 UI 性能瓶颈
+- **中期**：真正的插件化——Chat 和 Trade 从 "官方内建" 变成 "官方随发插件"，第三方作者也能用自己的扩展挂入同一个系统，不需要改宿主一行代码。
+- **远期**：Mods 目录热加载（上传即启用）、插件市场、Web 管理面板。
 
 # 开发者说明
 
 ## 环境准备
 
-客户端项目依赖 RimWorld 程序集，需放入 `GameDlls/`：
-
-- `Assembly-CSharp.dll`
-- `UnityEngine.dll`
-- `UnityEngine.CoreModule.dll`
-- `UnityEngine.IMGUIModule.dll`
-- `UnityEngine.InputLegacyModule.dll`
-- `UnityEngine.TextRenderingModule.dll`
-
-支持在 `GameDlls/` 下按版本划分子目录。
+客户端项目依赖 RimWorld 程序集，需放入 `GameDlls/`：`Assembly-CSharp.dll`、`UnityEngine.dll`、`UnityEngine.CoreModule.dll`、`UnityEngine.IMGUIModule.dll`、`UnityEngine.InputLegacyModule.dll`、`UnityEngine.TextRenderingModule.dll`。支持按版本划分子目录。
 
 ## 构建
 
-解决方案 `Phinix.sln` 包含客户端、公共库、服务端和扩展项目。提供 `TravisCI` 构建配置用于无需 RimWorld 程序集的场景。
+解决方案 `Phinix.sln`。提供 `TravisCI` 构建配置用于无需游戏程序集的场景。
 
 - **Client**: .NET Framework 4.7.2（Unity/Mono 生态）
 - **Common 项目**: multi-target `net472;net10.0`
 - **Server**: .NET 10.0
 
-## 协议
-
-数据包使用 Protobuf 定义。修改 packet 结构需配套 `protoc` 和 C# 生成工具链。
-
 ## 扩展开发
 
-插件实现 `IPhinixExtensionModule`，通过 `IExtensionBuilder` 注册 handler、renderer、codec 和 API：
+插件实现 `IPhinixExtensionModule`，通过 `IExtensionBuilder` 注册 handler、renderer、API：
 
 ```csharp
 public class MyExtension : IPhinixExtensionModule
@@ -120,8 +117,8 @@ public class MyExtension : IPhinixExtensionModule
 }
 ```
 
-完整架构指南和设计规则见 [设计哲学.md](./设计哲学.md)。
+完整指南见 [设计哲学.md](./设计哲学.md)。
 
 # 致谢
 
-特别感谢原 Phinix 的作者和贡献者，以及 [Longwelwind 的 Phi mod](https://github.com/longwelwind/phi) 为项目奠定的早期基础。
+特别感谢原 Phinix 作者和贡献者，以及 [Longwelwind 的 Phi mod](https://github.com/longwelwind/phi) 为项目奠定的早期基础。
