@@ -63,6 +63,10 @@ namespace Connections
         /// Should be gracefully disconnected and cleared on disconnect.
         /// </summary>
         private readonly List<NetPeer> probePeers = new List<NetPeer>();
+        /// <summary>
+        /// Lock object to prevent race conditions when accessing <see cref="probePeers"/>.
+        /// </summary>
+        private readonly object probePeersLock = new object();
 
         /// <summary>
         /// Creates a new <see cref="NetClient"/> instance.
@@ -117,7 +121,10 @@ namespace Connections
             // Iterate over the endpoints we've been given and try to connect to them
             foreach (IPEndPoint endpoint in endpoints)
             {
-                probePeers.Add(clientNetManager.Connect(endpoint.Address.ToString(), endpoint.Port));
+                lock (probePeersLock)
+                {
+                    probePeers.Add(clientNetManager.Connect(endpoint.Address.ToString(), endpoint.Port));
+                }
             }
 
             startPollThread();
@@ -132,12 +139,19 @@ namespace Connections
                 // Spin until one of the peers connects
                 while (!probeThreadStopRequested)
                 {
-                    // Make sure there is at least one non-null peer
-                    if (probePeers.All(peer => peer == null)) break;
-                    // ...and that none are connected
-                    if (probePeers.Where(peer => peer != null).Any(peer => peer.ConnectionState == ConnectionState.Connected)) break;
-                    // ...and that not all of them are disconnected
-                    if (probePeers.Where(peer => peer != null).All(peer => peer.ConnectionState == ConnectionState.Disconnected)) break;
+                    bool allNull, anyConnected, allDisconnected;
+                    lock (probePeersLock)
+                    {
+                        // Make sure there is at least one non-null peer
+                        allNull = probePeers.All(peer => peer == null);
+                        // ...and that none are connected
+                        anyConnected = probePeers.Where(peer => peer != null).Any(peer => peer.ConnectionState == ConnectionState.Connected);
+                        // ...and that not all of them are disconnected
+                        allDisconnected = probePeers.Where(peer => peer != null).All(peer => peer.ConnectionState == ConnectionState.Disconnected);
+                    }
+                    if (allNull) break;
+                    if (anyConnected) break;
+                    if (allDisconnected) break;
 
                     Thread.Sleep(10);
                 }
@@ -148,21 +162,24 @@ namespace Connections
                 }
 
                 NetPeer connectedPeer;
-                try
+                lock (probePeersLock)
                 {
-                    // Apply the connected one
-                    connectedPeer = probePeers.First(peer => peer.ConnectionState == ConnectionState.Connected);
-                    serverPeer = connectedPeer;
-                }
-                catch (InvalidOperationException)
-                {
-                    // No connected peers available, disconnect
-                    connectedPeer = null;
-                    Disconnect();
-                }
+                    try
+                    {
+                        // Apply the connected one
+                        connectedPeer = probePeers.First(peer => peer.ConnectionState == ConnectionState.Connected);
+                        serverPeer = connectedPeer;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // No connected peers available, disconnect
+                        connectedPeer = null;
+                        Disconnect();
+                    }
 
-                // Cancel the remainder
-                probePeers.RemoveAll(peer => peer == null || peer.Equals(connectedPeer));
+                    // Cancel the remainder
+                    probePeers.RemoveAll(peer => peer == null || peer.Equals(connectedPeer));
+                }
                 clearProbePeers();
             });
             probeThread.IsBackground = true;
@@ -321,14 +338,18 @@ namespace Connections
         /// </summary>
         private void clearProbePeers()
         {
-            // Gracefully disconnect any connected peers
-            foreach (NetPeer peer in probePeers)
+            lock (probePeersLock)
             {
-                clientNetManager.DisconnectPeer(peer);
-            }
+                // Gracefully disconnect any connected peers
+                foreach (NetPeer peer in probePeers)
+                {
+                    clientNetManager.DisconnectPeer(peer);
+                }
 
-            // Empty out the list
-            probePeers.Clear();
+                // Empty out the list
+                probePeers.Clear();
+            }
         }
+
     }
 }

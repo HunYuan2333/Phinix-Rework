@@ -5,6 +5,7 @@ namespace PhinixClient.Framework
 {
     internal sealed class ClientMainThreadDispatcher : IClientMainThreadDispatcher
     {
+        private const int MaxPendingActions = 500;
         private readonly Queue<Action> pendingActions = new Queue<Action>();
         private readonly object syncRoot = new object();
 
@@ -17,6 +18,10 @@ namespace PhinixClient.Framework
 
             lock (syncRoot)
             {
+                if (pendingActions.Count >= MaxPendingActions)
+                {
+                    pendingActions.Dequeue(); // drop oldest
+                }
                 pendingActions.Enqueue(action);
             }
         }

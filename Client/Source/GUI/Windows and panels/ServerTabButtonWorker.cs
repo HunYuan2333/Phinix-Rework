@@ -23,7 +23,7 @@ namespace PhinixClient
             {
                 if (!string.IsNullOrEmpty(badge.BadgeText))
                 {
-                    new TextWidget(badge.BadgeText, anchor: TextAnchor.MiddleCenter).Draw(iconRect);
+                    Widgets.Label(iconRect, badge.BadgeText);
                     break; // show first badge only
                 }
             }

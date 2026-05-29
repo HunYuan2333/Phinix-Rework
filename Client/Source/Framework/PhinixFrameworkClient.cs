@@ -37,6 +37,7 @@ namespace PhinixClient.Framework
         private readonly string[] capabilities;
         private readonly HashSet<string> remoteCapabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<FrameworkDisplayMessage> displayMessages = new List<FrameworkDisplayMessage>();
+        private const int MaxDisplayMessages = 1000;
         private readonly object displayMessagesLock = new object();
         private readonly Timer negotiationTimer;
         private int displayMessageCountAtLastCheck;
@@ -466,6 +467,10 @@ namespace PhinixClient.Framework
 
             lock (displayMessagesLock)
             {
+                if (displayMessages.Count >= MaxDisplayMessages)
+                {
+                    displayMessages.RemoveRange(0, displayMessages.Count - MaxDisplayMessages + 1);
+                }
                 displayMessages.Add(message);
             }
 

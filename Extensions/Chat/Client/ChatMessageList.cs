@@ -30,6 +30,7 @@ namespace Phinix.ChatExtension.Client
         private bool messagesChanged;
         private Vector2 chatScroll = new Vector2(0, 0);
         private float oldHeight;
+        private float cachedTotalHeight;
         private bool scrollToBottom;
         private bool stickyScroll = true;
         private bool clearMessages;
@@ -74,7 +75,7 @@ namespace Phinix.ChatExtension.Client
                 x: inRect.xMin,
                 y: inRect.yMin,
                 width: inRect.width - SCROLLBAR_WIDTH,
-                height: messageRectCache.Values.Sum(r => r.height));
+                height: cachedTotalHeight);
 
             Vector2 oldChatScroll = new Vector2(chatScroll.x, chatScroll.y);
 
@@ -183,6 +184,8 @@ namespace Phinix.ChatExtension.Client
 
                 currentY += messageRect.height;
             }
+
+            cachedTotalHeight = currentY - inRect.yMin;
         }
 
         private void drawChatMessage(Rect inRect, UIChatMessage chatMessage)

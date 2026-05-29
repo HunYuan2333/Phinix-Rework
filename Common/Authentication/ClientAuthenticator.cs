@@ -486,6 +486,7 @@ namespace Authentication
         {
             Authenticated = false;
             SessionId = null;
+            sessionExtendTimer.Stop();
         }
     }
 }
