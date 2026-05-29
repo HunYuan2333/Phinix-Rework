@@ -27,7 +27,7 @@ jobs:
       id: tags
       uses: docker/metadata-action@master
       with:
-        images: hunyuan2333/phinix
+        images: hunyuan2333/phinix-rework
         tags: |
           type=raw,value=latest,enable={{is_default_branch}}
           type=semver,pattern={{version}}
