@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Authentication</RootNamespace>
+    <AssemblyName>Authentication.Client</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Common\Authentication\ClientAuthenticator.cs">
+      <Link>ClientAuthenticator.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj" />
+    <ProjectReference Include="..\..\..\Common\Authentication\Authentication.csproj" />
+    <ProjectReference Include="..\Connections.Client\Connections.Client.csproj" />
+    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj" />
+  </ItemGroup>
+</Project>

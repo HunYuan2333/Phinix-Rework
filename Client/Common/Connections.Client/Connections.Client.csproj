@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Connections</RootNamespace>
+    <AssemblyName>Connections.Client</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Common\Connections\NetClient.cs">
+      <Link>NetClient.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="LiteNetLib">
+      <HintPath>..\..\..\.nuget\LiteNetLib.0.7.7.3\lib\net35\LiteNetLib.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Common\Connections\Connections.csproj" />
+    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj" />
+  </ItemGroup>
+</Project>

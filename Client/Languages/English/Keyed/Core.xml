@@ -3,6 +3,7 @@
     <!-- Tab labels -->
     <Phinix_tabs_chat>Chat</Phinix_tabs_chat>
     <Phinix_tabs_trades>Trades</Phinix_tabs_trades>
+    <Phinix_tabs_extensions>Extensions</Phinix_tabs_extensions>
 
     <!-- Settings -->
     <Phinix_settings_connectButton>Connect</Phinix_settings_connectButton>
@@ -39,7 +40,6 @@
     <Phinix_framework_connectedLegacyServer>Connected to legacy server. Some features may be unavailable.</Phinix_framework_connectedLegacyServer>
     <Phinix_framework_legacyExtensionUnavailable>This feature requires a Phinix framework server.</Phinix_framework_legacyExtensionUnavailable>
     <Phinix_framework_unsupportedIncomingMessageType>Received unsupported message type '{0}'.</Phinix_framework_unsupportedIncomingMessageType>
-    <Phinix_framework_redPacketEmptyWarning>Red packet is empty.</Phinix_framework_redPacketEmptyWarning>
 
     <!-- Core errors -->
     <Phinix_error_loginFailedTitle>Login failed</Phinix_error_loginFailedTitle>
@@ -48,4 +48,17 @@
     <Phinix_error_authFailedMessage>Failed to authenticate with the server: {0} ({1})</Phinix_error_authFailedMessage>
     <Phinix_error_connectionFailedTitle>Connecting failed</Phinix_error_connectionFailedTitle>
     <Phinix_error_connectionFailedMessage>Could not connect to a server at {0}:{1}</Phinix_error_connectionFailedMessage>
+
+    <!-- Extension Manager -->
+    <Phinix_extensions_loadedExtensions>Loaded Extensions ({0})</Phinix_extensions_loadedExtensions>
+    <Phinix_extensions_loadingLog>Loading Log</Phinix_extensions_loadingLog>
+    <Phinix_extensions_refresh>Refresh</Phinix_extensions_refresh>
+    <Phinix_extensions_openDirectory>Open Extension Directory</Phinix_extensions_openDirectory>
+    <Phinix_extensions_state_active>Active</Phinix_extensions_state_active>
+    <Phinix_extensions_state_failed>Failed</Phinix_extensions_state_failed>
+    <Phinix_extensions_state_registered>Registered</Phinix_extensions_state_registered>
+    <Phinix_extensions_state_shutdown>Shut Down</Phinix_extensions_state_shutdown>
+    <Phinix_extensions_state_discovered>Discovered</Phinix_extensions_state_discovered>
+    <Phinix_extensions_state_unknown>Unknown</Phinix_extensions_state_unknown>
+    <Phinix_extensions_warningsPresent>{0} extension(s) have warnings. Check the Extensions tab.</Phinix_extensions_warningsPresent>
 </LanguageData>

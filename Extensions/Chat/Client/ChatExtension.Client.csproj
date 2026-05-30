@@ -83,6 +83,7 @@
     <Compile Include="ChatSidebarProvider.cs" />
     <Compile Include="ChatUiHostContext.cs" />
     <Compile Include="FrameworkClientChatServiceAdapter.cs" />
+    <Compile Include="IChatTabContent.cs" />
     <Compile Include="PhinixFrameworkChatService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UserList.cs" />
@@ -116,6 +117,6 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
     <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
-    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\10-ChatExtension.Client.dll" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\11-ChatExtension.Client.dll" />
   </Target>
 </Project>

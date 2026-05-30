@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Phinix.LegacyAdapter.Client;
 using PhinixClient.Framework;
 using PhinixClient.Trade;
 using Utils;
@@ -14,6 +15,7 @@ namespace Phinix.TradeExtension.Client
         private readonly IFrameworkClientTransport frameworkClient;
         private readonly IFrameworkClientLifecycle lifecycle;
         private readonly IClientSessionContext sessionContext;
+        private readonly ILegacyModuleTransport legacyTransport;
         private readonly Action<string, LogLevel> log;
 
         public FrameworkClientTradeServiceAdapter(
@@ -21,12 +23,14 @@ namespace Phinix.TradeExtension.Client
             IFrameworkClientTransport frameworkClient,
             IFrameworkClientLifecycle lifecycle,
             IClientSessionContext sessionContext,
+            ILegacyModuleTransport legacyTransport,
             Action<string, LogLevel> log)
         {
             this.tradeService = tradeService;
             this.frameworkClient = frameworkClient;
             this.lifecycle = lifecycle;
             this.sessionContext = sessionContext;
+            this.legacyTransport = legacyTransport;
             this.log = log;
         }
 
@@ -83,13 +87,13 @@ namespace Phinix.TradeExtension.Client
         public void CreateTrade(string uuid)
         {
             OnTradeCreationRequested?.Invoke(this, new TradeCreationEventArgs(new ClientTradeSnapshot(string.Empty, new UserManagement.ImmutableUser(uuid))));
-            frameworkClient.SendFrameworkPacket(tradeService.CreateTradeRequest(uuid, createContext()));
+            SendTradePacket(tradeService.CreateTradeRequest(uuid, createContext()));
         }
 
         public void CancelTrade(string tradeId)
         {
             Verse.Log.Message($"[TradeAdapter] CancelTrade: tradeId={tradeId}");
-            frameworkClient.SendFrameworkPacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
+            SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
         }
 
         public string[] GetTradeIds() => tradeService.GetTradeIds();
@@ -120,14 +124,93 @@ namespace Phinix.TradeExtension.Client
                 packet.SetCorrelationId(token);
             }
 
-            frameworkClient.SendFrameworkPacket(packet);
+            SendTradePacket(packet);
         }
 
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)
         {
             Verse.Log.Message($"[TradeAdapter] UpdateTradeStatus: tradeId={tradeId}, accepted={accepted}, cancelled={cancelled}");
-            frameworkClient.SendFrameworkPacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
+            SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
         }
+
+        /// <summary>
+        /// 根据 CompatibilityMode 路由 trade 出站包：
+        /// - FrameworkV2: 直接发 FrameworkPacket 到 "PhinixFramework" 模块
+        /// - Legacy: 通过 ILegacyModuleTransport 发送 legacy proto 包。
+        ///   设计哲学 §3.7：出站命令通过 CompatibilityMode 判断后决定路由策略。
+        ///   设计哲学 §1.3：ILegacyModuleTransport 是 host 通用服务，任何插件可用。
+        /// </summary>
+        private void SendTradePacket(FrameworkPacket packet)
+        {
+            if (packet == null) return;
+
+            if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
+            {
+                frameworkClient.SendFrameworkPacket(packet);
+                return;
+            }
+
+            // Legacy 模式：Trade 插件自己通过 ILegacyModuleTransport 发送 legacy proto 包。
+            // 出站命令不经过 IClientCommandHandler 管线（目前没有出站命令管线），
+            // 由业务接口直接路由。符合 §3.7 "通过 CompatibilityMode 判断路由策略"。
+            SendLegacyPacket(packet);
+        }
+
+        private void SendLegacyPacket(FrameworkPacket packet)
+        {
+            try
+            {
+                switch (packet?.MessageType)
+                {
+                    case FrameworkTradeProtocol.CreateRequestType:
+                    {
+                        var payload = FrameworkSerialization.DeserializePayload<FrameworkTradeCreateRequest>(packet.PayloadJson);
+                        if (payload != null)
+                            legacyTransport.Send("Trading", PackProtobuf(new Trading.CreateTradePacket
+                            {
+                                SessionId = sessionContext.SessionId ?? "",
+                                Uuid = sessionContext.Uuid ?? "",
+                                OtherPartyUuid = payload.OtherPartyUuid ?? ""
+                            }));
+                        break;
+                    }
+                    case FrameworkTradeProtocol.OfferUpdateRequestType:
+                    {
+                        var payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateRequest>(packet.PayloadJson);
+                        if (payload != null)
+                            legacyTransport.Send("Trading", PackProtobuf(new Trading.UpdateTradeItemsPacket
+                            {
+                                SessionId = sessionContext.SessionId ?? "",
+                                Uuid = sessionContext.Uuid ?? "",
+                                TradeId = payload.TradeId ?? "",
+                                Token = packet.GetCorrelationId() ?? ""
+                            }));
+                        break;
+                    }
+                    case FrameworkTradeProtocol.StatusUpdateRequestType:
+                    {
+                        var payload = FrameworkSerialization.DeserializePayload<FrameworkTradeStatusUpdateRequest>(packet.PayloadJson);
+                        if (payload != null)
+                            legacyTransport.Send("Trading", PackProtobuf(new Trading.UpdateTradeStatusPacket
+                            {
+                                SessionId = sessionContext.SessionId ?? "",
+                                Uuid = sessionContext.Uuid ?? "",
+                                TradeId = payload.TradeId ?? "",
+                                Accepted = payload.Accepted ?? false,
+                                Cancelled = payload.Cancelled ?? false
+                            }));
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log?.Invoke($"[TradeAdapter] Failed to send legacy packet: {ex.Message}", LogLevel.ERROR);
+            }
+        }
+
+        private static byte[] PackProtobuf(object packet) =>
+            Google.Protobuf.WellKnownTypes.Any.Pack((Google.Protobuf.IMessage)packet).ToByteArray();
 
         private ClientFrameworkContext createContext()
         {

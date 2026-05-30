@@ -33,7 +33,7 @@ namespace Phinix.TradeExtension.Client
 
         public IClientTradeService TradeService => tradeService;
 
-        public bool AllItemsTradable => settingsContext.AllItemsTradable;
+        public bool AllItemsTradable => settingsContext.Get<bool>("trade.allItemsTradable", false);
 
         public event EventHandler OnDisconnect
         {

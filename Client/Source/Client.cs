@@ -1,4 +1,5 @@
-﻿using Authentication;
+﻿using System.Reflection;
+using Authentication;
 using Connections;
 using RimWorld;
 using System;
@@ -67,6 +68,7 @@ namespace PhinixClient
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
+        public PhinixFrameworkClient FrameworkClient => frameworkClient;
         private ClientUserEventStream userEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
         public Settings Settings { get; }
@@ -118,6 +120,9 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientSoundService>(soundService);
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
             extensionHostContext.AddService<Func<IEnumerable<Thing>, LookTargets>>(verseThings => dropPods(verseThings));
+            // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
+            extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
+            extensionHostContext.ResolveSourcePackageId = ResolveModPackageId;
             Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories())}");
             ExtensionAssemblyLoader.LoadAssemblies(
                 GetExtensionProbeDirectories(),
@@ -130,6 +135,9 @@ namespace PhinixClient
             Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
             Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
+
+            // Register the host-built Extension Manager Tab — same IMainTabProvider hook as all extensions
+            extensionHostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.host", new ExtensionManagerTab());
             // Subscribe to log events (after construction so constructor diagnostics
             // already went through the hostContext.Log callback above)
             authenticator.OnLogEntry += ILoggableHandler;
@@ -148,7 +156,7 @@ namespace PhinixClient
                 Verse.Log.Message("Successfully authenticated with server.");
                 userManager.SendLogin(
                     displayName: Settings.DisplayName,
-                    acceptingTrades: Settings.AcceptingTrades
+                    acceptingTrades: Settings.GetExtensionSetting("trade.acceptingTrades", true)
                 );
             };
             authenticator.OnAuthenticationFailure += (sender, args) =>
@@ -213,6 +221,16 @@ namespace PhinixClient
             userManager.OnUserSync += (sender, e) => { OnUserSync?.Invoke(sender, e); };
             // Connect to the server set in the config
             Connect(Settings.ServerAddress, Settings.ServerPort);
+
+            // Show warning notification if extensions had issues during loading
+            if (frameworkClient.HasWarnings)
+            {
+                Verse.Log.Warning($"[Phinix] {frameworkClient.WarningCount} extension warning(s) during startup:");
+                foreach (string warning in frameworkClient.ExtensionWarnings)
+                {
+                    Verse.Log.Warning($"  [Phinix] {warning}");
+                }
+            }
         }
 
         public override void DoSettingsWindowContents(Rect inRect)
@@ -235,51 +253,51 @@ namespace PhinixClient
             listing.Label("Phinix_modSettings_displayNameTitle".Translate());
             Settings.DisplayName = listing.TextEntry(Settings.DisplayName);
 
-            bool acceptingTrades = Settings.AcceptingTrades;
+            bool acceptingTrades = Settings.GetExtensionSetting("trade.acceptingTrades", true);
             listing.CheckboxLabeled("Phinix_modSettings_acceptingTradesTitle".Translate(), ref acceptingTrades);
-            Settings.AcceptingTrades = acceptingTrades;
+            Settings.SetExtensionSetting("trade.acceptingTrades", acceptingTrades);
 
-            bool showNameFormatting = Settings.ShowNameFormatting;
+            bool showNameFormatting = Settings.GetExtensionSetting("chat.showNameFormatting", true);
             listing.CheckboxLabeled("Phinix_modSettings_showNameFormatting".Translate(), ref showNameFormatting);
-            Settings.ShowNameFormatting = showNameFormatting;
+            Settings.SetExtensionSetting("chat.showNameFormatting", showNameFormatting);
 
-            bool showChatFormatting = Settings.ShowChatFormatting;
+            bool showChatFormatting = Settings.GetExtensionSetting("chat.showChatFormatting", true);
             listing.CheckboxLabeled("Phinix_modSettings_showChatFormatting".Translate(), ref showChatFormatting);
-            Settings.ShowChatFormatting = showChatFormatting;
+            Settings.SetExtensionSetting("chat.showChatFormatting", showChatFormatting);
 
             bool playNoiseOnMessageReceived = Settings.PlayNoiseOnMessageReceived;
             listing.CheckboxLabeled("Phinix_modSettings_playNoiseOnMessageReceived".Translate(), ref playNoiseOnMessageReceived);
             Settings.PlayNoiseOnMessageReceived = playNoiseOnMessageReceived;
 
-            bool showUnreadMessageCount = Settings.ShowUnreadMessageCount;
+            bool showUnreadMessageCount = Settings.GetExtensionSetting("chat.showUnreadMessageCount", true);
             listing.CheckboxLabeled("Phinix_modSettings_showUnreadMessageCount".Translate(), ref showUnreadMessageCount);
-            Settings.ShowUnreadMessageCount = showUnreadMessageCount;
+            Settings.SetExtensionSetting("chat.showUnreadMessageCount", showUnreadMessageCount);
 
-            bool showBlockedUnreadMessageCount = Settings.ShowBlockedUnreadMessageCount;
+            bool showBlockedUnreadMessageCount = Settings.GetExtensionSetting("chat.showBlockedUnreadMessageCount", false);
             listing.CheckboxLabeled("Phinix_modSettings_showBlockedUnreadMessageCount".Translate(), ref showBlockedUnreadMessageCount);
-            Settings.ShowBlockedUnreadMessageCount = showBlockedUnreadMessageCount;
+            Settings.SetExtensionSetting("chat.showBlockedUnreadMessageCount", showBlockedUnreadMessageCount);
 
             listing.Label("Phinix_modSettings_chatMessageLimit".Translate());
-            string limitStr = Settings.ChatMessageLimit.ToString();
+            string limitStr = Settings.GetExtensionSetting("chat.messageLimit", 40).ToString();
             limitStr = listing.TextEntry(limitStr);
             int.TryParse(limitStr, out int chatMessageLimit);
-            Settings.ChatMessageLimit = chatMessageLimit;
+            Settings.SetExtensionSetting("chat.messageLimit", chatMessageLimit);
 
-            bool forceMessageFieldFocus = Settings.ForceMessageFieldFocus;
+            bool forceMessageFieldFocus = Settings.GetExtensionSetting("chat.forceMessageFieldFocus", true);
             listing.CheckboxLabeled("Phinix_modSettings_forceMessageFieldFocus".Translate(), ref forceMessageFieldFocus);
-            Settings.ForceMessageFieldFocus = forceMessageFieldFocus;
+            Settings.SetExtensionSetting("chat.forceMessageFieldFocus", forceMessageFieldFocus);
 
-            bool allItemsTradable = Settings.AllItemsTradable;
+            bool allItemsTradable = Settings.GetExtensionSetting("trade.allItemsTradable", false);
             listing.CheckboxLabeled("Phinix_modSettings_allItemsTradable".Translate(), ref allItemsTradable);
-            Settings.AllItemsTradable = allItemsTradable;
+            Settings.SetExtensionSetting("trade.allItemsTradable", allItemsTradable);
 
-            bool showBlockedTrades = Settings.ShowBlockedTrades;
+            bool showBlockedTrades = Settings.GetExtensionSetting("trade.showBlockedTrades", false);
             listing.CheckboxLabeled("Phinix_modSettings_showBlockedTrades".Translate(), ref showBlockedTrades);
-            Settings.ShowBlockedTrades = showBlockedTrades;
+            Settings.SetExtensionSetting("trade.showBlockedTrades", showBlockedTrades);
 
-            bool dropCurrentMap = Settings.DropCurrentMap;
+            bool dropCurrentMap = Settings.GetExtensionSetting("trade.dropCurrentMap", false);
             listing.CheckboxLabeled("Phinix_modSettings_dropCurrentMap".Translate(), ref dropCurrentMap);
-            Settings.DropCurrentMap = dropCurrentMap;
+            Settings.SetExtensionSetting("trade.dropCurrentMap", dropCurrentMap);
 
             listing.End();
         }
@@ -289,7 +307,7 @@ namespace PhinixClient
             if (!Settings.IsChanged) return;
 
             Settings.AcceptChanges();
-            userManager.UpdateSelf(Settings.DisplayName, Settings.AcceptingTrades);
+            userManager.UpdateSelf(Settings.DisplayName, Settings.GetExtensionSetting("trade.acceptingTrades", true));
         }
 
         /// <summary>
@@ -396,6 +414,35 @@ namespace PhinixClient
         }
 
         /// <summary>
+        /// Resolves the RimWorld Mod packageId for a given assembly by checking
+        /// which installed mod's directory contains the assembly file.
+        /// </summary>
+        private static string ResolveModPackageId(Assembly assembly)
+        {
+            try
+            {
+                string assemblyPath = assembly.Location;
+                if (string.IsNullOrEmpty(assemblyPath)) return null;
+
+                foreach (ModMetaData mod in ModLister.AllInstalledMods)
+                {
+                    string rootDir = mod.RootDir?.FullName ?? mod.RootDir?.ToString();
+                    if (!string.IsNullOrEmpty(rootDir) &&
+                        assemblyPath.StartsWith(rootDir, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return mod.PackageId;
+                    }
+                }
+            }
+            catch
+            {
+                // Assembly.Location can throw in some contexts; just return null
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Handler for <see cref="ILoggable"/> <c>OnLogEvent</c> events.
         /// Raised by modules as a way to hook into the log.
         /// </summary>
@@ -453,7 +500,7 @@ namespace PhinixClient
         private LookTargets dropPods(IEnumerable<Thing> things)
         {
             // Launch drop pods to a trade spot on a home tile
-            Map map = Settings.DropCurrentMap ? Find.CurrentMap : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
+            Map map = Settings.GetExtensionSetting("trade.dropCurrentMap", false) ? Find.CurrentMap : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
             IntVec3 dropSpot = DropCellFinder.TradeDropSpot(map);
             DropPodUtility.DropThingsNear(dropSpot, map, things, canRoofPunch: false);
 

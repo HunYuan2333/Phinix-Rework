@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink
     {
         public event EventHandler<LogEventArgs> OnLogEntry;
 
@@ -51,6 +51,7 @@ namespace PhinixClient.Framework
             this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
+            this.extensionHostContext.AddService<IDisplayMessageSink>(this);
             this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
             this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
             PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
@@ -92,6 +93,16 @@ namespace PhinixClient.Framework
             }
         }
 
+        public IReadOnlyList<ExtensionDiscoveryResult> ExtensionResults => discoveredExtensions.ExtensionResults.AsReadOnly();
+
+        public IReadOnlyList<string> ExtensionDiagnostics => discoveredExtensions.Diagnostics.AsReadOnly();
+
+        public IReadOnlyList<string> ExtensionWarnings => discoveredExtensions.Warnings.AsReadOnly();
+
+        public bool HasWarnings => discoveredExtensions.Warnings.Count > 0;
+
+        public int WarningCount => discoveredExtensions.Warnings.Count;
+
         public void BeginNegotiation()
         {
             reset();
@@ -116,11 +127,6 @@ namespace PhinixClient.Framework
         {
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleOutgoingText(rawMessage)))
             {
-                if (CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
-                {
-                    showSystemMessage("Phinix_framework_legacyExtensionUnavailable");
-                    return true;
-                }
 
                 ClientOutgoingMessageResult result = handler.HandleOutgoingText(
                     rawMessage,
@@ -138,12 +144,15 @@ namespace PhinixClient.Framework
 
                 if (result == null)
                 {
-                    return true;
+                    // null result 视为 continue，让下一个 handler 处理
+                    continue;
                 }
 
                 if (result.Action == MessageHandlingResultAction.LegacyFallback)
                 {
-                    return false;
+                    // Handler 声明自己不支持当前模式，继续尝试下一个 handler。
+                    // 用于 Adapter 在 FrameworkV2 模式下放行消息到后续 Chat handler。
+                    continue;
                 }
 
                 FrameworkPacket outgoingMessage = result.Message;
@@ -475,6 +484,11 @@ namespace PhinixClient.Framework
             }
 
             OnDisplayMessageReceived?.Invoke(this, new FrameworkDisplayMessageEventArgs(message));
+        }
+
+        void IDisplayMessageSink.Enqueue(FrameworkDisplayMessage message)
+        {
+            addDisplayMessage(message);
         }
 
         private bool shouldSuppress(FrameworkDisplayMessage message)

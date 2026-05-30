@@ -116,7 +116,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Extensions\RedPacketClientExtension.cs" />
     <Compile Include="Framework\ClientFrameworkUserDirectoryAdapter.cs" />
     <Compile Include="Framework\ClientMainThreadDispatcher.cs" />
     <Compile Include="Framework\ClientSettingsContextAdapter.cs" />
@@ -126,6 +125,7 @@
     <Compile Include="Framework\ClientWindowService.cs" />
 
     <Compile Include="Framework\PhinixFrameworkClient.cs" />
+    <Compile Include="Framework\NetClientLegacyTransportAdapter.cs" />
     <Compile Include="LegacySettings.cs" />
     <Compile Include="Patches\RootPatch.cs" />
     <Compile Include="Settings.cs" />
@@ -156,6 +156,7 @@
     <Compile Include="GUI\Windows and panels\ServerTab.cs" />
     <Compile Include="GUI\Windows and panels\ServerTabButtonWorker.cs" />
     <Compile Include="GUI\Windows and panels\SettingsWindow.cs" />
+    <Compile Include="GUI\Windows and panels\ExtensionManagerTab.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
 
     <Content Include="..\About\**">
@@ -173,6 +174,10 @@
       <Project>{E983D5C7-A573-44E4-A8BB-D5A9D78EA538}</Project>
       <Name>Authentication</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Common\Authentication.Client\Authentication.Client.csproj">
+      <Project>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</Project>
+      <Name>Authentication.Client</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
@@ -181,9 +186,17 @@
       <Project>{38cb6bed-e751-42fe-a847-c0ddd482ac62}</Project>
       <Name>Connections</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Common\Connections.Client\Connections.Client.csproj">
+      <Project>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</Project>
+      <Name>Connections.Client</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj">
       <Project>{4e8c099f-dcab-418a-a2fe-2705a7065ec3}</Project>
       <Name>UserManagement</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Common\UserManagement.Client\UserManagement.Client.csproj">
+      <Project>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</Project>
+      <Name>UserManagement.Client</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Common\Utils\Utils.csproj">
       <Project>{b6ff1583-c75a-42c1-9b75-2b16215a0cf7}</Project>
@@ -210,14 +223,17 @@
     <Copy SourceFiles="$(TargetDir)\Google.Protobuf.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\02-Protobuf.dll" />
     <Copy SourceFiles="$(TargetDir)\Utils.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\03-Utils.dll" />
     <Copy SourceFiles="$(TargetDir)\Connections.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\04-Connections.dll" />
-    <Copy SourceFiles="$(TargetDir)\Authentication.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\05-Authentication.dll" />
-    <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\06-UserManagement.dll" />
-    <Copy SourceFiles="$(TargetDir)\ClientExtensionAbstractions.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\07-ClientExtensionAbstractions.dll" />
+    <Copy SourceFiles="$(TargetDir)\Connections.Client.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\05-Connections.Client.dll" />
+    <Copy SourceFiles="$(TargetDir)\Authentication.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\06-Authentication.dll" />
+    <Copy SourceFiles="$(TargetDir)\Authentication.Client.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\07-Authentication.Client.dll" />
+    <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\08-UserManagement.dll" />
+    <Copy SourceFiles="$(TargetDir)\UserManagement.Client.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\09-UserManagement.Client.dll" />
+    <Copy SourceFiles="$(TargetDir)\ClientExtensionAbstractions.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\10-ClientExtensionAbstractions.dll" />
     <Copy SourceFiles="$(TargetDir)\System.Memory.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\System.Memory.dll" />
     <Copy SourceFiles="$(TargetDir)\System.Runtime.CompilerServices.Unsafe.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\System.Runtime.CompilerServices.Unsafe.dll" />
     <Copy SourceFiles="$(TargetDir)\System.Numerics.Vectors.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\System.Numerics.Vectors.dll" />
-    <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\$(GameVersion)\Assemblies\12-PhinixClient.dll" />
-    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\1.6\Assemblies\12-PhinixClient.dll" />
+    <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\$(GameVersion)\Assemblies\13-PhinixClient.dll" />
+    <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\1.6\Assemblies\13-PhinixClient.dll" />
 
     <!-- Copy static resources from Client source to output -->
     <ItemGroup>

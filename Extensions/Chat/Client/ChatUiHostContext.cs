@@ -36,11 +36,11 @@ namespace Phinix.ChatExtension.Client
 
         public string Uuid => session.Uuid;
 
-        public int ChatMessageLimit => settings.ChatMessageLimit;
+        public int ChatMessageLimit => settings.Get<int>("chat.messageLimit", 100);
 
-        public bool ShowNameFormatting => settings.ShowNameFormatting;
+        public bool ShowNameFormatting => settings.Get<bool>("chat.showNameFormatting", true);
 
-        public bool ShowChatFormatting => settings.ShowChatFormatting;
+        public bool ShowChatFormatting => settings.Get<bool>("chat.showChatFormatting", true);
 
         public ISet<string> BlockedUsers => new HashSet<string>(settings.BlockedUsers);
 

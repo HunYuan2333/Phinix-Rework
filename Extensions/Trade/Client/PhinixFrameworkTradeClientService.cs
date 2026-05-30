@@ -401,6 +401,59 @@ namespace Phinix.TradeExtension.Client
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' cancelled with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
 
+        /// <summary>
+        /// Legacy 适配器专用：将旧版服务器发来的 trade 快照注入 repository，触发 UI 刷新。
+        /// 所有协议转换逻辑在 Adapter 中完成，此处仅负责写入和通知。
+        /// </summary>
+        public void UpsertTrade(FrameworkTradeStateSnapshot snapshot)
+        {
+            if (snapshot == null || string.IsNullOrEmpty(snapshot.TradeId)) return;
+
+            // 参与者必须刚好 2 人 —— Adapter 数据合并有 bug 时这里拦住，不让坏数据进 repo 导致 UI 炸
+            if (snapshot.Participants == null || snapshot.Participants.Count != 2)
+            {
+                log?.Invoke(new LogEventArgs(
+                    $"Legacy adapter supplied trade '{snapshot.TradeId}' with {snapshot.Participants?.Count ?? 0} participant(s); expected 2. Dropping.",
+                    LogLevel.WARNING));
+                return;
+            }
+
+            // 参与者 UUID 不能为空或重复
+            if (string.IsNullOrEmpty(snapshot.Participants[0].Uuid) ||
+                string.IsNullOrEmpty(snapshot.Participants[1].Uuid) ||
+                string.Equals(snapshot.Participants[0].Uuid, snapshot.Participants[1].Uuid, StringComparison.OrdinalIgnoreCase))
+            {
+                log?.Invoke(new LogEventArgs(
+                    $"Legacy adapter supplied trade '{snapshot.TradeId}' with invalid participants [{snapshot.Participants[0].Uuid}, {snapshot.Participants[1].Uuid}]. Dropping.",
+                    LogLevel.WARNING));
+                return;
+            }
+
+            bool existed = repository.TryGet(snapshot.TradeId, out _);
+            repository.Upsert(snapshot);
+            RepositoryChanged?.Invoke(this, EventArgs.Empty);
+
+            if (!existed && TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot trade))
+            {
+                OnTradeCreationSuccess?.Invoke(this, new TradeCreationEventArgs(trade));
+            }
+        }
+
+        /// <summary>
+        /// Legacy 适配器专用：从 repository 移除已完成的 trade，触发 UI 刷新。
+        /// </summary>
+        public void RemoveTrade(string tradeId)
+        {
+            if (string.IsNullOrEmpty(tradeId)) return;
+
+            bool hadTrade = repository.TryGet(tradeId, out _);
+            repository.Remove(tradeId);
+            if (hadTrade)
+            {
+                RepositoryChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
         private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)
         {
             if (string.IsNullOrEmpty(tradeId))

@@ -72,6 +72,15 @@ namespace Phinix.ChatExtension.Client
             builder.AddClientMessageHandler(this);
             builder.AddClientCommandHandler(this);
             builder.AddMessageRenderer(this);
+
+            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
+                chatUiHostContext,
+                chatTabContent,
+            // 设计哲学 §3.7：插件不得绕过通信管线直连底层传输。
+            // 通过 IFrameworkClientTransport.TryHandleOutgoingMessage 走完整 handler 管线，
+            // 保证 Priority 排序、拦截、替换、回退机制正常工作。
+                message => builder.HostContext.GetRequiredService<IFrameworkClientTransport>().TryHandleOutgoingMessage(message));
+            builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -86,25 +95,6 @@ namespace Phinix.ChatExtension.Client
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
             settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
             soundService = hostContext.GetRequiredService<IClientSoundService>();
-
-            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
-                chatUiHostContext,
-                chatTabContent,
-                message =>
-                {
-                    var context = new ClientFrameworkContext
-                    {
-                        SessionId = sessionContext.SessionId,
-                        SenderUuid = sessionContext.Uuid,
-                        CompatibilityMode = lifecycle.CompatibilityMode,
-                        SendMessage = pkt => frameworkClient.SendFrameworkPacket(pkt),
-                        HasRemoteCapability = cap => frameworkClient.HasRemoteCapability(cap),
-                        Log = (msg, level) => chatUiHostContext.Log(new LogEventArgs(msg, level))
-                    };
-                    var outgoingPacket = chatApi.CreateOutgoingMessage(message, context);
-                    frameworkClient.SendFrameworkPacket(outgoingPacket);
-                });
-            hostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.chat", chatMainTabProvider);
 
             if (chatNotificationHandler == null)
             {
@@ -172,12 +162,25 @@ namespace Phinix.ChatExtension.Client
 
         public bool CanHandleOutgoingText(string rawMessage)
         {
+            // 仅在 FrameworkV2 模式下处理 —— Legacy 模式由 LegacyAdapter(priority=500) 接管。
+            // 返回 true 但 HandleOutgoingText 里检查 CompatibilityMode: 非 FrameworkV2 时返回 LegacyFallback。
             return chatApi != null &&
                    !string.IsNullOrWhiteSpace(rawMessage);
         }
 
         public ClientOutgoingMessageResult HandleOutgoingText(string rawMessage, ClientFrameworkContext context)
         {
+            // 非 FrameworkV2 模式：声明无力处理，让管线继续到下一个 handler
+            // （正常情况 LegacyAdapter 已在 priority=500 处理完毕，此路径不应到达）。
+            // 如果到达（无 LegacyAdapter），消息被框架丢弃并显示"不支持"的系统消息。
+            if (context.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
+            {
+                return new ClientOutgoingMessageResult
+                {
+                    Action = MessageHandlingResultAction.LegacyFallback
+                };
+            }
+
             return new ClientOutgoingMessageResult
             {
                 Action = MessageHandlingResultAction.Handled,

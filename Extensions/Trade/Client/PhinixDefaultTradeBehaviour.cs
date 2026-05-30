@@ -214,7 +214,7 @@ namespace Phinix.TradeExtension.Client
 
         private bool shouldDisplayTradeEvent(string otherPartyUuid)
         {
-            if (settingsContext.ShowBlockedTrades)
+            if (settingsContext.Get<bool>("trade.showBlockedTrades", false))
             {
                 return true;
             }

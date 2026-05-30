@@ -11,6 +11,13 @@ namespace PhinixClient.Framework
         bool HasRemoteCapability(string capability);
 
         void SendFrameworkPacket(FrameworkPacket packet);
+
+        /// <summary>
+        /// 将原始文本消息通过完整 handler 管线路由，而非直连底层传输。
+        /// 设计哲学 §3.7：所有出站通信必须走 handler 管线，保证 Priority 排序、拦截、替换、回退机制正常工作。
+        /// </summary>
+        /// <returns>true 表示消息已被某个 handler 处理并发送；false 表示无 handler 处理该消息</returns>
+        bool TryHandleOutgoingMessage(string rawMessage);
     }
 
     public interface IClientDisplayMessageStore
@@ -59,25 +66,21 @@ namespace PhinixClient.Framework
 
     public interface IClientSettingsContext
     {
+        T Get<T>(string key, T defaultValue = default);
+
+        void Set<T>(string key, T value);
+
         IEnumerable<string> BlockedUsers { get; }
 
         bool PlayNoiseOnMessageReceived { get; }
-
-        int ChatMessageLimit { get; }
-
-        bool ShowNameFormatting { get; }
-
-        bool ShowChatFormatting { get; }
-
-        bool AllItemsTradable { get; }
-
-        bool ShowBlockedTrades { get; }
 
         bool CollapseBlockedUsers { get; set; }
 
         void BlockUser(string uuid);
 
         void UnBlockUser(string uuid);
+
+        event Action<string, object> OnSettingChanged;
     }
 
     public interface IClientUserDirectory
@@ -115,5 +118,40 @@ namespace PhinixClient.Framework
     public interface IClientSoundService
     {
         void Enqueue(SoundDef soundDef);
+    }
+
+    /// <summary>
+    /// 原始模块数据包处理器委托 —— 与 Connections.NetCommon.PacketHandlerDelegate 签名兼容，
+    /// 但定义在此以避免 ClientExtensionAbstractions 直接依赖 Connections。
+    /// </summary>
+    /// <param name="module">目标模块名</param>
+    /// <param name="connectionId">来源连接 ID</param>
+    /// <param name="data">原始数据字节</param>
+    public delegate void RawPacketHandlerDelegate(string module, string connectionId, byte[] data);
+
+    /// <summary>
+    /// 给需要直接操作 NetClient 原始模块通信的插件使用。
+    /// 任何插件都能用此接口发送/接收任意模块的原始字节数据。
+    /// </summary>
+    public interface ILegacyModuleTransport
+    {
+        /// <summary>向指定模块发送原始字节（对应 NetClient.Send）</summary>
+        void Send(string moduleName, byte[] data);
+
+        /// <summary>注册原始模块的数据包处理器（对应 NetClient.RegisterPacketHandler）</summary>
+        void RegisterHandler(string moduleName, RawPacketHandlerDelegate handler);
+
+        /// <summary>取消注册原始模块的数据包处理器（对应 NetClient.UnregisterPacketHandler）</summary>
+        void UnregisterHandler(string moduleName);
+    }
+
+    /// <summary>
+    /// 给需要向消息显示系统注入 FrameworkDisplayMessage 的插件使用。
+    /// 任何插件都能用此接口推送消息到统一的消息队列。
+    /// </summary>
+    public interface IDisplayMessageSink
+    {
+        /// <summary>将一条显示消息注入到框架消息队列中</summary>
+        void Enqueue(FrameworkDisplayMessage message);
     }
 }

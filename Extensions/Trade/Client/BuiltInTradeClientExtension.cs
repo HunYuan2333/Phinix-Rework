@@ -38,6 +38,7 @@ namespace Phinix.TradeExtension.Client
                 builder.HostContext.GetRequiredService<IFrameworkClientTransport>(),
                 builder.HostContext.GetRequiredService<IFrameworkClientLifecycle>(),
                 builder.HostContext.GetRequiredService<IClientSessionContext>(),
+                builder.HostContext.GetRequiredService<ILegacyModuleTransport>(),
                 builder.HostContext.Log);
             builder.RegisterApi(tradeApi);
             builder.RegisterApi(tradeFacade);
