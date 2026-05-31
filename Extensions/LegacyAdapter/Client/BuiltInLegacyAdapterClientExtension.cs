@@ -1,8 +1,8 @@
 using System;
 using Phinix.TradeExtension;
 using PhinixClient.Framework;
+using Utils;
 using Utils.Framework;
-using Verse;
 
 namespace Phinix.LegacyAdapter.Client
 {
@@ -10,29 +10,34 @@ namespace Phinix.LegacyAdapter.Client
     /// Legacy Adapter 插件入口。
     /// 在 Legacy 模式下通过 Priority=500 劫持 Chat/Trade 通信，做协议翻译。
     /// 在 FrameworkV2 模式下完全透明（CanHandle 返回 false）。
+    ///
+    /// 实现 IClientOutgoingCommandHandler 以接入出站命令管线：
+    /// Legacy 模式下抢在 Trade handler (P=1100) 前面拦截并翻译 trade 出站命令。
     /// </summary>
     [PhinixExtension("builtin.legacy-adapter")]
     public class BuiltInLegacyAdapterClientExtension :
         IPhinixExtensionModule,
         IActivatablePhinixExtensionModule,
         IClientMessageHandler,
-        IClientCommandHandler
+        IClientCommandHandler,
+        IClientOutgoingCommandHandler
     {
         private ILegacyModuleTransport legacyTransport;
         private IFrameworkClientLifecycle lifecycle;
         private IDisplayMessageSink displaySink;
         private IClientSessionContext sessionContext;
         private IFrameworkTradeClientApi tradeApi;
+        private Action<string, LogLevel> log;
 
         private LegacyChatProtocolAdapter chatAdapter;
-        private LegacyTradeProtocolAdapter tradeAdapter;
+        internal LegacyTradeProtocolAdapter tradeAdapter;
         private bool legacyHandlersRegistered;
 
         public string ExtensionId => "builtin.legacy-adapter";
 
         /// <summary>
         /// Priority=500，高于 Chat(1000) 和 Trade(1100)，
-        /// 保证在 Legacy 模式下先于它们拦截消息。
+        /// 保证在 Legacy 模式下先于它们拦截消息和命令。
         /// </summary>
         public int Priority => 500;
 
@@ -48,14 +53,17 @@ namespace Phinix.LegacyAdapter.Client
             lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
             displaySink = hostContext.GetRequiredService<IDisplayMessageSink>();
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
+            log = hostContext.Log;
 
             if (!hostContext.ApiRegistry.TryResolve<IFrameworkTradeClientApi>(out tradeApi))
             {
-                Verse.Log.Warning("[LegacyAdapter] IFrameworkTradeClientApi not registered — legacy trade sync disabled.");
+                log?.Invoke("[LegacyAdapter] IFrameworkTradeClientApi not registered — legacy trade sync disabled.", LogLevel.WARNING);
             }
 
             chatAdapter = new LegacyChatProtocolAdapter(legacyTransport, displaySink, sessionContext);
-            tradeAdapter = new LegacyTradeProtocolAdapter(legacyTransport, displaySink, sessionContext, tradeApi, hostContext.Log);
+            tradeAdapter = new LegacyTradeProtocolAdapter(
+                legacyTransport, displaySink, sessionContext, tradeApi,
+                lifecycle, hostContext.Log);
 
             lifecycle.CompatibilityModeChanged += OnCompatibilityModeChanged;
 
@@ -90,7 +98,7 @@ namespace Phinix.LegacyAdapter.Client
             chatAdapter?.RegisterHandlers();
             tradeAdapter?.RegisterHandlers();
             legacyHandlersRegistered = true;
-            Verse.Log.Message("[LegacyAdapter] Registered legacy protocol handlers (Chat + Trading).");
+            log?.Invoke("[LegacyAdapter] Registered legacy protocol handlers (Chat + Trading).", LogLevel.INFO);
         }
 
         private void UnregisterLegacyHandlers()
@@ -99,7 +107,7 @@ namespace Phinix.LegacyAdapter.Client
             chatAdapter?.UnregisterHandlers();
             tradeAdapter?.UnregisterHandlers();
             legacyHandlersRegistered = false;
-            Verse.Log.Message("[LegacyAdapter] Unregistered legacy protocol handlers.");
+            log?.Invoke("[LegacyAdapter] Unregistered legacy protocol handlers.", LogLevel.INFO);
         }
 
         // ========== IClientMessageHandler (Chat) ==========
@@ -143,7 +151,7 @@ namespace Phinix.LegacyAdapter.Client
             return null;
         }
 
-        // ========== IClientCommandHandler (Trade) ==========
+        // ========== IClientCommandHandler (Trade 入站) ==========
 
         public bool CanHandleIncomingCommand(FrameworkPacket command)
         {
@@ -154,6 +162,34 @@ namespace Phinix.LegacyAdapter.Client
             FrameworkPacket command, ClientFrameworkContext context)
         {
             return null;
+        }
+
+        // ========== IClientOutgoingCommandHandler (Trade 出站) ==========
+
+        public bool CanHandleOutgoingCommand(FrameworkPacket command)
+        {
+            var currentMode = lifecycle?.CompatibilityMode ?? FrameworkCompatibilityMode.Unknown;
+            bool canHandle = currentMode == FrameworkCompatibilityMode.Legacy
+                && tradeAdapter != null
+                && tradeAdapter.CanHandleOutgoingCommand(command);
+
+            log?.Invoke(
+                $"[LegacyAdapter] BuiltInExtension.CanHandleOutgoingCommand: lifecycle={currentMode}, " +
+                $"tradeAdapter={tradeAdapter != null}, msgType={command?.MessageType ?? "null"} → {canHandle}",
+                LogLevel.DEBUG);
+
+            return canHandle;
+        }
+
+        public ClientOutgoingCommandResult HandleOutgoingCommand(
+            FrameworkPacket command, ClientFrameworkContext context)
+        {
+            log?.Invoke(
+                $"[LegacyAdapter] BuiltInExtension.HandleOutgoingCommand: msgType={command?.MessageType ?? "null"}",
+                LogLevel.DEBUG);
+
+            return tradeAdapter?.HandleOutgoingCommand(command, context)
+                ?? new ClientOutgoingCommandResult { Action = MessageHandlingResultAction.Continue };
         }
     }
 }

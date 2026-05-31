@@ -9,7 +9,7 @@ using Verse;
 namespace Phinix.TradeExtension.Client
 {
     [PhinixExtension(FrameworkTradeProtocol.Capability)]
-    public sealed class BuiltInTradeClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientCommandHandler
+    public sealed class BuiltInTradeClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientCommandHandler, IClientOutgoingCommandHandler
     {
         private TradeClientItemPipeline itemPipeline;
         private IFrameworkTradeClientApi tradeApi;
@@ -36,11 +36,12 @@ namespace Phinix.TradeExtension.Client
             tradeFacade = tradeFacade ?? new FrameworkClientTradeServiceAdapter(
                 tradeApi,
                 builder.HostContext.GetRequiredService<IFrameworkClientTransport>(),
+                builder.HostContext.GetRequiredService<IFrameworkClientCommandTransport>(),
                 builder.HostContext.GetRequiredService<IFrameworkClientLifecycle>(),
                 builder.HostContext.GetRequiredService<IClientSessionContext>(),
-                builder.HostContext.GetRequiredService<ILegacyModuleTransport>(),
                 builder.HostContext.Log);
             builder.RegisterApi(tradeApi);
+            builder.RegisterApi<IFrameworkLegacyTradeCompletionApi>((IFrameworkLegacyTradeCompletionApi)tradeApi);
             builder.RegisterApi(tradeFacade);
             builder.RegisterApi<ITradeRequestApi>((ITradeRequestApi)tradeFacade);
             builder.AddCapabilityProvider(this);
@@ -166,6 +167,25 @@ namespace Phinix.TradeExtension.Client
             return new ClientIncomingCommandResult
             {
                 Action = MessageHandlingResultAction.Handled
+            };
+        }
+
+        // ========== IClientOutgoingCommandHandler ==========
+
+        public bool CanHandleOutgoingCommand(FrameworkPacket command)
+        {
+            return command?.MessageType?.StartsWith("trade.") == true;
+        }
+
+        public ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket command, ClientFrameworkContext context)
+        {
+            // V2 模式下原样返回 FrameworkPacket 供框架发送。
+            // Legacy 模式时 LegacyAdapter（Priority=500 < 1100）已抢先拦截并翻译，
+            // 此方法在 Legacy 模式下不会被调用。
+            return new ClientOutgoingCommandResult
+            {
+                Action = MessageHandlingResultAction.Handled,
+                Command = command
             };
         }
     }

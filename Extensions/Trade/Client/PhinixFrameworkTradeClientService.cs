@@ -9,7 +9,7 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi
+    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkLegacyTradeCompletionApi
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private readonly ITradeItemPayloadEncoder itemPipeline;
@@ -437,6 +437,17 @@ namespace Phinix.TradeExtension.Client
             {
                 OnTradeCreationSuccess?.Invoke(this, new TradeCreationEventArgs(trade));
             }
+            else if (existed)
+            {
+                bool emittedPendingEvent = FlushPendingEventsForTrade(snapshot.TradeId, true);
+                if (!emittedPendingEvent && TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot updatedTrade))
+                {
+                    log?.Invoke(new LogEventArgs(
+                        $"Legacy trade update event emitted for '{snapshot.TradeId}'.",
+                        LogLevel.DEBUG));
+                    OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
+                }
+            }
         }
 
         /// <summary>
@@ -451,6 +462,36 @@ namespace Phinix.TradeExtension.Client
             if (hadTrade)
             {
                 RepositoryChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Legacy 适配器专用：移除 trade 并发出完成/取消事件，保持 UI 和默认行为走同一事件链。
+        /// </summary>
+        public void CompleteTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<TradeItemSnapshot> items)
+        {
+            if (string.IsNullOrEmpty(tradeId)) return;
+
+            bool hadTrade = repository.TryGet(tradeId, out _);
+            repository.Remove(tradeId);
+            if (hadTrade)
+            {
+                RepositoryChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            var args = new TradeCompletionEventArgs(
+                tradeId,
+                success,
+                otherPartyUuid ?? string.Empty,
+                (items ?? Array.Empty<TradeItemSnapshot>()).ToArray());
+
+            if (success)
+            {
+                OnTradeCompleted?.Invoke(this, args);
+            }
+            else
+            {
+                OnTradeCancelled?.Invoke(this, args);
             }
         }
 

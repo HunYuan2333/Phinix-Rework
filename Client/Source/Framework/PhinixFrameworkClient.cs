@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink
     {
         public event EventHandler<LogEventArgs> OnLogEntry;
 
@@ -48,6 +48,7 @@ namespace PhinixClient.Framework
             this.userManager = userManager;
             this.extensionHostContext = extensionHostContext ?? ExtensionHostContext.Empty;
             this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
+            this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
             this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
@@ -177,6 +178,107 @@ namespace PhinixClient.Framework
                 {
                     return true;
                 }
+            }
+
+            return false;
+        }
+
+        public bool TryHandleOutgoingCommand(FrameworkPacket command)
+        {
+            if (command == null) return false;
+
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingCommand: msgType={command.MessageType}, mode={CompatibilityMode}",
+                LogLevel.DEBUG));
+
+            ClientFrameworkContext context = new ClientFrameworkContext
+            {
+                CompatibilityMode = CompatibilityMode,
+                SenderUuid = userManager.Uuid,
+                SessionId = authenticator.SessionId,
+                SendMessage = sendPacket,
+                RemoteCapabilities = remoteCapabilities.ToArray(),
+                HasRemoteCapability = hasRemoteCapability,
+                Log = (msg, level) => RaiseLogEntry(new LogEventArgs(msg, level))
+            };
+
+            // 从已发现扩展中筛选实现了 IClientOutgoingCommandHandler 的实例，
+            // 按 Priority 排序。优先级数字越小越先执行。
+            // 用 is 检测而非在 DiscoverExtensions 中预收集，因为
+            // IClientOutgoingCommandHandler 是纯增量接口，不需要修改 registry。
+            IEnumerable<IClientOutgoingCommandHandler> handlers = discoveredExtensions.Extensions
+                .OfType<IClientOutgoingCommandHandler>()
+                .OrderBy(h => h.Priority)
+                .ToList();
+
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingCommand: found {handlers.Count()} handler(s) — " +
+                string.Join(", ", handlers.Select(h => $"{h.GetType().Name}(P={h.Priority})")),
+                LogLevel.DEBUG));
+
+            bool anyHandlerTried = false;
+            foreach (IClientOutgoingCommandHandler handler in handlers)
+            {
+                bool canHandle = handler.CanHandleOutgoingCommand(command);
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework]   {handler.GetType().Name}(P={handler.Priority}).CanHandle → {canHandle}",
+                    LogLevel.DEBUG));
+
+                if (!canHandle) continue;
+
+                anyHandlerTried = true;
+                ClientOutgoingCommandResult result = null;
+                try
+                {
+                    result = handler.HandleOutgoingCommand(command, context);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"[Framework] Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                    continue;
+                }
+
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework]   {handler.GetType().Name}.HandleOutgoing → Action={result?.Action}, Command={(result?.Command == null ? "null" : "present")}",
+                    LogLevel.DEBUG));
+
+                if (result == null || result.Action == MessageHandlingResultAction.Continue)
+                    continue;
+
+                FrameworkPacket outgoingCommand = result.Command;
+                if (outgoingCommand == null)
+                {
+                    // Handler 声明已处理（如 LegacyAdapter 翻译后经 ILegacyModuleTransport 发送），
+                    // 框架不再发送 FrameworkPacket。
+                    if (result.Action == MessageHandlingResultAction.Handled)
+                    {
+                        RaiseLogEntry(new LogEventArgs(
+                            $"[Framework] TryHandleOutgoingCommand: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
+                            LogLevel.DEBUG));
+                        return true;
+                    }
+                    continue;
+                }
+
+                // 确保 Kind/SessionId/SenderUuid 正确设置
+                outgoingCommand.Kind = FrameworkProtocol.KindCommand;
+                outgoingCommand.SessionId = authenticator.SessionId;
+                outgoingCommand.SenderUuid = userManager.Uuid;
+                sendPacket(outgoingCommand);
+
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingCommand: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
+                    LogLevel.DEBUG));
+
+                if (result.Action != MessageHandlingResultAction.Continue) return true;
+            }
+
+            if (!anyHandlerTried)
+            {
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingCommand: NO handler claimed '{command.MessageType}' — returning false",
+                    LogLevel.WARNING));
             }
 
             return false;

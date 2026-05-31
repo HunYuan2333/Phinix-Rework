@@ -1,210 +1,314 @@
 # Legacy Trade 出站修复方案
 
-> 2026-05-31，针对问题：交易列表能显示，但状态不同步（接受/取消对方看不见）且物品不可见（双方都看不见对方上传的物品）。
+> 2026-05-31。症状：交易列表能显示，但物品不可见 + 状态不同步。
 
 ---
 
-## 1. 症状与根因
+## 1. 根因分析
 
-### 症状
+### 1.1 直接原因：Items 字段丢失
 
-1. **状态不同步**：点击接受/取消后对方完全无感知
-2. **物品不可见**：上传的物品双方在意向清单中都看不见
-
-### 根因
-
-[`FrameworkClientTradeServiceAdapter.SendTradePacket()`](Extensions/Trade/Client/FrameworkClientTradeServiceAdapter.cs) 在 Legacy 模式下**静默丢弃所有出站包**：
+[`FrameworkClientTradeServiceAdapter.SendLegacyPacket()`](Extensions/Trade/Client/FrameworkClientTradeServiceAdapter.cs#L177-L188) 的 `OfferUpdateRequestType` 分支构造 `UpdateTradeItemsPacket` 时遗漏了 `Items` 字段：
 
 ```csharp
-// 现状
-private void SendTradePacket(FrameworkPacket packet)
+// 现状 — 有 bug
+case FrameworkTradeProtocol.OfferUpdateRequestType:
+    var payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateRequest>(packet.PayloadJson);
+    if (payload != null)
+        legacyTransport.Send("Trading", PackProtobuf(new Trading.UpdateTradeItemsPacket
+        {
+            SessionId = sessionContext.SessionId ?? "",
+            Uuid = sessionContext.Uuid ?? "",
+            TradeId = payload.TradeId ?? "",
+            Token = packet.GetCorrelationId() ?? ""
+            // BUG: Items 未填充。payload.Items (List<FrameworkItemPayload>) 被丢弃
+            //      服务端收到空 Items → TryClearItemsOnOffer() → 物品被清空
+        }));
+    break;
+```
+
+对照原版 `ClientTrading.UpdateItems()`（`C:\Users\zydyo\Desktop\Phinix\Phinix\Common\Trading\ClientTrading.cs`）：
+
+```csharp
+// 原版 — 正确
+var packet = new UpdateTradeItemsPacket {
+    SessionId = authenticator.SessionId,
+    Uuid = userManager.Uuid,
+    TradeId = tradeId,
+    Items = {items},    // ← 必须填充
+    Token = token
+};
+```
+
+**CreateTrade 和 UpdateTradeStatus 分支数据完整，无 bug。**
+
+### 1.2 架构原因：出站命令管线缺失
+
+`FrameworkClientTradeServiceAdapter` 之所以存在内联的 `SendLegacyPacket()` 方法做 Legacy Proto 翻译，根本原因是**框架没有出站命令管线**。
+
+现状对比：
+
+| | 入站 | 出站 |
+|------|:--:|:--:|
+| Message | `IClientMessageHandler.HandleIncomingMessage` ✅ | `IClientMessageHandler.HandleOutgoingText` ✅ |
+| Command | `IClientCommandHandler.HandleIncomingCommand` ✅ | **缺失** ❌ |
+
+`IClientCommandHandler` 只有入站方法，没有出站。`SendFrameworkPacket()` 直连 `NetClient`，绕过了所有 handler。Trade 插件不得不在 `FrameworkClientTradeServiceAdapter` 里手写两种模式的出站路由——V2 走 `SendFrameworkPacket`，Legacy 走 `ILegacyModuleTransport.Send`，两条都是旁路。
+
+设计哲学 §3.7 明确要求通信通过管线。既然管线缺失，就应该建管线。
+
+---
+
+## 2. 架构修复：新建出站命令管线
+
+### 2.1 新增接口（不破坏现有接口）
+
+在 `FrameworkTypes.cs` 中新增 `IClientOutgoingCommandHandler`，与 `IClientCommandHandler` 正交：
+
+```csharp
+/// <summary>
+/// 客户端出站命令管线接口。Handler 按 Priority 排序依次执行。
+/// 与 IClientCommandHandler（入站）正交——插件可以只实现其一或同时实现。
+///
+/// 设计哲学 §3.7：所有通信必须通过 handler 管线，不得直连传输层。
+/// 设计哲学 §6：此接口为增量新增，不修改或删除现有 IClientCommandHandler。
+/// </summary>
+public interface IClientOutgoingCommandHandler : ICommandHandler
 {
-    if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
-        frameworkClient.SendFrameworkPacket(packet);
-    else
-        log?.Invoke("dropped...", WARNING);  // ← 全丢了
+    /// <summary>Priority 越小越先执行。默认 int.MaxValue（最低优先级）。</summary>
+    int ICommandHandler.Priority => int.MaxValue;
+
+    /// <summary>判断此 handler 是否可以处理该出站命令。</summary>
+    bool CanHandleOutgoingCommand(FrameworkPacket command);
+
+    /// <summary>
+    /// 处理出站命令。返回 FrameworkPacket 由框架发送。
+    /// 返回 null 或 Action == Continue 则传递给下一个 handler。
+    /// </summary>
+    ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket command, ClientFrameworkContext context);
+}
+
+/// <summary>出站命令处理结果。</summary>
+public sealed class ClientOutgoingCommandResult
+{
+    public MessageHandlingResultAction Action { get; set; } = MessageHandlingResultAction.Handled;
+    public FrameworkPacket Command { get; set; }
 }
 ```
 
-四个出站方法 `CreateTrade`、`CancelTrade`、`UpdateTradeItems`、`UpdateTradeStatus` 在 Legacy 模式下全部无效。服务器收不到任何指令，自然无法转发给另一方。
+### 2.2 PhinixFrameworkClient 新增出站命令管线方法
 
----
-
-## 2. 当前出站链路
-
-```
-FrameworkV2:  UI → tradeFacade → tradeService.Create*Request() → FrameworkPacket
-                → frameworkClient.SendFrameworkPacket("PhinixFramework") → server ✅
-
-Legacy:       UI → tradeFacade → tradeService.Create*Request() → FrameworkPacket
-                → SendTradePacket() → [丢弃] ❌
-```
-
-问题本质：Trade 插件已经通过 `Create*Request()` 构造了 FrameworkPacket，但那个 Packet 的 payload 是 JSON 格式的 `FrameworkTradeCreateRequest` 等类型——旧服务器不认识。必须转译为旧版 Protobuf 格式后通过 `"Trading"` 模块发送。
-
----
-
-## 3. 设计哲学约束
-
-| 条目 | 约束 | 影响 |
-|------|------|------|
-| §3.7 | 出站命令通过 `CompatibilityMode` 判断后决定路由策略 | Trade 插件自己判断模式，不能依赖外部"有人会拦截" |
-| §1.3 | `ILegacyModuleTransport` 是 host 通用服务 | Trade 可以直接用它发包，不违反层次化原则 |
-| §3.3 | 插件间定义接口并直接调用，框架不充当中介 | Trade 定义接口，LegacyAdapter 实现，通过 API registry 解析 |
-| §4.1 | Trade 不引用 LegacyAdapter | 通过 API registry 动态解析，编译期不依赖 |
-
----
-
-## 4. 方案
-
-### 4.1 新增接口：`ILegacyTradeOutboundApi`
-
-定义在 [`TradeExtension.Contracts`](Extensions/Trade/Contracts/TradeDomainContracts.cs)（`#if NET472` 块内）：
+参照已有 `TryHandleOutgoingMessage()` 模式：
 
 ```csharp
-namespace PhinixClient.Framework
+/// <summary>
+/// 出站命令管线。按 Priority 顺序遍历所有 IClientOutgoingCommandHandler，
+/// 首个 CanHandleOutgoingCommand 返回 true 的 handler 处理该命令。
+/// 设计哲学 §3.7：插件不得绕过管线直连传输层。
+/// </summary>
+public bool TryHandleOutgoingCommand(FrameworkPacket command)
 {
-    /// <summary>
-    /// Legacy 出站交易 API。由 LegacyAdapter 注册，
-    /// Trade 插件在 Legacy 模式下通过 API registry 解析并调用。   
-    /// 设计哲学 §3.3：插件间交互由插件自行定义接口。
-    /// </summary>
-    public interface ILegacyTradeOutboundApi
+    if (command == null) return false;
+
+    var context = new ClientFrameworkContext
     {
-        void SendCreateTrade(string otherPartyUuid);
-        void SendUpdateItems(string tradeId, IEnumerable<TradeItemSnapshot> items);
-        void SendUpdateStatus(string tradeId, bool accepted, bool cancelled);
+        CompatibilityMode = CompatibilityMode,
+        SenderUuid = userManager.Uuid,
+        SessionId = authenticator.SessionId,
+        SendMessage = sendPacket,
+        RemoteCapabilities = remoteCapabilities.ToArray(),
+        HasRemoteCapability = hasRemoteCapability,
+        Log = (msg, level) => RaiseLogEntry(new LogEventArgs(msg, level))
+    };
+
+    // 从已发现扩展中筛选实现了 IClientOutgoingCommandHandler 的实例
+    foreach (var candidate in discoveredExtensions.Extensions)
+    {
+        if (!(candidate is IClientOutgoingCommandHandler handler)) continue;
+        if (!handler.CanHandleOutgoingCommand(command)) continue;
+
+        ClientOutgoingCommandResult result = null;
+        try
+        {
+            result = handler.HandleOutgoingCommand(command, context);
+        }
+        catch (Exception ex)
+        {
+            RaiseLogEntry(new LogEventArgs(
+                $"Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+            continue;
+        }
+
+        if (result == null || result.Action == MessageHandlingResultAction.Continue)
+            continue;
+
+        FrameworkPacket outgoingCommand = result.Command;
+        if (outgoingCommand == null)
+        {
+            if (result.Action == MessageHandlingResultAction.Handled) return true;
+            continue;
+        }
+
+        outgoingCommand.Kind = FrameworkProtocol.KindCommand;
+        outgoingCommand.SessionId = authenticator.SessionId;
+        outgoingCommand.SenderUuid = userManager.Uuid;
+        sendPacket(outgoingCommand);
+
+        if (result.Action != MessageHandlingResultAction.Continue) return true;
+    }
+
+    return false;
+}
+```
+
+> **注意**：`IClientOutgoingCommandHandler` 不像 `IClientCommandHandler` 那样在 `PhinixExtensionRegistry.DiscoverExtensions()` 中被自动收集到专用列表。这里通过 `is` 检查在运行时动态筛选——因为出站 handler 必然也是实现了扩展模块接口的实例。也不需要修改 `IExtensionBuilder`——出站能力不需要新的注册方法。
+
+### 2.3 Trade 插件接入管线
+
+`BuiltInTradeClientExtension` 或其内部类实现 `IClientOutgoingCommandHandler`，替代现在 `FrameworkClientTradeServiceAdapter` 中的旁路逻辑：
+
+```csharp
+// BuiltInTradeClientExtension 内部的出站 handler
+internal sealed class TradeOutgoingCommandHandler : IClientOutgoingCommandHandler
+{
+    public int Priority => 50; // 在 LegacyAdapter 之前执行（Lower priority runs first? 或者反过来）
+    private readonly IFrameworkTradeClientApi tradeService;
+    private readonly IClientSessionContext sessionContext;
+
+    public bool CanHandleOutgoingCommand(FrameworkPacket command)
+    {
+        // 仅处理 Trade 命名空间下的出站命令
+        return command?.MessageType?.StartsWith("Phinix.Trade.") == true;
+    }
+
+    public ClientOutgoingCommandResult HandleOutgoingCommand(
+        FrameworkPacket command, ClientFrameworkContext context)
+    {
+        // V2 模式下直接透传 FrameworkPacket 供框架发送
+        // Legacy 模式下交由 LegacyAdapter（更高 Priority）拦截翻译
+        return new ClientOutgoingCommandResult
+        {
+            Action = MessageHandlingResultAction.Handled,
+            Command = command // 原样透传，由框架 sendPacket 发送
+        };
     }
 }
 ```
 
-### 4.2 新增实现：`LegacyTradeOutboundAdapter`
+**关键**：V2 模式下 Trade handler 直接返回 FrameworkPacket，由管线统一下游发送。Legacy 模式时，LegacyAdapter（Priority 更高，如 Priority=10）抢先拦截命令并翻译为 Legacy Proto 格式发送——Trade 插件不知道自己运行在 Legacy 模式下。这就是管线"插件平权"的实际意义。
 
-新文件 [`Extensions/LegacyAdapter/Client/LegacyTradeOutboundAdapter.cs`](Extensions/LegacyAdapter/Client/LegacyTradeOutboundAdapter.cs)：
+### 2.4 LegacyAdapter 接管 Legacy 出站
 
-**职责**：
-- 实现 `ILegacyTradeOutboundApi`
-- 持有 `ILegacyModuleTransport` + `IClientSessionContext`
-- `TradeItemSnapshot` → `Trading.ProtoThing` 转换
-- 构造旧版 Protobuf 包 → Pack → `Send("Trading")`
-
-**物品转换**：
+`LegacyTradeProtocolAdapter` 实现 `IClientOutgoingCommandHandler`，Priority 高于 Trade 自己的 handler：
 
 ```csharp
-private static Trading.ProtoThing ConvertToProtoThing(TradeItemSnapshot item)
+// LegacyTradeProtocolAdapter 新增出站命令管线实现
+internal sealed class LegacyTradeProtocolAdapter : IClientOutgoingCommandHandler
 {
-    return new Trading.ProtoThing
+    int ICommandHandler.Priority => 10; // 高于 Trade handler (50)，优先拦截
+
+    public bool CanHandleOutgoingCommand(FrameworkPacket command)
     {
-        DefName     = item.DefName ?? "",
-        StackCount  = item.StackCount,
-        HitPoints   = item.HitPoints,
-        StuffDefName = item.StuffDefName ?? "",
-        Quality     = (Trading.Quality)(int)item.Quality,  // 枚举值一一对应可直接 cast
-        InnerProtoThing = item.InnerItem != null
-            ? ConvertToProtoThing(item.InnerItem)
-            : null
-    };
+        // 仅在 Legacy 模式下拦截 Trade 命令
+        return compatibilityMode == FrameworkCompatibilityMode.Legacy
+            && command?.MessageType?.StartsWith("Phinix.Trade.") == true;
+    }
+
+    public ClientOutgoingCommandResult HandleOutgoingCommand(
+        FrameworkPacket command, ClientFrameworkContext context)
+    {
+        // 翻译 FrameworkPacket → Legacy Proto → ILegacyModuleTransport.Send("Trading")
+        // 返回 Handled（不再传递给后续 handler）
+        SendLegacyPacket(command);
+        return new ClientOutgoingCommandResult
+        {
+            Action = MessageHandlingResultAction.Handled
+            // Command 为 null = 已通过 legacy transport 发送，框架不再发送 FrameworkPacket
+        };
+    }
+
+    private void SendLegacyPacket(FrameworkPacket packet)
+    {
+        // ... 现有 SendCreateTrade / SendUpdateItems / SendUpdateStatus 逻辑，
+        //     从 LegacyTradeProtocolAdapter 现有出站方法迁移过来 ...
+        //     注意：SendUpdateItems 必须填充 Items 字段！
+    }
 }
 ```
 
-### 4.3 调用方修改：`FrameworkClientTradeServiceAdapter`
+### 2.5 调用方收敛到管线
 
-Legacy 模式下不再调用 `tradeService.Create*Request()` 构造无用的 FrameworkPacket，改为直接调用 `ILegacyTradeOutboundApi`：
+`FrameworkClientTradeServiceAdapter` 的出站方法不再自己判断路由，统一走管线：
 
 ```csharp
-// 改后
-public void UpdateTradeStatus(string tradeId, bool? accepted, bool? cancelled)
+public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
 {
-    if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
-        frameworkClient.SendFrameworkPacket(
-            tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
-    else
-        legacyOutboundApi?.SendUpdateStatus(tradeId, accepted ?? false, cancelled ?? false);
+    var packet = tradeService.CreateOfferUpdateRequest(tradeId, items, createContext());
+    // 统一经出站命令管线，无论是 V2 还是 Legacy
+    if (!frameworkClient.TryHandleOutgoingCommand(packet))
+    {
+        log?.Invoke($"[TradeAdapter] No handler for outgoing command {packet.MessageType}", LogLevel.WARNING);
+    }
 }
 ```
 
-`CreateTrade`、`CancelTrade`、`UpdateTradeItems` 同理。
+### 2.6 管线图
 
-### 4.4 注册方修改
-
-**LegacyAdapter**（[`BuiltInLegacyAdapterClientExtension.Register()`](Extensions/LegacyAdapter/Client/BuiltInLegacyAdapterClientExtension.cs)）：
-
-```csharp
-builder.RegisterApi<ILegacyTradeOutboundApi>(
-    new LegacyTradeOutboundAdapter(legacyTransport, sessionContext));
 ```
+修复前（旁路）:
+  Trade UI → tradeFacade.UpdateTradeItems()
+    ├─ V2:    frameworkClient.SendFrameworkPacket() → NetClient → server  ❌ 绕过管线
+    └─ Legacy: legacyTransport.Send("Trading") → NetClient → server       ❌ 绕过管线
 
-**Trade**（[`BuiltInTradeClientExtension.Register()`](Extensions/Trade/Client/BuiltInTradeClientExtension.cs)）：
-
-```csharp
-builder.HostContext.ApiRegistry.TryResolve<ILegacyTradeOutboundApi>(out var legacyOutboundApi);
-tradeFacade = new FrameworkClientTradeServiceAdapter(
-    tradeApi, frameworkClient, lifecycle, sessionContext,
-    legacyOutboundApi,  // V2 模式下可能为 null
-    builder.HostContext.Log);
+修复后（通过管线）:
+  Trade UI → tradeFacade.UpdateTradeItems()
+    → frameworkClient.TryHandleOutgoingCommand(packet)
+      ├─ V2 模式:
+      │   TradeOutgoingCommandHandler (P=50) → return FrameworkPacket
+      │   → PhinixFrameworkClient.sendPacket() → NetClient → server ✅
+      │   (LegacyAdapter handler 不匹配 → 跳过)
+      │
+      └─ Legacy 模式:
+          LegacyTradeProtocolAdapter (P=10) 抢先拦截
+            → TranslateToLegacyProto() → legacyTransport.Send("Trading")
+            → return Handled (Command=null, 框架不再 sendPacket) ✅
+          Trade handler (P=50) 不再被调用
 ```
 
 ---
 
-## 5. 修改文件清单
+## 3. 修改文件清单
 
 | # | 文件 | 改动 | 说明 |
 |---|------|------|------|
-| 1 | `TradeDomainContracts.cs` | 新增 | `ILegacyTradeOutboundApi` 接口 |
-| 2 | `LegacyTradeOutboundAdapter.cs` | **新文件** | 协议转换 + 发包 |
-| 3 | `BuiltInLegacyAdapterClientExtension.cs` | 修改 | Register() 中注册 ILegacyTradeOutboundApi |
-| 4 | `PhinixLegacyAdapter.Client.csproj` | 修改 | 加入新 .cs |
-| 5 | `FrameworkClientTradeServiceAdapter.cs` | 修改 | 注入 ILegacyTradeOutboundApi，Legacy 模式下走新路径 |
-| 6 | `BuiltInTradeClientExtension.cs` | 修改 | 解析 ILegacyTradeOutboundApi 并注入到 Adapter |
-| 7 | `LegacyTradeProtocolAdapter.cs` | 删减 | 删除 SendCreateTrade/SendUpdateItems/SendUpdateStatus（移入新 Adapter） |
+| 1 | `FrameworkTypes.cs` | **新增** | `IClientOutgoingCommandHandler` 接口 + `ClientOutgoingCommandResult` 类 |
+| 2 | `PhinixFrameworkClient.cs` | **新增** | `TryHandleOutgoingCommand()` 方法 |
+| 3 | `BuiltInTradeClientExtension.cs` | **新增** | `TradeOutgoingCommandHandler`（实现 `IClientOutgoingCommandHandler`） |
+| 4 | `LegacyTradeProtocolAdapter.cs` | **修改** | 实现 `IClientOutgoingCommandHandler`；补全 Items 填充逻辑；新增 `ConvertToProtoThing()` |
+| 5 | `FrameworkClientTradeServiceAdapter.cs` | **修改** | 删除内联 `SendLegacyPacket()`（~50行）；出站改为调用 `TryHandleOutgoingCommand()` |
+| 6 | `BuiltInLegacyAdapterClientExtension.cs` | **修改** | 注入 `CompatibilityMode` 到 `LegacyTradeProtocolAdapter`（现有构造函数不含此参数） |
 
 ---
 
-## 6. 职责边界
+## 4. 设计哲学合规评估
 
-```
-TradeExtension.Contracts
-  └─ ILegacyTradeOutboundApi         ← 接口定义（Trade 知道调用什么）
-
-LegacyAdapter (实现)
-  ├─ LegacyTradeOutboundAdapter      ← TradeItemSnapshot→ProtoThing + 发包
-  └─ LegacyTradeProtocolAdapter      ← 入站翻译（Proto→FrameworkStateSnapshot，不变）
-
-TradeExtension.Client (调用)
-  └─ FrameworkClientTradeServiceAdapter ← CompatibilityMode 路由
-```
-
-编译期引用：
-
-```
-TradeExtension.Client → TradeExtension.Contracts  ← 已有
-LegacyAdapter.Client  → TradeExtension.Contracts  ← 已有
-TradeExtension.Client → LegacyAdapter.Client      ← 不需要，API registry 运行时解析
-```
+| 条款 | 状态 | 说明 |
+|------|:--:|------|
+| §3.7 管线传播 | ✅ | 出站命令管线新建完成，所有出站命令经 `TryHandleOutgoingCommand` 分发 |
+| §1.1 插件平权 | ✅ | Trade 和 LegacyAdapter 通过同一管线按 Priority 竞争，不互相依赖 |
+| §1.2 host 不依赖插件 | ✅ | `PhinixFrameworkClient` 只依赖 `IClientOutgoingCommandHandler`（通用契约），不引用插件 |
+| §1.3 host 只做通用服务 | ✅ | 新方法属于管线基础设施，与 `TryHandleOutgoingMessage` 对称 |
+| §3.3 插件间交互 | ✅ | Trade 不需要引用 LegacyAdapter——LegacyAdapter 通过 Priority 自动拦截 |
+| §6 增量更新 | ✅ | 不修改 `IClientCommandHandler`、`IExtensionBuilder`；仅新增接口和方法 |
 
 ---
 
-## 7. 修复后出站链路
+## 5. 管线迁移路线图
 
-```
-FrameworkV2:  UI → tradeFacade → tradeService.Create*Request() → FrameworkPacket
-                → frameworkClient.SendFrameworkPacket("PhinixFramework") → server ✅
+| 阶段 | 内容 | 预期效果 |
+|------|------|------|
+| **本 PR** | 新建 `IClientOutgoingCommandHandler` + `TryHandleOutgoingCommand`；Trade/LegacyAdapter 接入；修正 Items bug | 出站命令管线建成，Legacy 交易物品可见 |
+| **后续** | 排查 V2 模式 `SendFrameworkPacket` 的其他调用方，逐步迁移到 `TryHandleOutgoingCommand` | 消除全部旁路 |
+| **目标态** | 删除 `IFrameworkClientTransport.SendFrameworkPacket` 的公开暴露（或标记 `[Obsolete]`），强制所有出站走管线 | 完全符合 §3.7 |
 
-Legacy:       UI → tradeFacade → legacyOutboundApi.Send*()
-                → LegacyTradeOutboundAdapter
-                  ├─ ConvertToProtoThing()  ← TradeItemSnapshot → ProtoThing
-                  ├─ new UpdateTradeStatusPacket { ... }
-                  ├─ ProtobufPacketHelper.Pack()
-                  └─ ILegacyModuleTransport.Send("Trading", bytes) → server ✅
-```
-
----
-
-## 8. 与入站的对称性
-
-| | 方向 | 格式转换 | 载体 |
-|------|------|----------|------|
-| `LegacyTradeProtocolAdapter` | 入站 (server→client) | Legacy Proto → FrameworkStateSnapshot → UpsertTrade | `ILegacyModuleTransport.RegisterHandler` |
-| `LegacyTradeOutboundAdapter` | 出站 (client→server) | TradeItemSnapshot → Legacy Proto → Send | `ILegacyModuleTransport.Send` |
-
-两个 Adapter 互相独立，职责单一。
+每个阶段保持向后兼容。

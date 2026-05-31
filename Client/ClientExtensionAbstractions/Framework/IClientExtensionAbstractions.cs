@@ -20,6 +20,17 @@ namespace PhinixClient.Framework
         bool TryHandleOutgoingMessage(string rawMessage);
     }
 
+    public interface IFrameworkClientCommandTransport
+    {
+        /// <summary>
+        /// 出站命令管线。按 Priority 顺序遍历所有 IClientOutgoingCommandHandler，
+        /// 首个 CanHandleOutgoingCommand 返回 true 的 handler 处理该命令。
+        /// 设计哲学 §3.7：插件不得绕过管线直连传输层。
+        /// </summary>
+        /// <returns>true 表示命令已被某个 handler 处理（可能已发送或翻译后发送）；false 表示无 handler 处理该命令</returns>
+        bool TryHandleOutgoingCommand(FrameworkPacket command);
+    }
+
     public interface IClientDisplayMessageStore
     {
         int UnreadMessages { get; }
