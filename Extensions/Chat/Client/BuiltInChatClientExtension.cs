@@ -12,7 +12,7 @@ using Verse.Sound;
 namespace Phinix.ChatExtension.Client
 {
     [PhinixExtension("builtin.chat")]
-    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IMessageRenderer
+    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IClientOutgoingCommandHandler, IMessageRenderer
     {
         private IFrameworkChatClientApi chatApi;
         private IClientChatService chatService;
@@ -21,6 +21,7 @@ namespace Phinix.ChatExtension.Client
         private IMainTabProvider chatMainTabProvider;
         private IServerSidebarProvider chatSidebarProvider;
         private IFrameworkClientTransport frameworkClient;
+        private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
         private IClientSessionContext sessionContext;
         private IClientSettingsContext settingsContext;
@@ -81,6 +82,7 @@ namespace Phinix.ChatExtension.Client
             // 保证 Priority 排序、拦截、替换、回退机制正常工作。
                 message => builder.HostContext.GetRequiredService<IFrameworkClientTransport>().TryHandleOutgoingMessage(message));
             builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
+            builder.RegisterApi<IClientSettingsPanelProvider>(new ChatSettingsPanelProvider());
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -91,6 +93,7 @@ namespace Phinix.ChatExtension.Client
             }
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
+            commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
             lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
             settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
@@ -121,12 +124,15 @@ namespace Phinix.ChatExtension.Client
                 {
                     if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
                     {
-                        chatApi.RequestHistory(
-                            frameworkClient,
-                            sessionContext.Authenticated,
-                            sessionContext.LoggedIn,
-                            sessionContext.SessionId,
-                            sessionContext.Uuid);
+                        if (sessionContext.Authenticated &&
+                            sessionContext.LoggedIn &&
+                            frameworkClient.HasRemoteCapability(FrameworkChatProtocol.HistoryRequestType))
+                        {
+                            FrameworkPacket historyRequest = chatApi.CreateHistoryRequestPacket(
+                                sessionContext.SessionId,
+                                sessionContext.Uuid);
+                            commandTransport.TryHandleOutgoingCommand(historyRequest);
+                        }
                     }
                 };
             }
@@ -212,6 +218,28 @@ namespace Phinix.ChatExtension.Client
             return new ClientIncomingCommandResult
             {
                 Action = MessageHandlingResultAction.Handled
+            };
+        }
+
+        public bool CanHandleOutgoingCommand(FrameworkPacket command)
+        {
+            return command != null && command.MessageType == FrameworkChatProtocol.HistoryRequestType;
+        }
+
+        public ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket command, ClientFrameworkContext context)
+        {
+            if (context.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
+            {
+                return new ClientOutgoingCommandResult
+                {
+                    Action = MessageHandlingResultAction.LegacyFallback
+                };
+            }
+
+            return new ClientOutgoingCommandResult
+            {
+                Action = MessageHandlingResultAction.Handled,
+                Command = command
             };
         }
 

@@ -13,6 +13,24 @@ namespace Phinix.ChatExtension.Client
 {
     public class PhinixFrameworkChatService : IFrameworkChatClientApi
     {
+        /// <summary>
+        /// 系统消息通用占位用户，延迟初始化避免静态构造阶段访问翻译系统。
+        /// RimWorld 的 LanguageDatabase 在 mod 构造函数之后才激活；
+        /// 静态初始化器中调用 Translate() 会导致 TypeInitializer 异常，
+        /// 进而使整个 BuiltInChatClientExtension 注册失败。
+        /// </summary>
+        private static ImmutableUser _systemUser;
+        private static bool _systemUserInitialized;
+
+        private static ImmutableUser GetSystemUser()
+        {
+            if (_systemUserInitialized) return _systemUser;
+            string name = "Phinix_framework_systemDisplayName".Translate().Resolve();
+            _systemUser = new ImmutableUser(FrameworkProtocol.SystemSenderUuid, name, true, false);
+            _systemUserInitialized = true;
+            return _systemUser;
+        }
+
         public FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context)
         {
             global::Phinix.Framework.BuiltInChatMessagePayload payload = new global::Phinix.Framework.BuiltInChatMessagePayload
@@ -61,21 +79,6 @@ namespace Phinix.ChatExtension.Client
             };
         }
 
-        public void RequestHistory(IFrameworkClientTransport frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
-        {
-            if (frameworkClient == null || !authenticated || !loggedIn || string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
-            {
-                return;
-            }
-
-            if (!frameworkClient.HasRemoteCapability(FrameworkChatProtocol.HistoryRequestType))
-            {
-                return;
-            }
-
-            frameworkClient.SendFrameworkPacket(CreateHistoryRequestPacket(sessionId, senderUuid));
-        }
-
         public UIChatMessage[] BuildUiMessages(IEnumerable<FrameworkDisplayMessage> messages, IClientUserDirectory userDirectory)
         {
             return (messages ?? Enumerable.Empty<FrameworkDisplayMessage>())
@@ -101,9 +104,18 @@ namespace Phinix.ChatExtension.Client
 
         public int CountUnreadExcluding(IEnumerable<FrameworkDisplayMessage> messages, IEnumerable<string> excludedUuids)
         {
-            HashSet<string> excluded = new HashSet<string>(excludedUuids ?? Enumerable.Empty<string>());
-            return (messages ?? Enumerable.Empty<FrameworkDisplayMessage>())
-                .Count(message => !excluded.Contains(message.SenderUuid));
+            ICollection<string> excluded = (excludedUuids as ICollection<string>)
+                ?? new HashSet<string>(excludedUuids ?? Enumerable.Empty<string>());
+            int count = 0;
+            foreach (FrameworkDisplayMessage message in (messages ?? Enumerable.Empty<FrameworkDisplayMessage>()))
+            {
+                if (!excluded.Contains(message.SenderUuid))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         public bool ShouldDisplayChatMessage(UIChatMessage message, IEnumerable<string> blockedUserUuids, bool includeBlockedMessages)
@@ -143,11 +155,7 @@ namespace Phinix.ChatExtension.Client
             ImmutableUser user;
             if (message.SenderUuid == FrameworkProtocol.SystemSenderUuid)
             {
-                user = new ImmutableUser(
-                    FrameworkProtocol.SystemSenderUuid,
-                    "Phinix_framework_systemDisplayName".Translate().Resolve(),
-                    true,
-                    false);
+                user = GetSystemUser();
             }
             else if (userDirectory == null || !userDirectory.TryGetUser(message.SenderUuid, out user))
             {

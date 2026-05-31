@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink, IDisposable
     {
         public event EventHandler<LogEventArgs> OnLogEntry;
 
@@ -40,7 +40,11 @@ namespace PhinixClient.Framework
         private const int MaxDisplayMessages = 1000;
         private readonly object displayMessagesLock = new object();
         private readonly Timer negotiationTimer;
+        private readonly ElapsedEventHandler negotiationElapsedHandler;
+        private readonly EventHandler disconnectHandler;
         private int displayMessageCountAtLastCheck;
+        private bool disposed;
+
         public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
@@ -62,10 +66,12 @@ namespace PhinixClient.Framework
                 Enabled = false,
                 Interval = 3000
             };
-            this.negotiationTimer.Elapsed += (_, __) => enterLegacyMode();
+            negotiationElapsedHandler = (_, __) => enterLegacyMode();
+            this.negotiationTimer.Elapsed += negotiationElapsedHandler;
 
             netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
-            netClient.OnDisconnect += (_, __) => reset();
+            disconnectHandler = (_, __) => reset();
+            netClient.OnDisconnect += disconnectHandler;
 
             // Log discovery summary through both channels: RaiseLogEntry for
             // subscribers (wired up after construction) and hostContext.Log so
@@ -82,6 +88,21 @@ namespace PhinixClient.Framework
                 RaiseLogEntry(new LogEventArgs(moduleSummary));
                 this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
             }
+
+            // Settings panels summary: concise copyable machine-readable format
+            IReadOnlyList<IClientSettingsPanelProvider> settingsPanels = GetSettingsPanels();
+            if (settingsPanels.Count > 0)
+            {
+                string panelSummary = "SettingsPanels=" + string.Join(",", settingsPanels.OrderBy(p => p.Order).Select(p =>
+                    $"{{SectionId:{p.SectionId},Order:{p.Order}}}"));
+                RaiseLogEntry(new LogEventArgs(panelSummary, LogLevel.DEBUG));
+                this.extensionHostContext.Log?.Invoke(panelSummary, LogLevel.DEBUG);
+                // Also emit a human-readable version
+                string humanSummary = $"Settings panels ({settingsPanels.Count}): {string.Join(" | ", settingsPanels.OrderBy(p => p.Order).Select(p => p.SectionId))}";
+                RaiseLogEntry(new LogEventArgs(humanSummary, LogLevel.INFO));
+                this.extensionHostContext.Log?.Invoke(humanSummary, LogLevel.INFO);
+            }
+
             foreach (string diagnostic in discoveredExtensions.Diagnostics)
             {
                 RaiseLogEntry(new LogEventArgs(diagnostic, LogLevel.DEBUG));
@@ -106,6 +127,8 @@ namespace PhinixClient.Framework
 
         public void BeginNegotiation()
         {
+            if (disposed) return;
+
             reset();
 
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
@@ -126,22 +149,33 @@ namespace PhinixClient.Framework
 
         public bool TryHandleOutgoingMessage(string rawMessage)
         {
+            if (disposed) return false;
+
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleOutgoingText(rawMessage)))
             {
-
-                ClientOutgoingMessageResult result = handler.HandleOutgoingText(
-                    rawMessage,
-                    new ClientFrameworkContext
-                    {
-                        CompatibilityMode = CompatibilityMode,
-                        SenderUuid = userManager.Uuid,
-                        SessionId = authenticator.SessionId,
-                        SendMessage = sendPacket,
-                        RemoteCapabilities = remoteCapabilities.ToArray(),
-                        HasRemoteCapability = hasRemoteCapability,
-                        Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
-                    }
-                );
+                ClientOutgoingMessageResult result = null;
+                try
+                {
+                    result = handler.HandleOutgoingText(
+                        rawMessage,
+                        new ClientFrameworkContext
+                        {
+                            CompatibilityMode = CompatibilityMode,
+                            SenderUuid = userManager.Uuid,
+                            SessionId = authenticator.SessionId,
+                            SendMessage = sendPacket,
+                            RemoteCapabilities = remoteCapabilities.ToArray(),
+                            HasRemoteCapability = hasRemoteCapability,
+                            Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
+                        }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Message handler {handler.GetType().FullName} threw for outgoing text: {ex}", LogLevel.ERROR));
+                    continue;
+                }
 
                 if (result == null)
                 {
@@ -185,6 +219,7 @@ namespace PhinixClient.Framework
 
         public bool TryHandleOutgoingCommand(FrameworkPacket command)
         {
+            if (disposed) return false;
             if (command == null) return false;
 
             RaiseLogEntry(new LogEventArgs(
@@ -335,6 +370,8 @@ namespace PhinixClient.Framework
 
         public void SendFrameworkPacket(FrameworkPacket packet)
         {
+            if (disposed) return;
+
             if (packet == null)
             {
                 return;
@@ -374,8 +411,15 @@ namespace PhinixClient.Framework
             return Array.Empty<T>();
         }
 
+        public IReadOnlyList<IClientSettingsPanelProvider> GetSettingsPanels()
+        {
+            return ResolveExtensionApis<IClientSettingsPanelProvider>();
+        }
+
         private void packetHandler(string module, string connectionId, byte[] data)
         {
+            if (disposed) return;
+
             FrameworkPacket packet;
             try
             {
@@ -509,7 +553,7 @@ namespace PhinixClient.Framework
         private void handleCommand(FrameworkPacket command)
         {
             // Diagnostic: log all incoming commands to trace server responses
-            Verse.Log.Message($"[PhinixFramework] handleCommand received: type={command.MessageType}, flow={command.Flow}, kind={command.Kind}");
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] handleCommand received: type={command.MessageType}, flow={command.Flow}, kind={command.Kind}", LogLevel.DEBUG));
 
             bool matchedHandler = false;
             FrameworkPacket currentCommand = command;
@@ -614,7 +658,7 @@ namespace PhinixClient.Framework
             if (packet == null) return;
             if (!netClient.Connected)
             {
-                Verse.Log.Warning($"[PhinixFramework] Dropping packet type={packet.MessageType} — netClient not connected");
+                RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Dropping packet type={packet.MessageType} — netClient not connected", LogLevel.WARNING));
                 return;
             }
 
@@ -650,6 +694,8 @@ namespace PhinixClient.Framework
 
         private void reset()
         {
+            if (disposed) return;
+
             negotiationTimer.Stop();
             lock (remoteCapabilities)
             {
@@ -704,6 +750,44 @@ namespace PhinixClient.Framework
                 TranslationKey = translationKey,
                 TranslationArgs = (translationArgs ?? Array.Empty<string>()).ToList()
             });
+        }
+
+        public void Shutdown()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+
+            try
+            {
+                negotiationTimer.Stop();
+                negotiationTimer.Elapsed -= negotiationElapsedHandler;
+                negotiationTimer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                RaiseLogEntry(new LogEventArgs($"Failed to dispose framework negotiation timer: {ex}", LogLevel.ERROR));
+            }
+
+            try
+            {
+                netClient.UnregisterPacketHandler(FrameworkProtocol.ModuleName);
+                netClient.OnDisconnect -= disconnectHandler;
+            }
+            catch (Exception ex)
+            {
+                RaiseLogEntry(new LogEventArgs($"Failed to unregister framework client handlers: {ex}", LogLevel.ERROR));
+            }
+
+            PhinixExtensionRegistry.ShutdownExtensions(discoveredExtensions, extensionHostContext);
+        }
+
+        public void Dispose()
+        {
+            Shutdown();
         }
     }
 }

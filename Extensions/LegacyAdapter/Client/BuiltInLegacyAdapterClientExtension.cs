@@ -1,5 +1,6 @@
 using System;
 using Phinix.TradeExtension;
+using Phinix.TradeExtension.Client;
 using PhinixClient.Framework;
 using Utils;
 using Utils.Framework;

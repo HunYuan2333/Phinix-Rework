@@ -84,6 +84,7 @@
     <Compile Include="TradeItemConverter.cs" />
     <Compile Include="TradeList.cs" />
     <Compile Include="TradeMainTabProvider.cs" />
+    <Compile Include="TradeSettingsPanelProvider.cs" />
     <Compile Include="TradeWindow.cs" />
   </ItemGroup>
   <ItemGroup>

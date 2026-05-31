@@ -12,6 +12,7 @@ using Utils;
 using Utils.Framework;
 using Verse;
 using Verse.Sound;
+using TaggedString = Verse.TaggedString;
 using Thing = Verse.Thing;
 using PhinixClient.Framework;
 
@@ -123,9 +124,10 @@ namespace PhinixClient
             // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
             extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
             extensionHostContext.ResolveSourcePackageId = ResolveModPackageId;
-            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories())}");
+            string modRoot = content.RootDir?.ToString();
+            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
             ExtensionAssemblyLoader.LoadAssemblies(
-                GetExtensionProbeDirectories(),
+                GetExtensionProbeDirectories(modRoot),
                 (message, level) =>
                 {
                     // Always pass through to the log handler so warnings/errors are visible
@@ -235,9 +237,14 @@ namespace PhinixClient
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            // Host 核心设置：连接、显示名称、音效等通用配置。
+            // 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
+            IClientSettingsContext settingsContext = new ClientSettingsContextAdapter(this);
+            float listingWidth = Math.Min(600f, inRect.width / 2);
+
             Listing_Standard listing = new Listing_Standard()
             {
-                ColumnWidth = Math.Min(600f, inRect.width / 2)
+                ColumnWidth = listingWidth
             };
             listing.Begin(inRect);
 
@@ -253,51 +260,45 @@ namespace PhinixClient
             listing.Label("Phinix_modSettings_displayNameTitle".Translate());
             Settings.DisplayName = listing.TextEntry(Settings.DisplayName);
 
-            bool acceptingTrades = Settings.GetExtensionSetting("trade.acceptingTrades", true);
-            listing.CheckboxLabeled("Phinix_modSettings_acceptingTradesTitle".Translate(), ref acceptingTrades);
-            Settings.SetExtensionSetting("trade.acceptingTrades", acceptingTrades);
-
-            bool showNameFormatting = Settings.GetExtensionSetting("chat.showNameFormatting", true);
-            listing.CheckboxLabeled("Phinix_modSettings_showNameFormatting".Translate(), ref showNameFormatting);
-            Settings.SetExtensionSetting("chat.showNameFormatting", showNameFormatting);
-
-            bool showChatFormatting = Settings.GetExtensionSetting("chat.showChatFormatting", true);
-            listing.CheckboxLabeled("Phinix_modSettings_showChatFormatting".Translate(), ref showChatFormatting);
-            Settings.SetExtensionSetting("chat.showChatFormatting", showChatFormatting);
-
             bool playNoiseOnMessageReceived = Settings.PlayNoiseOnMessageReceived;
             listing.CheckboxLabeled("Phinix_modSettings_playNoiseOnMessageReceived".Translate(), ref playNoiseOnMessageReceived);
             Settings.PlayNoiseOnMessageReceived = playNoiseOnMessageReceived;
 
-            bool showUnreadMessageCount = Settings.GetExtensionSetting("chat.showUnreadMessageCount", true);
-            listing.CheckboxLabeled("Phinix_modSettings_showUnreadMessageCount".Translate(), ref showUnreadMessageCount);
-            Settings.SetExtensionSetting("chat.showUnreadMessageCount", showUnreadMessageCount);
+            // 插件化设置面板：动态收集各扩展注册的 IClientSettingsPanelProvider，
+            // 按 Order 排序后在同一 listing 流内绘制。不再硬编码 Chat/Trade 设置键。
+            if (frameworkClient != null)
+            {
+                IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
+                bool firstPanel = true;
+                foreach (IClientSettingsPanelProvider panel in panels.OrderBy(p => p.Order))
+                {
+                    if (!panel.IsVisible(settingsContext))
+                    {
+                        continue;
+                    }
 
-            bool showBlockedUnreadMessageCount = Settings.GetExtensionSetting("chat.showBlockedUnreadMessageCount", false);
-            listing.CheckboxLabeled("Phinix_modSettings_showBlockedUnreadMessageCount".Translate(), ref showBlockedUnreadMessageCount);
-            Settings.SetExtensionSetting("chat.showBlockedUnreadMessageCount", showBlockedUnreadMessageCount);
+                    try
+                    {
+                        if (firstPanel)
+                        {
+                            firstPanel = false;
+                            listing.GapLine();
+                        }
+                        else
+                        {
+                            listing.Gap(6f);
+                        }
 
-            listing.Label("Phinix_modSettings_chatMessageLimit".Translate());
-            string limitStr = Settings.GetExtensionSetting("chat.messageLimit", 40).ToString();
-            limitStr = listing.TextEntry(limitStr);
-            int.TryParse(limitStr, out int chatMessageLimit);
-            Settings.SetExtensionSetting("chat.messageLimit", chatMessageLimit);
-
-            bool forceMessageFieldFocus = Settings.GetExtensionSetting("chat.forceMessageFieldFocus", true);
-            listing.CheckboxLabeled("Phinix_modSettings_forceMessageFieldFocus".Translate(), ref forceMessageFieldFocus);
-            Settings.SetExtensionSetting("chat.forceMessageFieldFocus", forceMessageFieldFocus);
-
-            bool allItemsTradable = Settings.GetExtensionSetting("trade.allItemsTradable", false);
-            listing.CheckboxLabeled("Phinix_modSettings_allItemsTradable".Translate(), ref allItemsTradable);
-            Settings.SetExtensionSetting("trade.allItemsTradable", allItemsTradable);
-
-            bool showBlockedTrades = Settings.GetExtensionSetting("trade.showBlockedTrades", false);
-            listing.CheckboxLabeled("Phinix_modSettings_showBlockedTrades".Translate(), ref showBlockedTrades);
-            Settings.SetExtensionSetting("trade.showBlockedTrades", showBlockedTrades);
-
-            bool dropCurrentMap = Settings.GetExtensionSetting("trade.dropCurrentMap", false);
-            listing.CheckboxLabeled("Phinix_modSettings_dropCurrentMap".Translate(), ref dropCurrentMap);
-            Settings.SetExtensionSetting("trade.dropCurrentMap", dropCurrentMap);
+                        TaggedString sectionLabel = panel.SectionId;
+                        listing.Label(sectionLabel, -1f, TaggedString.Empty);
+                        panel.DrawSettings(listing, settingsContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        Verse.Log.Error($"[Phinix] Settings panel '{panel.SectionId}' (Order={panel.Order}) threw: {ex}");
+                    }
+                }
+            }
 
             listing.End();
         }
@@ -369,9 +370,9 @@ namespace PhinixClient
             {
                 netClient.Connect(address, port);
             }
-            catch
+            catch (Exception ex)
             {
-                Verse.Log.Message(string.Format("Could not connect to {0}:{1}", Settings.ServerAddress, Settings.ServerPort));
+                Verse.Log.Error($"[Phinix] Could not connect to {Settings.ServerAddress}:{Settings.ServerPort}: {ex}");
 
                 Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_connectionFailedTitle".Translate(), text: "Phinix_error_connectionFailedMessage".Translate(Settings.ServerAddress, Settings.ServerPort)));
             }
@@ -395,16 +396,29 @@ namespace PhinixClient
             userManager.UpdateSelf(displayName);
         }
 
-        private static IEnumerable<string> GetExtensionProbeDirectories()
+        private static IEnumerable<string> GetExtensionProbeDirectories(string modRootDir = null)
         {
-            string clientAssemblyDirectory = Path.GetDirectoryName(typeof(Client).Assembly.Location);
+            // Assembly.Location 在 Prepatcher / AssemblyLoadContext 等环境下可能返回 ""
+            // 导致 Path.GetDirectoryName("") 抛出 ArgumentException。
+            // 设计哲学 §3.9：启动期文件定位优先用 RimWorld 框架提供的稳定入口。
+            string clientAssemblyDirectory = null;
+            try { clientAssemblyDirectory = Path.GetDirectoryName(typeof(Client).Assembly.Location); }
+            catch (ArgumentException) { }
+
             string appBaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
 
             if (!string.IsNullOrEmpty(clientAssemblyDirectory))
             {
+                // 正常路径：行为完全不变
                 yield return clientAssemblyDirectory;
                 yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Assemblies"));
                 yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions"));
+            }
+            else if (!string.IsNullOrEmpty(modRootDir))
+            {
+                // 降级路径：从 ModContentPack.RootDir 直接推导
+                yield return Path.Combine(modRootDir, "Common", "Assemblies");
+                yield return Path.Combine(modRootDir, "Common", "Extensions");
             }
 
             if (!string.IsNullOrEmpty(appBaseDirectory))
@@ -434,9 +448,10 @@ namespace PhinixClient
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Assembly.Location can throw in some contexts; just return null
+                // Assembly.Location can throw in some contexts; log and return null
+                Verse.Log.Warning($"[Phinix] ResolveModPackageId failed for assembly '{assembly.FullName}': {ex.Message}");
             }
 
             return null;

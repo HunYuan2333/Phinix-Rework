@@ -35,7 +35,7 @@ namespace Phinix.TradeExtension.Client
 
         public override Vector2 InitialSize => new Vector2(1000f, 750f);
 
-        private readonly Regex itemCountInputRegex = new Regex("\\d*");
+        private static readonly Regex itemCountInputRegex = new Regex("\\d*", RegexOptions.Compiled);
         private readonly Texture2D tradeArrows = ContentFinder<Texture2D>.Get("tradeArrows");
         private readonly ITradeUiHostContext hostContext;
         private readonly IClientTradeService tradeService;
@@ -258,7 +258,7 @@ namespace Phinix.TradeExtension.Client
                             Timestamp = DateTime.UtcNow
                         });
                     }
-                    Log.Message("Added items to pending");
+                    hostContext.Log(new LogEventArgs("Added items to pending", LogLevel.DEBUG));
 
 
                     // Get the items we have on offer and splice in the selected items
@@ -266,11 +266,11 @@ namespace Phinix.TradeExtension.Client
 
                     // Send an update to the server
                     tradeService.UpdateTradeItems(trade.TradeId, actualOffer, token);
-                    Log.Message("Sent update");
+                    hostContext.Log(new LogEventArgs("Sent update", LogLevel.DEBUG));
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    Log.Message(e.ToString());
+                    hostContext.Log(new LogEventArgs($"Failed to update trade items: {ex}", LogLevel.ERROR));
                 }
             }
 
@@ -350,7 +350,7 @@ namespace Phinix.TradeExtension.Client
         /// <param name="args"></param>
         private void OnTradeUpdated(object sender, TradeUpdateEventArgs args)
         {
-            Verse.Log.Message($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}");
+            hostContext.Log(new LogEventArgs($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}", LogLevel.DEBUG));
             if (args.Trade == null || !string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase))
             {
                 return;
@@ -406,7 +406,7 @@ namespace Phinix.TradeExtension.Client
 
         private void sendTradeStatusUpdate(bool accepted)
         {
-            Verse.Log.Message($"[TradeWindow] Accept toggled: tradeId={trade.TradeId}, accepted={accepted}");
+            hostContext.Log(new LogEventArgs($"[TradeWindow] Accept toggled: tradeId={trade.TradeId}, accepted={accepted}", LogLevel.DEBUG));
             pendingAccepted = accepted;
             try
             {
@@ -421,7 +421,7 @@ namespace Phinix.TradeExtension.Client
 
         private void sendCancelTradeRequest()
         {
-            Verse.Log.Message($"[TradeWindow] Cancel clicked: tradeId={trade.TradeId}");
+            hostContext.Log(new LogEventArgs($"[TradeWindow] Cancel clicked: tradeId={trade.TradeId}", LogLevel.DEBUG));
             try
             {
                 tradeService.CancelTrade(trade.TradeId);

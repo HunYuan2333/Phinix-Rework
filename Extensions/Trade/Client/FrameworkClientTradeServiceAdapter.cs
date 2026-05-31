@@ -163,7 +163,7 @@ namespace Phinix.TradeExtension.Client
                 CompatibilityMode = lifecycle.CompatibilityMode,
                 SenderUuid = sessionContext.Uuid,
                 SessionId = sessionContext.SessionId,
-                SendMessage = frameworkClient.SendFrameworkPacket,
+                SendMessage = SendTradePacket,
                 RemoteCapabilities = Array.Empty<string>(),
                 HasRemoteCapability = frameworkClient.HasRemoteCapability,
                 Log = (message, level) => log?.Invoke(message, level)

@@ -165,4 +165,24 @@ namespace PhinixClient.Framework
         /// <summary>将一条显示消息注入到框架消息队列中</summary>
         void Enqueue(FrameworkDisplayMessage message);
     }
+
+    /// <summary>
+    /// 插件化设置面板提供者。host 设置窗口通过此接口动态收集各插件的设置 UI，
+    /// 不再硬编码 Chat/Trade 等业务设置项。
+    /// 设计哲学 §1.3：host 只做通用服务，业务设置由业务插件自行声明。
+    /// </summary>
+    public interface IClientSettingsPanelProvider
+    {
+        /// <summary>设置分组标识，用于在设置窗口中排序和分组。推荐格式 "plugin.category"（如 "chat.display"）。</summary>
+        string SectionId { get; }
+
+        /// <summary>显示顺序，数值越小越靠前。host 核心设置在 0-100，插件设置在 100+。</summary>
+        float Order { get; }
+
+        /// <summary>绘制设置面板内容。host 提供当前 listing 以保持布局连续，以及 <see cref="IClientSettingsContext"/> 供读写。</summary>
+        void DrawSettings(Verse.Listing_Standard listing, IClientSettingsContext settings);
+
+        /// <summary>当前是否应该显示此设置组。可用于根据兼容模式等条件隐藏设置。</summary>
+        bool IsVisible(IClientSettingsContext settings);
+    }
 }

@@ -135,16 +135,11 @@ namespace Phinix.TradeExtension.Client
             return true;
         }
 
-        public void RequestSnapshot(IFrameworkClientTransport frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
+        public FrameworkPacket CreateSnapshotRequestPacket(string sessionId, string senderUuid)
         {
-            if (frameworkClient == null || !authenticated || !loggedIn || string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
+            if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
             {
-                return;
-            }
-
-            if (!frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
-            {
-                return;
+                return null;
             }
 
             FrameworkPacket packet = new FrameworkPacket
@@ -157,7 +152,7 @@ namespace Phinix.TradeExtension.Client
                 PayloadJson = FrameworkSerialization.SerializePayload(new FrameworkTradeStateCollectionSnapshot())
             };
             packet.SetStateKind(FrameworkMetadataStateKinds.Snapshot);
-            frameworkClient.SendFrameworkPacket(packet);
+            return packet;
         }
 
         public FrameworkPacket CreateTradeRequest(string otherPartyUuid, ClientFrameworkContext context)
@@ -258,12 +253,12 @@ namespace Phinix.TradeExtension.Client
                     bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true);
                     if (!emittedPendingEvent && TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
                     {
-                        Verse.Log.Message($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}");
+                        log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}", LogLevel.DEBUG));
                         OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
                     }
                     else
                     {
-                        Verse.Log.Message($"[TradeService] HandleSnapshot: skipped update for tradeId={trade.TradeId}, emittedPending={emittedPendingEvent}");
+                        log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: skipped update for tradeId={trade.TradeId}, emittedPending={emittedPendingEvent}", LogLevel.DEBUG));
                     }
                 }
             }
@@ -309,11 +304,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeOfferUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
-                Verse.Log.Message("[TradeService] HandleOfferUpdateResponse: payload is null");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleOfferUpdateResponse: payload is null", LogLevel.DEBUG));
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}", LogLevel.DEBUG));
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -338,11 +333,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeStatusUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeStatusUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
-                Verse.Log.Message("[TradeService] HandleStatusUpdateResponse: payload is null");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleStatusUpdateResponse: payload is null", LogLevel.DEBUG));
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleStatusUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}, failureMessage={payload.FailureMessage ?? "null"}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleStatusUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}, failureMessage={payload.FailureMessage ?? "null"}", LogLevel.DEBUG));
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -370,18 +365,18 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            Verse.Log.Message($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}", LogLevel.DEBUG));
             if (OnTradeCompleted != null)
             {
                 OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
-                Verse.Log.Message($"[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully", LogLevel.DEBUG));
             }
             else
             {
-                Verse.Log.Warning($"[TradeService] HandleCompletedEvent: OnTradeCompleted has NO subscribers! Window won't close, items won't drop.");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted has NO subscribers! Window won't close, items won't drop.", LogLevel.WARNING));
             }
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' completed with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
@@ -394,7 +389,7 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
             OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));

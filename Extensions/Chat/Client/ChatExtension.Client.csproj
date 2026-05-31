@@ -80,6 +80,7 @@
     <Compile Include="BuiltInChatClientExtension.cs" />
     <Compile Include="ChatMainTabProvider.cs" />
     <Compile Include="ChatMessageList.cs" />
+    <Compile Include="ChatSettingsPanelProvider.cs" />
     <Compile Include="ChatSidebarProvider.cs" />
     <Compile Include="ChatUiHostContext.cs" />
     <Compile Include="FrameworkClientChatServiceAdapter.cs" />

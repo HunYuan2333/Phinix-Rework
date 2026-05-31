@@ -17,6 +17,7 @@ namespace Phinix.TradeExtension.Client
         private ClientTradeUiHostContext tradeUiHostContext;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
         private IFrameworkClientTransport frameworkClient;
+        private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
         private IClientSessionContext sessionContext;
         private EventHandler<FrameworkCompatibilityModeChangedEventArgs> compatibilityChangedHandler;
@@ -64,6 +65,7 @@ namespace Phinix.TradeExtension.Client
                 log);
             builder.RegisterApi(tradeUiHostContext);
             builder.RegisterApi<IMainTabProvider>(new TradeMainTabProvider(tradeUiHostContext));
+            builder.RegisterApi<IClientSettingsPanelProvider>(new TradeSettingsPanelProvider());
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -74,6 +76,7 @@ namespace Phinix.TradeExtension.Client
             }
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
+            commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
             lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
 
@@ -84,12 +87,15 @@ namespace Phinix.TradeExtension.Client
                     itemPipeline?.SetCompatibilityMode(args.CompatibilityMode);
                     if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
                     {
-                        tradeApi.RequestSnapshot(
-                            frameworkClient,
-                            sessionContext.Authenticated,
-                            sessionContext.LoggedIn,
-                            sessionContext.SessionId,
-                            sessionContext.Uuid);
+                        if (sessionContext.Authenticated &&
+                            sessionContext.LoggedIn &&
+                            frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
+                        {
+                            FrameworkPacket snapshotRequest = tradeApi.CreateSnapshotRequestPacket(
+                                sessionContext.SessionId,
+                                sessionContext.Uuid);
+                            commandTransport.TryHandleOutgoingCommand(snapshotRequest);
+                        }
                     }
                 };
             }

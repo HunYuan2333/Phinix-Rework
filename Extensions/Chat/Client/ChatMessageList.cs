@@ -25,6 +25,7 @@ namespace Phinix.ChatExtension.Client
         private readonly List<UIChatMessage> messages = new List<UIChatMessage>();
         private readonly object messagesLock = new object();
         private readonly Dictionary<string, Rect> messageRectCache = new Dictionary<string, Rect>();
+        private readonly Dictionary<string, CachedMessageDisplay> displayCache = new Dictionary<string, CachedMessageDisplay>();
         private readonly IChatUiHostContext hostContext;
 
         private bool messagesChanged;
@@ -34,6 +35,19 @@ namespace Phinix.ChatExtension.Client
         private bool scrollToBottom;
         private bool stickyScroll = true;
         private bool clearMessages;
+
+        /// <summary>
+        /// 缓存每条消息的显示文本和计时器尺寸，避免每帧 string.Format / StripRichText / GUIContent 分配。
+        /// </summary>
+        private struct CachedMessageDisplay
+        {
+            public string FormattedMessage;
+            public Vector2 TimestampSize;
+            public Vector2 DisplayNameSize;
+            public bool ShowNameFormatting;
+            public bool ShowChatFormatting;
+            public UIChatMessageStatus Status;
+        }
 
         public ChatMessageList(IChatUiHostContext hostContext)
         {
@@ -157,21 +171,43 @@ namespace Phinix.ChatExtension.Client
         private void recalculateMessageRects(Rect inRect)
         {
             messageRectCache.Clear();
+            displayCache.Clear();
 
             float currentY = inRect.yMin;
+            bool showName = hostContext.ShowNameFormatting;
+            bool showChat = hostContext.ShowChatFormatting;
             foreach (UIChatMessage chatMessage in filteredMessages)
             {
+                string displayName = showName && chatMessage.Status == UIChatMessageStatus.Confirmed
+                    ? chatMessage.User.DisplayName
+                    : TextHelper.StripRichText(chatMessage.User.DisplayName);
+                string messageText = showChat && chatMessage.Status == UIChatMessageStatus.Confirmed
+                    ? chatMessage.Message
+                    : TextHelper.StripRichText(chatMessage.Message);
                 string formattedMessage = string.Format(
                     "[{0:HH:mm}] {1}: {2}",
                     chatMessage.Timestamp,
-                    hostContext.ShowNameFormatting && chatMessage.Status == UIChatMessageStatus.Confirmed ? chatMessage.User.DisplayName : TextHelper.StripRichText(chatMessage.User.DisplayName),
-                    hostContext.ShowChatFormatting && chatMessage.Status == UIChatMessageStatus.Confirmed ? chatMessage.Message : TextHelper.StripRichText(chatMessage.Message));
+                    displayName,
+                    messageText);
 
                 Rect messageRect = new Rect(
                     x: inRect.x,
                     y: currentY,
                     width: inRect.width - SCROLLBAR_WIDTH,
                     height: Text.CalcHeight(formattedMessage, inRect.width));
+
+                // Cache display data so drawChatMessage doesn't recompute per frame
+                GUIContent tsContent = new GUIContent(string.Format("[{0:HH:mm}] ", chatMessage.Timestamp.ToLocalTime()));
+                GUIContent dnContent = new GUIContent(displayName);
+                displayCache[chatMessage.MessageId] = new CachedMessageDisplay
+                {
+                    FormattedMessage = formattedMessage,
+                    TimestampSize = Text.CurFontStyle.CalcSize(tsContent),
+                    DisplayNameSize = Text.CurFontStyle.CalcSize(dnContent),
+                    ShowNameFormatting = showName,
+                    ShowChatFormatting = showChat,
+                    Status = chatMessage.Status,
+                };
 
                 try
                 {
@@ -190,21 +226,58 @@ namespace Phinix.ChatExtension.Client
 
         private void drawChatMessage(Rect inRect, UIChatMessage chatMessage)
         {
-            string timestamp = string.Format("[{0:HH:mm}] ", chatMessage.Timestamp.ToLocalTime());
-            Vector2 timestampSize = Text.CurFontStyle.CalcSize(new GUIContent(timestamp));
-            Rect timestampRect = new Rect(inRect.x, inRect.y, timestampSize.x, timestampSize.y);
-
-            string displayName = hostContext.ShowNameFormatting ? chatMessage.User.DisplayName : TextHelper.StripRichText(chatMessage.User.DisplayName);
-            Vector2 displayNameSize = Text.CurFontStyle.CalcSize(new GUIContent(displayName));
-            Rect displayNameRect = new Rect(inRect.x + timestampRect.width, inRect.y, displayNameSize.x, displayNameSize.y);
-
-            string message = chatMessage.Message;
-            if (!hostContext.ShowChatFormatting)
+            // 从缓存读取预计算的格式化文本；若缓存缺失回退到实时计算（兼容手动 Clear 后未重建缓存的场景）
+            if (!displayCache.TryGetValue(chatMessage.MessageId, out CachedMessageDisplay cached)
+                || cached.ShowNameFormatting != hostContext.ShowNameFormatting
+                || cached.ShowChatFormatting != hostContext.ShowChatFormatting
+                || cached.Status != chatMessage.Status)
             {
-                message = TextHelper.StripRichText(message);
+                // 缓存失效：实时计算（罕见路径）
+                string fallbackTimestamp = string.Format("[{0:HH:mm}] ", chatMessage.Timestamp.ToLocalTime());
+                string fallbackName = hostContext.ShowNameFormatting ? chatMessage.User.DisplayName : TextHelper.StripRichText(chatMessage.User.DisplayName);
+                string fallbackMsg = hostContext.ShowChatFormatting ? chatMessage.Message : TextHelper.StripRichText(chatMessage.Message);
+                string fallbackText = string.Format("{0}{1}: {2}", fallbackTimestamp, fallbackName, fallbackMsg);
+                switch (chatMessage.Status)
+                {
+                    case UIChatMessageStatus.Pending:
+                        fallbackText = TextHelper.StripRichText(fallbackText).Colorize(pendingMessageColour);
+                        break;
+                    case UIChatMessageStatus.Denied:
+                        fallbackText = TextHelper.StripRichText(fallbackText).Colorize(deniedMessageColour);
+                        break;
+                }
+
+                if (Mouse.IsOver(inRect))
+                {
+                    Widgets.DrawHighlight(inRect);
+                }
+
+                Widgets.Label(inRect, fallbackText);
+
+                GUIContent fbTsContent = new GUIContent(fallbackName);
+                float tsWidth = Text.CurFontStyle.CalcSize(fbTsContent).x;
+                Rect fallbackTsRect = new Rect(inRect.x, inRect.y, tsWidth, inRect.height);
+                float dnWidth = tsWidth;
+                Rect fallbackDnRect = new Rect(inRect.x + tsWidth, inRect.y, dnWidth, inRect.height);
+
+                if (Widgets.ButtonInvisible(fallbackTsRect, false)) { }
+                else if (Widgets.ButtonInvisible(fallbackDnRect, true))
+                {
+                    drawNameContextMenu(chatMessage.User);
+                }
+                else if (Widgets.ButtonInvisible(inRect, false))
+                {
+                    drawMessageContextMenu(chatMessage);
+                }
+
+                return;
             }
 
-            string formattedText = string.Format("{0}{1}: {2}", timestamp, displayName, message);
+            // 正常路径：使用缓存数据，零分配（除 Rect 栈分配）
+            string formattedText = cached.FormattedMessage;
+            Vector2 timestampSize = cached.TimestampSize;
+            Rect timestampRect = new Rect(inRect.x, inRect.y, timestampSize.x, inRect.height);
+            Rect displayNameRect = new Rect(inRect.x + timestampSize.x, inRect.y, cached.DisplayNameSize.x, inRect.height);
 
             switch (chatMessage.Status)
             {
@@ -223,9 +296,7 @@ namespace Phinix.ChatExtension.Client
 
             Widgets.Label(inRect, formattedText);
 
-            if (Widgets.ButtonInvisible(timestampRect, false))
-            {
-            }
+            if (Widgets.ButtonInvisible(timestampRect, false)) { }
             else if (Widgets.ButtonInvisible(displayNameRect, true))
             {
                 drawNameContextMenu(chatMessage.User);
