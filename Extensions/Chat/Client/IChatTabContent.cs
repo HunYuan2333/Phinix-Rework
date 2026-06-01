@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhinixClient
+namespace Phinix.ChatExtension.Client
 {
     public interface IChatTabContent
     {

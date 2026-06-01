@@ -12,6 +12,7 @@ namespace Phinix.TradeExtension.Client
     {
         private readonly IFrameworkTradeClientApi tradeService;
         private readonly IFrameworkClientTransport frameworkClient;
+        private readonly IFrameworkClientCommandTransport commandTransport;
         private readonly IFrameworkClientLifecycle lifecycle;
         private readonly IClientSessionContext sessionContext;
         private readonly Action<string, LogLevel> log;
@@ -19,12 +20,14 @@ namespace Phinix.TradeExtension.Client
         public FrameworkClientTradeServiceAdapter(
             IFrameworkTradeClientApi tradeService,
             IFrameworkClientTransport frameworkClient,
+            IFrameworkClientCommandTransport commandTransport,
             IFrameworkClientLifecycle lifecycle,
             IClientSessionContext sessionContext,
             Action<string, LogLevel> log)
         {
             this.tradeService = tradeService;
             this.frameworkClient = frameworkClient;
+            this.commandTransport = commandTransport;
             this.lifecycle = lifecycle;
             this.sessionContext = sessionContext;
             this.log = log;
@@ -83,13 +86,13 @@ namespace Phinix.TradeExtension.Client
         public void CreateTrade(string uuid)
         {
             OnTradeCreationRequested?.Invoke(this, new TradeCreationEventArgs(new ClientTradeSnapshot(string.Empty, new UserManagement.ImmutableUser(uuid))));
-            frameworkClient.SendFrameworkPacket(tradeService.CreateTradeRequest(uuid, createContext()));
+            SendTradePacket(tradeService.CreateTradeRequest(uuid, createContext()));
         }
 
         public void CancelTrade(string tradeId)
         {
-            Verse.Log.Message($"[TradeAdapter] CancelTrade: tradeId={tradeId}");
-            frameworkClient.SendFrameworkPacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
+            log?.Invoke($"[TradeAdapter] CancelTrade: tradeId={tradeId}", LogLevel.DEBUG);
+            SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
         }
 
         public string[] GetTradeIds() => tradeService.GetTradeIds();
@@ -120,13 +123,37 @@ namespace Phinix.TradeExtension.Client
                 packet.SetCorrelationId(token);
             }
 
-            frameworkClient.SendFrameworkPacket(packet);
+            SendTradePacket(packet);
         }
 
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)
         {
-            Verse.Log.Message($"[TradeAdapter] UpdateTradeStatus: tradeId={tradeId}, accepted={accepted}, cancelled={cancelled}");
-            frameworkClient.SendFrameworkPacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
+            log?.Invoke($"[TradeAdapter] UpdateTradeStatus: tradeId={tradeId}, accepted={accepted}, cancelled={cancelled}", LogLevel.DEBUG);
+            SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
+        }
+
+        /// <summary>
+        /// 统一通过出站命令管线路由所有 trade 出站包。
+        /// 设计哲学 §3.7：所有通信必须通过 handler 管线，不得直连传输层。
+        /// - V2 模式：Trade handler (P=1100) 原样返回 FrameworkPacket → sendPacket → NetClient
+        /// - Legacy 模式：LegacyAdapter (P=500) 抢先拦截 → 翻译为 Legacy Proto → ILegacyModuleTransport.Send("Trading")
+        /// </summary>
+        private void SendTradePacket(FrameworkPacket packet)
+        {
+            if (packet == null) return;
+
+            log?.Invoke(
+                $"[TradeAdapter] SendTradePacket: msgType={packet.MessageType}, mode={lifecycle.CompatibilityMode}",
+                LogLevel.INFO);
+
+            if (commandTransport == null || !commandTransport.TryHandleOutgoingCommand(packet))
+            {
+                log?.Invoke($"[TradeAdapter] No handler for outgoing command {packet.MessageType}", LogLevel.WARNING);
+            }
+            else
+            {
+                log?.Invoke($"[TradeAdapter] SendTradePacket: pipeline handled '{packet.MessageType}' successfully", LogLevel.DEBUG);
+            }
         }
 
         private ClientFrameworkContext createContext()
@@ -136,7 +163,7 @@ namespace Phinix.TradeExtension.Client
                 CompatibilityMode = lifecycle.CompatibilityMode,
                 SenderUuid = sessionContext.Uuid,
                 SessionId = sessionContext.SessionId,
-                SendMessage = frameworkClient.SendFrameworkPacket,
+                SendMessage = SendTradePacket,
                 RemoteCapabilities = Array.Empty<string>(),
                 HasRemoteCapability = frameworkClient.HasRemoteCapability,
                 Log = (message, level) => log?.Invoke(message, level)

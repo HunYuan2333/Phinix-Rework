@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>UserManagement</RootNamespace>
+    <AssemblyName>UserManagement.Client</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Common\UserManagement\ClientUserManager.cs">
+      <Link>ClientUserManager.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj" />
+    <ProjectReference Include="..\..\..\Common\Authentication\Authentication.csproj" />
+    <ProjectReference Include="..\Authentication.Client\Authentication.Client.csproj" />
+    <ProjectReference Include="..\..\..\Common\Connections\Connections.csproj" />
+    <ProjectReference Include="..\Connections.Client\Connections.Client.csproj" />
+    <ProjectReference Include="..\..\..\Common\UserManagement\UserManagement.csproj" />
+    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj" />
+  </ItemGroup>
+</Project>

@@ -75,7 +75,6 @@
     <Compile Include="GUI\GUIUtils.cs" />
     <Compile Include="UnknownItem.cs" />
     <Compile Include="UI\IBadgeProvider.cs" />
-    <Compile Include="UI\IChatTabContent.cs" />
     <Compile Include="UI\IMainTabProvider.cs" />
     <Compile Include="UI\IServerSidebarProvider.cs" />
   </ItemGroup>

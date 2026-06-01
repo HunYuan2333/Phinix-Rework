@@ -3,6 +3,7 @@
     <!-- Tab labels -->
     <Phinix_tabs_chat>会话</Phinix_tabs_chat>
     <Phinix_tabs_trades>交易</Phinix_tabs_trades>
+    <Phinix_tabs_extensions>扩展</Phinix_tabs_extensions>
 
     <!-- Settings -->
     <Phinix_settings_connectButton>连接</Phinix_settings_connectButton>
@@ -39,7 +40,6 @@
     <Phinix_framework_connectedLegacyServer>已连接至旧版服务器，部分功能可能不可用。</Phinix_framework_connectedLegacyServer>
     <Phinix_framework_legacyExtensionUnavailable>此功能需要 Phinix 框架服务器。</Phinix_framework_legacyExtensionUnavailable>
     <Phinix_framework_unsupportedIncomingMessageType>收到不支持的消息类型 '{0}'。</Phinix_framework_unsupportedIncomingMessageType>
-    <Phinix_framework_redPacketEmptyWarning>红包为空。</Phinix_framework_redPacketEmptyWarning>
 
     <!-- Core errors -->
     <Phinix_error_loginFailedTitle>登录失败</Phinix_error_loginFailedTitle>
@@ -48,4 +48,17 @@
     <Phinix_error_authFailedMessage>尝试在服务器验证身份失败：{0} ({1})</Phinix_error_authFailedMessage>
     <Phinix_error_connectionFailedTitle>连接失败</Phinix_error_connectionFailedTitle>
     <Phinix_error_connectionFailedMessage>无法连接至服务器{0}:{1}</Phinix_error_connectionFailedMessage>
+
+    <!-- Extension Manager -->
+    <Phinix_extensions_loadedExtensions>已加载扩展 ({0})</Phinix_extensions_loadedExtensions>
+    <Phinix_extensions_loadingLog>加载日志</Phinix_extensions_loadingLog>
+    <Phinix_extensions_refresh>刷新</Phinix_extensions_refresh>
+    <Phinix_extensions_openDirectory>打开扩展目录</Phinix_extensions_openDirectory>
+    <Phinix_extensions_state_active>已激活</Phinix_extensions_state_active>
+    <Phinix_extensions_state_failed>失败</Phinix_extensions_state_failed>
+    <Phinix_extensions_state_registered>已注册</Phinix_extensions_state_registered>
+    <Phinix_extensions_state_shutdown>已关闭</Phinix_extensions_state_shutdown>
+    <Phinix_extensions_state_discovered>已发现</Phinix_extensions_state_discovered>
+    <Phinix_extensions_state_unknown>未知</Phinix_extensions_state_unknown>
+    <Phinix_extensions_warningsPresent>{0} 个扩展存在问题，请查看扩展标签页。</Phinix_extensions_warningsPresent>
 </LanguageData>

@@ -314,7 +314,7 @@ namespace Authentication
                 {
                     RaiseLogEntry(new LogEventArgs("Creating new ClientKey credential", LogLevel.DEBUG));
 
-                    lock (credentialStore)
+                    lock (credentialStoreLock)
                     {
                         credential = new Credential
                         {

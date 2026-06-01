@@ -283,3 +283,4 @@ framework-extensions/server/
 
 # Phinix test logs
 testlog/
+memory

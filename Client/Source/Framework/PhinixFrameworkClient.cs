@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink, IDisposable
     {
         public event EventHandler<LogEventArgs> OnLogEntry;
 
@@ -40,7 +40,11 @@ namespace PhinixClient.Framework
         private const int MaxDisplayMessages = 1000;
         private readonly object displayMessagesLock = new object();
         private readonly Timer negotiationTimer;
+        private readonly ElapsedEventHandler negotiationElapsedHandler;
+        private readonly EventHandler disconnectHandler;
         private int displayMessageCountAtLastCheck;
+        private bool disposed;
+
         public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
@@ -48,9 +52,11 @@ namespace PhinixClient.Framework
             this.userManager = userManager;
             this.extensionHostContext = extensionHostContext ?? ExtensionHostContext.Empty;
             this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
+            this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
             this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
+            this.extensionHostContext.AddService<IDisplayMessageSink>(this);
             this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
             this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
             PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
@@ -60,10 +66,12 @@ namespace PhinixClient.Framework
                 Enabled = false,
                 Interval = 3000
             };
-            this.negotiationTimer.Elapsed += (_, __) => enterLegacyMode();
+            negotiationElapsedHandler = (_, __) => enterLegacyMode();
+            this.negotiationTimer.Elapsed += negotiationElapsedHandler;
 
             netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
-            netClient.OnDisconnect += (_, __) => reset();
+            disconnectHandler = (_, __) => reset();
+            netClient.OnDisconnect += disconnectHandler;
 
             // Log discovery summary through both channels: RaiseLogEntry for
             // subscribers (wired up after construction) and hostContext.Log so
@@ -80,6 +88,21 @@ namespace PhinixClient.Framework
                 RaiseLogEntry(new LogEventArgs(moduleSummary));
                 this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
             }
+
+            // Settings panels summary: concise copyable machine-readable format
+            IReadOnlyList<IClientSettingsPanelProvider> settingsPanels = GetSettingsPanels();
+            if (settingsPanels.Count > 0)
+            {
+                string panelSummary = "SettingsPanels=" + string.Join(",", settingsPanels.OrderBy(p => p.Order).Select(p =>
+                    $"{{SectionId:{p.SectionId},Order:{p.Order}}}"));
+                RaiseLogEntry(new LogEventArgs(panelSummary, LogLevel.DEBUG));
+                this.extensionHostContext.Log?.Invoke(panelSummary, LogLevel.DEBUG);
+                // Also emit a human-readable version
+                string humanSummary = $"Settings panels ({settingsPanels.Count}): {string.Join(" | ", settingsPanels.OrderBy(p => p.Order).Select(p => p.SectionId))}";
+                RaiseLogEntry(new LogEventArgs(humanSummary, LogLevel.INFO));
+                this.extensionHostContext.Log?.Invoke(humanSummary, LogLevel.INFO);
+            }
+
             foreach (string diagnostic in discoveredExtensions.Diagnostics)
             {
                 RaiseLogEntry(new LogEventArgs(diagnostic, LogLevel.DEBUG));
@@ -92,8 +115,20 @@ namespace PhinixClient.Framework
             }
         }
 
+        public IReadOnlyList<ExtensionDiscoveryResult> ExtensionResults => discoveredExtensions.ExtensionResults.AsReadOnly();
+
+        public IReadOnlyList<string> ExtensionDiagnostics => discoveredExtensions.Diagnostics.AsReadOnly();
+
+        public IReadOnlyList<string> ExtensionWarnings => discoveredExtensions.Warnings.AsReadOnly();
+
+        public bool HasWarnings => discoveredExtensions.Warnings.Count > 0;
+
+        public int WarningCount => discoveredExtensions.Warnings.Count;
+
         public void BeginNegotiation()
         {
+            if (disposed) return;
+
             reset();
 
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
@@ -114,36 +149,45 @@ namespace PhinixClient.Framework
 
         public bool TryHandleOutgoingMessage(string rawMessage)
         {
+            if (disposed) return false;
+
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleOutgoingText(rawMessage)))
             {
-                if (CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
+                ClientOutgoingMessageResult result = null;
+                try
                 {
-                    showSystemMessage("Phinix_framework_legacyExtensionUnavailable");
-                    return true;
+                    result = handler.HandleOutgoingText(
+                        rawMessage,
+                        new ClientFrameworkContext
+                        {
+                            CompatibilityMode = CompatibilityMode,
+                            SenderUuid = userManager.Uuid,
+                            SessionId = authenticator.SessionId,
+                            SendMessage = sendPacket,
+                            RemoteCapabilities = remoteCapabilities.ToArray(),
+                            HasRemoteCapability = hasRemoteCapability,
+                            Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
+                        }
+                    );
                 }
-
-                ClientOutgoingMessageResult result = handler.HandleOutgoingText(
-                    rawMessage,
-                    new ClientFrameworkContext
-                    {
-                        CompatibilityMode = CompatibilityMode,
-                        SenderUuid = userManager.Uuid,
-                        SessionId = authenticator.SessionId,
-                        SendMessage = sendPacket,
-                        RemoteCapabilities = remoteCapabilities.ToArray(),
-                        HasRemoteCapability = hasRemoteCapability,
-                        Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
-                    }
-                );
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Message handler {handler.GetType().FullName} threw for outgoing text: {ex}", LogLevel.ERROR));
+                    continue;
+                }
 
                 if (result == null)
                 {
-                    return true;
+                    // null result 视为 continue，让下一个 handler 处理
+                    continue;
                 }
 
                 if (result.Action == MessageHandlingResultAction.LegacyFallback)
                 {
-                    return false;
+                    // Handler 声明自己不支持当前模式，继续尝试下一个 handler。
+                    // 用于 Adapter 在 FrameworkV2 模式下放行消息到后续 Chat handler。
+                    continue;
                 }
 
                 FrameworkPacket outgoingMessage = result.Message;
@@ -168,6 +212,108 @@ namespace PhinixClient.Framework
                 {
                     return true;
                 }
+            }
+
+            return false;
+        }
+
+        public bool TryHandleOutgoingCommand(FrameworkPacket command)
+        {
+            if (disposed) return false;
+            if (command == null) return false;
+
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingCommand: msgType={command.MessageType}, mode={CompatibilityMode}",
+                LogLevel.DEBUG));
+
+            ClientFrameworkContext context = new ClientFrameworkContext
+            {
+                CompatibilityMode = CompatibilityMode,
+                SenderUuid = userManager.Uuid,
+                SessionId = authenticator.SessionId,
+                SendMessage = sendPacket,
+                RemoteCapabilities = remoteCapabilities.ToArray(),
+                HasRemoteCapability = hasRemoteCapability,
+                Log = (msg, level) => RaiseLogEntry(new LogEventArgs(msg, level))
+            };
+
+            // 从已发现扩展中筛选实现了 IClientOutgoingCommandHandler 的实例，
+            // 按 Priority 排序。优先级数字越小越先执行。
+            // 用 is 检测而非在 DiscoverExtensions 中预收集，因为
+            // IClientOutgoingCommandHandler 是纯增量接口，不需要修改 registry。
+            IEnumerable<IClientOutgoingCommandHandler> handlers = discoveredExtensions.Extensions
+                .OfType<IClientOutgoingCommandHandler>()
+                .OrderBy(h => h.Priority)
+                .ToList();
+
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingCommand: found {handlers.Count()} handler(s) — " +
+                string.Join(", ", handlers.Select(h => $"{h.GetType().Name}(P={h.Priority})")),
+                LogLevel.DEBUG));
+
+            bool anyHandlerTried = false;
+            foreach (IClientOutgoingCommandHandler handler in handlers)
+            {
+                bool canHandle = handler.CanHandleOutgoingCommand(command);
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework]   {handler.GetType().Name}(P={handler.Priority}).CanHandle → {canHandle}",
+                    LogLevel.DEBUG));
+
+                if (!canHandle) continue;
+
+                anyHandlerTried = true;
+                ClientOutgoingCommandResult result = null;
+                try
+                {
+                    result = handler.HandleOutgoingCommand(command, context);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"[Framework] Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                    continue;
+                }
+
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework]   {handler.GetType().Name}.HandleOutgoing → Action={result?.Action}, Command={(result?.Command == null ? "null" : "present")}",
+                    LogLevel.DEBUG));
+
+                if (result == null || result.Action == MessageHandlingResultAction.Continue)
+                    continue;
+
+                FrameworkPacket outgoingCommand = result.Command;
+                if (outgoingCommand == null)
+                {
+                    // Handler 声明已处理（如 LegacyAdapter 翻译后经 ILegacyModuleTransport 发送），
+                    // 框架不再发送 FrameworkPacket。
+                    if (result.Action == MessageHandlingResultAction.Handled)
+                    {
+                        RaiseLogEntry(new LogEventArgs(
+                            $"[Framework] TryHandleOutgoingCommand: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
+                            LogLevel.DEBUG));
+                        return true;
+                    }
+                    continue;
+                }
+
+                // 确保 Kind/SessionId/SenderUuid 正确设置
+                outgoingCommand.Kind = FrameworkProtocol.KindCommand;
+                outgoingCommand.SessionId = authenticator.SessionId;
+                outgoingCommand.SenderUuid = userManager.Uuid;
+                sendPacket(outgoingCommand);
+
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingCommand: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
+                    LogLevel.DEBUG));
+
+                if (result.Action != MessageHandlingResultAction.Continue) return true;
+            }
+
+            if (!anyHandlerTried)
+            {
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingCommand: NO handler claimed '{command.MessageType}' — returning false",
+                    LogLevel.WARNING));
             }
 
             return false;
@@ -224,6 +370,8 @@ namespace PhinixClient.Framework
 
         public void SendFrameworkPacket(FrameworkPacket packet)
         {
+            if (disposed) return;
+
             if (packet == null)
             {
                 return;
@@ -263,8 +411,15 @@ namespace PhinixClient.Framework
             return Array.Empty<T>();
         }
 
+        public IReadOnlyList<IClientSettingsPanelProvider> GetSettingsPanels()
+        {
+            return ResolveExtensionApis<IClientSettingsPanelProvider>();
+        }
+
         private void packetHandler(string module, string connectionId, byte[] data)
         {
+            if (disposed) return;
+
             FrameworkPacket packet;
             try
             {
@@ -398,7 +553,7 @@ namespace PhinixClient.Framework
         private void handleCommand(FrameworkPacket command)
         {
             // Diagnostic: log all incoming commands to trace server responses
-            Verse.Log.Message($"[PhinixFramework] handleCommand received: type={command.MessageType}, flow={command.Flow}, kind={command.Kind}");
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] handleCommand received: type={command.MessageType}, flow={command.Flow}, kind={command.Kind}", LogLevel.DEBUG));
 
             bool matchedHandler = false;
             FrameworkPacket currentCommand = command;
@@ -477,6 +632,11 @@ namespace PhinixClient.Framework
             OnDisplayMessageReceived?.Invoke(this, new FrameworkDisplayMessageEventArgs(message));
         }
 
+        void IDisplayMessageSink.Enqueue(FrameworkDisplayMessage message)
+        {
+            addDisplayMessage(message);
+        }
+
         private bool shouldSuppress(FrameworkDisplayMessage message)
         {
             if (message.SuppressDefaultDisplay) return true;
@@ -498,7 +658,7 @@ namespace PhinixClient.Framework
             if (packet == null) return;
             if (!netClient.Connected)
             {
-                Verse.Log.Warning($"[PhinixFramework] Dropping packet type={packet.MessageType} — netClient not connected");
+                RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Dropping packet type={packet.MessageType} — netClient not connected", LogLevel.WARNING));
                 return;
             }
 
@@ -534,6 +694,8 @@ namespace PhinixClient.Framework
 
         private void reset()
         {
+            if (disposed) return;
+
             negotiationTimer.Stop();
             lock (remoteCapabilities)
             {
@@ -588,6 +750,44 @@ namespace PhinixClient.Framework
                 TranslationKey = translationKey,
                 TranslationArgs = (translationArgs ?? Array.Empty<string>()).ToList()
             });
+        }
+
+        public void Shutdown()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+
+            try
+            {
+                negotiationTimer.Stop();
+                negotiationTimer.Elapsed -= negotiationElapsedHandler;
+                negotiationTimer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                RaiseLogEntry(new LogEventArgs($"Failed to dispose framework negotiation timer: {ex}", LogLevel.ERROR));
+            }
+
+            try
+            {
+                netClient.UnregisterPacketHandler(FrameworkProtocol.ModuleName);
+                netClient.OnDisconnect -= disconnectHandler;
+            }
+            catch (Exception ex)
+            {
+                RaiseLogEntry(new LogEventArgs($"Failed to unregister framework client handlers: {ex}", LogLevel.ERROR));
+            }
+
+            PhinixExtensionRegistry.ShutdownExtensions(discoveredExtensions, extensionHostContext);
+        }
+
+        public void Dispose()
+        {
+            Shutdown();
         }
     }
 }

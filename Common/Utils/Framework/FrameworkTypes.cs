@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 
 namespace Utils.Framework
 {
@@ -37,6 +38,16 @@ namespace Utils.Framework
         Observe = 6
     }
 
+    public enum ExtensionModuleState
+    {
+        Unknown,
+        Discovered,
+        Registered,
+        Active,
+        Failed,
+        Shutdown
+    }
+
     public interface IPhinixExtension
     {
         string ExtensionId { get; }
@@ -68,6 +79,27 @@ namespace Utils.Framework
         void Send(string connectionId, FrameworkPacket packet);
 
         void Send(string connectionId, FrameworkPacket packet, string sourceExtensionId);
+    }
+
+    public interface IExtensionConfigSection
+    {
+        string SectionName { get; }
+
+        void LoadDefaults();
+
+        void Validate();
+    }
+
+    public interface IExtensionConfigProvider
+    {
+        T GetConfig<T>() where T : IExtensionConfigSection, new();
+
+        void SaveConfig<T>(T config) where T : IExtensionConfigSection;
+    }
+
+    public interface ILegacyExtensionConfigMigrator
+    {
+        bool TryMigrateLegacyConfig(IReadOnlyDictionary<string, string> legacyValues);
     }
 
     public interface IExtensionBuilder
@@ -307,6 +339,8 @@ namespace Utils.Framework
 
         public IReadOnlyList<ExtensionPersistenceRegistration> Persistents => persistents;
 
+        public Func<Assembly, string> ResolveSourcePackageId { get; set; }
+
         public void AddService<T>(T service) where T : class
         {
             if (service == null) return;
@@ -518,6 +552,25 @@ namespace Utils.Framework
         ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context);
     }
 
+    /// <summary>
+    /// 客户端出站命令管线接口。Handler 按 Priority 排序依次执行。
+    /// 与 IClientCommandHandler（入站）正交——插件可以只实现其一或同时实现。
+    ///
+    /// 设计哲学 §3.7：所有通信必须通过 handler 管线，不得直连传输层。
+    /// 设计哲学 §6：此接口为增量新增，不修改或删除现有 IClientCommandHandler。
+    /// </summary>
+    public interface IClientOutgoingCommandHandler : ICommandHandler
+    {
+        /// <summary>判断此 handler 是否可以处理该出站命令。</summary>
+        bool CanHandleOutgoingCommand(FrameworkPacket command);
+
+        /// <summary>
+        /// 处理出站命令。返回 FrameworkPacket 由框架发送。
+        /// 返回 null 或 Action == Continue 则传递给下一个 handler。
+        /// </summary>
+        ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket command, ClientFrameworkContext context);
+    }
+
     public interface IServerCommandHandler : ICommandHandler
     {
         bool CanHandleIncomingCommand(FrameworkPacket command);
@@ -582,6 +635,13 @@ namespace Utils.Framework
         public FrameworkPacket Command { get; set; }
 
         public FrameworkDisplayMessage DisplayMessage { get; set; }
+    }
+
+    public sealed class ClientOutgoingCommandResult
+    {
+        public MessageHandlingResultAction Action { get; set; } = MessageHandlingResultAction.Handled;
+
+        public FrameworkPacket Command { get; set; }
     }
 
     public sealed class ServerIncomingCommandResult
@@ -666,6 +726,37 @@ namespace Utils.Framework
         public Action<string, LogLevel> Log { get; set; }
     }
 
+    public sealed class ExtensionDiscoveryResult
+    {
+        public string ExtensionId { get; set; }
+        public string DisplayName { get; set; }
+        public string Version { get; set; }
+        public string AssemblyName { get; set; }
+        public ExtensionModuleState State { get; set; }
+        public string StateDetail { get; set; }
+        public string SourcePackageId { get; set; }
+        public List<string> RegisteredApis { get; set; } = new List<string>();
+        public List<string> ConsumedApis { get; set; } = new List<string>();
+
+        public static ExtensionDiscoveryResult FromModuleType(Type moduleType, ExtensionHostContext hostContext)
+        {
+            ExtensionDiscoveryResult result = new ExtensionDiscoveryResult
+            {
+                DisplayName = moduleType.Name,
+                AssemblyName = moduleType.Assembly.GetName().Name,
+                Version = moduleType.Assembly.GetName().Version?.ToString() ?? "0.0.0.0",
+                State = ExtensionModuleState.Discovered
+            };
+
+            if (hostContext?.ResolveSourcePackageId != null)
+            {
+                result.SourcePackageId = hostContext.ResolveSourcePackageId(moduleType.Assembly);
+            }
+
+            return result;
+        }
+    }
+
     public sealed class DiscoveredPhinixExtensions
     {
         public IExtensionApiRegistry ApiRegistry { get; internal set; } = new ExtensionApiRegistry();
@@ -677,6 +768,8 @@ namespace Utils.Framework
         public List<string> Diagnostics { get; } = new List<string>();
 
         public List<string> Warnings { get; } = new List<string>();
+
+        public List<ExtensionDiscoveryResult> ExtensionResults { get; } = new List<ExtensionDiscoveryResult>();
 
         public List<ICapabilityProvider> CapabilityProviders { get; } = new List<ICapabilityProvider>();
 

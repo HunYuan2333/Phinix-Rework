@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -12,19 +13,45 @@ namespace PhinixClient.Framework
             this.client = client;
         }
 
+        public event Action<string, object> OnSettingChanged;
+
+        public T Get<T>(string key, T defaultValue = default)
+        {
+            if (client.Settings == null) return defaultValue;
+            return client.Settings.GetExtensionSetting(key, defaultValue);
+        }
+
+        public void Set<T>(string key, T value)
+        {
+            if (client.Settings == null) return;
+
+            object rawValue = null;
+            bool hasExistingValue = client.Settings.ExtensionSettings != null &&
+                                    client.Settings.ExtensionSettings.TryGetValue(key, out rawValue);
+            if (hasExistingValue)
+            {
+                T currentValue;
+                if (rawValue is T typedValue)
+                {
+                    currentValue = typedValue;
+                }
+                else
+                {
+                    currentValue = client.Settings.GetExtensionSetting<T>(key);
+                }
+
+                if (EqualityComparer<T>.Default.Equals(currentValue, value))
+                {
+                    return;
+                }
+            }
+
+            client.Settings.SetExtensionSetting(key, value);
+            client.Settings.AcceptChanges();
+            OnSettingChanged?.Invoke(key, value);
+        }
+
         public IEnumerable<string> BlockedUsers => client.Settings?.BlockedUsers ?? Enumerable.Empty<string>();
-
-        public bool PlayNoiseOnMessageReceived => client.Settings?.PlayNoiseOnMessageReceived ?? false;
-
-        public int ChatMessageLimit => client.Settings?.ChatMessageLimit ?? 100;
-
-        public bool ShowNameFormatting => client.Settings?.ShowNameFormatting ?? true;
-
-        public bool ShowChatFormatting => client.Settings?.ShowChatFormatting ?? true;
-
-        public bool AllItemsTradable => client.Settings?.AllItemsTradable ?? false;
-
-        public bool ShowBlockedTrades => client.Settings?.ShowBlockedTrades ?? false;
 
         public bool CollapseBlockedUsers
         {

@@ -135,16 +135,11 @@ namespace Phinix.TradeExtension.Client
             return true;
         }
 
-        public void RequestSnapshot(IFrameworkClientTransport frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid)
+        public FrameworkPacket CreateSnapshotRequestPacket(string sessionId, string senderUuid)
         {
-            if (frameworkClient == null || !authenticated || !loggedIn || string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
+            if (string.IsNullOrEmpty(sessionId) || string.IsNullOrEmpty(senderUuid))
             {
-                return;
-            }
-
-            if (!frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
-            {
-                return;
+                return null;
             }
 
             FrameworkPacket packet = new FrameworkPacket
@@ -157,7 +152,7 @@ namespace Phinix.TradeExtension.Client
                 PayloadJson = FrameworkSerialization.SerializePayload(new FrameworkTradeStateCollectionSnapshot())
             };
             packet.SetStateKind(FrameworkMetadataStateKinds.Snapshot);
-            frameworkClient.SendFrameworkPacket(packet);
+            return packet;
         }
 
         public FrameworkPacket CreateTradeRequest(string otherPartyUuid, ClientFrameworkContext context)
@@ -258,12 +253,12 @@ namespace Phinix.TradeExtension.Client
                     bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true);
                     if (!emittedPendingEvent && TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
                     {
-                        Verse.Log.Message($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}");
+                        log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}", LogLevel.DEBUG));
                         OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
                     }
                     else
                     {
-                        Verse.Log.Message($"[TradeService] HandleSnapshot: skipped update for tradeId={trade.TradeId}, emittedPending={emittedPendingEvent}");
+                        log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: skipped update for tradeId={trade.TradeId}, emittedPending={emittedPendingEvent}", LogLevel.DEBUG));
                     }
                 }
             }
@@ -309,11 +304,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeOfferUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
-                Verse.Log.Message("[TradeService] HandleOfferUpdateResponse: payload is null");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleOfferUpdateResponse: payload is null", LogLevel.DEBUG));
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}", LogLevel.DEBUG));
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -338,11 +333,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeStatusUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeStatusUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
-                Verse.Log.Message("[TradeService] HandleStatusUpdateResponse: payload is null");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleStatusUpdateResponse: payload is null", LogLevel.DEBUG));
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleStatusUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}, failureMessage={payload.FailureMessage ?? "null"}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleStatusUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}, failureMessage={payload.FailureMessage ?? "null"}", LogLevel.DEBUG));
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -370,18 +365,18 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            Verse.Log.Message($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}", LogLevel.DEBUG));
             if (OnTradeCompleted != null)
             {
                 OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
-                Verse.Log.Message($"[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully", LogLevel.DEBUG));
             }
             else
             {
-                Verse.Log.Warning($"[TradeService] HandleCompletedEvent: OnTradeCompleted has NO subscribers! Window won't close, items won't drop.");
+                log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted has NO subscribers! Window won't close, items won't drop.", LogLevel.WARNING));
             }
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' completed with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
@@ -394,11 +389,105 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            Verse.Log.Message($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}");
+            log?.Invoke(new LogEventArgs($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
             OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' cancelled with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
+        }
+
+        /// <summary>
+        /// Legacy 适配器专用：将旧版服务器发来的 trade 快照注入 repository，触发 UI 刷新。
+        /// 所有协议转换逻辑在 Adapter 中完成，此处仅负责写入和通知。
+        /// </summary>
+        internal void ApplyLegacyTradeSnapshot(FrameworkTradeStateSnapshot snapshot)
+        {
+            if (snapshot == null || string.IsNullOrEmpty(snapshot.TradeId)) return;
+
+            // 参与者必须刚好 2 人 —— Adapter 数据合并有 bug 时这里拦住，不让坏数据进 repo 导致 UI 炸
+            if (snapshot.Participants == null || snapshot.Participants.Count != 2)
+            {
+                log?.Invoke(new LogEventArgs(
+                    $"Legacy adapter supplied trade '{snapshot.TradeId}' with {snapshot.Participants?.Count ?? 0} participant(s); expected 2. Dropping.",
+                    LogLevel.WARNING));
+                return;
+            }
+
+            // 参与者 UUID 不能为空或重复
+            if (string.IsNullOrEmpty(snapshot.Participants[0].Uuid) ||
+                string.IsNullOrEmpty(snapshot.Participants[1].Uuid) ||
+                string.Equals(snapshot.Participants[0].Uuid, snapshot.Participants[1].Uuid, StringComparison.OrdinalIgnoreCase))
+            {
+                log?.Invoke(new LogEventArgs(
+                    $"Legacy adapter supplied trade '{snapshot.TradeId}' with invalid participants [{snapshot.Participants[0].Uuid}, {snapshot.Participants[1].Uuid}]. Dropping.",
+                    LogLevel.WARNING));
+                return;
+            }
+
+            bool existed = repository.TryGet(snapshot.TradeId, out _);
+            repository.Upsert(snapshot);
+            RepositoryChanged?.Invoke(this, EventArgs.Empty);
+
+            if (!existed && TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot trade))
+            {
+                OnTradeCreationSuccess?.Invoke(this, new TradeCreationEventArgs(trade));
+            }
+            else if (existed)
+            {
+                bool emittedPendingEvent = FlushPendingEventsForTrade(snapshot.TradeId, true);
+                if (!emittedPendingEvent && TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot updatedTrade))
+                {
+                    log?.Invoke(new LogEventArgs(
+                        $"Legacy trade update event emitted for '{snapshot.TradeId}'.",
+                        LogLevel.DEBUG));
+                    OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Legacy 适配器专用：从 repository 移除已完成的 trade，触发 UI 刷新。
+        /// </summary>
+        internal void RemoveLegacyTrade(string tradeId)
+        {
+            if (string.IsNullOrEmpty(tradeId)) return;
+
+            bool hadTrade = repository.TryGet(tradeId, out _);
+            repository.Remove(tradeId);
+            if (hadTrade)
+            {
+                RepositoryChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Legacy 适配器专用：移除 trade 并发出完成/取消事件，保持 UI 和默认行为走同一事件链。
+        /// </summary>
+        internal void CompleteLegacyTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<TradeItemSnapshot> items)
+        {
+            if (string.IsNullOrEmpty(tradeId)) return;
+
+            bool hadTrade = repository.TryGet(tradeId, out _);
+            repository.Remove(tradeId);
+            if (hadTrade)
+            {
+                RepositoryChanged?.Invoke(this, EventArgs.Empty);
+            }
+
+            var args = new TradeCompletionEventArgs(
+                tradeId,
+                success,
+                otherPartyUuid ?? string.Empty,
+                (items ?? Array.Empty<TradeItemSnapshot>()).ToArray());
+
+            if (success)
+            {
+                OnTradeCompleted?.Invoke(this, args);
+            }
+            else
+            {
+                OnTradeCancelled?.Invoke(this, args);
+            }
         }
 
         private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)

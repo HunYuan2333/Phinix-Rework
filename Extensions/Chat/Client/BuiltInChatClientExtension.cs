@@ -1,5 +1,4 @@
 using System;
-using Phinix.TradeExtension;
 using System.Collections.Generic;
 using PhinixClient;
 using PhinixClient.Framework;
@@ -12,7 +11,7 @@ using Verse.Sound;
 namespace Phinix.ChatExtension.Client
 {
     [PhinixExtension("builtin.chat")]
-    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IMessageRenderer
+    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientOutgoingCommandHandler
     {
         private IFrameworkChatClientApi chatApi;
         private IClientChatService chatService;
@@ -20,7 +19,11 @@ namespace Phinix.ChatExtension.Client
         private IChatTabContent chatTabContent;
         private IMainTabProvider chatMainTabProvider;
         private IServerSidebarProvider chatSidebarProvider;
+        private IClientMessageHandler messageHandler;
+        private IClientCommandHandler commandHandler;
+        private IMessageRenderer messageRenderer;
         private IFrameworkClientTransport frameworkClient;
+        private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
         private IClientSessionContext sessionContext;
         private IClientSettingsContext settingsContext;
@@ -69,9 +72,24 @@ namespace Phinix.ChatExtension.Client
                 builder.HostContext.GetRequiredService<Action>());
             builder.RegisterApi<IServerSidebarProvider>(chatSidebarProvider);
             builder.AddCapabilityProvider(this);
-            builder.AddClientMessageHandler(this);
-            builder.AddClientCommandHandler(this);
-            builder.AddMessageRenderer(this);
+            messageHandler = messageHandler ?? new ChatMessageHandler(chatApi);
+            commandHandler = commandHandler ?? new ChatCommandHandler(chatApi);
+            messageRenderer = messageRenderer ?? new ChatMessageRenderer(chatApi);
+            builder.AddClientMessageHandler(messageHandler);
+            builder.AddClientCommandHandler(commandHandler);
+            builder.AddMessageRenderer(messageRenderer);
+
+            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
+                chatUiHostContext,
+                chatTabContent,
+            // 设计哲学 §3.7：插件不得绕过通信管线直连底层传输。
+            // 通过 IFrameworkClientTransport.TryHandleOutgoingMessage 走完整 handler 管线，
+            // 保证 Priority 排序、拦截、替换、回退机制正常工作。
+                message => builder.HostContext.GetRequiredService<IFrameworkClientTransport>().TryHandleOutgoingMessage(message));
+            builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
+            var settingsPanelProvider = new ChatSettingsPanelProvider();
+            builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
+            builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -82,29 +100,11 @@ namespace Phinix.ChatExtension.Client
             }
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
+            commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
             lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
             settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
             soundService = hostContext.GetRequiredService<IClientSoundService>();
-
-            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
-                chatUiHostContext,
-                chatTabContent,
-                message =>
-                {
-                    var context = new ClientFrameworkContext
-                    {
-                        SessionId = sessionContext.SessionId,
-                        SenderUuid = sessionContext.Uuid,
-                        CompatibilityMode = lifecycle.CompatibilityMode,
-                        SendMessage = pkt => frameworkClient.SendFrameworkPacket(pkt),
-                        HasRemoteCapability = cap => frameworkClient.HasRemoteCapability(cap),
-                        Log = (msg, level) => chatUiHostContext.Log(new LogEventArgs(msg, level))
-                    };
-                    var outgoingPacket = chatApi.CreateOutgoingMessage(message, context);
-                    frameworkClient.SendFrameworkPacket(outgoingPacket);
-                });
-            hostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.chat", chatMainTabProvider);
 
             if (chatNotificationHandler == null)
             {
@@ -113,7 +113,7 @@ namespace Phinix.ChatExtension.Client
                     if (chatService.ShouldPlayNotification(
                         args.Message,
                         sessionContext.Uuid,
-                        settingsContext.PlayNoiseOnMessageReceived,
+                        settingsContext.Get("chat.playNoiseOnMessageReceived", true),
                         Current.Game != null,
                         settingsContext.BlockedUsers))
                     {
@@ -131,12 +131,15 @@ namespace Phinix.ChatExtension.Client
                 {
                     if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
                     {
-                        chatApi.RequestHistory(
-                            frameworkClient,
-                            sessionContext.Authenticated,
-                            sessionContext.LoggedIn,
-                            sessionContext.SessionId,
-                            sessionContext.Uuid);
+                        if (sessionContext.Authenticated &&
+                            sessionContext.LoggedIn &&
+                            frameworkClient.HasRemoteCapability(FrameworkChatProtocol.HistoryRequestType))
+                        {
+                            FrameworkPacket historyRequest = chatApi.CreateHistoryRequestPacket(
+                                sessionContext.SessionId,
+                                sessionContext.Uuid);
+                            commandTransport.TryHandleOutgoingCommand(historyRequest);
+                        }
                     }
                 };
             }
@@ -170,56 +173,16 @@ namespace Phinix.ChatExtension.Client
             yield return FrameworkChatProtocol.HistorySyncCompleteType;
         }
 
-        public bool CanHandleOutgoingText(string rawMessage)
+        public bool CanHandleOutgoingCommand(FrameworkPacket command)
         {
-            return chatApi != null &&
-                   !string.IsNullOrWhiteSpace(rawMessage);
+            return (commandHandler as IClientOutgoingCommandHandler)?.CanHandleOutgoingCommand(command) == true;
         }
 
-        public ClientOutgoingMessageResult HandleOutgoingText(string rawMessage, ClientFrameworkContext context)
+        public ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket command, ClientFrameworkContext context)
         {
-            return new ClientOutgoingMessageResult
-            {
-                Action = MessageHandlingResultAction.Handled,
-                Message = chatApi.CreateOutgoingMessage(rawMessage, context)
-            };
+            return (commandHandler as IClientOutgoingCommandHandler)?.HandleOutgoingCommand(command, context)
+                ?? new ClientOutgoingCommandResult { Action = MessageHandlingResultAction.Continue };
         }
 
-        public bool CanHandleIncomingMessage(FrameworkPacket message)
-        {
-            return message != null && message.MessageType == FrameworkChatProtocol.MessageType;
-        }
-
-        public ClientIncomingMessageResult HandleIncomingMessage(FrameworkPacket message, ClientFrameworkContext context)
-        {
-            return new ClientIncomingMessageResult
-            {
-                Action = MessageHandlingResultAction.Handled,
-                DisplayMessage = chatApi.RenderMessage(message)
-            };
-        }
-
-        public bool CanHandleIncomingCommand(FrameworkPacket command)
-        {
-            return command != null && command.MessageType == FrameworkChatProtocol.HistorySyncCompleteType;
-        }
-
-        public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context)
-        {
-            return new ClientIncomingCommandResult
-            {
-                Action = MessageHandlingResultAction.Handled
-            };
-        }
-
-        public bool CanRender(FrameworkPacket message)
-        {
-            return message != null && message.MessageType == FrameworkChatProtocol.MessageType;
-        }
-
-        public FrameworkDisplayMessage Render(FrameworkPacket message)
-        {
-            return chatApi.RenderMessage(message);
-        }
     }
 }

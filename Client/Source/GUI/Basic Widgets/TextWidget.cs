@@ -58,7 +58,7 @@ namespace PhinixClient.GUI
             if (wrap) return FLUID;
 
             SetStyle();
-            float width = Verse.Text.CurFontStyle.CalcSize(new GUIContent(Text)).x;
+            float width = Verse.Text.CalcSize(Text).x;
             ClearStyle();
 
             return width;

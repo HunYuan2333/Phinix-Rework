@@ -7,6 +7,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OfficialServerExtensionsOutputDir>$([System.IO.Path]::Combine('$(OutDir)', 'Extensions'))</OfficialServerExtensionsOutputDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,7 +20,6 @@
     <Compile Include="Server.cs" />
     <Compile Include="Commands\*.cs" />
     <Compile Include="Extensions\FrameworkPipelineLoggingServerExtension.cs" />
-    <Compile Include="Extensions\RedPacketServerExtension.cs" />
     <Compile Include="Framework\FrameworkServerPacketDispatcher.cs" />
     <Compile Include="Framework\PhinixFrameworkServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -27,9 +27,8 @@
 
   <ItemGroup>
     <ProjectReference Include="Authentication.Server\Authentication.Server.csproj" />
-    <ProjectReference Include="..\Extensions\Chat\Contracts\ChatExtension.csproj" />
     <ProjectReference Include="..\Common\Connections\Connections.csproj" />
-    <ProjectReference Include="..\Extensions\Trade\Contracts\TradeExtension.csproj" />
+    <ProjectReference Include="Connections.Server\Connections.Server.csproj" />
     <ProjectReference Include="..\Common\UserManagement\UserManagement.csproj" />
     <ProjectReference Include="UserManagement.Server\UserManagement.Server.csproj" />
     <ProjectReference Include="..\Common\Utils\Utils.csproj" />
@@ -39,11 +38,18 @@
   <ItemGroup>
     <OfficialServerExtensionProject Include="..\Extensions\Chat\Server\ChatExtension.Server.csproj" />
     <OfficialServerExtensionProject Include="..\Extensions\Trade\Server\TradeExtension.Server.csproj" />
+    <OfficialServerExtensionContractProject Include="..\Extensions\Chat\Contracts\ChatExtension.csproj" />
+    <OfficialServerExtensionContractProject Include="..\Extensions\Trade\Contracts\TradeExtension.csproj" />
   </ItemGroup>
 
   <Target Name="CopyOfficialServerExtensions" AfterTargets="Build">
     <MSBuild
       Projects="@(OfficialServerExtensionProject)"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);TargetFramework=net10.0" />
+
+    <MSBuild
+      Projects="@(OfficialServerExtensionContractProject)"
       Targets="Build"
       Properties="Configuration=$(Configuration);TargetFramework=net10.0" />
 
@@ -54,10 +60,18 @@
       <Output TaskParameter="TargetOutputs" ItemName="_OfficialServerExtensionOutput" />
     </MSBuild>
 
-    <MakeDir Directories="$(OutDir)Extensions" />
+    <MSBuild
+      Projects="@(OfficialServerExtensionContractProject)"
+      Targets="GetTargetPath"
+      Properties="Configuration=$(Configuration);TargetFramework=net10.0">
+      <Output TaskParameter="TargetOutputs" ItemName="_OfficialServerExtensionOutput" />
+    </MSBuild>
+
+    <MakeDir Directories="$(OfficialServerExtensionsOutputDir)" />
     <Copy
       SourceFiles="@(_OfficialServerExtensionOutput)"
-      DestinationFolder="$(OutDir)Extensions"
+      DestinationFolder="$(OfficialServerExtensionsOutputDir)"
       SkipUnchangedFiles="true" />
   </Target>
+
 </Project>

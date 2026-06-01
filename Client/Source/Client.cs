@@ -1,4 +1,5 @@
-﻿using Authentication;
+﻿using System.Reflection;
+using Authentication;
 using Connections;
 using RimWorld;
 using System;
@@ -11,6 +12,7 @@ using Utils;
 using Utils.Framework;
 using Verse;
 using Verse.Sound;
+using TaggedString = Verse.TaggedString;
 using Thing = Verse.Thing;
 using PhinixClient.Framework;
 
@@ -56,19 +58,20 @@ namespace PhinixClient
 
         public bool Online => Connected && Authenticated && LoggedIn;
 
-        public bool CanUseFrameworkChat => frameworkClient != null && frameworkClient.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2;
         public void SendMessage(string message)
         {
             frameworkClient.TryHandleOutgoingMessage(message);
         }
         public IReadOnlyList<IMainTabProvider> MainTabProviders => frameworkClient?.ResolveExtensionApis<IMainTabProvider>() ?? Array.Empty<IMainTabProvider>();
         public IReadOnlyList<IServerSidebarProvider> SidebarProviders => frameworkClient?.ResolveExtensionApis<IServerSidebarProvider>() ?? Array.Empty<IServerSidebarProvider>();
-        public LookTargets DropPods(IEnumerable<Thing> verseThings) => dropPods(verseThings);
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
+        public PhinixFrameworkClient FrameworkClient => frameworkClient;
         private ClientUserEventStream userEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
+        private readonly IClientWindowService windowService;
+        private readonly IClientSettingsContext settingsContext;
         public Settings Settings { get; }
 
         /// <summary>
@@ -90,17 +93,16 @@ namespace PhinixClient
 
             // Load in Settings
             Settings = GetSettings<Settings>();
-            if (!Settings.Migrated) Settings.MigrateFromHugsLib();
             // Set up our module instances
             netClient = new NetClient();
             authenticator = new ClientAuthenticator(netClient, getCredentials);
             userManager = new ClientUserManager(netClient, authenticator);
             IClientUserDirectory frameworkUserDirectory = new ClientFrameworkUserDirectoryAdapter(userManager);
             IClientSessionContext sessionContext = new ClientSessionContextAdapter(authenticator, userManager);
-            IClientSettingsContext settingsContext = new ClientSettingsContextAdapter(this);
+            settingsContext = new ClientSettingsContextAdapter(this);
+            windowService = new ClientWindowService();
             userEventStream = new ClientUserEventStream();
             mainThreadDispatcher = new ClientMainThreadDispatcher();
-            IClientWindowService windowService = new ClientWindowService();
             IClientSoundService soundService = new ClientSoundService(this);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
             {
@@ -117,10 +119,14 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientWindowService>(windowService);
             extensionHostContext.AddService<IClientSoundService>(soundService);
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
-            extensionHostContext.AddService<Func<IEnumerable<Thing>, LookTargets>>(verseThings => dropPods(verseThings));
-            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories())}");
+            extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
+            // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
+            extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
+            extensionHostContext.ResolveSourcePackageId = ResolveModPackageId;
+            string modRoot = content.RootDir?.ToString();
+            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
             ExtensionAssemblyLoader.LoadAssemblies(
-                GetExtensionProbeDirectories(),
+                GetExtensionProbeDirectories(modRoot),
                 (message, level) =>
                 {
                     // Always pass through to the log handler so warnings/errors are visible
@@ -130,6 +136,13 @@ namespace PhinixClient
             Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
             Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
+            if (!Settings.Migrated)
+            {
+                Settings.MigrateLegacySettings(settingsContext, frameworkClient.ResolveExtensionApis<IClientLegacySettingsMigrator>());
+            }
+
+            // Register the host-built Extension Manager Tab — same IMainTabProvider hook as all extensions
+            extensionHostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.host", new ExtensionManagerTab());
             // Subscribe to log events (after construction so constructor diagnostics
             // already went through the hostContext.Log callback above)
             authenticator.OnLogEntry += ILoggableHandler;
@@ -146,16 +159,15 @@ namespace PhinixClient
             authenticator.OnAuthenticationSuccess += (sender, args) =>
             {
                 Verse.Log.Message("Successfully authenticated with server.");
-                userManager.SendLogin(
-                    displayName: Settings.DisplayName,
-                    acceptingTrades: Settings.AcceptingTrades
-                );
+                userManager.SendLogin(displayName: Settings.DisplayName);
             };
             authenticator.OnAuthenticationFailure += (sender, args) =>
             {
                 Verse.Log.Message(string.Format("Failed to authenticate with server: {0} ({1})", args.FailureMessage, args.FailureReason.ToString()));
 
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_authFailedTitle".Translate(), text: "Phinix_error_authFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
+                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                    title: "Phinix_error_authFailedTitle".Translate(),
+                    text: "Phinix_error_authFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
 
                 Disconnect();
             };
@@ -170,7 +182,9 @@ namespace PhinixClient
             {
                 Verse.Log.Message(string.Format("Failed to log in to server: {0} ({1})", args.FailureMessage, args.FailureReason.ToString()));
 
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_loginFailedTitle".Translate(), text: "Phinix_error_loginFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
+                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                    title: "Phinix_error_loginFailedTitle".Translate(),
+                    text: "Phinix_error_loginFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
 
                 Disconnect();
             };
@@ -213,13 +227,27 @@ namespace PhinixClient
             userManager.OnUserSync += (sender, e) => { OnUserSync?.Invoke(sender, e); };
             // Connect to the server set in the config
             Connect(Settings.ServerAddress, Settings.ServerPort);
+
+            // Show warning notification if extensions had issues during loading
+            if (frameworkClient.HasWarnings)
+            {
+                Verse.Log.Warning($"[Phinix] {frameworkClient.WarningCount} extension warning(s) during startup:");
+                foreach (string warning in frameworkClient.ExtensionWarnings)
+                {
+                    Verse.Log.Warning($"  [Phinix] {warning}");
+                }
+            }
         }
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            // Host 核心设置：连接、显示名称、音效等通用配置。
+            // 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
+            float listingWidth = Math.Min(600f, inRect.width / 2);
+
             Listing_Standard listing = new Listing_Standard()
             {
-                ColumnWidth = Math.Min(600f, inRect.width / 2)
+                ColumnWidth = listingWidth
             };
             listing.Begin(inRect);
 
@@ -235,51 +263,41 @@ namespace PhinixClient
             listing.Label("Phinix_modSettings_displayNameTitle".Translate());
             Settings.DisplayName = listing.TextEntry(Settings.DisplayName);
 
-            bool acceptingTrades = Settings.AcceptingTrades;
-            listing.CheckboxLabeled("Phinix_modSettings_acceptingTradesTitle".Translate(), ref acceptingTrades);
-            Settings.AcceptingTrades = acceptingTrades;
+            // 插件化设置面板：动态收集各扩展注册的 IClientSettingsPanelProvider，
+            // 按 Order 排序后在同一 listing 流内绘制。不再硬编码 Chat/Trade 设置键。
+            if (frameworkClient != null)
+            {
+                IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
+                bool firstPanel = true;
+                foreach (IClientSettingsPanelProvider panel in panels.OrderBy(p => p.Order))
+                {
+                    if (!panel.IsVisible(settingsContext))
+                    {
+                        continue;
+                    }
 
-            bool showNameFormatting = Settings.ShowNameFormatting;
-            listing.CheckboxLabeled("Phinix_modSettings_showNameFormatting".Translate(), ref showNameFormatting);
-            Settings.ShowNameFormatting = showNameFormatting;
+                    try
+                    {
+                        if (firstPanel)
+                        {
+                            firstPanel = false;
+                            listing.GapLine();
+                        }
+                        else
+                        {
+                            listing.Gap(6f);
+                        }
 
-            bool showChatFormatting = Settings.ShowChatFormatting;
-            listing.CheckboxLabeled("Phinix_modSettings_showChatFormatting".Translate(), ref showChatFormatting);
-            Settings.ShowChatFormatting = showChatFormatting;
-
-            bool playNoiseOnMessageReceived = Settings.PlayNoiseOnMessageReceived;
-            listing.CheckboxLabeled("Phinix_modSettings_playNoiseOnMessageReceived".Translate(), ref playNoiseOnMessageReceived);
-            Settings.PlayNoiseOnMessageReceived = playNoiseOnMessageReceived;
-
-            bool showUnreadMessageCount = Settings.ShowUnreadMessageCount;
-            listing.CheckboxLabeled("Phinix_modSettings_showUnreadMessageCount".Translate(), ref showUnreadMessageCount);
-            Settings.ShowUnreadMessageCount = showUnreadMessageCount;
-
-            bool showBlockedUnreadMessageCount = Settings.ShowBlockedUnreadMessageCount;
-            listing.CheckboxLabeled("Phinix_modSettings_showBlockedUnreadMessageCount".Translate(), ref showBlockedUnreadMessageCount);
-            Settings.ShowBlockedUnreadMessageCount = showBlockedUnreadMessageCount;
-
-            listing.Label("Phinix_modSettings_chatMessageLimit".Translate());
-            string limitStr = Settings.ChatMessageLimit.ToString();
-            limitStr = listing.TextEntry(limitStr);
-            int.TryParse(limitStr, out int chatMessageLimit);
-            Settings.ChatMessageLimit = chatMessageLimit;
-
-            bool forceMessageFieldFocus = Settings.ForceMessageFieldFocus;
-            listing.CheckboxLabeled("Phinix_modSettings_forceMessageFieldFocus".Translate(), ref forceMessageFieldFocus);
-            Settings.ForceMessageFieldFocus = forceMessageFieldFocus;
-
-            bool allItemsTradable = Settings.AllItemsTradable;
-            listing.CheckboxLabeled("Phinix_modSettings_allItemsTradable".Translate(), ref allItemsTradable);
-            Settings.AllItemsTradable = allItemsTradable;
-
-            bool showBlockedTrades = Settings.ShowBlockedTrades;
-            listing.CheckboxLabeled("Phinix_modSettings_showBlockedTrades".Translate(), ref showBlockedTrades);
-            Settings.ShowBlockedTrades = showBlockedTrades;
-
-            bool dropCurrentMap = Settings.DropCurrentMap;
-            listing.CheckboxLabeled("Phinix_modSettings_dropCurrentMap".Translate(), ref dropCurrentMap);
-            Settings.DropCurrentMap = dropCurrentMap;
+                        TaggedString sectionLabel = panel.SectionId;
+                        listing.Label(sectionLabel, -1f, TaggedString.Empty);
+                        panel.DrawSettings(listing, settingsContext);
+                    }
+                    catch (Exception ex)
+                    {
+                        Verse.Log.Error($"[Phinix] Settings panel '{panel.SectionId}' (Order={panel.Order}) threw: {ex}");
+                    }
+                }
+            }
 
             listing.End();
         }
@@ -289,7 +307,7 @@ namespace PhinixClient
             if (!Settings.IsChanged) return;
 
             Settings.AcceptChanges();
-            userManager.UpdateSelf(Settings.DisplayName, Settings.AcceptingTrades);
+            userManager.UpdateSelf(Settings.DisplayName);
         }
 
         /// <summary>
@@ -351,11 +369,13 @@ namespace PhinixClient
             {
                 netClient.Connect(address, port);
             }
-            catch
+            catch (Exception ex)
             {
-                Verse.Log.Message(string.Format("Could not connect to {0}:{1}", Settings.ServerAddress, Settings.ServerPort));
+                Verse.Log.Error($"[Phinix] Could not connect to {Settings.ServerAddress}:{Settings.ServerPort}: {ex}");
 
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_connectionFailedTitle".Translate(), text: "Phinix_error_connectionFailedMessage".Translate(Settings.ServerAddress, Settings.ServerPort)));
+                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                    title: "Phinix_error_connectionFailedTitle".Translate(),
+                    text: "Phinix_error_connectionFailedMessage".Translate(Settings.ServerAddress, Settings.ServerPort)));
             }
         }
 
@@ -377,22 +397,65 @@ namespace PhinixClient
             userManager.UpdateSelf(displayName);
         }
 
-        private static IEnumerable<string> GetExtensionProbeDirectories()
+        private static IEnumerable<string> GetExtensionProbeDirectories(string modRootDir = null)
         {
-            string clientAssemblyDirectory = Path.GetDirectoryName(typeof(Client).Assembly.Location);
+            // Assembly.Location 在 Prepatcher / AssemblyLoadContext 等环境下可能返回 ""
+            // 导致 Path.GetDirectoryName("") 抛出 ArgumentException。
+            // 设计哲学 §3.9：启动期文件定位优先用 RimWorld 框架提供的稳定入口。
+            string clientAssemblyDirectory = null;
+            try { clientAssemblyDirectory = Path.GetDirectoryName(typeof(Client).Assembly.Location); }
+            catch (ArgumentException) { }
+
             string appBaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
 
             if (!string.IsNullOrEmpty(clientAssemblyDirectory))
             {
+                // 正常路径：行为完全不变
                 yield return clientAssemblyDirectory;
                 yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Assemblies"));
                 yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions"));
+            }
+            else if (!string.IsNullOrEmpty(modRootDir))
+            {
+                // 降级路径：从 ModContentPack.RootDir 直接推导
+                yield return Path.Combine(modRootDir, "Common", "Assemblies");
+                yield return Path.Combine(modRootDir, "Common", "Extensions");
             }
 
             if (!string.IsNullOrEmpty(appBaseDirectory))
             {
                 yield return appBaseDirectory;
             }
+        }
+
+        /// <summary>
+        /// Resolves the RimWorld Mod packageId for a given assembly by checking
+        /// which installed mod's directory contains the assembly file.
+        /// </summary>
+        private static string ResolveModPackageId(Assembly assembly)
+        {
+            try
+            {
+                string assemblyPath = assembly.Location;
+                if (string.IsNullOrEmpty(assemblyPath)) return null;
+
+                foreach (ModMetaData mod in ModLister.AllInstalledMods)
+                {
+                    string rootDir = mod.RootDir?.FullName ?? mod.RootDir?.ToString();
+                    if (!string.IsNullOrEmpty(rootDir) &&
+                        assemblyPath.StartsWith(rootDir, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return mod.PackageId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Assembly.Location can throw in some contexts; log and return null
+                Verse.Log.Warning($"[Phinix] ResolveModPackageId failed for assembly '{assembly.FullName}': {ex.Message}");
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -435,7 +498,7 @@ namespace PhinixClient
         {
             if (Prefs.DevMode) Verse.Log.Message(string.Format("Authentication needs more credentials for the server \"{0}\" with authentication type \"{1}\"", serverName, authType.ToString()));
 
-            Find.WindowStack.Add(new CredentialsWindow
+            enqueueWindowOpen(mainThreadDispatcher, windowService, new CredentialsWindow
             {
                 SessionId = sessionId,
                 ServerName = serverName,
@@ -443,21 +506,6 @@ namespace PhinixClient
                 AuthType = authType,
                 CredentialsCallback = callback
             });
-        }
-
-        /// <summary>
-        /// Launches the given <see cref="Thing"/>s in drop pods to a trade spot at the home colony.
-        /// </summary>
-        /// <param name="things">Collection of <see cref="Thing"/>s to drop</param>
-        /// <returns>LookTarget for the drop location</returns>
-        private LookTargets dropPods(IEnumerable<Thing> things)
-        {
-            // Launch drop pods to a trade spot on a home tile
-            Map map = Settings.DropCurrentMap ? Find.CurrentMap : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
-            IntVec3 dropSpot = DropCellFinder.TradeDropSpot(map);
-            DropPodUtility.DropThingsNear(dropSpot, map, things, canRoofPunch: false);
-
-            return new LookTargets(dropSpot, map);
         }
 
         internal void EnqueueSound(SoundDef soundDef)
@@ -471,6 +519,16 @@ namespace PhinixClient
             {
                 soundQueue.Add(soundDef);
             }
+        }
+
+        private static void enqueueWindowOpen(IClientMainThreadDispatcher dispatcher, IClientWindowService windowService, Window window)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            dispatcher?.Enqueue(() => windowService?.Open(window));
         }
 
     }

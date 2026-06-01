@@ -99,8 +99,7 @@ namespace UserManagement
         /// </summary>
         /// <param name="displayName">Display name to log in with</param>
         /// <param name="useServerDisplayName">Use the server's copy of the user's display name if it has one</param>
-        /// <param name="acceptingTrades">Whether to accept trades from other users</param>
-        public void SendLogin(string displayName, bool useServerDisplayName = false, bool acceptingTrades = true)
+        public void SendLogin(string displayName, bool useServerDisplayName = false)
         {
             if (!authenticator.Authenticated) return;
 
@@ -109,8 +108,7 @@ namespace UserManagement
             {
                 SessionId = authenticator.SessionId,
                 DisplayName = displayName,
-                UseServerDisplayName = useServerDisplayName,
-                AcceptingTrades = acceptingTrades
+                UseServerDisplayName = useServerDisplayName
             };
             Any packedPacket = ProtobufPacketHelper.Pack(packet);
 

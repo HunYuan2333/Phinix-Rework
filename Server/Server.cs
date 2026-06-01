@@ -57,9 +57,10 @@ namespace PhinixServer
                 StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "server"))
             };
             extensionHostContext.AddService(UserManager);
+            extensionHostContext.AddService<IServerUserManager>(UserManager);
             FrameworkServerPacketDispatcher frameworkPacketDispatcher = new FrameworkServerPacketDispatcher();
             extensionHostContext.AddService<IFrameworkServerPacketDispatcher>(frameworkPacketDispatcher);
-            extensionHostContext.SetOption("builtin.chat.history-capacity", Config.ChatHistoryLength.ToString());
+            extensionHostContext.AddService<IExtensionConfigProvider>(Config);
             ExtensionAssemblyLoader.LoadAssemblies(
                 GetExtensionProbeDirectories(),
                 (message, level) => ILoggableHandler(typeof(Server), new LogEventArgs(message, level)));

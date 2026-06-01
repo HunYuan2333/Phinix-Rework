@@ -84,7 +84,7 @@ namespace Phinix.TradeExtension.Client
             }
 
             // Draw a placeholder if there are no trades
-            if (!filteredTrades.Any())
+            if (filteredTrades == null || filteredTrades.Count == 0)
             {
                 Widgets.DrawMenuSection(inRect);
                 Widgets.NoneLabelCenteredVertically(inRect, "Phinix_trade_noActiveTradesPlaceholder".Translate());
@@ -135,7 +135,7 @@ namespace Phinix.TradeExtension.Client
                 // Open button
                 if (Widgets.ButtonText(buttonAreaRect.LeftPartPixels(BUTTON_WIDTH), "Phinix_trade_activeTrade_openButton".Translate()))
                 {
-                    Find.WindowStack.Add(new TradeWindow(trade, hostContext));
+                    hostContext.OpenTradeWindow(trade);
                 }
 
                 // Cancel button
@@ -227,7 +227,7 @@ namespace Phinix.TradeExtension.Client
 
         private void onUserDisplayNameChangedHandler(object sender, UserDisplayNameChangedEventArgs args)
         {
-            lock (trades)
+            lock (tradesLock)
             {
                 // Update any trade rows with the updated user
                 int matchIndex = trades.FindIndex(0, t => t.OtherPartyUuid == args.Uuid);

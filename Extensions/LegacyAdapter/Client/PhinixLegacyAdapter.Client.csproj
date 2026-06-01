@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F1A2B3C4-D5E6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Phinix.LegacyAdapter.Client</RootNamespace>
+    <AssemblyName>LegacyAdapter.Client</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <Choose>
+    <When Condition="Exists('$(SolutionDir)\GameDlls\1.6')">
+      <PropertyGroup>
+        <RimWorldDepDir>$(SolutionDir)\GameDlls\1.6</RimWorldDepDir>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\GameDlls\1.6')">
+      <PropertyGroup>
+        <RimWorldDepDir>$(MSBuildThisFileDirectory)..\..\..\GameDlls\1.6</RimWorldDepDir>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <RimWorldDepDir>$(MSBuildThisFileDirectory)..\..\..\GameDlls</RimWorldDepDir>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldDepDir)\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="UnityEngine">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="BuiltInLegacyAdapterClientExtension.cs" />
+    <Compile Include="LegacyChatProtocolAdapter.cs" />
+    <Compile Include="LegacyTradeProtocolAdapter.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+
+    <!-- 旧版 Phinix protobuf 编译产物 —— Legacy 协议兼容 -->
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Chat\ChatMessagePacket.cs">
+      <Link>Proto\PhinixLegacy\Chat\ChatMessagePacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Chat\ChatHistoryPacket.cs">
+      <Link>Proto\PhinixLegacy\Chat\ChatHistoryPacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Chat\ChatMessageResponsePacket.cs">
+      <Link>Proto\PhinixLegacy\Chat\ChatMessageResponsePacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\CreateTradePacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\CreateTradePacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\CreateTradeResponsePacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\CreateTradeResponsePacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\CompleteTradePacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\CompleteTradePacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\UpdateTradeItemsPacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\UpdateTradeItemsPacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\UpdateTradeItemsResponsePacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\UpdateTradeItemsResponsePacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\UpdateTradeStatusPacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\UpdateTradeStatusPacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\SyncTradesPacket.cs">
+      <Link>Proto\PhinixLegacy\Trading\SyncTradesPacket.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\TradeProto.cs">
+      <Link>Proto\PhinixLegacy\Trading\TradeProto.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\Thing.cs">
+      <Link>Proto\PhinixLegacy\Trading\Thing.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\TradeFailureReason.cs">
+      <Link>Proto\PhinixLegacy\Trading\TradeFailureReason.cs</Link>
+    </Compile>
+    <Compile Include="..\Contracts\Proto\PhinixLegacy\Trading\Quality.cs">
+      <Link>Proto\PhinixLegacy\Trading\Quality.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
+      <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
+      <Name>ClientExtensionAbstractions</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Common\Connections\Connections.csproj">
+      <Project>{38CB6BED-E751-42FE-A847-C0DDD482AC62}</Project>
+      <Name>Connections</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj">
+      <Project>{B6FF1583-C75A-42C1-9B75-2B16215A0CF7}</Project>
+      <Name>Utils</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Trade\Contracts\TradeExtension.csproj">
+      <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
+      <Name>TradeExtension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj">
+      <Project>{D5BBFA59-DB31-40F8-A8BF-7333BE984316}</Project>
+      <Name>Google.Protobuf</Name>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="AfterBuild">
+    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\10-LegacyAdapter.Client.dll" />
+  </Target>
+</Project>

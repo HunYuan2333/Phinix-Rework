@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Phinix.TradeExtension;
 using UserManagement;
 using Utils;
 using Utils.Framework;
@@ -184,7 +185,7 @@ namespace PhinixClient.Trade
     }
 }
 
-namespace PhinixClient.Framework
+namespace Phinix.TradeExtension.Client
 {
     public interface ITradeItemPayloadEncoder
     {
@@ -248,7 +249,7 @@ namespace PhinixClient.Framework
         bool TryGetOtherPartyAccepted(string tradeId, string localUuid, out bool otherPartyAccepted);
         bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted);
         bool TryGetItemsOnOffer(string tradeId, string partyUuid, out IEnumerable<PhinixClient.Trade.TradeItemSnapshot> items);
-        void RequestSnapshot(IFrameworkClientTransport frameworkClient, bool authenticated, bool loggedIn, string sessionId, string senderUuid);
+        FrameworkPacket CreateSnapshotRequestPacket(string sessionId, string senderUuid);
         FrameworkPacket CreateTradeRequest(string otherPartyUuid, ClientFrameworkContext context);
         FrameworkPacket CreateOfferUpdateRequest(string tradeId, IEnumerable<PhinixClient.Trade.TradeItemSnapshot> tradeItems, ClientFrameworkContext context);
         FrameworkPacket CreateStatusUpdateRequest(string tradeId, bool? accepted, bool? cancelled, ClientFrameworkContext context);
@@ -259,6 +260,30 @@ namespace PhinixClient.Framework
         void HandleStatusUpdateResponse(FrameworkPacket packet);
         void HandleCompletedEvent(FrameworkPacket packet);
         void HandleCancelledEvent(FrameworkPacket packet);
+    }
+
+    public interface IFrameworkLegacyTradeRepositoryApi
+    {
+        /// <summary>
+        /// Legacy 适配器专用：将旧版服务器发来的 trade 快照注入 repository。
+        /// FrameworkV2 模式不应调用此方法 —— repository 由 HandleSnapshot 维护。
+        /// </summary>
+        void UpsertTrade(FrameworkTradeStateSnapshot snapshot);
+
+        /// <summary>
+        /// Legacy 适配器专用：从 repository 移除已完成的 trade。
+        /// FrameworkV2 模式不应调用此方法 —— repository 由 HandleCompletedEvent/HandleCancelledEvent 维护。
+        /// </summary>
+        void RemoveTrade(string tradeId);
+    }
+
+    public interface IFrameworkLegacyTradeCompletionApi
+    {
+        /// <summary>
+        /// Legacy 适配器专用：注入旧版服务器发来的交易完成/取消事件。
+        /// FrameworkV2 模式不应调用此方法 —— 完成事件由 HandleCompletedEvent/HandleCancelledEvent 维护。
+        /// </summary>
+        void CompleteTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<PhinixClient.Trade.TradeItemSnapshot> items);
     }
 
     public interface ITradeUiHostContext
@@ -272,6 +297,8 @@ namespace PhinixClient.Framework
         event EventHandler<UserDisplayNameChangedEventArgs> OnUserDisplayNameChanged;
 
         LookTargets DropPods(IEnumerable<Thing> verseThings);
+
+        void RunOnMainThread(Action action);
 
         void OpenTradeWindow(PhinixClient.Trade.ClientTradeSnapshot trade);
 

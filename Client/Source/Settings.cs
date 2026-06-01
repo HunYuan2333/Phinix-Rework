@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -34,84 +34,11 @@ namespace PhinixClient
             set => displayName = value;
         }
 
-        private bool originalAcceptingTrades;
-        private bool acceptingTrades;
-        public bool AcceptingTrades
-        {
-            get => acceptingTrades;
-            set => acceptingTrades = value;
-        }
-
-        private bool originalShowNameFormatting;
-        private bool showNameFormatting;
-        public bool ShowNameFormatting
-        {
-            get => showNameFormatting;
-            set => showNameFormatting = value;
-        }
-
-        private bool originalShowChatFormatting;
-        private bool showChatFormatting;
-        public bool ShowChatFormatting
-        {
-            get => showChatFormatting;
-            set => showChatFormatting = value;
-        }
-
-        private bool originalPlayNoiseOnMessageReceived;
-        private bool playNoiseOnMessageReceived;
+        [Obsolete("Use chat.playNoiseOnMessageReceived extension setting instead.")]
         public bool PlayNoiseOnMessageReceived
         {
-            get => playNoiseOnMessageReceived;
-            set => playNoiseOnMessageReceived = value;
-        }
-
-        private bool originalShowUnreadMessageCount;
-        private bool showUnreadMessageCount;
-        public bool ShowUnreadMessageCount
-        {
-            get => showUnreadMessageCount;
-            set => showUnreadMessageCount = value;
-        }
-
-        private bool originalShowBlockedUnreadMessageCount;
-        private bool showBlockedUnreadMessageCount;
-        public bool ShowBlockedUnreadMessageCount
-        {
-            get => showBlockedUnreadMessageCount;
-            set => showBlockedUnreadMessageCount = value;
-        }
-
-        private int originalChatMessageLimit;
-        private int chatMessageLimit;
-        public int ChatMessageLimit
-        {
-            get => chatMessageLimit;
-            set => chatMessageLimit = value;
-        }
-
-        private bool originalForceMessageFieldFocus;
-        private bool forceMessageFieldFocus;
-        public bool ForceMessageFieldFocus
-        {
-            get => forceMessageFieldFocus;
-            set => forceMessageFieldFocus = value;
-        }
-
-        private bool originalAllItemsTradable;
-        private bool allItemsTradable;
-        public bool AllItemsTradable
-        {
-            get => allItemsTradable;
-            set => allItemsTradable = value;
-        }
-
-        private bool originalShowBlockedTrades;
-        private bool showBlockedTrades;
-        public bool ShowBlockedTrades
-        {
-            get => showBlockedTrades;
-            set => showBlockedTrades = value;
+            get => GetExtensionSetting("chat.playNoiseOnMessageReceived", true);
+            set => SetExtensionSetting("chat.playNoiseOnMessageReceived", value);
         }
 
         private bool originalMigrated;
@@ -126,13 +53,9 @@ namespace PhinixClient
         private HashSet<string> blockedUsers;
         public HashSet<string> BlockedUsers => blockedUsers;
 
-        private bool originalDropCurrentMap;
-        private bool dropCurrentMap;
-        public bool DropCurrentMap
-        {
-            get => dropCurrentMap;
-            set => dropCurrentMap = value;
-        }
+        private Dictionary<string, object> originalExtensionSettings;
+        private Dictionary<string, object> extensionSettings;
+        public Dictionary<string, object> ExtensionSettings => extensionSettings;
 
         private bool originalCollapseBlockedUsers;
         private bool collapseBlockedUsers;
@@ -142,6 +65,18 @@ namespace PhinixClient
             set => collapseBlockedUsers = value;
         }
 
+        private bool legacyAcceptingTrades = true;
+        private bool legacyShowNameFormatting = true;
+        private bool legacyShowChatFormatting = true;
+        private bool legacyShowUnreadMessageCount = true;
+        private bool legacyShowBlockedUnreadMessageCount = false;
+        private int legacyChatMessageLimit = 40;
+        private bool legacyForceMessageFieldFocus = true;
+        private bool legacyPlayNoiseOnMessageReceived = true;
+        private bool legacyAllItemsTradable = false;
+        private bool legacyShowBlockedTrades = false;
+        private bool legacyDropCurrentMap = false;
+
         /// <inheritdoc/>
         public bool IsChanged
         {
@@ -150,19 +85,9 @@ namespace PhinixClient
                 return serverAddress != originalServerAddress ||
                        serverPort != originalServerPort ||
                        displayName != originalDisplayName ||
-                       acceptingTrades != originalAcceptingTrades ||
-                       showNameFormatting != originalShowNameFormatting ||
-                       showChatFormatting != originalShowChatFormatting ||
-                       playNoiseOnMessageReceived != originalPlayNoiseOnMessageReceived ||
-                       showUnreadMessageCount != originalShowUnreadMessageCount ||
-                       showBlockedUnreadMessageCount != originalShowBlockedUnreadMessageCount ||
-                       chatMessageLimit != originalChatMessageLimit ||
-                       forceMessageFieldFocus != originalForceMessageFieldFocus ||
-                       allItemsTradable != originalAllItemsTradable ||
-                       showBlockedTrades != originalShowBlockedTrades ||
-                       !blockedUsers.SequenceEqual(originalBlockedUsers) ||
                        migrated != originalMigrated ||
-                       dropCurrentMap != originalDropCurrentMap ||
+                       !blockedUsers.SequenceEqual(originalBlockedUsers) ||
+                       !extensionSettingsEqual() ||
                        collapseBlockedUsers != originalCollapseBlockedUsers;
             }
         }
@@ -177,22 +102,13 @@ namespace PhinixClient
             serverAddress = "phinix.chat";
             serverPort = 16200;
             displayName = SteamUtility.SteamPersonaName;
-            acceptingTrades = true;
-            showNameFormatting = true;
-            showChatFormatting = true;
-            playNoiseOnMessageReceived = true;
-            showUnreadMessageCount = true;
-            showBlockedUnreadMessageCount = false;
-            chatMessageLimit = 40;
-            forceMessageFieldFocus = true;
-            allItemsTradable = false;
-            showBlockedTrades = false;
             migrated = false;
-            dropCurrentMap = false;
             collapseBlockedUsers = true;
+            extensionSettings = new Dictionary<string, object>();
 
             originalBlockedUsers = new HashSet<string>();
             blockedUsers = new HashSet<string>();
+            originalExtensionSettings = new Dictionary<string, object>();
 
             SetOriginalValues();
         }
@@ -201,28 +117,102 @@ namespace PhinixClient
 
         #region Methods
 
+        /// <summary>
+        /// Gets an extension setting value by key.
+        /// </summary>
+        public T GetExtensionSetting<T>(string key, T defaultValue = default)
+        {
+            if (extensionSettings != null && extensionSettings.TryGetValue(key, out object value))
+            {
+                if (value is T typedValue)
+                {
+                    return typedValue;
+                }
+
+                try
+                {
+                    return (T)Convert.ChangeType(value, typeof(T));
+                }
+                catch
+                {
+                    return defaultValue;
+                }
+            }
+
+            return defaultValue;
+        }
+
+        /// <summary>
+        /// Sets an extension setting value by key.
+        /// </summary>
+        public void SetExtensionSetting<T>(string key, T value)
+        {
+            if (extensionSettings == null)
+            {
+                extensionSettings = new Dictionary<string, object>();
+            }
+
+            extensionSettings[key] = value;
+        }
+
         public override void ExposeData()
         {
             Scribe_Values.Look(ref serverAddress, "serverAddress", "phinix.chat");
             Scribe_Values.Look(ref serverPort, "serverPort", 16200);
             Scribe_Values.Look(ref displayName, "displayName", SteamUtility.SteamPersonaName);
-            Scribe_Values.Look(ref acceptingTrades, "acceptingTrades", true);
-            Scribe_Values.Look(ref showNameFormatting, "showNameFormatting", true);
-            Scribe_Values.Look(ref showChatFormatting, "showChatFormatting", true);
-            Scribe_Values.Look(ref playNoiseOnMessageReceived, "playNoiseOnMessageReceived", true);
-            Scribe_Values.Look(ref showUnreadMessageCount, "showUnreadMessageCount", true);
-            Scribe_Values.Look(ref showBlockedUnreadMessageCount, "showBlockedUnreadMessageCount", false);
-            Scribe_Values.Look(ref chatMessageLimit, "chatMessageLimit", 40);
-            Scribe_Values.Look(ref forceMessageFieldFocus, "forceMessageFieldFocus", true);
-            Scribe_Values.Look(ref allItemsTradable, "allItemsTradable", false);
-            Scribe_Values.Look(ref showBlockedTrades, "showBlockedTrades", false);
             Scribe_Values.Look(ref migrated, "migrated", false);
             Scribe_Collections.Look(ref blockedUsers, "blockedUsers", LookMode.Value);
-            Scribe_Values.Look(ref dropCurrentMap, "dropCurrentMap", false);
             Scribe_Values.Look(ref collapseBlockedUsers, "collapseBlockedUsers", true);
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                Scribe_Values.Look(ref legacyAcceptingTrades, "acceptingTrades", true);
+                Scribe_Values.Look(ref legacyShowNameFormatting, "showNameFormatting", true);
+                Scribe_Values.Look(ref legacyShowChatFormatting, "showChatFormatting", true);
+                Scribe_Values.Look(ref legacyShowUnreadMessageCount, "showUnreadMessageCount", true);
+                Scribe_Values.Look(ref legacyShowBlockedUnreadMessageCount, "showBlockedUnreadMessageCount", false);
+                Scribe_Values.Look(ref legacyChatMessageLimit, "chatMessageLimit", 40);
+                Scribe_Values.Look(ref legacyForceMessageFieldFocus, "forceMessageFieldFocus", true);
+                Scribe_Values.Look(ref legacyPlayNoiseOnMessageReceived, "playNoiseOnMessageReceived", true);
+                Scribe_Values.Look(ref legacyAllItemsTradable, "allItemsTradable", false);
+                Scribe_Values.Look(ref legacyShowBlockedTrades, "showBlockedTrades", false);
+                Scribe_Values.Look(ref legacyDropCurrentMap, "dropCurrentMap", false);
+            }
+
+            // Serialize extension settings
+            List<string> extensionKeys = new List<string>();
+            List<string> extensionValues = new List<string>();
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                if (extensionSettings != null)
+                {
+                    foreach (var kvp in extensionSettings)
+                    {
+                        extensionKeys.Add(kvp.Key);
+                        extensionValues.Add(kvp.Value?.ToString() ?? "");
+                    }
+                }
+            }
+            Scribe_Collections.Look(ref extensionKeys, "extensionSettingsKeys", LookMode.Value);
+            Scribe_Collections.Look(ref extensionValues, "extensionSettingsValues", LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                extensionSettings = new Dictionary<string, object>();
+                if (extensionKeys != null && extensionValues != null)
+                {
+                    int count = Math.Min(extensionKeys.Count, extensionValues.Count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        extensionSettings[extensionKeys[i]] = extensionValues[i];
+                    }
+                }
+
+            }
 
             // Prevent scribe from interpreting a missing value as null
             if (blockedUsers is null) blockedUsers = new HashSet<string>();
+            if (extensionSettings is null) extensionSettings = new Dictionary<string, object>();
         }
 
         /// <inheritdoc/>
@@ -233,37 +223,81 @@ namespace PhinixClient
         }
 
         /// <summary>
-        /// Attempts to load settings saved in the HugsLib format and applies them to the current instance. Changes are saved immediately.
+        /// Attempts to load legacy settings and lets extensions migrate their own keys.
         /// </summary>
-        public void MigrateFromHugsLib()
+        public void MigrateLegacySettings(PhinixClient.Framework.IClientSettingsContext settingsContext, IEnumerable<PhinixClient.Framework.IClientLegacySettingsMigrator> migrators)
         {
+            if (migrated)
+            {
+                return;
+            }
+
+            Dictionary<string, string> legacyValues = BuildLegacySettingValues();
             LegacySettings legacySettings = LegacySettings.FromHugsLibSettings(System.IO.Path.Combine(GenFilePaths.SaveDataFolderPath, "HugsLib", "ModSettings.xml"));
             if (legacySettings != null)
             {
                 ServerAddress = legacySettings.ServerAddress ?? ServerAddress;
                 ServerPort = legacySettings.ServerPort ?? ServerPort;
                 DisplayName = legacySettings.DisplayName ?? DisplayName;
-                AcceptingTrades = legacySettings.AcceptingTrades ?? AcceptingTrades;
-                ShowNameFormatting = legacySettings.ShowNameFormatting ?? ShowNameFormatting;
-                ShowChatFormatting = legacySettings.ShowChatFormatting ?? ShowChatFormatting;
-                PlayNoiseOnMessageReceived = legacySettings.PlayNoiseOnMessageReceived ?? PlayNoiseOnMessageReceived;
-                ShowUnreadMessageCount = legacySettings.ShowUnreadMessageCount ?? ShowUnreadMessageCount;
-                ShowBlockedUnreadMessageCount = legacySettings.ShowBlockedUnreadMessageCount ?? ShowBlockedUnreadMessageCount;
-                ChatMessageLimit = legacySettings.ChatMessageLimit ?? ChatMessageLimit;
-                ForceMessageFieldFocus = legacySettings.ForceMessageFieldFocus ?? ForceMessageFieldFocus;
-                AllItemsTradable = legacySettings.AllItemsTradable ?? AllItemsTradable;
-                ShowBlockedTrades = legacySettings.ShowBlockedTrades ?? ShowBlockedTrades;
+                mergeLegacyValues(legacyValues, legacySettings);
 
                 BlockedUsers.Clear();
                 BlockedUsers.AddRange(legacySettings.BlockedUsers);
             }
 
-            Migrated = true;
+            foreach (var migrator in migrators ?? Array.Empty<PhinixClient.Framework.IClientLegacySettingsMigrator>())
+            {
+                migrator.TryMigrateLegacySettings(settingsContext, legacyValues);
+            }
 
-            Write();
+            Migrated = true;
             AcceptChanges();
 
-            Log.Message("Migrated settings from HugsLib.");
+            Log.Message("Migrated legacy client settings.");
+        }
+
+        private Dictionary<string, string> BuildLegacySettingValues()
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["acceptingTrades"] = legacyAcceptingTrades.ToString(),
+                ["showNameFormatting"] = legacyShowNameFormatting.ToString(),
+                ["showChatFormatting"] = legacyShowChatFormatting.ToString(),
+                ["showUnreadMessageCount"] = legacyShowUnreadMessageCount.ToString(),
+                ["showBlockedUnreadMessageCount"] = legacyShowBlockedUnreadMessageCount.ToString(),
+                ["chatMessageLimit"] = legacyChatMessageLimit.ToString(),
+                ["forceMessageFieldFocus"] = legacyForceMessageFieldFocus.ToString(),
+                ["playNoiseOnMessageReceived"] = legacyPlayNoiseOnMessageReceived.ToString(),
+                ["allItemsTradable"] = legacyAllItemsTradable.ToString(),
+                ["showBlockedTrades"] = legacyShowBlockedTrades.ToString(),
+                ["dropCurrentMap"] = legacyDropCurrentMap.ToString()
+            };
+        }
+
+        private static void mergeLegacyValues(Dictionary<string, string> legacyValues, LegacySettings legacySettings)
+        {
+            if (legacySettings.PlayNoiseOnMessageReceived.HasValue)
+                legacyValues["playNoiseOnMessageReceived"] = legacySettings.PlayNoiseOnMessageReceived.Value.ToString();
+            if (legacySettings.AcceptingTrades.HasValue)
+                legacyValues["acceptingTrades"] = legacySettings.AcceptingTrades.Value.ToString();
+            if (legacySettings.ShowNameFormatting.HasValue)
+                legacyValues["showNameFormatting"] = legacySettings.ShowNameFormatting.Value.ToString();
+            if (legacySettings.ShowChatFormatting.HasValue)
+                legacyValues["showChatFormatting"] = legacySettings.ShowChatFormatting.Value.ToString();
+            if (legacySettings.ShowUnreadMessageCount.HasValue)
+                legacyValues["showUnreadMessageCount"] = legacySettings.ShowUnreadMessageCount.Value.ToString();
+            if (legacySettings.ShowBlockedUnreadMessageCount.HasValue)
+                legacyValues["showBlockedUnreadMessageCount"] = legacySettings.ShowBlockedUnreadMessageCount.Value.ToString();
+            if (legacySettings.ChatMessageLimit.HasValue)
+                legacyValues["chatMessageLimit"] = legacySettings.ChatMessageLimit.Value.ToString();
+            if (legacySettings.ForceMessageFieldFocus.HasValue)
+                legacyValues["forceMessageFieldFocus"] = legacySettings.ForceMessageFieldFocus.Value.ToString();
+            if (legacySettings.AllItemsTradable.HasValue)
+                legacyValues["allItemsTradable"] = legacySettings.AllItemsTradable.Value.ToString();
+            if (legacySettings.ShowBlockedTrades.HasValue)
+                legacyValues["showBlockedTrades"] = legacySettings.ShowBlockedTrades.Value.ToString();
+            if (legacySettings.DropCurrentMap.HasValue)
+                legacyValues["dropCurrentMap"] = legacySettings.DropCurrentMap.Value.ToString();
         }
 
         /// <summary>
@@ -274,22 +308,35 @@ namespace PhinixClient
             originalServerAddress = serverAddress;
             originalServerPort = serverPort;
             originalDisplayName = displayName;
-            originalAcceptingTrades = acceptingTrades;
-            originalShowNameFormatting = showNameFormatting;
-            originalShowChatFormatting = showChatFormatting;
-            originalPlayNoiseOnMessageReceived = playNoiseOnMessageReceived;
-            originalShowUnreadMessageCount = showUnreadMessageCount;
-            originalShowBlockedUnreadMessageCount = showBlockedUnreadMessageCount;
-            originalChatMessageLimit = chatMessageLimit;
-            originalForceMessageFieldFocus = forceMessageFieldFocus;
-            originalAllItemsTradable = allItemsTradable;
-            originalShowBlockedTrades = showBlockedTrades;
             originalMigrated = migrated;
-            originalDropCurrentMap = dropCurrentMap;
             originalCollapseBlockedUsers = collapseBlockedUsers;
 
             originalBlockedUsers.Clear();
             originalBlockedUsers.AddRange(blockedUsers);
+
+            originalExtensionSettings.Clear();
+            if (extensionSettings != null)
+            {
+                foreach (var kvp in extensionSettings)
+                {
+                    originalExtensionSettings[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+
+        private bool extensionSettingsEqual()
+        {
+            if (extensionSettings is null && originalExtensionSettings is null) return true;
+            if (extensionSettings is null || originalExtensionSettings is null) return false;
+            if (extensionSettings.Count != originalExtensionSettings.Count) return false;
+
+            foreach (var kvp in extensionSettings)
+            {
+                if (!originalExtensionSettings.TryGetValue(kvp.Key, out object otherValue)) return false;
+                if (!object.Equals(kvp.Value, otherValue)) return false;
+            }
+
+            return true;
         }
 
         #endregion

@@ -10,7 +10,19 @@ namespace Phinix.TradeExtension.Client
     {
         public List<Thing> Things;
 
-        public int Count => Things.Sum(thing => thing.stackCount);
+        public int Count
+        {
+            get
+            {
+                int totalCount = 0;
+                for (int i = 0; i < Things.Count; i++)
+                {
+                    totalCount += Things[i].stackCount;
+                }
+
+                return totalCount;
+            }
+        }
 
         public string Label => Things.First().LabelCapNoCount;
         public ThingDef ThingDef => Things.First()?.def;
