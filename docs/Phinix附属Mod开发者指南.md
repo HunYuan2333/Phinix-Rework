@@ -93,6 +93,11 @@ Chat 和 Trade **不是**特权模块。它们和你写的 Submod 走完全相�
 |--------|----------|----------|
 | `Utils` | `IPhinixExtensionModule`、`IExtensionBuilder`、`FrameworkPacket`、`FrameworkTypes` 等核心类型 | [Common/Utils/Utils.csproj](Common/Utils/Utils.csproj) |
 | `ClientExtensionAbstractions` | `IMainTabProvider`、`IServerSidebarProvider`、`IBadgeProvider`、`IClientSettingsContext` 等宿主服务接口 | [Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj](Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj) |
+
+常见额外依赖（如果 Submod 需要操作用户数据）：
+
+| 程序集 | 提供内容 | 工程路径 |
+|--------|----------|----------|
 | `UserManagement` | `ImmutableUser` 等用户类型 | [Common/UserManagement/UserManagement.csproj](Common/UserManagement/UserManagement.csproj) |
 
 此外还需要 RimWorld 标准引用：`Assembly-CSharp`、`UnityEngine`、`UnityEngine.CoreModule`、`UnityEngine.IMGUIModule` 等。
@@ -116,18 +121,18 @@ Chat 和 Trade **不是**特权模块。它们和你写的 Submod 走完全相�
 
 ### 2.4 物理部署：DLL 放在哪
 
-宿主启动时会调用 `ExtensionAssemblyLoader.LoadAssemblies()` 扫描指定目录下的 `.dll` 文件。当前标准部署位置是：
+宿主启动时调用 `ExtensionAssemblyLoader.LoadAssemblies()` 扫描以下目录下的 `.dll` 文件（详见 [Client.cs:400-429](Client/Source/Client.cs#L400-L429) 的 `GetExtensionProbeDirectories` 方法）：
 
 ```
 YourMod/
   Common/
-    Extensions/
-      12-YourSubmod.dll        ← 你的 DLL，带数字前缀
+    Assemblies/           ← 框架基础 DLL（01-07）+ 当前官方插件 DLL（08-11）
+    Extensions/           ← 专用插件目录（当前也扫描，目标态将独立）
 ```
 
-数字前缀（如 `12-`）不是摆设——它决定 RimWorld 的 `ModAssemblyHandler` 加载顺序，必须保证依赖项先于被依赖项加载（详见 [§12.7](#127-加载顺序号解析)）。
+数字前缀（如 `08-`）不能省略——RimWorld 的 `ModAssemblyHandler` 按文件名字符串序加载 DLL，必须保证依赖项先于被依赖项加载（详见 [§12.7](#127-加载顺序号解析)）。ExtensionAssemblyLoader 代码位置：[Common/Utils/Framework/ExtensionAssemblyLoader.cs](Common/Utils/Framework/ExtensionAssemblyLoader.cs)。
 
-ExtensionAssemblyLoader 代码位置：[Common/Utils/Framework/ExtensionAssemblyLoader.cs](Common/Utils/Framework/ExtensionAssemblyLoader.cs)
+未来目标态（[设计哲学 §5.2](设计哲学.md#52-发布边界目标态)）会将插件 DLL 移至 `Extensions/` 并从 `Assemblies/` 中分离。
 
 ---
 
@@ -146,7 +151,7 @@ public interface IPhinixExtensionModule : IPhinixExtension
 ```
 
 - `ExtensionId`：全局唯一标识符。推荐格式 `author.modname`（如 `"myname.myfeature"`）。
-- `Register()`：在扩展被发现后调用，**仅用于注册**——注册 handler、API、capability 等。不要在这里做任何需要 host 服务的初始化。
+- `Register()`：在扩展被发现后调用。核心职责是注册 handler、API、capability 等。关于是否可以在此阶段获取 host 服务，参见 [§8 开头的说明](#8-host-提供的通用服务)。
 
 ### 3.2 可选接口：`IActivatablePhinixExtensionModule`
 
@@ -222,8 +227,10 @@ builder.AddClientMessageHandler(this);           // IClientMessageHandler
 
 // Command 管线
 builder.AddClientCommandHandler(this);           // IClientCommandHandler (入站)
-// 出站 command handler 在实现 IClientOutgoingCommandHandler 后直接注册
-// builder.AddClientCommandHandler(this) 即可——框架也会按 IClientOutgoingCommandHandler 接口提取
+// 如果你的类同时实现了 IClientCommandHandler 和 IClientOutgoingCommandHandler，
+// AddClientCommandHandler(this) 一次注册即可——框架运行时会按 IClientOutgoingCommandHandler 筛选出站 handler。
+// 如果只实现 IClientOutgoingCommandHandler（不入站），则需要单独在 builder 注册——
+// 当前 AddClientCommandHandler 的参数类型为 IClientCommandHandler。
 
 // 其他管线角色
 builder.AddMessageInterceptor(this);             // IMessageInterceptor
@@ -511,7 +518,7 @@ public interface IMainTabProvider
 builder.RegisterApi<IMainTabProvider>(this);
 ```
 
-`TabOrder` 参考值：Chat 使用约 100，Trade 约 200。你的 Submod 可以选合适的值插在中间或排在后面。
+`TabOrder` 参考值：Chat 使用 `0`（[ChatMainTabProvider.cs:22](Extensions/Chat/Client/ChatMainTabProvider.cs#L22)），Trade 使用 `1`（[TradeMainTabProvider.cs:15](Extensions/Trade/Client/TradeMainTabProvider.cs#L15)）。你的 Submod 可以选一个值排在你希望的位置（如 `0.5` 插在两者之间，或 `2` 排在 Trade 之后）。
 
 ### 7.2 添加侧栏
 
@@ -595,7 +602,9 @@ public interface IDisplayMessageSink
 
 ## 8. Host 提供的通用服务
 
-以下服务在 `Activate(ExtensionHostContext hostContext)` 中通过 `hostContext.GetRequiredService<T>()` 获取。**不要在 `Register()` 中获取它们**——`Register` 阶段 host 服务可能尚未完全就绪。
+以下服务在 `Activate(ExtensionHostContext hostContext)` 中通过 `hostContext.GetRequiredService<T>()` 获取。
+
+> **关于 Register 阶段使用服务的说明**：当前 host（Client.cs）在构建 `ExtensionHostContext` 时将全部服务注入完成后才调用 `DisoverExtensions` → `Register`，因此 `Register()` 阶段服务实际上已就绪。**当前官方扩展（Chat/Trade）在 `Register()` 中大量使用 `builder.HostContext.GetRequiredService<T>()`。** 推荐做法仍是把需要 host 服务的初始化移到 `Activate()` 中——仅注册 handler/API 留在 `Register()`。后续版本将约束此边界。
 
 ### 8.1 IClientSessionContext
 
@@ -796,7 +805,7 @@ hostContext.GetStoragePath("my.extension.id", "settings.json");
 hostContext.Log?.Invoke("Something happened", LogLevel.INFO);
 ```
 
-日志级别约定参考 [设计哲学 §3.8](设计哲学.md)。
+> **当前约定**：官方扩展（Chat/Trade）使用 `hostContext.Log`（`Action<string, LogLevel>`）上报日志。`ILoggable` 接口目前是 host 内部组件（`NetClient`、`PhinixFrameworkClient` 等）使用的日志产生端契约，尚未对插件直接暴露。后续将迁移到扩展级别的 `ILoggable` 支持。
 
 ---
 
@@ -1156,7 +1165,7 @@ Phinix-Rework/
   <Target Name="AfterBuild">
     <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll"
-          DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\12-$(AssemblyName).dll" />
+          DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\12-$(AssemblyName).dll" />
   </Target>
 </Project>
 ```
