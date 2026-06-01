@@ -25,14 +25,33 @@ namespace PhinixClient.Framework
         {
             if (client.Settings == null) return;
 
+            object rawValue = null;
+            bool hasExistingValue = client.Settings.ExtensionSettings != null &&
+                                    client.Settings.ExtensionSettings.TryGetValue(key, out rawValue);
+            if (hasExistingValue)
+            {
+                T currentValue;
+                if (rawValue is T typedValue)
+                {
+                    currentValue = typedValue;
+                }
+                else
+                {
+                    currentValue = client.Settings.GetExtensionSetting<T>(key);
+                }
+
+                if (EqualityComparer<T>.Default.Equals(currentValue, value))
+                {
+                    return;
+                }
+            }
+
             client.Settings.SetExtensionSetting(key, value);
             client.Settings.AcceptChanges();
             OnSettingChanged?.Invoke(key, value);
         }
 
         public IEnumerable<string> BlockedUsers => client.Settings?.BlockedUsers ?? Enumerable.Empty<string>();
-
-        public bool PlayNoiseOnMessageReceived => client.Settings?.PlayNoiseOnMessageReceived ?? false;
 
         public bool CollapseBlockedUsers
         {

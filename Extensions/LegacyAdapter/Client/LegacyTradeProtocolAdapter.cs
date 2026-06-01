@@ -17,7 +17,7 @@ namespace Phinix.LegacyAdapter.Client
     /// 并将原版入站 Trading 包转译为 FrameworkTradeStateSnapshot 写入 repo。
     ///
     /// 设计哲学 §3.3：插件间交互通过 API registry 解析接口，框架不充当中介。
-    /// Adapter 通过 IFrameworkTradeClientApi.UpsertTrade/RemoveTrade 写 repository，
+    /// Adapter 通过 legacy trade repository/completion API 写 repository，
     /// Trade UI 自动通过 RepositoryChanged 事件感知变化。
     ///
     /// 设计哲学 §3.7：实现 IClientOutgoingCommandHandler 接入出站命令管线，
@@ -31,6 +31,7 @@ namespace Phinix.LegacyAdapter.Client
         private readonly IDisplayMessageSink displaySink;
         private readonly IClientSessionContext sessionContext;
         private readonly IFrameworkTradeClientApi tradeApi;
+        private readonly IFrameworkLegacyTradeRepositoryApi legacyRepositoryApi;
         private readonly IFrameworkLegacyTradeCompletionApi legacyCompletionApi;
         private readonly IFrameworkClientLifecycle lifecycle;
         private readonly System.Action<string, Utils.LogLevel> log;
@@ -42,6 +43,8 @@ namespace Phinix.LegacyAdapter.Client
             IDisplayMessageSink displaySink,
             IClientSessionContext sessionContext,
             IFrameworkTradeClientApi tradeApi,
+            IFrameworkLegacyTradeRepositoryApi legacyRepositoryApi,
+            IFrameworkLegacyTradeCompletionApi legacyCompletionApi,
             IFrameworkClientLifecycle lifecycle,
             System.Action<string, Utils.LogLevel> log)
         {
@@ -49,7 +52,8 @@ namespace Phinix.LegacyAdapter.Client
             this.displaySink = displaySink;
             this.sessionContext = sessionContext;
             this.tradeApi = tradeApi;
-            legacyCompletionApi = tradeApi as IFrameworkLegacyTradeCompletionApi;
+            this.legacyRepositoryApi = legacyRepositoryApi;
+            this.legacyCompletionApi = legacyCompletionApi;
             this.lifecycle = lifecycle;
             this.log = log;
         }
@@ -310,7 +314,7 @@ namespace Phinix.LegacyAdapter.Client
                     }
                 };
 
-                tradeApi?.UpsertTrade(snapshot);
+                legacyRepositoryApi?.UpsertTrade(snapshot);
 
                 log?.Invoke($"[LegacyAdapter] Trade created: {packet.TradeId} with {packet.OtherPartyUuid}", LogLevel.DEBUG);
                 displaySink.Enqueue(new FrameworkDisplayMessage
@@ -381,7 +385,7 @@ namespace Phinix.LegacyAdapter.Client
                 tradeApi.TrackPendingTradeUpdate(tradeId, token);
 
             local.ItemsOnOffer = CloneFrameworkItems(items);
-            tradeApi.UpsertTrade(target);
+            legacyRepositoryApi?.UpsertTrade(target);
             log?.Invoke(
                 $"[LegacyAdapter] ApplyLocalOfferSnapshot: local offer updated for {tradeId}, items={local.ItemsOnOffer.Count}",
                 LogLevel.DEBUG);
@@ -483,7 +487,7 @@ namespace Phinix.LegacyAdapter.Client
                 tradeApi.TrackPendingTradeUpdate(packet.TradeId, packet.Token);
             }
 
-            tradeApi.UpsertTrade(target);
+            legacyRepositoryApi?.UpsertTrade(target);
             log?.Invoke($"[LegacyAdapter] Trade items updated: {packet.TradeId}", LogLevel.DEBUG);
         }
 
@@ -588,11 +592,11 @@ namespace Phinix.LegacyAdapter.Client
             // 如果 trade 已被取消，从 repo 移除
             if (packet.Cancelled)
             {
-                tradeApi.RemoveTrade(packet.TradeId);
+                legacyRepositoryApi?.RemoveTrade(packet.TradeId);
             }
             else
             {
-                tradeApi.UpsertTrade(target);
+                legacyRepositoryApi?.UpsertTrade(target);
             }
 
             log?.Invoke($"[LegacyAdapter] Trade status updated: {packet.TradeId} accepted={packet.Accepted} cancelled={packet.Cancelled}", LogLevel.DEBUG);
@@ -607,7 +611,7 @@ namespace Phinix.LegacyAdapter.Client
                 if (string.IsNullOrEmpty(legacyTrade.TradeId)) continue;
 
                 var snapshot = ConvertTradeProto(legacyTrade);
-                tradeApi.UpsertTrade(snapshot);
+                legacyRepositoryApi?.UpsertTrade(snapshot);
             }
 
             log?.Invoke($"[LegacyAdapter] Synced {packet.Trades.Count} active trade(s)", LogLevel.DEBUG);

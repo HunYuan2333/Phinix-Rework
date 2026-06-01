@@ -135,7 +135,7 @@ namespace Phinix.TradeExtension.Client
                 // Open button
                 if (Widgets.ButtonText(buttonAreaRect.LeftPartPixels(BUTTON_WIDTH), "Phinix_trade_activeTrade_openButton".Translate()))
                 {
-                    Find.WindowStack.Add(new TradeWindow(trade, hostContext));
+                    hostContext.OpenTradeWindow(trade);
                 }
 
                 // Cancel button

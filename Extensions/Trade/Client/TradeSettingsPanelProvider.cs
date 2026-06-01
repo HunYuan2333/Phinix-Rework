@@ -9,7 +9,7 @@ namespace Phinix.TradeExtension.Client
     /// 通过 IClientSettingsPanelProvider 注册，host 只负责收集和绘制。
     /// 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
     /// </summary>
-    internal sealed class TradeSettingsPanelProvider : IClientSettingsPanelProvider
+    internal sealed class TradeSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
         public string SectionId => "trade.general";
 
@@ -34,6 +34,31 @@ namespace Phinix.TradeExtension.Client
             bool dropCurrentMap = settings.Get("trade.dropCurrentMap", false);
             listing.CheckboxLabeled("Phinix_modSettings_dropCurrentMap".Translate(), ref dropCurrentMap);
             settings.Set("trade.dropCurrentMap", dropCurrentMap);
+        }
+
+        public bool TryMigrateLegacySettings(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues)
+        {
+            if (settings == null || legacyValues == null)
+            {
+                return false;
+            }
+
+            migrateBool(settings, legacyValues, "acceptingTrades", "trade.acceptingTrades", true);
+            migrateBool(settings, legacyValues, "allItemsTradable", "trade.allItemsTradable", false);
+            migrateBool(settings, legacyValues, "showBlockedTrades", "trade.showBlockedTrades", false);
+            migrateBool(settings, legacyValues, "dropCurrentMap", "trade.dropCurrentMap", false);
+            return true;
+        }
+
+        private static void migrateBool(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues, string legacyKey, string targetKey, bool defaultValue)
+        {
+            if (legacyValues.TryGetValue(legacyKey, out string rawValue) && bool.TryParse(rawValue, out bool parsedValue))
+            {
+                settings.Set(targetKey, parsedValue);
+                return;
+            }
+
+            settings.Set(targetKey, defaultValue);
         }
     }
 }

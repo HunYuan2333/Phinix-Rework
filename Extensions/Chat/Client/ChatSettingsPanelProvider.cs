@@ -9,7 +9,7 @@ namespace Phinix.ChatExtension.Client
     /// 通过 IClientSettingsPanelProvider 注册，host 只负责收集和绘制。
     /// 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
     /// </summary>
-    internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider
+    internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
         public string SectionId => "chat.display";
 
@@ -19,6 +19,10 @@ namespace Phinix.ChatExtension.Client
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         {
+            bool playNoiseOnMessageReceived = settings.Get("chat.playNoiseOnMessageReceived", true);
+            listing.CheckboxLabeled("Phinix_modSettings_playNoiseOnMessageReceived".Translate(), ref playNoiseOnMessageReceived);
+            settings.Set("chat.playNoiseOnMessageReceived", playNoiseOnMessageReceived);
+
             bool showNameFormatting = settings.Get("chat.showNameFormatting", true);
             listing.CheckboxLabeled("Phinix_modSettings_showNameFormatting".Translate(), ref showNameFormatting);
             settings.Set("chat.showNameFormatting", showNameFormatting);
@@ -44,6 +48,45 @@ namespace Phinix.ChatExtension.Client
             bool forceMessageFieldFocus = settings.Get("chat.forceMessageFieldFocus", true);
             listing.CheckboxLabeled("Phinix_modSettings_forceMessageFieldFocus".Translate(), ref forceMessageFieldFocus);
             settings.Set("chat.forceMessageFieldFocus", forceMessageFieldFocus);
+        }
+
+        public bool TryMigrateLegacySettings(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues)
+        {
+            if (settings == null || legacyValues == null)
+            {
+                return false;
+            }
+
+            migrateBool(settings, legacyValues, "showNameFormatting", "chat.showNameFormatting", true);
+            migrateBool(settings, legacyValues, "showChatFormatting", "chat.showChatFormatting", true);
+            migrateBool(settings, legacyValues, "showUnreadMessageCount", "chat.showUnreadMessageCount", true);
+            migrateBool(settings, legacyValues, "showBlockedUnreadMessageCount", "chat.showBlockedUnreadMessageCount", false);
+            migrateBool(settings, legacyValues, "forceMessageFieldFocus", "chat.forceMessageFieldFocus", true);
+            migrateBool(settings, legacyValues, "playNoiseOnMessageReceived", "chat.playNoiseOnMessageReceived", true);
+            migrateInt(settings, legacyValues, "chatMessageLimit", "chat.messageLimit", 40);
+            return true;
+        }
+
+        private static void migrateBool(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues, string legacyKey, string targetKey, bool defaultValue)
+        {
+            if (legacyValues.TryGetValue(legacyKey, out string rawValue) && bool.TryParse(rawValue, out bool parsedValue))
+            {
+                settings.Set(targetKey, parsedValue);
+                return;
+            }
+
+            settings.Set(targetKey, defaultValue);
+        }
+
+        private static void migrateInt(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues, string legacyKey, string targetKey, int defaultValue)
+        {
+            if (legacyValues.TryGetValue(legacyKey, out string rawValue) && int.TryParse(rawValue, out int parsedValue))
+            {
+                settings.Set(targetKey, parsedValue);
+                return;
+            }
+
+            settings.Set(targetKey, defaultValue);
         }
     }
 }

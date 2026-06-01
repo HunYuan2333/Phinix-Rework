@@ -9,6 +9,7 @@ namespace PhinixClient
 {
     class SettingsWindow : Window
     {
+        private static readonly Regex serverPortRegex = new Regex("(^[0-9]{0,5}$)", RegexOptions.Compiled);
         private const float DEFAULT_SPACING = 10f;
 
         private const float ROW_HEIGHT = 30f;
@@ -206,7 +207,7 @@ namespace PhinixClient
                     new TextFieldWidget(
                         initialText: serverPortString,
                         onChange: newPortString => serverPortString = newPortString,
-                        validator: new Regex("(^[0-9]{0,5}$)")
+                        validator: serverPortRegex
                     ),
                     width: SERVER_PORT_BOX_WIDTH
                 )
@@ -219,15 +220,18 @@ namespace PhinixClient
                         label: "Phinix_settings_connectButton".Translate(),
                         clickAction: () =>
                         {
+                            int port = int.Parse(serverPortString);
+
                             // Save the connection details to the client settings
                             Client.Instance.Settings.ServerAddress = serverAddress;
-                            Client.Instance.Settings.ServerPort = int.Parse(serverPortString);
+                            Client.Instance.Settings.ServerPort = port;
                             Client.Instance.Settings.AcceptChanges();
 
                             // Run this on another thread otherwise the UI will lock up.
-                            new Thread(() => {
-                                Client.Instance.Connect(serverAddress, int.Parse(serverPortString)); // Assume the port was safely validated by the regex
-                            }).Start();
+                            ThreadPool.QueueUserWorkItem(_ =>
+                            {
+                                Client.Instance.Connect(serverAddress, port); // Assume the port was safely validated by the regex
+                            });
                         }
                     ),
                     width: CONNECT_BUTTON_WIDTH

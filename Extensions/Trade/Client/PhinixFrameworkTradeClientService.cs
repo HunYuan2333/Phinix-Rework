@@ -9,7 +9,7 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkLegacyTradeCompletionApi
+    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private readonly ITradeItemPayloadEncoder itemPipeline;
@@ -400,7 +400,7 @@ namespace Phinix.TradeExtension.Client
         /// Legacy 适配器专用：将旧版服务器发来的 trade 快照注入 repository，触发 UI 刷新。
         /// 所有协议转换逻辑在 Adapter 中完成，此处仅负责写入和通知。
         /// </summary>
-        public void UpsertTrade(FrameworkTradeStateSnapshot snapshot)
+        internal void ApplyLegacyTradeSnapshot(FrameworkTradeStateSnapshot snapshot)
         {
             if (snapshot == null || string.IsNullOrEmpty(snapshot.TradeId)) return;
 
@@ -448,7 +448,7 @@ namespace Phinix.TradeExtension.Client
         /// <summary>
         /// Legacy 适配器专用：从 repository 移除已完成的 trade，触发 UI 刷新。
         /// </summary>
-        public void RemoveTrade(string tradeId)
+        internal void RemoveLegacyTrade(string tradeId)
         {
             if (string.IsNullOrEmpty(tradeId)) return;
 
@@ -463,7 +463,7 @@ namespace Phinix.TradeExtension.Client
         /// <summary>
         /// Legacy 适配器专用：移除 trade 并发出完成/取消事件，保持 UI 和默认行为走同一事件链。
         /// </summary>
-        public void CompleteTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<TradeItemSnapshot> items)
+        internal void CompleteLegacyTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<TradeItemSnapshot> items)
         {
             if (string.IsNullOrEmpty(tradeId)) return;
 

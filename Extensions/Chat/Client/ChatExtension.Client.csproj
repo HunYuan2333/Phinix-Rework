@@ -78,8 +78,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BuiltInChatClientExtension.cs" />
+    <Compile Include="ChatCommandHandler.cs" />
     <Compile Include="ChatMainTabProvider.cs" />
+    <Compile Include="ChatMessageHandler.cs" />
     <Compile Include="ChatMessageList.cs" />
+    <Compile Include="ChatMessageRenderer.cs" />
     <Compile Include="ChatSettingsPanelProvider.cs" />
     <Compile Include="ChatSidebarProvider.cs" />
     <Compile Include="ChatUiHostContext.cs" />
@@ -97,10 +100,6 @@
     <ProjectReference Include="..\Contracts\ChatExtension.csproj">
       <Project>{7B7D7B5F-D806-4A6B-B1AB-2D6EA7B4D5F4}</Project>
       <Name>ChatExtension</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Trade\Contracts\TradeExtension.csproj">
-      <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
-      <Name>TradeExtension</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>

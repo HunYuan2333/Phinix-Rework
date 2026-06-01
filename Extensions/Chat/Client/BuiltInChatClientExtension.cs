@@ -1,5 +1,4 @@
 using System;
-using Phinix.TradeExtension;
 using System.Collections.Generic;
 using PhinixClient;
 using PhinixClient.Framework;
@@ -12,7 +11,7 @@ using Verse.Sound;
 namespace Phinix.ChatExtension.Client
 {
     [PhinixExtension("builtin.chat")]
-    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientMessageHandler, IClientCommandHandler, IClientOutgoingCommandHandler, IMessageRenderer
+    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientOutgoingCommandHandler
     {
         private IFrameworkChatClientApi chatApi;
         private IClientChatService chatService;
@@ -20,6 +19,9 @@ namespace Phinix.ChatExtension.Client
         private IChatTabContent chatTabContent;
         private IMainTabProvider chatMainTabProvider;
         private IServerSidebarProvider chatSidebarProvider;
+        private IClientMessageHandler messageHandler;
+        private IClientCommandHandler commandHandler;
+        private IMessageRenderer messageRenderer;
         private IFrameworkClientTransport frameworkClient;
         private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
@@ -70,9 +72,12 @@ namespace Phinix.ChatExtension.Client
                 builder.HostContext.GetRequiredService<Action>());
             builder.RegisterApi<IServerSidebarProvider>(chatSidebarProvider);
             builder.AddCapabilityProvider(this);
-            builder.AddClientMessageHandler(this);
-            builder.AddClientCommandHandler(this);
-            builder.AddMessageRenderer(this);
+            messageHandler = messageHandler ?? new ChatMessageHandler(chatApi);
+            commandHandler = commandHandler ?? new ChatCommandHandler(chatApi);
+            messageRenderer = messageRenderer ?? new ChatMessageRenderer(chatApi);
+            builder.AddClientMessageHandler(messageHandler);
+            builder.AddClientCommandHandler(commandHandler);
+            builder.AddMessageRenderer(messageRenderer);
 
             chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
                 chatUiHostContext,
@@ -82,7 +87,9 @@ namespace Phinix.ChatExtension.Client
             // 保证 Priority 排序、拦截、替换、回退机制正常工作。
                 message => builder.HostContext.GetRequiredService<IFrameworkClientTransport>().TryHandleOutgoingMessage(message));
             builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
-            builder.RegisterApi<IClientSettingsPanelProvider>(new ChatSettingsPanelProvider());
+            var settingsPanelProvider = new ChatSettingsPanelProvider();
+            builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
+            builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -106,7 +113,7 @@ namespace Phinix.ChatExtension.Client
                     if (chatService.ShouldPlayNotification(
                         args.Message,
                         sessionContext.Uuid,
-                        settingsContext.PlayNoiseOnMessageReceived,
+                        settingsContext.Get("chat.playNoiseOnMessageReceived", true),
                         Current.Game != null,
                         settingsContext.BlockedUsers))
                     {
@@ -166,91 +173,16 @@ namespace Phinix.ChatExtension.Client
             yield return FrameworkChatProtocol.HistorySyncCompleteType;
         }
 
-        public bool CanHandleOutgoingText(string rawMessage)
-        {
-            // 仅在 FrameworkV2 模式下处理 —— Legacy 模式由 LegacyAdapter(priority=500) 接管。
-            // 返回 true 但 HandleOutgoingText 里检查 CompatibilityMode: 非 FrameworkV2 时返回 LegacyFallback。
-            return chatApi != null &&
-                   !string.IsNullOrWhiteSpace(rawMessage);
-        }
-
-        public ClientOutgoingMessageResult HandleOutgoingText(string rawMessage, ClientFrameworkContext context)
-        {
-            // 非 FrameworkV2 模式：声明无力处理，让管线继续到下一个 handler
-            // （正常情况 LegacyAdapter 已在 priority=500 处理完毕，此路径不应到达）。
-            // 如果到达（无 LegacyAdapter），消息被框架丢弃并显示"不支持"的系统消息。
-            if (context.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
-            {
-                return new ClientOutgoingMessageResult
-                {
-                    Action = MessageHandlingResultAction.LegacyFallback
-                };
-            }
-
-            return new ClientOutgoingMessageResult
-            {
-                Action = MessageHandlingResultAction.Handled,
-                Message = chatApi.CreateOutgoingMessage(rawMessage, context)
-            };
-        }
-
-        public bool CanHandleIncomingMessage(FrameworkPacket message)
-        {
-            return message != null && message.MessageType == FrameworkChatProtocol.MessageType;
-        }
-
-        public ClientIncomingMessageResult HandleIncomingMessage(FrameworkPacket message, ClientFrameworkContext context)
-        {
-            return new ClientIncomingMessageResult
-            {
-                Action = MessageHandlingResultAction.Handled,
-                DisplayMessage = chatApi.RenderMessage(message)
-            };
-        }
-
-        public bool CanHandleIncomingCommand(FrameworkPacket command)
-        {
-            return command != null && command.MessageType == FrameworkChatProtocol.HistorySyncCompleteType;
-        }
-
-        public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context)
-        {
-            return new ClientIncomingCommandResult
-            {
-                Action = MessageHandlingResultAction.Handled
-            };
-        }
-
         public bool CanHandleOutgoingCommand(FrameworkPacket command)
         {
-            return command != null && command.MessageType == FrameworkChatProtocol.HistoryRequestType;
+            return (commandHandler as IClientOutgoingCommandHandler)?.CanHandleOutgoingCommand(command) == true;
         }
 
         public ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket command, ClientFrameworkContext context)
         {
-            if (context.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
-            {
-                return new ClientOutgoingCommandResult
-                {
-                    Action = MessageHandlingResultAction.LegacyFallback
-                };
-            }
-
-            return new ClientOutgoingCommandResult
-            {
-                Action = MessageHandlingResultAction.Handled,
-                Command = command
-            };
+            return (commandHandler as IClientOutgoingCommandHandler)?.HandleOutgoingCommand(command, context)
+                ?? new ClientOutgoingCommandResult { Action = MessageHandlingResultAction.Continue };
         }
 
-        public bool CanRender(FrameworkPacket message)
-        {
-            return message != null && message.MessageType == FrameworkChatProtocol.MessageType;
-        }
-
-        public FrameworkDisplayMessage Render(FrameworkPacket message)
-        {
-            return chatApi.RenderMessage(message);
-        }
     }
 }

@@ -21,7 +21,7 @@ namespace Phinix.ChatExtension.Client
 
         private readonly float blockedSpacerHeight = BlockedSpacerPaddingTop + BlockedSpacerPaddingBottom;
         private Texture2D blockedSpacerCollapseIcon;
-        private Texture2D CollapseIcon => blockedSpacerCollapseIcon ?? (blockedSpacerCollapseIcon = ContentFinder<Texture2D>.Get("collapse"));
+        private Texture2D CollapseIcon => blockedSpacerCollapseIcon ?? (blockedSpacerCollapseIcon = ContentFinder<Texture2D>.Get("collapse", false));
         private readonly Color blockedBackgroundColour = new Color(0f, 0f, 0f, 0.35f);
         private readonly Color blockedNameColour = new Color(0.6f, 0.6f, 0.6f);
 
@@ -159,13 +159,23 @@ namespace Phinix.ChatExtension.Client
                     paddedRect.yMin - 1f,
                     paddedRect.height,
                     paddedRect.height);
-                Widgets.DrawTextureFitted(
-                    collapseIconRect,
-                    CollapseIcon,
-                    0.4f,
-                    new Vector2(CollapseIcon.width, CollapseIcon.height),
-                    new Rect(0f, 0f, 1f, 1f),
-                    settingsContext.CollapseBlockedUsers ? 0 : 90);
+                if (CollapseIcon != null)
+                {
+                    Widgets.DrawTextureFitted(
+                        collapseIconRect,
+                        CollapseIcon,
+                        0.4f,
+                        new Vector2(CollapseIcon.width, CollapseIcon.height),
+                        new Rect(0f, 0f, 1f, 1f),
+                        settingsContext.CollapseBlockedUsers ? 0 : 90);
+                }
+                else
+                {
+                    TextAnchor oldCollapseAnchor = Text.Anchor;
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    Widgets.Label(collapseIconRect, settingsContext.CollapseBlockedUsers ? ">" : "v");
+                    Text.Anchor = oldCollapseAnchor;
+                }
 
                 currentY += blockedSpacerHeight;
 

@@ -90,6 +90,7 @@ namespace Phinix.TradeExtension.Client
         private object pendingItemStacksLock = new object();
 
         private volatile bool shouldClose;
+        private readonly object pendingAcceptedLock = new object();
         private bool? pendingAccepted;
 
         /// <summary>
@@ -199,7 +200,8 @@ namespace Phinix.TradeExtension.Client
             Widgets.DrawTextureFitted(tradeArrowsRect, tradeArrows, 1f);
 
             // Our offer
-            bool ourOfferAccepted = pendingAccepted ?? trade.Accepted;
+            bool? pendingAcceptedValue = getPendingAccepted();
+            bool ourOfferAccepted = pendingAcceptedValue ?? trade.Accepted;
             drawOffer(inRect: ourOfferRect,
                 title: "Phinix_trade_ourOfferLabel".Translate(),
                 itemStacks: ourOfferCache,
@@ -208,7 +210,7 @@ namespace Phinix.TradeExtension.Client
                 acceptedLabel: ("Phinix_trade_confirmOurTradeCheckbox" + (ourOfferAccepted ? "Checked" : "Unchecked")).Translate(),
                 checkboxInteractive: true
             );
-            if (ourOfferAccepted != (pendingAccepted ?? trade.Accepted))
+            if (ourOfferAccepted != (pendingAcceptedValue ?? trade.Accepted))
             {
                 sendTradeStatusUpdate(ourOfferAccepted);
             }
@@ -340,7 +342,7 @@ namespace Phinix.TradeExtension.Client
         /// <param name="args"></param>
         private void OnTradeFinished(object sender, TradeCompletionEventArgs args)
         {
-            shouldClose = true;
+            hostContext.RunOnMainThread(() => shouldClose = true);
         }
 
         /// <summary>
@@ -350,71 +352,20 @@ namespace Phinix.TradeExtension.Client
         /// <param name="args"></param>
         private void OnTradeUpdated(object sender, TradeUpdateEventArgs args)
         {
-            hostContext.Log(new LogEventArgs($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}", LogLevel.DEBUG));
-            if (args.Trade == null || !string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            if (args.FailureReason != TradeFailureReason.None ||
-                (pendingAccepted.HasValue && args.Trade.Accepted == pendingAccepted.Value))
-            {
-                pendingAccepted = null;
-            }
-
-            // Save the updated trade and flag the current one to be replaced
-            lock (updatedTradeLock)
-            {
-                updatedTrade = args.Trade;
-                tradeUpdated = true;
-            }
-
-            // Check if there is a token we can process
-            if (!string.IsNullOrEmpty(args.Token))
-            {
-                lock (pendingItemStacksLock)
-                {
-                    // Check if there are pending item stacks for this token
-                    if (pendingItemStacks.ContainsKey(args.Token))
-                    {
-                        if (args.FailureReason == TradeFailureReason.None)
-                        {
-                            // Destroy and remove the pending items, they have been received by the server
-                            foreach (Thing thing in pendingItemStacks[args.Token].Things)
-                            {
-                                if (!thing.Destroyed) thing.Destroy();
-                            }
-
-                            pendingItemStacks.Remove(args.Token);
-                        }
-                        else
-                        {
-                            // Server failed to update the trade
-                            // Get all of the selected things from the item stacks and respawn them
-                            IEnumerable<Thing> things = pendingItemStacks[args.Token].Things;
-                            foreach (Thing thing in things)
-                            {
-                                GenSpawn.Spawn(thing, thing.Position, thing.Map, thing.Rotation, WipeMode.VanishOrMoveAside);
-                            }
-
-                            refreshAvailableItems();
-                        }
-                    }
-                }
-            }
+            hostContext.RunOnMainThread(() => applyTradeUpdated(args));
         }
 
         private void sendTradeStatusUpdate(bool accepted)
         {
             hostContext.Log(new LogEventArgs($"[TradeWindow] Accept toggled: tradeId={trade.TradeId}, accepted={accepted}", LogLevel.DEBUG));
-            pendingAccepted = accepted;
+            setPendingAccepted(accepted);
             try
             {
                 tradeService.UpdateTradeStatus(trade.TradeId, accepted: accepted);
             }
             catch (Exception exception)
             {
-                pendingAccepted = null;
+                clearPendingAccepted();
                 hostContext.Log(new LogEventArgs($"Failed to send trade status update for trade '{trade.TradeId}': {exception.Message}", LogLevel.ERROR));
             }
         }
@@ -450,6 +401,93 @@ namespace Phinix.TradeExtension.Client
             filteredAvailableItems = availableItems
                 .Where(stack => stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1)
                 .ToList();
+        }
+
+        private void applyTradeUpdated(TradeUpdateEventArgs args)
+        {
+            hostContext.Log(new LogEventArgs($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}", LogLevel.DEBUG));
+            if (args.Trade == null || !string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            bool? pendingAcceptedValue = getPendingAccepted();
+            if (args.FailureReason != TradeFailureReason.None ||
+                (pendingAcceptedValue.HasValue && args.Trade.Accepted == pendingAcceptedValue.Value))
+            {
+                clearPendingAccepted();
+            }
+
+            lock (updatedTradeLock)
+            {
+                updatedTrade = args.Trade;
+                tradeUpdated = true;
+            }
+
+            if (string.IsNullOrEmpty(args.Token))
+            {
+                return;
+            }
+
+            bool foundPendingThings = false;
+            PendingThings pendingThings = default;
+            lock (pendingItemStacksLock)
+            {
+                foundPendingThings = pendingItemStacks.TryGetValue(args.Token, out pendingThings);
+                if (foundPendingThings && args.FailureReason == TradeFailureReason.None)
+                {
+                    pendingItemStacks.Remove(args.Token);
+                }
+            }
+
+            if (!foundPendingThings)
+            {
+                return;
+            }
+
+            if (args.FailureReason == TradeFailureReason.None)
+            {
+                foreach (Thing thing in pendingThings.Things)
+                {
+                    if (!thing.Destroyed)
+                    {
+                        thing.Destroy();
+                    }
+                }
+
+                return;
+            }
+
+            foreach (Thing thing in pendingThings.Things)
+            {
+                GenSpawn.Spawn(thing, thing.Position, thing.Map, thing.Rotation, WipeMode.VanishOrMoveAside);
+            }
+
+            refreshAvailableItems();
+        }
+
+        private bool? getPendingAccepted()
+        {
+            lock (pendingAcceptedLock)
+            {
+                return pendingAccepted;
+            }
+        }
+
+        private void setPendingAccepted(bool? value)
+        {
+            lock (pendingAcceptedLock)
+            {
+                pendingAccepted = value;
+            }
+        }
+
+        private void clearPendingAccepted()
+        {
+            lock (pendingAcceptedLock)
+            {
+                pendingAccepted = null;
+            }
         }
 
         /// <summary>

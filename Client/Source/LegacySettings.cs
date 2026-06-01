@@ -40,6 +40,8 @@ namespace PhinixClient
 
         public bool? ShowBlockedTrades { get; set; }
 
+        public bool? DropCurrentMap { get; set; }
+
         public HashSet<string> BlockedUsers { get; set; }
 
         #endregion
@@ -142,6 +144,11 @@ namespace PhinixClient
             if (bool.TryParse(phinixElement.Element("showBlockedTrades")?.Value, out bool showBlockedTrades))
             {
                 settings.ShowBlockedTrades = showBlockedTrades;
+            }
+
+            if (bool.TryParse(phinixElement.Element("dropCurrentMap")?.Value, out bool dropCurrentMap))
+            {
+                settings.DropCurrentMap = dropCurrentMap;
             }
 
             var blockedUsersRaw = phinixElement.Element("blockedUsers")?.Value;

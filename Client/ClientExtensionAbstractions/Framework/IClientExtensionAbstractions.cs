@@ -83,8 +83,6 @@ namespace PhinixClient.Framework
 
         IEnumerable<string> BlockedUsers { get; }
 
-        bool PlayNoiseOnMessageReceived { get; }
-
         bool CollapseBlockedUsers { get; set; }
 
         void BlockUser(string uuid);
@@ -129,6 +127,16 @@ namespace PhinixClient.Framework
     public interface IClientSoundService
     {
         void Enqueue(SoundDef soundDef);
+    }
+
+    public interface IClientLegacySettingsMigrator
+    {
+        bool TryMigrateLegacySettings(IClientSettingsContext settings, IReadOnlyDictionary<string, string> legacyValues);
+    }
+
+    public interface ITradeRequestApi
+    {
+        void CreateTrade(string uuid);
     }
 
     /// <summary>

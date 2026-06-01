@@ -28,6 +28,8 @@ namespace Phinix.LegacyAdapter.Client
         private IDisplayMessageSink displaySink;
         private IClientSessionContext sessionContext;
         private IFrameworkTradeClientApi tradeApi;
+        private IFrameworkLegacyTradeRepositoryApi legacyTradeRepositoryApi;
+        private IFrameworkLegacyTradeCompletionApi legacyTradeCompletionApi;
         private Action<string, LogLevel> log;
 
         private LegacyChatProtocolAdapter chatAdapter;
@@ -61,9 +63,12 @@ namespace Phinix.LegacyAdapter.Client
                 log?.Invoke("[LegacyAdapter] IFrameworkTradeClientApi not registered — legacy trade sync disabled.", LogLevel.WARNING);
             }
 
+            hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeRepositoryApi>(out legacyTradeRepositoryApi);
+            hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeCompletionApi>(out legacyTradeCompletionApi);
+
             chatAdapter = new LegacyChatProtocolAdapter(legacyTransport, displaySink, sessionContext);
             tradeAdapter = new LegacyTradeProtocolAdapter(
-                legacyTransport, displaySink, sessionContext, tradeApi,
+                legacyTransport, displaySink, sessionContext, tradeApi, legacyTradeRepositoryApi, legacyTradeCompletionApi,
                 lifecycle, hostContext.Log);
 
             lifecycle.CompatibilityModeChanged += OnCompatibilityModeChanged;

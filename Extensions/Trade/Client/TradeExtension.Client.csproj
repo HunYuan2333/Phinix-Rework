@@ -73,6 +73,7 @@
     <Compile Include="ClientTradeUiHostContext.cs" />
     <Compile Include="DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
+    <Compile Include="FrameworkLegacyTradeClientAdapter.cs" />
     <Compile Include="FrameworkClientTradeServiceAdapter.cs" />
     <Compile Include="PendingThings.cs" />
     <Compile Include="PhinixDefaultTradeBehaviour.cs" />

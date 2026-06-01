@@ -58,20 +58,20 @@ namespace PhinixClient
 
         public bool Online => Connected && Authenticated && LoggedIn;
 
-        public bool CanUseFrameworkChat => frameworkClient != null && frameworkClient.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2;
         public void SendMessage(string message)
         {
             frameworkClient.TryHandleOutgoingMessage(message);
         }
         public IReadOnlyList<IMainTabProvider> MainTabProviders => frameworkClient?.ResolveExtensionApis<IMainTabProvider>() ?? Array.Empty<IMainTabProvider>();
         public IReadOnlyList<IServerSidebarProvider> SidebarProviders => frameworkClient?.ResolveExtensionApis<IServerSidebarProvider>() ?? Array.Empty<IServerSidebarProvider>();
-        public LookTargets DropPods(IEnumerable<Thing> verseThings) => dropPods(verseThings);
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
         public PhinixFrameworkClient FrameworkClient => frameworkClient;
         private ClientUserEventStream userEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
+        private readonly IClientWindowService windowService;
+        private readonly IClientSettingsContext settingsContext;
         public Settings Settings { get; }
 
         /// <summary>
@@ -93,17 +93,16 @@ namespace PhinixClient
 
             // Load in Settings
             Settings = GetSettings<Settings>();
-            if (!Settings.Migrated) Settings.MigrateFromHugsLib();
             // Set up our module instances
             netClient = new NetClient();
             authenticator = new ClientAuthenticator(netClient, getCredentials);
             userManager = new ClientUserManager(netClient, authenticator);
             IClientUserDirectory frameworkUserDirectory = new ClientFrameworkUserDirectoryAdapter(userManager);
             IClientSessionContext sessionContext = new ClientSessionContextAdapter(authenticator, userManager);
-            IClientSettingsContext settingsContext = new ClientSettingsContextAdapter(this);
+            settingsContext = new ClientSettingsContextAdapter(this);
+            windowService = new ClientWindowService();
             userEventStream = new ClientUserEventStream();
             mainThreadDispatcher = new ClientMainThreadDispatcher();
-            IClientWindowService windowService = new ClientWindowService();
             IClientSoundService soundService = new ClientSoundService(this);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
             {
@@ -120,7 +119,7 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientWindowService>(windowService);
             extensionHostContext.AddService<IClientSoundService>(soundService);
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
-            extensionHostContext.AddService<Func<IEnumerable<Thing>, LookTargets>>(verseThings => dropPods(verseThings));
+            extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
             // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
             extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
             extensionHostContext.ResolveSourcePackageId = ResolveModPackageId;
@@ -137,6 +136,10 @@ namespace PhinixClient
             Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
             Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
+            if (!Settings.Migrated)
+            {
+                Settings.MigrateLegacySettings(settingsContext, frameworkClient.ResolveExtensionApis<IClientLegacySettingsMigrator>());
+            }
 
             // Register the host-built Extension Manager Tab — same IMainTabProvider hook as all extensions
             extensionHostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.host", new ExtensionManagerTab());
@@ -156,16 +159,15 @@ namespace PhinixClient
             authenticator.OnAuthenticationSuccess += (sender, args) =>
             {
                 Verse.Log.Message("Successfully authenticated with server.");
-                userManager.SendLogin(
-                    displayName: Settings.DisplayName,
-                    acceptingTrades: Settings.GetExtensionSetting("trade.acceptingTrades", true)
-                );
+                userManager.SendLogin(displayName: Settings.DisplayName);
             };
             authenticator.OnAuthenticationFailure += (sender, args) =>
             {
                 Verse.Log.Message(string.Format("Failed to authenticate with server: {0} ({1})", args.FailureMessage, args.FailureReason.ToString()));
 
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_authFailedTitle".Translate(), text: "Phinix_error_authFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
+                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                    title: "Phinix_error_authFailedTitle".Translate(),
+                    text: "Phinix_error_authFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
 
                 Disconnect();
             };
@@ -180,7 +182,9 @@ namespace PhinixClient
             {
                 Verse.Log.Message(string.Format("Failed to log in to server: {0} ({1})", args.FailureMessage, args.FailureReason.ToString()));
 
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_loginFailedTitle".Translate(), text: "Phinix_error_loginFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
+                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                    title: "Phinix_error_loginFailedTitle".Translate(),
+                    text: "Phinix_error_loginFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString())));
 
                 Disconnect();
             };
@@ -239,7 +243,6 @@ namespace PhinixClient
         {
             // Host 核心设置：连接、显示名称、音效等通用配置。
             // 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
-            IClientSettingsContext settingsContext = new ClientSettingsContextAdapter(this);
             float listingWidth = Math.Min(600f, inRect.width / 2);
 
             Listing_Standard listing = new Listing_Standard()
@@ -259,10 +262,6 @@ namespace PhinixClient
 
             listing.Label("Phinix_modSettings_displayNameTitle".Translate());
             Settings.DisplayName = listing.TextEntry(Settings.DisplayName);
-
-            bool playNoiseOnMessageReceived = Settings.PlayNoiseOnMessageReceived;
-            listing.CheckboxLabeled("Phinix_modSettings_playNoiseOnMessageReceived".Translate(), ref playNoiseOnMessageReceived);
-            Settings.PlayNoiseOnMessageReceived = playNoiseOnMessageReceived;
 
             // 插件化设置面板：动态收集各扩展注册的 IClientSettingsPanelProvider，
             // 按 Order 排序后在同一 listing 流内绘制。不再硬编码 Chat/Trade 设置键。
@@ -308,7 +307,7 @@ namespace PhinixClient
             if (!Settings.IsChanged) return;
 
             Settings.AcceptChanges();
-            userManager.UpdateSelf(Settings.DisplayName, Settings.GetExtensionSetting("trade.acceptingTrades", true));
+            userManager.UpdateSelf(Settings.DisplayName);
         }
 
         /// <summary>
@@ -374,7 +373,9 @@ namespace PhinixClient
             {
                 Verse.Log.Error($"[Phinix] Could not connect to {Settings.ServerAddress}:{Settings.ServerPort}: {ex}");
 
-                Find.WindowStack.Add(new Dialog_MessageBox(title: "Phinix_error_connectionFailedTitle".Translate(), text: "Phinix_error_connectionFailedMessage".Translate(Settings.ServerAddress, Settings.ServerPort)));
+                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                    title: "Phinix_error_connectionFailedTitle".Translate(),
+                    text: "Phinix_error_connectionFailedMessage".Translate(Settings.ServerAddress, Settings.ServerPort)));
             }
         }
 
@@ -497,7 +498,7 @@ namespace PhinixClient
         {
             if (Prefs.DevMode) Verse.Log.Message(string.Format("Authentication needs more credentials for the server \"{0}\" with authentication type \"{1}\"", serverName, authType.ToString()));
 
-            Find.WindowStack.Add(new CredentialsWindow
+            enqueueWindowOpen(mainThreadDispatcher, windowService, new CredentialsWindow
             {
                 SessionId = sessionId,
                 ServerName = serverName,
@@ -505,21 +506,6 @@ namespace PhinixClient
                 AuthType = authType,
                 CredentialsCallback = callback
             });
-        }
-
-        /// <summary>
-        /// Launches the given <see cref="Thing"/>s in drop pods to a trade spot at the home colony.
-        /// </summary>
-        /// <param name="things">Collection of <see cref="Thing"/>s to drop</param>
-        /// <returns>LookTarget for the drop location</returns>
-        private LookTargets dropPods(IEnumerable<Thing> things)
-        {
-            // Launch drop pods to a trade spot on a home tile
-            Map map = Settings.GetExtensionSetting("trade.dropCurrentMap", false) ? Find.CurrentMap : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
-            IntVec3 dropSpot = DropCellFinder.TradeDropSpot(map);
-            DropPodUtility.DropThingsNear(dropSpot, map, things, canRoofPunch: false);
-
-            return new LookTargets(dropSpot, map);
         }
 
         internal void EnqueueSound(SoundDef soundDef)
@@ -533,6 +519,16 @@ namespace PhinixClient
             {
                 soundQueue.Add(soundDef);
             }
+        }
+
+        private static void enqueueWindowOpen(IClientMainThreadDispatcher dispatcher, IClientWindowService windowService, Window window)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            dispatcher?.Enqueue(() => windowService?.Open(window));
         }
 
     }

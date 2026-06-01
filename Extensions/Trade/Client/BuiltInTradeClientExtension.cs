@@ -13,6 +13,7 @@ namespace Phinix.TradeExtension.Client
     {
         private TradeClientItemPipeline itemPipeline;
         private IFrameworkTradeClientApi tradeApi;
+        private FrameworkLegacyTradeClientAdapter legacyTradeAdapter;
         private IClientTradeService tradeFacade;
         private ClientTradeUiHostContext tradeUiHostContext;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
@@ -20,7 +21,14 @@ namespace Phinix.TradeExtension.Client
         private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
         private IClientSessionContext sessionContext;
+        private IClientSettingsContext settingsContext;
+        private IClientUserEventStream userEvents;
+        private Action<bool> updateAcceptingTrades;
+        private bool? lastSyncedAcceptingTrades;
         private EventHandler<FrameworkCompatibilityModeChangedEventArgs> compatibilityChangedHandler;
+        private EventHandler usersChangedHandler;
+        private EventHandler disconnectedHandler;
+        private Action<string, object> settingChangedHandler;
 
         public string ExtensionId => FrameworkTradeProtocol.Capability;
 
@@ -34,6 +42,7 @@ namespace Phinix.TradeExtension.Client
                 itemPipeline,
                 builder.HostContext.GetRequiredService<IClientUserDirectory>(),
                 logEvent => builder.HostContext.Log?.Invoke(logEvent.Message, logEvent.LogLevel));
+            legacyTradeAdapter = legacyTradeAdapter ?? new FrameworkLegacyTradeClientAdapter((PhinixFrameworkTradeClientService)tradeApi);
             tradeFacade = tradeFacade ?? new FrameworkClientTradeServiceAdapter(
                 tradeApi,
                 builder.HostContext.GetRequiredService<IFrameworkClientTransport>(),
@@ -42,18 +51,19 @@ namespace Phinix.TradeExtension.Client
                 builder.HostContext.GetRequiredService<IClientSessionContext>(),
                 builder.HostContext.Log);
             builder.RegisterApi(tradeApi);
-            builder.RegisterApi<IFrameworkLegacyTradeCompletionApi>((IFrameworkLegacyTradeCompletionApi)tradeApi);
+            builder.RegisterApi<IFrameworkLegacyTradeRepositoryApi>(legacyTradeAdapter);
+            builder.RegisterApi<IFrameworkLegacyTradeCompletionApi>(legacyTradeAdapter);
             builder.RegisterApi(tradeFacade);
             builder.RegisterApi<ITradeRequestApi>((ITradeRequestApi)tradeFacade);
             builder.AddCapabilityProvider(this);
             builder.AddClientCommandHandler(this);
 
-            var dropPods = builder.HostContext.GetRequiredService<Func<IEnumerable<Verse.Thing>, Verse.LookTargets>>();
             tradeUiHostContext = tradeUiHostContext ?? new ClientTradeUiHostContext(
                 tradeFacade,
                 builder.HostContext.GetRequiredService<IClientSettingsContext>(),
                 builder.HostContext.GetRequiredService<IClientUserEventStream>(),
-                dropPods,
+                builder.HostContext.GetRequiredService<IClientMainThreadDispatcher>(),
+                builder.HostContext.GetRequiredService<IClientWindowService>(),
                 log);
             defaultTradeBehaviour = defaultTradeBehaviour ?? new PhinixDefaultTradeBehaviour(
                 tradeFacade,
@@ -65,7 +75,9 @@ namespace Phinix.TradeExtension.Client
                 log);
             builder.RegisterApi(tradeUiHostContext);
             builder.RegisterApi<IMainTabProvider>(new TradeMainTabProvider(tradeUiHostContext));
-            builder.RegisterApi<IClientSettingsPanelProvider>(new TradeSettingsPanelProvider());
+            var settingsPanelProvider = new TradeSettingsPanelProvider();
+            builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
+            builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -79,6 +91,9 @@ namespace Phinix.TradeExtension.Client
             commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
             lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
+            settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
+            userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
+            updateAcceptingTrades = hostContext.GetRequiredService<Action<bool>>();
 
             if (compatibilityChangedHandler == null)
             {
@@ -100,14 +115,42 @@ namespace Phinix.TradeExtension.Client
                 };
             }
 
+            if (usersChangedHandler == null)
+            {
+                usersChangedHandler = (_, __) => syncAcceptingTrades();
+            }
+
+            if (disconnectedHandler == null)
+            {
+                disconnectedHandler = (_, __) => lastSyncedAcceptingTrades = null;
+            }
+
+            if (settingChangedHandler == null)
+            {
+                settingChangedHandler = (key, _) =>
+                {
+                    if (key == "trade.acceptingTrades")
+                    {
+                        syncAcceptingTrades();
+                    }
+                };
+            }
+
             lifecycle.CompatibilityModeChanged -= compatibilityChangedHandler;
             lifecycle.CompatibilityModeChanged += compatibilityChangedHandler;
+            userEvents.UsersChanged -= usersChangedHandler;
+            userEvents.UsersChanged += usersChangedHandler;
+            userEvents.Disconnected -= disconnectedHandler;
+            userEvents.Disconnected += disconnectedHandler;
+            settingsContext.OnSettingChanged -= settingChangedHandler;
+            settingsContext.OnSettingChanged += settingChangedHandler;
 
             if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
             {
                 compatibilityChangedHandler(this, new FrameworkCompatibilityModeChangedEventArgs(lifecycle.CompatibilityMode));
             }
 
+            syncAcceptingTrades();
             defaultTradeBehaviour?.Start();
         }
 
@@ -116,6 +159,21 @@ namespace Phinix.TradeExtension.Client
             if (lifecycle != null && compatibilityChangedHandler != null)
             {
                 lifecycle.CompatibilityModeChanged -= compatibilityChangedHandler;
+            }
+
+            if (userEvents != null && usersChangedHandler != null)
+            {
+                userEvents.UsersChanged -= usersChangedHandler;
+            }
+
+            if (userEvents != null && disconnectedHandler != null)
+            {
+                userEvents.Disconnected -= disconnectedHandler;
+            }
+
+            if (settingsContext != null && settingChangedHandler != null)
+            {
+                settingsContext.OnSettingChanged -= settingChangedHandler;
             }
 
             defaultTradeBehaviour?.Stop();
@@ -193,6 +251,23 @@ namespace Phinix.TradeExtension.Client
                 Action = MessageHandlingResultAction.Handled,
                 Command = command
             };
+        }
+
+        private void syncAcceptingTrades()
+        {
+            if (updateAcceptingTrades == null || settingsContext == null || sessionContext == null || !sessionContext.LoggedIn)
+            {
+                return;
+            }
+
+            bool acceptingTrades = settingsContext.Get("trade.acceptingTrades", true);
+            if (lastSyncedAcceptingTrades.HasValue && lastSyncedAcceptingTrades.Value == acceptingTrades)
+            {
+                return;
+            }
+
+            updateAcceptingTrades(acceptingTrades);
+            lastSyncedAcceptingTrades = acceptingTrades;
         }
     }
 }

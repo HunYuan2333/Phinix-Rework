@@ -10,6 +10,8 @@ namespace PhinixClient.GUI
 {
     internal class TextFieldWidget : Displayable
     {
+        private static readonly Regex anyTextRegex = new Regex("[\\s\\S]*", RegexOptions.Compiled);
+
         /// <summary>
         /// The field's text content.
         /// </summary>
@@ -31,7 +33,7 @@ namespace PhinixClient.GUI
         /// </summary>
         /// <param name="initialText">Initial text to display</param>
         /// <param name="onChange">Callback invoked with the new value when it is changed</param>
-        public TextFieldWidget(string initialText, Action<string> onChange) : this(initialText, onChange, new Regex("[\\s\\S]*"))
+        public TextFieldWidget(string initialText, Action<string> onChange) : this(initialText, onChange, anyTextRegex)
         {
         }
 

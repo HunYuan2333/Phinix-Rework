@@ -197,13 +197,11 @@ namespace Phinix.ChatExtension.Client
                     height: Text.CalcHeight(formattedMessage, inRect.width));
 
                 // Cache display data so drawChatMessage doesn't recompute per frame
-                GUIContent tsContent = new GUIContent(string.Format("[{0:HH:mm}] ", chatMessage.Timestamp.ToLocalTime()));
-                GUIContent dnContent = new GUIContent(displayName);
                 displayCache[chatMessage.MessageId] = new CachedMessageDisplay
                 {
                     FormattedMessage = formattedMessage,
-                    TimestampSize = Text.CurFontStyle.CalcSize(tsContent),
-                    DisplayNameSize = Text.CurFontStyle.CalcSize(dnContent),
+                    TimestampSize = Text.CalcSize(string.Format("[{0:HH:mm}] ", chatMessage.Timestamp.ToLocalTime())),
+                    DisplayNameSize = Text.CalcSize(displayName),
                     ShowNameFormatting = showName,
                     ShowChatFormatting = showChat,
                     Status = chatMessage.Status,
@@ -254,10 +252,9 @@ namespace Phinix.ChatExtension.Client
 
                 Widgets.Label(inRect, fallbackText);
 
-                GUIContent fbTsContent = new GUIContent(fallbackName);
-                float tsWidth = Text.CurFontStyle.CalcSize(fbTsContent).x;
+                float tsWidth = Text.CalcSize(fallbackTimestamp).x;
                 Rect fallbackTsRect = new Rect(inRect.x, inRect.y, tsWidth, inRect.height);
-                float dnWidth = tsWidth;
+                float dnWidth = Text.CalcSize(fallbackName).x;
                 Rect fallbackDnRect = new Rect(inRect.x + tsWidth, inRect.y, dnWidth, inRect.height);
 
                 if (Widgets.ButtonInvisible(fallbackTsRect, false)) { }

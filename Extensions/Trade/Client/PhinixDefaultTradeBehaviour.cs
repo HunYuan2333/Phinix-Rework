@@ -132,13 +132,13 @@ namespace Phinix.TradeExtension.Client
                 if (args == null) return;
 
                 string displayName = resolveDisplayName(args.OtherPartyUuid);
-                Thing[] verseItems = args.Items
-                    .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
-                    .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
-                    .ToArray();
 
                 dispatcher.Enqueue(() =>
                 {
+                    Thing[] verseItems = args.Items
+                        .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
+                        .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
+                        .ToArray();
                     LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
                     LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeAccepted");
                     Find.LetterStack.ReceiveLetter(
@@ -163,13 +163,13 @@ namespace Phinix.TradeExtension.Client
                 if (args == null || !shouldDisplayTradeEvent(args.OtherPartyUuid)) return;
 
                 string displayName = resolveDisplayName(args.OtherPartyUuid);
-                Thing[] verseItems = args.Items
-                    .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
-                    .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
-                    .ToArray();
 
                 dispatcher.Enqueue(() =>
                 {
+                    Thing[] verseItems = args.Items
+                        .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
+                        .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
+                        .ToArray();
                     LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
                     LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCancelled");
                     Find.LetterStack.ReceiveLetter(
