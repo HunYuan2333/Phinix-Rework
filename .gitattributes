@@ -61,3 +61,11 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# branch-local docs
+#
+# Docs under docs/branch-local are intentionally maintained per branch.
+# Keep the current branch's version on merge; shared docs remain at docs root.
+###############################################################################
+docs/branch-local/** merge=ours
