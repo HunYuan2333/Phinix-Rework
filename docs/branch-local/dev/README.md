@@ -1,7 +1,7 @@
 <h1 align="center">Phinix Rework</h1>
 <h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
 
-> Draft README. Will be moved to repository root later. 中文版：[README-draft.zh-CN.md](./README-draft.zh-CN.md)
+> Draft README. 中文版：[README.zh-CN.md](./README.zh-CN.md)
 
 # About
 
@@ -57,11 +57,11 @@ Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console
 
 # Known Issues
 
-- **Translation errors in log**: RimWorld's `Translate()` may produce `No active language` red-text errors when called from network callback threads. This does not affect functionality — failed translations fall back to the key name itself (e.g. `Phinix_framework_systemDisplayName`). This is a thread-safety issue and will be resolved in a future release by marshalling calls to the main thread. These log red-text lines are harmless and can be ignored.
+- **Translation errors in log**: RimWorld's `Translate()` may produce `No active language` red-text errors when called from network callback threads. This does not affect functionality — failed translations fall back to the key name itself (e.g. `Phinix_framework_systemDisplayName`). This is a thread-safety issue and will be resolved in a future release. These log red-text lines are harmless and can be ignored.
 
 # Architecture
 
-Phinix Rework uses a layered, plugin-first architecture:
+Phinix Rework uses a layered, plugin-first architecture. See [Design-Philosophy.md](./Design-Philosophy.md) for the full design guide:
 
 ```
 Plugins (Extensions/Chat, Extensions/Trade, third-party)
@@ -70,21 +70,19 @@ Plugins (Extensions/Chat, Extensions/Trade, third-party)
       → Infrastructure (Common: networking, auth, user management)
 ```
 
-See [设计哲学.md](./设计哲学.md) for the full design guide. Key principles:
+Key principles:
 
 - **Plugin parity** — Chat and Trade are just plugins. Third-party submods use the exact same discovery → registration → activation path.
-- **Three pipelines** — All communication flows through `message` (display), `command` (control), and `item` (payload) lanes.
+- **Three pipelines** — Communication flows through `message` (display, ✅), `command` (control, ✅), and `item` (payload, ⚠️ in-progress) lanes.
 - **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`.
-- **Server Pipeline** — Inbound messages go through a five-stage flow (IngressValidation → PreHandle → DefaultProcess → Observation → Outbound). Extensions can intercept at any stage.
 
 # Roadmap
 
-The current release covers the core foundation: one-click Docker deployment, stable chat and trading on the client. Future work is about opening up the system:
+The current release covers the core foundation: one-click Docker deployment, stable chat and trading on the client.
 
 - **Short term**: Fix remaining thread-safety issues and UI performance bottlenecks.
-- **Medium term**: True plugin system — Chat and Trade move from "built-in" to "officially shipped plugins". Third-party authors can plug their own extensions into the same system without touching any host code.
+- **Medium term**: Complete the Item pipeline; fully decouple Chat and Trade from "built-in" to "officially shipped plugins".
 - **Long term**: Hot-loadable Mods directory (drop in to enable), plugin marketplace, web admin panel.
-
 
 # Developers
 
@@ -102,23 +100,28 @@ The client project depends on RimWorld assemblies. Place the required DLLs in `G
 
 ## Extension Development
 
-Plugins implement `IPhinixExtensionModule` and register handlers, renderers, and APIs through `IExtensionBuilder`:
+Plugins implement `IPhinixExtensionModule` and register handlers and APIs through `IExtensionBuilder`:
 
 ```csharp
-public class MyExtension : IPhinixExtensionModule
+[PhinixExtension("my.extension")]
+public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
 {
     public string ExtensionId => "my.extension";
 
     public void Register(IExtensionBuilder builder)
     {
-        builder.AddCapability("my.extension");
         builder.AddClientMessageHandler(this);
         builder.RegisterApi<IMyService>(this);
     }
+
+    public void Activate(ExtensionHostContext ctx) { /* acquire services, subscribe events */ }
+    public void Shutdown(ExtensionHostContext ctx) { /* unsubscribe, release resources */ }
 }
 ```
 
-Full guide at [设计哲学.md](./设计哲学.md).
+Full guides:
+- [设计哲学.md](./设计哲学.md) (Chinese) / [Design-Philosophy.md](./Design-Philosophy.md) — architecture principles, boundaries, anti-patterns
+- [Phinix附属Mod开发者指南.md](./Phinix附属Mod开发者指南.md) (Chinese) / [Phinix-Submod-Developer-Guide.md](./Phinix-Submod-Developer-Guide.md) — step-by-step submod development tutorial
 
 # Credit
 

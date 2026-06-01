@@ -1,7 +1,7 @@
 <h1 align="center">Phinix Rework</h1>
 <h4 align="center"><i>RimWorld 多人模组 — 聊天、交易与可扩展插件框架</i></h4>
 
-[English](./README.md)
+> 中文 README 草稿。英文版：[README.md](./README.md)
 
 # 关于项目
 
@@ -11,22 +11,6 @@ Phinix Rework 是一个通过独立服务器为 RimWorld 提供多人聊天和�
 - 异步物品交易（无需双方同时在线）
 - 独立服务器，支持认证与用户管理
 - 可扩展插件系统，第三方 submod 与官方扩展地位平等
-
-### 与原版 Phinix 的对比
-
-Phinix Rework 是对原版 [Phinix](https://github.com/hunyuan2333/Phinix) 的彻底重写，不是补丁或升级。两者互不兼容，原版的存档和服务器配置无法直接使用。
-
-| | 原版 Phinix | Phinix Rework |
-|---|---|---|
-| 服务端运行 | .NET Framework 4.7.2 + Mono | .NET 10，提供官方 Docker 镜像 |
-| 架构 | 聊天/交易逻辑内嵌于宿主 | 插件框架，Chat 和 Trade 同为插件 |
-| 第三方扩展 | 需修改宿主代码 | 实现接口即可，无需改宿主 |
-| 消息处理 | 单一通道 | Message / Command / Item 三通道 |
-| 服务端流程 | 遍历式 handler | 五段 Pipeline，扩展可精确控制消息流向 |
-| 兼容性 | — | 不支持原版存档与配置，后续可能提供适配器 |
-| RimWorld 支持 | 1.3–1.6 | 1.6 |
-
-> 当前阶段 Phinix Rework 是先重构底层、做到功能对齐。新玩法内容会在架构稳定后逐步加入。
 
 # 快速开始
 
@@ -77,7 +61,7 @@ dotnet out/PhinixServer.dll
 
 # 架构
 
-Phinix Rework 采用分层、插件优先的架构：
+Phinix Rework 采用分层、插件优先的架构。详见 [设计哲学.md](./设计哲学.md)：
 
 ```
 插件层 (Extensions/Chat, Extensions/Trade, 第三方)
@@ -86,20 +70,19 @@ Phinix Rework 采用分层、插件优先的架构：
       → 基础设施层 (Common: 网络、认证、用户管理)
 ```
 
-核心原则见 [设计哲学.md](../docs/设计哲学.md)，要点：
+核心原则：
 
 - **插件平权**——Chat 和 Trade 只是插件。第三方 submod 使用完全相同的发现 → 注册 → 激活路径。
-- **三条管道**——所有通信通过 `message`（展示）、`command`（控制）、`item`（载荷）流转。
+- **三条管道**——通信通过 `message`（展示，✅）、`command`（控制，✅）、`item`（载荷，⚠️ 半成品）流转。
 - **动态 UI**——Tab、侧栏、角标由插件通过 `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider` 贡献。
-- **Server Pipeline**——入站消息经 IngressValidation → PreHandle → DefaultProcess → Observation → Outbound 五段流水线，扩展可在任意阶段接管。
 
 # 路线图
 
-当前版本已完成核心基础：服务端可在 Docker 上一键部署、客户端聊天和交易功能稳定可用。后续工作重心是让整个系统更开放、更稳定：
+当前版本已完成核心基础：服务端可在 Docker 上一键部署、客户端聊天和交易功能稳定可用。
 
 - **短期**：修完已知的线程安全问题和 UI 性能瓶颈
-- **中期**：真正的插件化——Chat 和 Trade 从 "官方内建" 变成 "官方随发插件"，第三方作者也能用自己的扩展挂入同一个系统，不需要改宿主一行代码。
-- **远期**：Mods 目录热加载（上传即启用）、插件市场、Web 管理面板。
+- **中期**：补全 Item 管线；Chat 和 Trade 从 "官方内建" 彻底拆分为 "官方随发插件"
+- **远期**：Mods 目录热加载（上传即启用）、插件市场、Web 管理面板
 
 # 开发者说明
 
@@ -117,23 +100,28 @@ Phinix Rework 采用分层、插件优先的架构：
 
 ## 扩展开发
 
-插件实现 `IPhinixExtensionModule`，通过 `IExtensionBuilder` 注册 handler、renderer、API：
+插件实现 `IPhinixExtensionModule`，通过 `IExtensionBuilder` 注册 handler 和 API：
 
 ```csharp
-public class MyExtension : IPhinixExtensionModule
+[PhinixExtension("my.extension")]
+public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
 {
     public string ExtensionId => "my.extension";
 
     public void Register(IExtensionBuilder builder)
     {
-        builder.AddCapability("my.extension");
         builder.AddClientMessageHandler(this);
         builder.RegisterApi<IMyService>(this);
     }
+
+    public void Activate(ExtensionHostContext ctx) { /* 获取服务，订阅事件 */ }
+    public void Shutdown(ExtensionHostContext ctx) { /* 取消订阅，释放资源 */ }
 }
 ```
 
-完整指南见 [设计哲学.md](../docs/设计哲学.md)。
+完整指南：
+- [设计哲学.md](./设计哲学.md) — 架构原则、边界规则、反模式
+- [Phinix附属Mod开发者指南.md](./Phinix附属Mod开发者指南.md) — 从零开始的 Submod 开发教程
 
 # 致谢
 

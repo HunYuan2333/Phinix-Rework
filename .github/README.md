@@ -1,7 +1,7 @@
 <h1 align="center">Phinix Rework</h1>
 <h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
 
-[中文版本](./README.zh-CN.md)
+> Draft README. 中文版：[README.zh-CN.md](./README.zh-CN.md)
 
 # About
 
@@ -11,22 +11,6 @@ Phinix Rework adds multiplayer chat and item trading to RimWorld via a dedicated
 - Asynchronous item trading (no simultaneous online required)
 - Dedicated server with authentication and user management
 - Extensible plugin system — third-party submods have the same status as official extensions
-
-### vs. Original Phinix
-
-Phinix Rework is a complete rewrite of the original [Phinix](https://github.com/hunyuan2333/Phinix) mod, not a patch or upgrade. The two are incompatible — saves and server configs from the original will not work.
-
-| | Original Phinix | Phinix Rework |
-|---|---|---|
-| Server runtime | .NET Framework 4.7.2 + Mono | .NET 10, official Docker image |
-| Architecture | Chat/trade logic baked into the host | Plugin framework — Chat & Trade are plugins |
-| Third-party extensions | Requires modifying host code | Implement interfaces, no host changes needed |
-| Message handling | Single channel | Message / Command / Item three-channel pipeline |
-| Server flow | Handler traversal | Five-stage Pipeline with interception at any point |
-| Compatibility | — | Does not support original saves or configs; adapter may come later |
-| RimWorld support | 1.3–1.6 | 1.6 |
-
-> At this stage, Phinix Rework is an architectural rebuild that reaches feature parity with the original. New gameplay features will follow once the foundation is stable.
 
 # Quick Start
 
@@ -77,7 +61,7 @@ Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console
 
 # Architecture
 
-Phinix Rework uses a layered, plugin-first architecture:
+Phinix Rework uses a layered, plugin-first architecture. See [Design-Philosophy.md](./Design-Philosophy.md) for the full design guide:
 
 ```
 Plugins (Extensions/Chat, Extensions/Trade, third-party)
@@ -86,19 +70,18 @@ Plugins (Extensions/Chat, Extensions/Trade, third-party)
       → Infrastructure (Common: networking, auth, user management)
 ```
 
-See [设计哲学.md](../docs/设计哲学.md) for the full design guide. Key principles:
+Key principles:
 
 - **Plugin parity** — Chat and Trade are just plugins. Third-party submods use the exact same discovery → registration → activation path.
-- **Three pipelines** — All communication flows through `message` (display), `command` (control), and `item` (payload) lanes.
+- **Three pipelines** — Communication flows through `message` (display, ✅), `command` (control, ✅), and `item` (payload, ⚠️ in-progress) lanes.
 - **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`.
-- **Server Pipeline** — Inbound messages go through a five-stage flow (IngressValidation → PreHandle → DefaultProcess → Observation → Outbound). Extensions can intercept at any stage.
 
 # Roadmap
 
-The current release covers the core foundation: one-click Docker deployment, stable chat and trading on the client. Future work is about opening up the system:
+The current release covers the core foundation: one-click Docker deployment, stable chat and trading on the client.
 
 - **Short term**: Fix remaining thread-safety issues and UI performance bottlenecks.
-- **Medium term**: True plugin system — Chat and Trade move from "built-in" to "officially shipped plugins". Third-party authors can plug their own extensions into the same system without touching any host code.
+- **Medium term**: Complete the Item pipeline; fully decouple Chat and Trade from "built-in" to "officially shipped plugins".
 - **Long term**: Hot-loadable Mods directory (drop in to enable), plugin marketplace, web admin panel.
 
 # Developers
@@ -117,23 +100,28 @@ The client project depends on RimWorld assemblies. Place the required DLLs in `G
 
 ## Extension Development
 
-Plugins implement `IPhinixExtensionModule` and register handlers, renderers, and APIs through `IExtensionBuilder`:
+Plugins implement `IPhinixExtensionModule` and register handlers and APIs through `IExtensionBuilder`:
 
 ```csharp
-public class MyExtension : IPhinixExtensionModule
+[PhinixExtension("my.extension")]
+public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
 {
     public string ExtensionId => "my.extension";
 
     public void Register(IExtensionBuilder builder)
     {
-        builder.AddCapability("my.extension");
         builder.AddClientMessageHandler(this);
         builder.RegisterApi<IMyService>(this);
     }
+
+    public void Activate(ExtensionHostContext ctx) { /* acquire services, subscribe events */ }
+    public void Shutdown(ExtensionHostContext ctx) { /* unsubscribe, release resources */ }
 }
 ```
 
-Full guide at [设计哲学.md](../docs/设计哲学.md).
+Full guides:
+- [设计哲学.md](./设计哲学.md) (Chinese) / [Design-Philosophy.md](./Design-Philosophy.md) — architecture principles, boundaries, anti-patterns
+- [Phinix附属Mod开发者指南.md](./Phinix附属Mod开发者指南.md) (Chinese) / [Phinix-Submod-Developer-Guide.md](./Phinix-Submod-Developer-Guide.md) — step-by-step submod development tutorial
 
 # Credit
 
