@@ -45,6 +45,26 @@ namespace Phinix.TradeExtension.Client
             codecContext.CompatibilityMode = compatibilityMode;
         }
 
+        public void SetExtensionCodecs(IEnumerable<IItemCodec> extensionCodecs)
+        {
+            if (extensionCodecs == null) return;
+
+            foreach (IItemCodec codec in extensionCodecs)
+            {
+                if (codec == null || string.IsNullOrEmpty(codec.CodecId))
+                {
+                    continue;
+                }
+
+                if (codecs.Any(existing => string.Equals(existing.CodecId, codec.CodecId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                codecs.Add(codec);
+            }
+        }
+
         public Thing[] DecodeTradeItems(IEnumerable<TradeItemSnapshot> tradeItems)
         {
             return DecodeItems(EncodeTradeItems(tradeItems));

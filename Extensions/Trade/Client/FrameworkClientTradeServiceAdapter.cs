@@ -117,13 +117,38 @@ namespace Phinix.TradeExtension.Client
 
         public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
         {
-            FrameworkPacket packet = tradeService.CreateOfferUpdateRequest(tradeId, items, createContext());
-            if (!string.IsNullOrEmpty(token))
+            var tradeItems = items.ToList();
+
+            if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
             {
-                packet.SetCorrelationId(token);
+                FrameworkPacket packet = tradeService.CreateOfferUpdateRequest(
+                    tradeId, tradeItems, createContext());
+                if (!string.IsNullOrEmpty(token))
+                    packet.SetCorrelationId(token);
+                SendTradePacket(packet);
+                return;
             }
 
-            SendTradePacket(packet);
+            FrameworkItemPayload[] payloads = tradeService.EncodeTradeItems(tradeItems);
+
+            List<string> itemPacketIds = new List<string>();
+            foreach (FrameworkItemPayload payload in payloads)
+            {
+                FrameworkPacket itemPacket = FrameworkSerialization.BuildItemPacket(
+                    payload, sessionContext.SessionId, sessionContext.Uuid);
+                itemPacketIds.Add(itemPacket.MessageId);
+                frameworkClient.SendFrameworkPacket(itemPacket);
+
+                log?.Invoke(
+                    $"[TradeAdapter] Sent item packet id={itemPacket.MessageId} for tradeId={tradeId}",
+                    LogLevel.DEBUG);
+            }
+
+            FrameworkPacket cmdPacket = tradeService.CreateOfferUpdateRequest(tradeId, itemPacketIds, createContext());
+            if (!string.IsNullOrEmpty(token))
+                cmdPacket.SetCorrelationId(token);
+
+            SendTradePacket(cmdPacket);
         }
 
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)

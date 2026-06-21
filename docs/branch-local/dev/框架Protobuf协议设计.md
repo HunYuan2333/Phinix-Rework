@@ -43,7 +43,7 @@
 - 内置 `FrameworkVanillaItemData`：def_name、stack_count、stuff_def_name、quality、hit_points、inner_item
 - `IItemCodec` 接口已就绪，`IExtensionBuilder.AddItemCodec()` 已可用
 - 客户端 `TradeClientItemPipeline` 已支持 `extensionCodecs` 参数注入
-- 服务端 `ProcessIncomingItem` 仍需升级为三阶段链（当前仅 round-trip 验证后丢弃解码结果）
+- 服务端 `ProcessIncomingItem` 已升级为三阶段链（interceptor → handler → observer + 内置 codec 兜底）
 
 ---
 
@@ -58,8 +58,10 @@
 | Command 管线 (Client 出站) | ✅ `IClientOutgoingCommandHandler` + `TryHandleOutgoingCommand` |
 | Command 管线 (Server) | ✅ 五段链 |
 | Item 管线 codec 注册 | ✅ `IExtensionBuilder.AddItemCodec()` + `IItemCodec` |
-| Item 管线 (Client) | ⚠️ `TradeClientItemPipeline` 构造函数接受扩展 codecs，但未从 Registry 全局收集 |
-| Item 管线 (Server) | ⚠️ `ProcessIncomingItem` 解码后丢失结果，无 interceptor/handler/observer |
+| Item 管线 (Client 入站) | ✅ `packetHandler` `KindItem` 分支 + `handleItem` + `IClientIncomingItemHandler` |
+| Item 管线 (Client 出站) | ✅ `TryHandleOutgoingItem` + `IClientOutgoingItemHandler` |
+| Item 管线 (Server) | ✅ 三段链 `IServerInboundItemInterceptor` → `IServerDefaultItemHandler` → `IServerItemObserver` + 内置 codec 兜底 |
+| Trade 消费 Submod codec | ✅ `IItemCodecProvider` + `SetExtensionCodecs` Activate 阶段注入 |
 | Proto 骨架 | ✅ `Common/Utils/Framework/Proto/` 包含 Shared/Message/Command/Item |
 | JSON→Protobuf 迁移 | ⬜ 远期目标 |
 

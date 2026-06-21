@@ -174,12 +174,37 @@ namespace Phinix.TradeExtension.Client
             };
         }
 
+        public FrameworkItemPayload[] EncodeTradeItems(IEnumerable<TradeItemSnapshot> tradeItems)
+        {
+            return itemPipeline.EncodeTradeItems(tradeItems) ?? Array.Empty<FrameworkItemPayload>();
+        }
+
         public FrameworkPacket CreateOfferUpdateRequest(string tradeId, IEnumerable<TradeItemSnapshot> tradeItems, ClientFrameworkContext context)
         {
             FrameworkTradeOfferUpdateRequest payload = new FrameworkTradeOfferUpdateRequest
             {
                 TradeId = tradeId,
                 Items = (itemPipeline.EncodeTradeItems(tradeItems) ?? Array.Empty<FrameworkItemPayload>()).ToList()
+            };
+
+            return new FrameworkPacket
+            {
+                Flow = global::Phinix.Framework.FrameworkFlow.Command,
+                CommandKind = global::Phinix.Framework.FrameworkCommandKind.Request,
+                MessageType = FrameworkTradeProtocol.OfferUpdateRequestType,
+                MessageId = Guid.NewGuid().ToString(),
+                SessionId = context.SessionId,
+                SenderUuid = context.SenderUuid,
+                PayloadJson = FrameworkSerialization.SerializePayload(payload)
+            };
+        }
+
+        public FrameworkPacket CreateOfferUpdateRequest(string tradeId, IEnumerable<string> itemPacketRefs, ClientFrameworkContext context)
+        {
+            FrameworkTradeOfferUpdateRequest payload = new FrameworkTradeOfferUpdateRequest
+            {
+                TradeId = tradeId,
+                ItemPacketRefs = (itemPacketRefs ?? Array.Empty<string>()).ToList()
             };
 
             return new FrameworkPacket

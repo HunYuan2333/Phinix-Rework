@@ -38,9 +38,10 @@ Talent-Trade 是跨存档 Pawn 交易模组（~4400 行 C#），支持直接交�
 - `TryGetUser(string uuid, out ImmutableUser user)` 可用
 - **P0 完成**
 
-### P1 — Item 管线服务端三阶段处理器链（未实现）
-- `ProcessIncomingItem` 仍仅做 codec 解码→round-trip 验证→丢弃
-- 需新增 `IServerItemInterceptor`、`IServerDefaultItemHandler`、`IServerItemObserver`
+### P1 — Item 管线服务端三阶段处理器链 ✅ 已实现（2026-06-21）
+- `IServerItemInterceptor`、`IServerDefaultItemHandler`、`IServerItemObserver` 均已定义
+- `ProcessIncomingItem` 重写为三段链 + 内置 codec 兜底
+- Client 端 `KindItem` 独立路由 + `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` / `TryHandleOutgoingItem` 就绪
 
 ### P2 — PayloadBytes 二进制直通（未实现）
 - 当前仍然经过两次 JSON 序列化（内层 bytes→base64 1.37x 膨胀）
@@ -51,14 +52,17 @@ Talent-Trade 是跨存档 Pawn 交易模组（~4400 行 C#），支持直接交�
 
 | 接口 | 代码状态 |
 |------|---------|
-| `IServerItemInterceptor` | ❌ 未定义 |
-| `IServerDefaultItemHandler` | ❌ 未定义 |
-| `IServerItemObserver` | ❌ 未定义 |
-| `ServerIncomingItemResult` | ❌ 未定义 |
-| `ItemHandlingResultAction` | ❌ 未定义 |
+| `IServerItemInterceptor` | ✅ 已实现（P0 补全） |
+| `IServerDefaultItemHandler` | ✅ 已实现（P0 补全） |
+| `IServerItemObserver` | ✅ 已实现（P0 补全） |
+| `ServerIncomingItemResult` | ✅ 已实现（P0 补全） |
+| `ItemHandlingResultAction` | ✅ 已实现（P0 补全） |
 | `IExtensionBuilder.AddItemCodec()` | ✅ 已存在 |
+| `IClientIncomingItemHandler` | ✅ 已实现（P0 补全） |
+| `IClientOutgoingItemHandler` | ✅ 已实现（P0 补全） |
+| `IItemCodecProvider` | ✅ 已实现（P0 补全） |
 
-**Client 侧无新增接口需求**——`IClientUserDirectory`、`IClientSessionContext`、`IMainTabProvider` 均已就绪。
+**Client 侧也已补全**——`IClientIncomingItemHandler` / `IClientOutgoingItemHandler` / `IItemCodecProvider` 均已就绪。
 
 ---
 
@@ -68,9 +72,10 @@ Talent-Trade 是跨存档 Pawn 交易模组（~4400 行 C#），支持直接交�
 |--------|------|---------|
 | P0 | `AddItemCodec` + registry 收集 | ✅ 完成 |
 | P0 | `IClientUserDirectory` | ✅ 完成 |
-| P0 | `TradeClientItemPipeline` 动态收集 codec | ✅ 支持 extensionCodecs 注入，但未从 registry 全局收集 |
-| P1 | Item 管线服务端三阶段处理器链 | ❌ 待实现 |
-| P2 | PayloadBytes 二进制直通路径 | ❌ 待实现 |
+| P0 | `TradeClientItemPipeline` 动态收集 codec | ✅ Activate 阶段通过 `IItemCodecProvider` 注入完整 codec 列表 |
+| P0 | Item 管线服务端三段链 + Client 双端路由 | ✅ 完成（2026-06-21） |
+| P1 | PayloadBytes 二进制直通路径 | ❌ 待实现 |
+| P2 | Trade 的 Item payload 从 Command 嵌套迁至 KindItem | ❌ 远期 |
 
 ---
 

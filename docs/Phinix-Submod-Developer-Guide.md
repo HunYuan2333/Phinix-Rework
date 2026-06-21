@@ -240,7 +240,7 @@ builder.AddMessageInterceptor(this);             // IMessageInterceptor
 builder.AddMessageRenderer(this);                // IMessageRenderer
 builder.AddCapabilityProvider(this);             // ICapabilityProvider
 builder.AddServerMessageHandler(this);           // IServerMessageHandler (server-side extensions)
-builder.AddItemCodec(this);                      // IItemCodec (⚠️ half-finished — see §6.3)
+builder.AddItemCodec(this);                      // IItemCodec (✅ fully available — see §6.3)
 ```
 
 ### 4.2 Registering APIs (Exposing Your Own Capabilities)
@@ -442,61 +442,78 @@ builder.AddClientCommandHandler(this); // Covers both inbound and outbound (if t
 
 Reference implementation: [BuiltInTradeClientExtension.cs:60](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L60) implements both `IClientCommandHandler` and `IClientOutgoingCommandHandler`.
 
-### 6.3 Item Pipeline ⚠️ Half-Finished / Transitional
+### 6.3 Item Pipeline ✅ Fully Available (P0 Complete)
 
-**Current actual state** (verified against `dev` branch code):
+**Current actual state** (verified against `dev` branch code, 2026-06-21 update):
 
-The Item pipeline is **not independently usable**. Here are the facts:
+The Item pipeline is **now fully independent and usable**. Here are the facts:
 
-- ❌ The client-side `packetHandler` has **no** `KindItem` branch — Item data cannot be independently routed from server to client
-- ❌ The client side has **no** `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` interfaces
+- ✅ The server-side three-phase chain is in place: `IServerItemInterceptor` → `IServerDefaultItemHandler` → `IServerItemObserver`
+- ✅ The client-side `packetHandler` has a `KindItem` branch — Item data routes independently
+- ✅ `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` interfaces exist ([FrameworkTypes.cs](Common/Utils/Framework/FrameworkTypes.cs))
 - ✅ The `IItemCodec` interface is defined ([FrameworkTypes.cs:530-541](Common/Utils/Framework/FrameworkTypes.cs#L530-L541))
-- ✅ The `builder.AddItemCodec()` registration method exists ([FrameworkTypes.cs:415](Common/Utils/Framework/FrameworkTypes.cs#L415))
-- ❌ But registered codecs are **not consumed by the pipeline** — `ProcessIncomingItem` decodes and then discards results
+- ✅ The `builder.AddItemCodec()` registration method exists and codecs are consumed by the pipeline
+- ✅ `TryHandleOutgoingItem()` exists for outbound Item packets
+- ✅ The current Command-nesting path (used by Trade) remains fully compatible
 
-**Currently available Item transmission method**:
-
-Item data is transmitted by **nesting `FrameworkItemPayload` inside the Command pipeline**. Taking Trade as an example:
+**Inbound routing** (Server → Client):
 
 ```
-FrameworkPacket (Kind="command")
-  └─ PayloadJson = JSON(FrameworkTradeOfferUpdateRequest)
-       └─ Items = List<FrameworkItemPayload>
-            └─ PayloadBytes = protobuf(FrameworkVanillaItemData)
+NetClient → packetHandler(KindItem) → handleItem(packet)
+  → IClientIncomingItemHandler chain (sorted by Priority)
+  → CanHandle(packet) → HandleItem(packet, context)
 ```
 
-This means:
-- Item data **parasitically rides inside the Command pipeline**
-- You need to implement `IClientCommandHandler` to handle Item data
-- There is no dedicated interceptor/handler/observer chain for Item use
+**Outbound routing** (Client → Server):
 
-**Current recommendations for submod developers**:
+```
+Submod → TryHandleOutgoingItem(itemPayload, context)
+  → IClientOutgoingItemHandler chain (sorted by Priority)
+  → HandleOutgoingItem() → FrameworkPacket
+  → sendPacket(Flow=Item, Kind=item, PayloadBytes=protobuf)
+```
 
-| Your scenario | Currently recommended approach |
+**Server-side three-phase chain**:
+
+```
+handleItem → ProcessIncomingItem:
+  1. IServerItemInterceptor.CanIntercept → InterceptItem()
+  2. IServerDefaultItemHandler.CanHandle → HandleItem()
+     (traverses IItemCodecs by CodecId, CanDecode → Decode)
+  3. IServerItemObserver.ObserveItem()
+```
+
+**Currently available Item transmission methods**:
+
+| Method | Description | Best for |
+|--------|-------------|----------|
+| Independent `KindItem` packet | Direct Item routing through the Item pipeline | New submods, binary payload data (items, creatures, etc.) |
+| Command-nesting `FrameworkItemPayload` | Item data nested inside Command pipeline | Trade backward compatibility, mixed control+payload messages |
+
+**Recommendations for submod developers**:
+
+| Your scenario | Recommended approach |
 |----------|------------------|
 | Transmitting a small amount of structured control instructions | Command pipeline — standard, fully available |
-| Transmitting binary-payload data (items, creatures, etc.) | Command pipeline nesting `FrameworkItemPayload` — this is exactly what Trade currently does |
-| Server-side needs to validate/intercept Item data | ⚠️ Currently not possible — server-side Item codec decodes and discards, no interception chain |
-| Want one codec to be automatically routed by the pipeline | ⚠️ Currently not possible — wait for P0 completion |
+| Transmitting binary-payload data (items, creatures, etc.) | Item pipeline — implement `IItemCodec` + `IClientOutgoingItemHandler` |
+| Server-side needs to validate/intercept Item data | Item pipeline — register `IServerItemInterceptor` / `IServerItemObserver` |
+| Want one codec to be automatically routed by the pipeline | Item pipeline — register `IItemCodec` via `AddItemCodec()` |
+| Need to stay compatible with existing Trade protocol | Command-nesting `FrameworkItemPayload` (Trade's current approach) |
 
-**Future evolution direction** 🔮:
+**Future evolution** 🔮:
+- **P1**: `PayloadBytes` direct path to eliminate intermediate JSON serialization and base64 expansion (performance optimization)
+- **P2**: Migrate Trade's Item payload from Command nesting to independent `KindItem` routing (optional, the current nesting path will remain compatible)
 
-The framework plans to complete an independent Item pipeline (P0 phase), at which point:
-- A new `KindItem` packet type with independent routing will be added
-- `IItemCodec` registrations will be consumed by the pipeline
-- A server-side three-phase chain (Interceptor → Handler → Observer) will be introduced
-- **The current Command nesting approach will remain compatible**
-
-For detailed analysis, see `docs/branch-local/dev/三条Pipeline职责辨析与Item管线补全分析.md` (internal design reference).
+For detailed analysis, see `docs/branch-local/dev/三条Pipeline职责辨析与Item管线补全分析.md` and `docs/branch-local/dev/Item管线补全实施方案.md`.
 
 ### 6.4 Inbound / Outbound Flow Reference Table
 
 | Direction | Message | Command | Item |
 |------|---------|---------|------|
-| Server → Client (inbound) | `IClientMessageHandler` → `IMessageRenderer` → UI | `IClientCommandHandler` → internal state | ❌ No independent routing |
-| Client → Server (outbound) | `TryHandleOutgoingMessage()` → `IClientMessageHandler` chain | `TryHandleOutgoingCommand()` → `IClientOutgoingCommandHandler` chain | ❌ No independent routing |
-| Outbound pipeline entry | `IFrameworkClientTransport` | `IFrameworkClientCommandTransport` | — |
-| Outbound must go through pipeline | ✅ Yes ([Design Philosophy §3.7]) | ✅ Yes | — |
+| Server → Client (inbound) | `IClientMessageHandler` → `IMessageRenderer` → UI | `IClientCommandHandler` → internal state | `IClientIncomingItemHandler` → internal state |
+| Client → Server (outbound) | `TryHandleOutgoingMessage()` → `IClientMessageHandler` chain | `TryHandleOutgoingCommand()` → `IClientOutgoingCommandHandler` chain | `TryHandleOutgoingItem()` → `IClientOutgoingItemHandler` chain |
+| Outbound pipeline entry | `IFrameworkClientTransport` | `IFrameworkClientCommandTransport` | `IFrameworkClientItemTransport` |
+| Outbound must go through pipeline | ✅ Yes ([Design Philosophy §3.7]) | ✅ Yes | ✅ Yes |
 
 ---
 

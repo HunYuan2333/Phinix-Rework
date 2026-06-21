@@ -189,48 +189,48 @@ TalentTrade:
 
 ## 4. 实施建议
 
-### P0 — 补全 Item 管线（解除 Submod 阻塞）
+> **2026-06-21 更新：P0 已全部实现，P1/P2 待排期。实施细节见 [Item管线补全实施方案.md](Item管线补全实施方案.md)。**
 
-| 步骤 | 内容 | 影响范围 |
-|------|------|---------|
-| 1 | Client `packetHandler` 新增 `KindItem` 分支 + `handleItem()` | `PhinixFrameworkClient.cs` |
-| 2 | Client 新增 `IClientIncomingItemHandler` 接口（可选实现） | `FrameworkTypes.cs` |
-| 3 | Server 新增 `IServerItemInterceptor`/`IServerDefaultItemHandler`/`IServerItemObserver` | `FrameworkTypes.cs` |
-| 4 | `ProcessIncomingItem` 升级为三阶段链 | `ServerPipelineRunner.cs` |
-| 5 | `IExtensionBuilder` 新增 `AddClientItemHandler()`/`AddServerItemHandler()` 等 | `FrameworkTypes.cs` |
-| 6 | `PhinixFrameworkClient` 从 RegisteredHandlers 收集 `IItemCodec` | `PhinixFrameworkClient.cs` |
+### P0 — 补全 Item 管线 ✅ 已完成
+
+| 步骤 | 内容 | 影响范围 | 状态 |
+|------|------|---------|------|
+| 1 | Client `packetHandler` 新增 `KindItem` 分支 + `handleItem()` | `PhinixFrameworkClient.cs` | ✅ |
+| 2 | Client 新增 `IClientIncomingItemHandler` 接口 | `FrameworkTypes.cs` | ✅ |
+| 3 | Server 新增 `IServerInboundItemInterceptor`/`IServerDefaultItemHandler`/`IServerItemObserver` | `FrameworkTypes.cs` | ✅ |
+| 4 | `ProcessIncomingItem` 升级为三阶段链 | `ServerPipelineRunner.cs` | ✅ |
+| 5 | `IExtensionBuilder` 新增 `AddClientItemHandler()`/`AddServerItemHandler()` 等 | `FrameworkTypes.cs` | ✅ |
+| 6 | `PhinixFrameworkClient` 从 Registry 收集 `IItemCodec` 并暴露为 `IItemCodecProvider` | `PhinixFrameworkClient.cs` | ✅ |
 
 **P0 不改变 Trade 的现有 Item 传输方式**——Trade 继续走 Command 嵌套 Item payload。新 Submod 可以选择使用新的独立 Item 路由。
 
-### P1 — 性能优化
+### P1 — 性能优化（待实施）
 
 | 步骤 | 内容 |
 |------|------|
 | 7 | `FrameworkPacket.PayloadBytes` 直通路径——Item 数据跳过 `PayloadJson`，直接用 protobuf `PayloadBytes` |
 | 8 | 添加 `FrameworkSerialization.TrySendItemPacket()` 直接构造 protobuf `FrameworkItemPacket` |
 
-### P2 — Trade 迁移（可选）
+### P2 — Trade 迁移（可选，远期）
 
 | 步骤 | 内容 |
 |------|------|
 | 9 | Trade 的 Item payload 从 Command 嵌套改为独立 KindItem 路由 |
-| 10 | 旧格式兼容（legacy 路径保留一个版本） |
+| 10 | 旧格式兼容（legacy 路径保留一个 MINOR 版本） |
 
 ---
 
-## 5. 结论
+## 5. 结论（2026-06-21 更新）
 
-**Item 管线补全是必要的，且紧迫性因两位 Submod 作者的需求而提升到 P0。**
+**Item 管线 P0 补全已完成。** 当前状态：
 
-当前 Item 管线是"半成品"：接口已定义（`IItemCodec`、`AddItemCodec()`），proto 骨架已落地，registry 已收集 codec，但**管线本身不存在**（Client 无路由，Server 只有解码+丢弃，没有三阶段链）。
-
-补全 Item 管线不需要重构现有 Trade 代码——Trade 可以继续当前路径。补全的目标是：
-1. 让新 Submod 的 Item 数据可以**独立路由**（KindItem 分包）
-2. 让服务端可以**拦截/处理/观察** Item 数据
-3. 让 `IItemCodec` 注册后**真正被管线消费**
-4. 为未来 **protobuf-native Item 传输**（消除 JSON 膨胀）打好基础
+- 接口全量就绪（`IItemCodec`、`IClientIncomingItemHandler`、`IClientOutgoingItemHandler`、`IServerInboundItemInterceptor`、`IServerDefaultItemHandler`、`IServerItemObserver`、`IItemCodecProvider`）
+- 服务端三段链就绪（interceptor → default handler → observer + 内置 codec 兜底）
+- Client 端双端路由就绪（`KindItem` 独立入站 + `TryHandleOutgoingItem` 出站）
+- `IItemCodec` 注册后即被管线消费，Submod 可注册 `IServerItemObserver` 做审计/日志
+- Trade 现有 Command 嵌套路径兼容不变（P2 远期迁移）
+- P1 PayloadBytes 直通待排期
 
 **相关文档：**
+- [Item管线补全实施方案.md](Item管线补全实施方案.md)
 - [设计哲学.md](设计哲学.md) — §3.2 三管道, §3.7 管线约束
-- [框架Protobuf协议设计.md](框架Protobuf协议设计.md) — 三流模型
-- [Talent-Trade迁移框架需求分析.md](Talent-Trade迁移框架需求分析.md) — P0/P1 清单

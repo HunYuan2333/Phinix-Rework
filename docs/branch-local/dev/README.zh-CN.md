@@ -73,7 +73,7 @@ Phinix Rework 采用分层、插件优先的架构。详见 [设计哲学.md](./
 核心原则：
 
 - **插件平权**——Chat 和 Trade 只是插件。第三方 submod 使用完全相同的发现 → 注册 → 激活路径。
-- **三条管道**——通信通过 `message`（展示，✅）、`command`（控制，✅）、`item`（载荷，⚠️ 半成品）流转。
+- **三条管道**——通信通过 `message`（展示，✅）、`command`（控制，✅）、`item`（载荷，✅ P0 已就绪）流转。
 - **动态 UI**——Tab、侧栏、角标由插件通过 `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider` 贡献。
 
 # 路线图

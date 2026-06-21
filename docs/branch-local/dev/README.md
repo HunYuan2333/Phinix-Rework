@@ -73,7 +73,7 @@ Plugins (Extensions/Chat, Extensions/Trade, third-party)
 Key principles:
 
 - **Plugin parity** — Chat and Trade are just plugins. Third-party submods use the exact same discovery → registration → activation path.
-- **Three pipelines** — Communication flows through `message` (display, ✅), `command` (control, ✅), and `item` (payload, ⚠️ in-progress) lanes.
+- **Three pipelines** — Communication flows through `message` (display, ✅), `command` (control, ✅), and `item` (payload, ✅ P0 ready) lanes.
 - **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`.
 
 # Roadmap

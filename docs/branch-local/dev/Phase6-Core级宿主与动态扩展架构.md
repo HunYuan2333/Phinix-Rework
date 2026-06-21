@@ -34,8 +34,8 @@
 | `FrameworkPacket.MessageType` 命名残留 chat 语义 | ⬜ Phase 6 改名 |
 | `message pipeline` 未改名为 `content pipeline` | ⬜ |
 | `IClientMessageHandler` 同时处理文本输入和入站 message | ⬜ |
-| 服务端 `ProcessIncomingItem` 无三阶段链 | ⬜ |
-| Common 程序集中仍有端侧实现 | ⬜ 见“当前遗留问题与稳定性汇总” |
+| 服务端 `ProcessIncomingItem` 无三阶段链 | ✅ 已补全（P0 完成） |
+| Common 程序集中仍有端侧实现 | ⬜ 见"当前遗留问题与稳定性汇总" |
 | Docker 发布链对官方扩展做显式构建/复制 | ⚠️ 过渡性妥协，见下文 2.1 |
 
 ### 2.1 Docker 发布链的过渡性妥协
@@ -109,4 +109,3 @@ dependency graph、extension versioning、hot reload、sandboxing、remote exten
 - [设计哲学.md](设计哲学.md)
 - [框架化重构路线图.md](框架化重构路线图.md)
 - [框架Protobuf协议设计.md](框架Protobuf协议设计.md)
-- [已知未解决问题.md](已知未解决问题.md)
