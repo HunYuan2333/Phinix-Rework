@@ -40,6 +40,7 @@
     <Phinix_framework_connectedLegacyServer>Connected to legacy server. Some features may be unavailable.</Phinix_framework_connectedLegacyServer>
     <Phinix_framework_legacyExtensionUnavailable>This feature requires a Phinix framework server.</Phinix_framework_legacyExtensionUnavailable>
     <Phinix_framework_unsupportedIncomingMessageType>Received unsupported message type '{0}'.</Phinix_framework_unsupportedIncomingMessageType>
+    <Phinix_framework_remoteCapabilityUnavailable>The server does not support the '{0}' capability. Message not sent.</Phinix_framework_remoteCapabilityUnavailable>
 
     <!-- Core errors -->
     <Phinix_error_loginFailedTitle>Login failed</Phinix_error_loginFailedTitle>

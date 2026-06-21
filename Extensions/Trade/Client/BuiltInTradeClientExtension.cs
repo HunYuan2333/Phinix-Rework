@@ -95,6 +95,13 @@ namespace Phinix.TradeExtension.Client
             userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
             updateAcceptingTrades = hostContext.GetRequiredService<Action<bool>>();
 
+            // 注入框架 registry 收集的所有 Item codec，让 Trade 能消费 Submod 注册的 codec。
+            // 在 Activate 阶段执行，确保所有扩展的 Register() 已完成、codec 列表完整。
+            if (hostContext.TryGetService<IItemCodecProvider>(out IItemCodecProvider codecProvider))
+            {
+                itemPipeline?.SetExtensionCodecs(codecProvider.ItemCodecs);
+            }
+
             if (compatibilityChangedHandler == null)
             {
                 compatibilityChangedHandler = (_, args) =>

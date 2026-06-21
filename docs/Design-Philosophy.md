@@ -116,9 +116,9 @@ Framework communication is divided into three main pipelines, each with its own 
 |------|------|------|----------|
 | Message | User-visible messages | Chat messages, system notifications | ✅ Fully available |
 | Command | Background control instructions | Trade creation/update, snapshot sync | ✅ Fully available |
-| Item | Item data | Trade item encoding/decoding | ⚠️ Half-finished |
+| Item | Item data | Trade item encoding/decoding | ✅ P0 fully available |
 
-> **About the current state of the Item pipeline**: The `IItemCodec` interface and `AddItemCodec()` registration method are already defined, but the Client side has no independent Item routing (the `packetHandler` lacks a `KindItem` branch), and registered codecs have not yet been consumed by the pipeline. Currently, Item data is transmitted via the Command pipeline nesting `FrameworkItemPayload`. An independent Item pipeline is a P0 evolution goal; when it arrives, the current approach will remain compatible. See the "Submod Developer Guide" §6.3 for details.
+> **About the current state of the Item pipeline (2026-06-21 update)**: P0 has been completed. The server-side three-phase chain (`IServerItemInterceptor` → `IServerDefaultItemHandler` → `IServerItemObserver`) is in place; the Client side has independent `KindItem` routing with `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` / `TryHandleOutgoingItem` all ready; registered codecs are now consumed by the pipeline. The current Command-nesting path used by Trade remains compatible. See the "Submod Developer Guide" §6.3 for details.
 
 When adding a new message type, first determine which pipeline it belongs to, then choose the corresponding handler interface to implement.
 

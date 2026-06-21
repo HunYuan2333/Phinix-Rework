@@ -40,6 +40,7 @@
     <Phinix_framework_connectedLegacyServer>已连接至旧版服务器，部分功能可能不可用。</Phinix_framework_connectedLegacyServer>
     <Phinix_framework_legacyExtensionUnavailable>此功能需要 Phinix 框架服务器。</Phinix_framework_legacyExtensionUnavailable>
     <Phinix_framework_unsupportedIncomingMessageType>收到不支持的消息类型 '{0}'。</Phinix_framework_unsupportedIncomingMessageType>
+    <Phinix_framework_remoteCapabilityUnavailable>服务器不支持 '{0}' 功能，消息未发送。</Phinix_framework_remoteCapabilityUnavailable>
 
     <!-- Core errors -->
     <Phinix_error_loginFailedTitle>登录失败</Phinix_error_loginFailedTitle>

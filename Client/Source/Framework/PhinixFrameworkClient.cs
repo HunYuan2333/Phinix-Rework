@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink, IDisposable
+    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink, IItemCodecProvider, IDisposable
     {
         public event EventHandler<LogEventArgs> OnLogEntry;
 
@@ -57,6 +57,7 @@ namespace PhinixClient.Framework
             this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
             this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
             this.extensionHostContext.AddService<IDisplayMessageSink>(this);
+            this.extensionHostContext.AddService<IItemCodecProvider>(this);
             this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
             this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
             PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
@@ -84,7 +85,8 @@ namespace PhinixClient.Framework
             {
                 string moduleSummary =
                     $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
-                    $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}.";
+                    $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}, " +
+                    $"client item handlers={discoveredExtensions.ClientIncomingItemHandlers.Count}, client outgoing item handlers={discoveredExtensions.ClientOutgoingItemHandlers.Count}.";
                 RaiseLogEntry(new LogEventArgs(moduleSummary));
                 this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
             }
@@ -125,6 +127,8 @@ namespace PhinixClient.Framework
 
         public int WarningCount => discoveredExtensions.Warnings.Count;
 
+        public IReadOnlyList<IItemCodec> ItemCodecs => discoveredExtensions.ItemCodecs.AsReadOnly();
+
         public void BeginNegotiation()
         {
             if (disposed) return;
@@ -134,7 +138,7 @@ namespace PhinixClient.Framework
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
 
             negotiationTimer.Start();
-            RaiseLogEntry(new LogEventArgs("Starting framework capability negotiation with connected server.", LogLevel.DEBUG));
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Starting capability negotiation with server. Capabilities: {string.Join(", ", capabilities)}", LogLevel.INFO));
             sendPacket(new FrameworkPacket
             {
                 Kind = FrameworkProtocol.KindHello,
@@ -319,6 +323,95 @@ namespace PhinixClient.Framework
             return false;
         }
 
+        public bool TryHandleOutgoingItem(FrameworkItemPayload itemPayload)
+        {
+            if (disposed) return false;
+            if (itemPayload == null || string.IsNullOrEmpty(itemPayload.CodecId)) return false;
+
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingItem: codecId={itemPayload.CodecId}, mode={CompatibilityMode}",
+                LogLevel.DEBUG));
+
+            ClientFrameworkContext context = new ClientFrameworkContext
+            {
+                CompatibilityMode = CompatibilityMode,
+                SenderUuid = userManager.Uuid,
+                SessionId = authenticator.SessionId,
+                SendMessage = sendPacket,
+                RemoteCapabilities = remoteCapabilities.ToArray(),
+                HasRemoteCapability = hasRemoteCapability,
+                Log = (msg, level) => RaiseLogEntry(new LogEventArgs(msg, level))
+            };
+
+            bool anyHandlerTried = false;
+            foreach (IClientOutgoingItemHandler handler in discoveredExtensions.ClientOutgoingItemHandlers)
+            {
+                bool canHandle;
+                try
+                {
+                    canHandle = handler.CanHandleOutgoingItem(itemPayload);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"[Framework] Outgoing item handler {handler.GetType().FullName}.CanHandle threw: {ex}", LogLevel.ERROR));
+                    continue;
+                }
+
+                if (!canHandle) continue;
+
+                anyHandlerTried = true;
+                ClientOutgoingItemResult result = null;
+                try
+                {
+                    result = handler.HandleOutgoingItem(itemPayload, context);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"[Framework] Outgoing item handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                    continue;
+                }
+
+                if (result == null || result.Action == ItemHandlingResultAction.Continue)
+                    continue;
+
+                FrameworkPacket outgoingItem = result.Item;
+                if (outgoingItem == null)
+                {
+                    if (result.Action == ItemHandlingResultAction.Handled)
+                    {
+                        RaiseLogEntry(new LogEventArgs(
+                            $"[Framework] TryHandleOutgoingItem: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
+                            LogLevel.DEBUG));
+                        return true;
+                    }
+                    continue;
+                }
+
+                outgoingItem.Kind = FrameworkProtocol.KindItem;
+                outgoingItem.Flow = global::Phinix.Framework.FrameworkFlow.Item;
+                outgoingItem.SessionId = authenticator.SessionId;
+                outgoingItem.SenderUuid = userManager.Uuid;
+                sendPacket(outgoingItem);
+
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingItem: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
+                    LogLevel.DEBUG));
+
+                if (result.Action != ItemHandlingResultAction.Continue) return true;
+            }
+
+            if (!anyHandlerTried)
+            {
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingItem: NO handler claimed item payload (codecId='{itemPayload.CodecId}') — returning false",
+                    LogLevel.WARNING));
+            }
+
+            return false;
+        }
+
         public void MarkAsRead()
         {
             lock (displayMessagesLock)
@@ -431,9 +524,12 @@ namespace PhinixClient.Framework
                 return;
             }
 
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] packetHandler received: kind={packet.Kind}, type={packet.MessageType}, flow={packet.Flow}", LogLevel.INFO));
+
             switch (packet.Kind)
             {
                 case FrameworkProtocol.KindCapabilities:
+                    RaiseLogEntry(new LogEventArgs("[PhinixFramework] Processing KindCapabilities from server...", LogLevel.INFO));
                     FrameworkCapabilitiesPayload capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(packet.PayloadJson);
                     lock (remoteCapabilities)
                     {
@@ -445,6 +541,7 @@ namespace PhinixClient.Framework
                     }
 
                     negotiationTimer.Stop();
+                    RaiseLogEntry(new LogEventArgs($"[PhinixFramework] KindCapabilities processed: {remoteCapabilities.Count} capabilities, setting FrameworkV2 mode.", LogLevel.INFO));
                     setCompatibilityMode(
                         FrameworkCompatibilityMode.FrameworkV2,
                         $"Framework capability negotiation succeeded with {remoteCapabilities.Count} negotiated remote capability/capabilities.",
@@ -463,6 +560,13 @@ namespace PhinixClient.Framework
                         packet.Flow = global::Phinix.Framework.FrameworkFlow.Command;
                     }
                     handleCommand(packet);
+                    break;
+                case FrameworkProtocol.KindItem:
+                    if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Unspecified)
+                    {
+                        packet.Flow = global::Phinix.Framework.FrameworkFlow.Item;
+                    }
+                    handleItem(packet);
                     break;
                 default:
                     RaiseLogEntry(new LogEventArgs($"Unknown framework packet kind '{packet.Kind}'", LogLevel.DEBUG));
@@ -608,6 +712,63 @@ namespace PhinixClient.Framework
             }
         }
 
+        private void handleItem(FrameworkPacket itemPacket)
+        {
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] handleItem received: type={itemPacket.MessageType}, flow={itemPacket.Flow}, kind={itemPacket.Kind}", LogLevel.DEBUG));
+
+            bool matchedHandler = false;
+            FrameworkPacket currentItem = itemPacket;
+            ClientFrameworkContext context = new ClientFrameworkContext
+            {
+                CompatibilityMode = CompatibilityMode,
+                SenderUuid = userManager.Uuid,
+                SessionId = authenticator.SessionId,
+                SendMessage = sendPacket,
+                RemoteCapabilities = remoteCapabilities.ToArray(),
+                HasRemoteCapability = hasRemoteCapability,
+                Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
+            };
+
+            foreach (IClientIncomingItemHandler handler in discoveredExtensions.ClientIncomingItemHandlers.Where(handler => handler.CanHandleIncomingItem(currentItem)))
+            {
+                matchedHandler = true;
+                ClientIncomingItemResult result = null;
+                try
+                {
+                    result = handler.HandleIncomingItem(currentItem, context);
+                }
+                catch (Exception ex)
+                {
+                    RaiseLogEntry(new LogEventArgs(
+                        $"Item handler {handler.GetType().FullName} threw for '{currentItem.MessageType}': {ex}",
+                        LogLevel.ERROR));
+                    continue;
+                }
+                if (result == null) continue;
+
+                if (result.Action == ItemHandlingResultAction.ReplacePayload && result.Item != null)
+                {
+                    currentItem = result.Item;
+                    continue;
+                }
+
+                if (result.DisplayMessage != null)
+                {
+                    addDisplayMessage(result.DisplayMessage);
+                }
+
+                if (result.Action != ItemHandlingResultAction.Continue)
+                {
+                    return;
+                }
+            }
+
+            if (!matchedHandler)
+            {
+                RaiseLogEntry(new LogEventArgs($"No client framework item handler registered for item type '{currentItem.MessageType ?? "unknown"}'.", LogLevel.DEBUG));
+            }
+        }
+
         private void addDisplayMessage(FrameworkDisplayMessage message)
         {
             if (message == null)
@@ -686,6 +847,7 @@ namespace PhinixClient.Framework
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
             if (CompatibilityMode != FrameworkCompatibilityMode.Unknown) return;
 
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Negotiation timer fired. CompatibilityMode={CompatibilityMode}. Falling back to Legacy.", LogLevel.INFO));
             setCompatibilityMode(
                 FrameworkCompatibilityMode.Legacy,
                 "Framework capability negotiation timed out; falling back to legacy compatibility mode.",

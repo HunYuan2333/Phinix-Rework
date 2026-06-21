@@ -237,7 +237,7 @@ builder.AddMessageInterceptor(this);             // IMessageInterceptor
 builder.AddMessageRenderer(this);                // IMessageRenderer
 builder.AddCapabilityProvider(this);             // ICapabilityProvider
 builder.AddServerMessageHandler(this);           // IServerMessageHandler（服务端扩展用）
-builder.AddItemCodec(this);                      // IItemCodec（⚠️ 半成品—见 §6.3）
+builder.AddItemCodec(this);                      // IItemCodec（✅ 完整可用—见 §6.3）
 ```
 
 ### 4.2 注册 API（暴露自身能力）
@@ -439,61 +439,78 @@ builder.AddClientCommandHandler(this); // 覆盖入站和出站（如果类实�
 
 参考实现：[BuiltInTradeClientExtension.cs:60](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L60) 同时实现了 `IClientCommandHandler` 和 `IClientOutgoingCommandHandler`。
 
-### 6.3 Item 管线 ⚠️ 半成品 / 过渡态
+### 6.3 Item 管线 ✅ 完整可用（P0 已完成）
 
-**当前实际状态**（基于 `dev` 分支代码验证）：
+**当前实际状态**（基于 `dev` 分支代码验证，2026-06-21 更新）：
 
-Item 管线**不是独立可用的**。以下是事实：
+Item 管线**现在是独立可用的**。以下是最新事实：
 
-- ❌ Client 端 `packetHandler` **没有** `KindItem` 分支——Item 数据不能独立从服务端路由到客户端
-- ❌ Client 端**没有** `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` 接口
+- ✅ 服务端三段链已就位：`IServerItemInterceptor` → `IServerDefaultItemHandler` → `IServerItemObserver`
+- ✅ 客户端 `packetHandler` 已有 `KindItem` 分支——Item 数据可以独立路由
+- ✅ `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` 接口已存在（[FrameworkTypes.cs](Common/Utils/Framework/FrameworkTypes.cs)）
 - ✅ `IItemCodec` 接口已定义（[FrameworkTypes.cs:530-541](Common/Utils/Framework/FrameworkTypes.cs#L530-L541)）
-- ✅ `builder.AddItemCodec()` 注册方法已存在（[FrameworkTypes.cs:415](Common/Utils/Framework/FrameworkTypes.cs#L415)）
-- ❌ 但注册的 codec **不被管线消费**——`ProcessIncomingItem` 解码后丢弃结果
+- ✅ `builder.AddItemCodec()` 注册方法已存在，且注册的 codec 被管线消费
+- ✅ `TryHandleOutgoingItem()` 已存在，用于出站 Item 包
+- ✅ Trade 当前使用的 Command 嵌套路径保持完全兼容
 
-**当前实际可用的 Item 传输方式**：
-
-Item 数据通过 **Command 管线嵌套 `FrameworkItemPayload`** 传输。以 Trade 为例：
+**入站路由**（Server → Client）：
 
 ```
-FrameworkPacket (Kind="command")
-  └─ PayloadJson = JSON(FrameworkTradeOfferUpdateRequest)
-       └─ Items = List<FrameworkItemPayload>
-            └─ PayloadBytes = protobuf(FrameworkVanillaItemData)
+NetClient → packetHandler(KindItem) → handleItem(packet)
+  → IClientIncomingItemHandler 链（按 Priority 排序）
+  → CanHandle(packet) → HandleItem(packet, context)
 ```
 
-这意味着：
-- Item 数据**寄生在 Command 管线内部**
-- 你需要实现 `IClientCommandHandler` 来处理 Item 数据
-- 没有专用的 interceptor/handler/observer 链供 Item 使用
+**出站路由**（Client → Server）：
 
-**给 Submod 开发者当前的建议**：
+```
+Submod → TryHandleOutgoingItem(itemPayload, context)
+  → IClientOutgoingItemHandler 链（按 Priority 排序）
+  → HandleOutgoingItem() → FrameworkPacket
+  → sendPacket(Flow=Item, Kind=item, PayloadBytes=protobuf)
+```
 
-| 你的场景 | 当前应使用的方案 |
+**服务端三段链**：
+
+```
+handleItem → ProcessIncomingItem:
+  1. IServerItemInterceptor.CanIntercept → InterceptItem()
+  2. IServerDefaultItemHandler.CanHandle → HandleItem()
+     （遍历 IItemCodecs 按 CodecId 匹配，CanDecode → Decode）
+  3. IServerItemObserver.ObserveItem()
+```
+
+**当前可用的 Item 传输方式**：
+
+| 方式 | 说明 | 适用场景 |
+|--------|-------------|----------|
+| 独立 `KindItem` 包 | 走 Item 管线的直接路由 | 新的 Submod、二进制载荷数据（物品、生物等） |
+| Command 嵌套 `FrameworkItemPayload` | Item 数据寄生于 Command 管线 | Trade 向后兼容、混合控制+载荷消息 |
+
+**给 Submod 开发者的建议**：
+
+| 你的场景 | 推荐的方案 |
 |----------|------------------|
 | 传输少量结构化控制指令 | Command 管线——标准、完整可用 |
-| 传输带二进制载荷的数据（如物品、生物） | Command 管线嵌套 `FrameworkItemPayload`——这就是 Trade 当前的做法 |
-| 服务端需要验证/拦截 Item 数据 | ⚠️ 当前做不到——服务端 Item codec 解码后丢弃，没有拦截链 |
-| 想实现一个 codec 就被管线自动路由 | ⚠️ 当前做不到——等 P0 补全后才行 |
+| 传输带二进制载荷的数据（物品、生物等） | Item 管线——实现 `IItemCodec` + `IClientOutgoingItemHandler` |
+| 服务端需要验证/拦截 Item 数据 | Item 管线——注册 `IServerItemInterceptor` / `IServerItemObserver` |
+| 想实现一个 codec 就被管线自动路由 | Item 管线——通过 `AddItemCodec()` 注册 |
+| 需要与现有 Trade 协议保持兼容 | Command 嵌套 `FrameworkItemPayload`（Trade 当前的做法） |
 
-**未来演进方向** 🔮：
+**未来演进** 🔮：
+- **P1**：`PayloadBytes` 直通路径，消除中间 JSON 序列化和 base64 膨胀（性能优化）
+- **P2**：将 Trade 的 Item payload 从 Command 嵌套迁移到独立 `KindItem` 路由（可选，当前嵌套路径保持兼容）
 
-框架计划补全独立的 Item 管线（P0 阶段），届时：
-- 新增 `KindItem` 分包独立路由
-- `IItemCodec` 注册后被管线消费
-- 服务端三阶段链（Interceptor → Handler → Observer）
-- **当前 Command 嵌套方案将保持兼容**
-
-详细分析见 `docs/branch-local/dev/三条Pipeline职责辨析与Item管线补全分析.md`（内部设计参考）。
+详细分析见 `docs/branch-local/dev/三条Pipeline职责辨析与Item管线补全分析.md` 和 `docs/branch-local/dev/Item管线补全实施方案.md`。
 
 ### 6.4 入站 / 出站流向对照表
 
 | 方向 | Message | Command | Item |
 |------|---------|---------|------|
-| Server → Client（入站） | `IClientMessageHandler` → `IMessageRenderer` → UI | `IClientCommandHandler` → 内部状态 | ❌ 不存在独立路由 |
-| Client → Server（出站） | `TryHandleOutgoingMessage()` → `IClientMessageHandler` 链 | `TryHandleOutgoingCommand()` → `IClientOutgoingCommandHandler` 链 | ❌ 不存在独立路由 |
-| 出站管线入口 | `IFrameworkClientTransport` | `IFrameworkClientCommandTransport` | — |
-| 出站必须走管线 | ✅ 是（[设计哲学 §3.7]） | ✅ 是 | — |
+| Server → Client（入站） | `IClientMessageHandler` → `IMessageRenderer` → UI | `IClientCommandHandler` → 内部状态 | `IClientIncomingItemHandler` → 内部状态 |
+| Client → Server（出站） | `TryHandleOutgoingMessage()` → `IClientMessageHandler` 链 | `TryHandleOutgoingCommand()` → `IClientOutgoingCommandHandler` 链 | `TryHandleOutgoingItem()` → `IClientOutgoingItemHandler` 链 |
+| 出站管线入口 | `IFrameworkClientTransport` | `IFrameworkClientCommandTransport` | `IFrameworkClientItemTransport` |
+| 出站必须走管线 | ✅ 是（[设计哲学 §3.7]） | ✅ 是 | ✅ 是 |
 
 ---
 
