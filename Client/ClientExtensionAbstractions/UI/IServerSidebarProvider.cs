@@ -8,6 +8,8 @@ namespace PhinixClient
 
         float PreferredWidth { get; }
 
+        string TabLabel { get; }
+
         void Draw(Rect inRect);
     }
 }

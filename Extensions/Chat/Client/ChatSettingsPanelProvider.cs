@@ -4,13 +4,15 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    /// <summary>
-    /// Chat 插件化设置面板。将 host 中原先硬编码的 Chat 设置项迁回插件自身，
-    /// 通过 IClientSettingsPanelProvider 注册，host 只负责收集和绘制。
-    /// 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
-    /// </summary>
     internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
+        private readonly IUiTheme theme;
+
+        public ChatSettingsPanelProvider(IUiTheme theme = null)
+        {
+            this.theme = theme;
+        }
+
         public string SectionId => "chat.display";
 
         public float Order => 110f;
@@ -48,6 +50,26 @@ namespace Phinix.ChatExtension.Client
             bool forceMessageFieldFocus = settings.Get("chat.forceMessageFieldFocus", true);
             listing.CheckboxLabeled("Phinix_modSettings_forceMessageFieldFocus".Translate(), ref forceMessageFieldFocus);
             settings.Set("chat.forceMessageFieldFocus", forceMessageFieldFocus);
+
+            bool noticeEnabled = settings.Get("chat.notice.enabled", true);
+            listing.CheckboxLabeled("Phinix_modSettings_noticeEnabled".Translate(), ref noticeEnabled);
+            settings.Set("chat.notice.enabled", noticeEnabled);
+
+            listing.Label("Phinix_modSettings_noticeDefaultDuration".Translate());
+            string noticeDurationStr = settings.Get("chat.notice.defaultDuration", 10).ToString();
+            noticeDurationStr = listing.TextEntry(noticeDurationStr);
+            int.TryParse(noticeDurationStr, out int noticeDuration);
+            settings.Set("chat.notice.defaultDuration", noticeDuration);
+
+            if (theme != null)
+            {
+                listing.Gap(4f);
+                if (listing.ButtonText("Phinix_modSettings_reloadTheme".Translate()))
+                {
+                    theme.Reload();
+                    ChatTheme.Refresh(theme);
+                }
+            }
         }
 
         public bool TryMigrateLegacySettings(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues)

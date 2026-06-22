@@ -18,6 +18,13 @@ namespace PhinixClient.Framework
         /// </summary>
         /// <returns>true 表示消息已被某个 handler 处理并发送；false 表示无 handler 处理该消息</returns>
         bool TryHandleOutgoingMessage(string rawMessage);
+
+        /// <summary>
+        /// 将物品载荷通过 IClientOutgoingItemHandler 管线路由。
+        /// 设计哲学 §3.7：与 TryHandleOutgoingMessage 相同原则，物品包也必须走 handler 管线。
+        /// </summary>
+        /// <returns>true 表示物品已被某个 handler 处理并发送；false 表示无 handler 处理该物品</returns>
+        bool TryHandleOutgoingItem(FrameworkItemPayload itemPayload);
     }
 
     public interface IFrameworkClientCommandTransport

@@ -157,6 +157,8 @@
     <Compile Include="GUI\Windows and panels\ServerTabButtonWorker.cs" />
     <Compile Include="GUI\Windows and panels\SettingsWindow.cs" />
     <Compile Include="GUI\Windows and panels\ExtensionManagerTab.cs" />
+    <Compile Include="UI\UiTheme.cs" />
+    <Compile Include="UI\ThemeLoader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
 
     <Content Include="..\About\**">
@@ -167,6 +169,9 @@
     </Content>
     <Content Include="..\Common\Languages\**">
       <Link>Languages\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+    <Content Include="..\Themes\**">
+      <Link>Themes\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
   </ItemGroup>
   <ItemGroup>

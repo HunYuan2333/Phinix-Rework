@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using PhinixClient;
 using PhinixClient.Framework;
+using UnityEngine;
 using Utils;
 using Utils.Framework;
 using Verse;
@@ -36,6 +37,18 @@ namespace Phinix.TradeExtension.Client
 
         public void Register(IExtensionBuilder builder)
         {
+            IUiTheme theme = builder.HostContext.GetRequiredService<IUiTheme>();
+            theme.RegisterColor("trade.ourOfferAccent", new Color(0.30f, 0.65f, 0.35f, 0.70f));
+            theme.RegisterColor("trade.theirOfferAccent", new Color(0.45f, 0.75f, 1.00f, 0.70f));
+            theme.RegisterColor("trade.ourOfferBg", new Color(0.30f, 0.65f, 0.35f, 0.04f));
+            theme.RegisterColor("trade.theirOfferBg", new Color(0.45f, 0.75f, 1.00f, 0.04f));
+            theme.RegisterColor("trade.cancelButton", new Color(0.85f, 0.30f, 0.25f, 1.00f));
+            theme.RegisterColor("trade.acceptedBadge", new Color(0.30f, 0.65f, 0.35f, 1.00f));
+            theme.RegisterColor("trade.pendingBadge", new Color(0.55f, 0.52f, 0.48f, 0.80f));
+            theme.RegisterColor("trade.rowHoverBg", new Color(1.00f, 1.00f, 1.00f, 0.04f));
+            theme.RegisterColor("trade.panelBg", new Color(1.00f, 1.00f, 1.00f, 0.03f));
+            theme.RegisterColor("trade.searchPlaceholder", new Color(0.55f, 0.52f, 0.48f, 0.50f));
+
             var log = new Action<Utils.LogEventArgs>(args => builder.HostContext.Log?.Invoke(args.Message, args.LogLevel));
             itemPipeline = itemPipeline ?? new TradeClientItemPipeline(log, builder.HostContext.GetRequiredService<IFrameworkClientLifecycle>().CompatibilityMode);
             tradeApi = tradeApi ?? new PhinixFrameworkTradeClientService(
@@ -86,6 +99,9 @@ namespace Phinix.TradeExtension.Client
             {
                 return;
             }
+
+            IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
+            TradeTheme.Refresh(theme);
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
             commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();

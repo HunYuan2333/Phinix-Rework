@@ -22,8 +22,6 @@ namespace Phinix.ChatExtension.Client
         private readonly float blockedSpacerHeight = BlockedSpacerPaddingTop + BlockedSpacerPaddingBottom;
         private Texture2D blockedSpacerCollapseIcon;
         private Texture2D CollapseIcon => blockedSpacerCollapseIcon ?? (blockedSpacerCollapseIcon = ContentFinder<Texture2D>.Get("collapse", false));
-        private readonly Color blockedBackgroundColour = new Color(0f, 0f, 0f, 0.35f);
-        private readonly Color blockedNameColour = new Color(0.6f, 0.6f, 0.6f);
 
         private readonly IChatUiHostContext hostContext;
         private readonly IClientUserDirectory userDirectory;
@@ -81,8 +79,8 @@ namespace Phinix.ChatExtension.Client
                 userRectHeightsSum = (0f, 0f);
                 foreach (ImmutableUser user in filteredOnlineUsers)
                 {
-                    float normalHeight = Text.CalcHeight(formatDisplayName(user.DisplayName, false), inRect.width) + (UserButtonPaddingVertical * 2);
-                    float heightWithScrollbar = Text.CalcHeight(formatDisplayName(user.DisplayName, false), inRect.width - ScrollbarWidth) + (UserButtonPaddingVertical * 2);
+                    float normalHeight = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width) + (UserButtonPaddingVertical * 2);
+                    float heightWithScrollbar = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width - ScrollbarWidth) + (UserButtonPaddingVertical * 2);
                     userRectHeights.Add(user, (normalHeight, heightWithScrollbar));
                     userRectHeightsSum.Normal += normalHeight;
                     userRectHeightsSum.Scrollbar += heightWithScrollbar;
@@ -92,8 +90,8 @@ namespace Phinix.ChatExtension.Client
                 blockedUserRectHeightsSum = (0f, 0f);
                 foreach (ImmutableUser user in filteredBlockedUsers)
                 {
-                    float normalHeight = Text.CalcHeight(formatDisplayName(user.DisplayName, true), inRect.width) + (UserButtonPaddingVertical * 2);
-                    float heightWithScrollbar = Text.CalcHeight(formatDisplayName(user.DisplayName, true), inRect.width - ScrollbarWidth) + (UserButtonPaddingVertical * 2);
+                    float normalHeight = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width) + (UserButtonPaddingVertical * 2);
+                    float heightWithScrollbar = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width - ScrollbarWidth) + (UserButtonPaddingVertical * 2);
                     blockedUserRectHeights.Add(user, (normalHeight, heightWithScrollbar));
                     blockedUserRectHeightsSum.Normal += normalHeight;
                     blockedUserRectHeightsSum.Scrollbar += heightWithScrollbar;
@@ -253,14 +251,22 @@ namespace Phinix.ChatExtension.Client
 
         private void drawUser(Rect inRect, ImmutableUser user, bool blocked)
         {
-            string formattedDisplayName = formatDisplayName(user.DisplayName, blocked);
+            string formattedDisplayName = formatDisplayName(user.DisplayName, user);
             if (blocked)
             {
-                Widgets.DrawRectFast(inRect, blockedBackgroundColour);
+                Widgets.DrawRectFast(inRect, ChatTheme.BlockedBg);
             }
 
             Rect paddedRect = inRect.ContractedBy(UserButtonPaddingHorizontal, UserButtonPaddingVertical);
-            Widgets.Label(paddedRect, Mouse.IsOver(inRect) ? formattedDisplayName.Colorize(Widgets.MouseoverOptionColor) : formattedDisplayName);
+            if (Mouse.IsOver(inRect))
+            {
+                string stripped = TextHelper.StripRichText(formattedDisplayName);
+                Widgets.Label(paddedRect, stripped.Colorize(Widgets.MouseoverOptionColor));
+            }
+            else
+            {
+                Widgets.Label(paddedRect, formattedDisplayName);
+            }
 
             if (Widgets.ButtonInvisible(inRect, false))
             {
@@ -299,14 +305,19 @@ namespace Phinix.ChatExtension.Client
             Find.WindowStack.Add(new FloatMenu(items));
         }
 
-        private string formatDisplayName(string displayName, bool blocked)
+        private string formatDisplayName(string displayName, ImmutableUser user)
         {
-            if (blocked)
+            if (hostContext.BlockedUsers.Contains(user.Uuid))
             {
-                return TextHelper.StripRichText(displayName).Colorize(blockedNameColour);
+                return TextHelper.StripRichText(displayName).Colorize(ChatTheme.BlockedName);
             }
 
-            return hostContext.ShowNameFormatting ? displayName : TextHelper.StripRichText(displayName);
+            if (!hostContext.ShowNameFormatting)
+            {
+                return TextHelper.StripRichText(displayName);
+            }
+
+            return ChatTheme.FormatDisplayName(displayName, user.Uuid, ChatTheme.GetNameColor(user.Uuid));
         }
     }
 }

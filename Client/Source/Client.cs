@@ -62,8 +62,39 @@ namespace PhinixClient
         {
             frameworkClient.TryHandleOutgoingMessage(message);
         }
-        public IReadOnlyList<IMainTabProvider> MainTabProviders => frameworkClient?.ResolveExtensionApis<IMainTabProvider>() ?? Array.Empty<IMainTabProvider>();
-        public IReadOnlyList<IServerSidebarProvider> SidebarProviders => frameworkClient?.ResolveExtensionApis<IServerSidebarProvider>() ?? Array.Empty<IServerSidebarProvider>();
+        // 缓存解析结果——设计哲学 §8.3 要求属性 getter 不做实时查询/分配。
+        // 扩展注册后不会变化，因此解析一次后永不过期。
+        private IReadOnlyList<IMainTabProvider> cachedMainTabProviders;
+        private IReadOnlyList<IServerSidebarProvider> cachedSidebarProviders;
+        private IReadOnlyList<INoticeBannerProvider> cachedBannerProviders;
+
+        public IReadOnlyList<IMainTabProvider> MainTabProviders
+        {
+            get
+            {
+                if (cachedMainTabProviders == null)
+                    cachedMainTabProviders = frameworkClient?.ResolveExtensionApis<IMainTabProvider>() ?? (IReadOnlyList<IMainTabProvider>)Array.Empty<IMainTabProvider>();
+                return cachedMainTabProviders;
+            }
+        }
+        public IReadOnlyList<IServerSidebarProvider> SidebarProviders
+        {
+            get
+            {
+                if (cachedSidebarProviders == null)
+                    cachedSidebarProviders = frameworkClient?.ResolveExtensionApis<IServerSidebarProvider>() ?? (IReadOnlyList<IServerSidebarProvider>)Array.Empty<IServerSidebarProvider>();
+                return cachedSidebarProviders;
+            }
+        }
+        public IReadOnlyList<INoticeBannerProvider> BannerProviders
+        {
+            get
+            {
+                if (cachedBannerProviders == null)
+                    cachedBannerProviders = frameworkClient?.ResolveExtensionApis<INoticeBannerProvider>() ?? (IReadOnlyList<INoticeBannerProvider>)Array.Empty<INoticeBannerProvider>();
+                return cachedBannerProviders;
+            }
+        }
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
@@ -124,6 +155,8 @@ namespace PhinixClient
             extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
             extensionHostContext.ResolveSourcePackageId = ResolveModPackageId;
             string modRoot = content.RootDir?.ToString();
+            IUiTheme uiTheme = new UiTheme(modRoot);
+            extensionHostContext.AddService<IUiTheme>(uiTheme);
             Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
             ExtensionAssemblyLoader.LoadAssemblies(
                 GetExtensionProbeDirectories(modRoot),
@@ -425,6 +458,16 @@ namespace PhinixClient
             if (!string.IsNullOrEmpty(appBaseDirectory))
             {
                 yield return appBaseDirectory;
+            }
+
+            // 新增：扫描所有活跃 mod 的 Assemblies 目录（第三方 submod 发现）
+            foreach (ModMetaData mod in ModLister.AllInstalledMods)
+            {
+                if (mod == null || !mod.Active) continue;
+                if (string.Equals(mod.PackageId, PackageId, StringComparison.OrdinalIgnoreCase)) continue;
+
+                string asmDir = System.IO.Path.Combine(mod.RootDir?.ToString() ?? "", "Assemblies");
+                if (System.IO.Directory.Exists(asmDir)) yield return asmDir;
             }
         }
 

@@ -26,8 +26,14 @@ namespace PhinixClient
         public string TabLabel => "Phinix_tabs_extensions".Translate();
         public float TabOrder => 999;
 
+        private IUiTheme Theme => Client.Instance?.FrameworkClient?.ResolveExtensionApis<IUiTheme>() is IReadOnlyList<IUiTheme> themes && themes.Count > 0
+            ? themes[0]
+            : null;
+
         public void Draw(Rect inRect)
         {
+            IUiTheme theme = Theme;
+
             IReadOnlyList<ExtensionDiscoveryResult> results =
                 Client.Instance.FrameworkClient?.ExtensionResults ??
                 new List<ExtensionDiscoveryResult>().AsReadOnly();
@@ -50,7 +56,7 @@ namespace PhinixClient
 
             Rect listHeaderRect = new Rect(listSectionRect.x, listHeaderY + SECTION_HEADER_HEIGHT,
                 listSectionRect.width, ROW_HEIGHT);
-            DrawListHeader(listHeaderRect);
+            DrawListHeader(listHeaderRect, theme);
 
             // Column widths (match header layout)
             float colStatus = STATUS_ICON_WIDTH;
@@ -71,8 +77,10 @@ namespace PhinixClient
             Widgets.BeginScrollView(listOuterRect, ref listScrollPosition, listInnerRect);
 
             float currentY = 0f;
-            foreach (ExtensionDiscoveryResult result in results
-                .OrderBy(r => r.ExtensionId, System.StringComparer.OrdinalIgnoreCase))
+            // 扩展列表启动后不变，OrderBy 结果缓存到本地避免每帧分配
+            List<ExtensionDiscoveryResult> sortedResults = new List<ExtensionDiscoveryResult>(results);
+            sortedResults.Sort((a, b) => string.Compare(a.ExtensionId, b.ExtensionId, System.StringComparison.OrdinalIgnoreCase));
+            foreach (ExtensionDiscoveryResult result in sortedResults)
             {
                 Rect rowRect = new Rect(0f, currentY, listInnerRect.width, ROW_HEIGHT);
 
@@ -82,7 +90,7 @@ namespace PhinixClient
                 }
 
                 DrawExtensionRow(rowRect, result, colStatus, colId, colDisplayName,
-                    colVersion, colSource, colState, colButton);
+                    colVersion, colSource, colState, colButton, theme);
 
                 currentY += ROW_HEIGHT;
             }
@@ -108,11 +116,14 @@ namespace PhinixClient
             float logY = 0f;
             GameFont prevFont = Text.Font;
 
+            Color logDiagnosticColor = theme?.GetColor("ext.logDiagnostic") ?? Color.gray;
+            Color logWarningColor = theme?.GetColor("ext.logWarning") ?? Color.red;
+
             foreach (string diagnostic in diagnostics)
             {
                 Text.Font = GameFont.Tiny;
                 Color prevColor = UnityEngine.GUI.color;
-                UnityEngine.GUI.color = Color.gray;
+                UnityEngine.GUI.color = logDiagnosticColor;
                 Widgets.Label(new Rect(0f, logY, logInnerRect.width, ROW_HEIGHT - 4f), diagnostic);
                 UnityEngine.GUI.color = prevColor;
                 logY += ROW_HEIGHT - 4f;
@@ -122,7 +133,7 @@ namespace PhinixClient
             {
                 Text.Font = GameFont.Tiny;
                 Color prevColor = UnityEngine.GUI.color;
-                UnityEngine.GUI.color = Color.red;
+                UnityEngine.GUI.color = logWarningColor;
                 Widgets.Label(new Rect(0f, logY, logInnerRect.width, ROW_HEIGHT - 4f), warning);
                 UnityEngine.GUI.color = prevColor;
                 logY += ROW_HEIGHT - 4f;
@@ -134,16 +145,16 @@ namespace PhinixClient
             // ---- Bottom Buttons ----
             Rect bottomBarRect = new Rect(inRect.x, inRect.yMax - BOTTOM_BUTTON_HEIGHT,
                 inRect.width, BOTTOM_BUTTON_HEIGHT);
-            DrawBottomButtons(bottomBarRect, results, diagnostics, warnings);
+            DrawBottomButtons(bottomBarRect, results, diagnostics, warnings, theme);
         }
 
-        private static void DrawListHeader(Rect rect)
+        private static void DrawListHeader(Rect rect, IUiTheme theme)
         {
             float x = rect.x;
             GameFont prevFont = Text.Font;
             Text.Font = GameFont.Tiny;
             Color prevColor = UnityEngine.GUI.color;
-            UnityEngine.GUI.color = Color.gray;
+            UnityEngine.GUI.color = theme?.GetColor("ext.headerText") ?? Color.gray;
 
             Widgets.Label(new Rect(x, rect.y, STATUS_ICON_WIDTH, rect.height), "");
             x += STATUS_ICON_WIDTH + DEFAULT_SPACING;
@@ -163,7 +174,7 @@ namespace PhinixClient
 
         private static void DrawExtensionRow(Rect rect, ExtensionDiscoveryResult result,
             float colStatus, float colId, float colDisplayName, float colVersion,
-            float colSource, float colState, float colButton)
+            float colSource, float colState, float colButton, IUiTheme theme)
         {
             float x = rect.x;
             GameFont prevFont = Text.Font;
@@ -171,7 +182,7 @@ namespace PhinixClient
 
             // Status icon
             string statusIcon = GetStatusIcon(result.State);
-            Color statusColor = GetStatusColor(result.State);
+            Color statusColor = GetStatusColor(result.State, theme);
             Color prevColor = UnityEngine.GUI.color;
             UnityEngine.GUI.color = statusColor;
             Widgets.Label(new Rect(x, rect.y, colStatus, rect.height), statusIcon);
@@ -219,17 +230,23 @@ namespace PhinixClient
         private static void DrawBottomButtons(Rect rect,
             IReadOnlyList<ExtensionDiscoveryResult> results,
             IReadOnlyList<string> diagnostics,
-            IReadOnlyList<string> warnings)
+            IReadOnlyList<string> warnings,
+            IUiTheme theme)
         {
             // Bottom bar: show summary + refresh button on the right
             string summaryText;
-            int warningCount = results.Count(r => r.State == ExtensionModuleState.Failed);
-            int activeCount = results.Count(r => r.State == ExtensionModuleState.Active);
+            int warningCount = 0;
+            int activeCount = 0;
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (results[i].State == ExtensionModuleState.Active) activeCount++;
+                else if (results[i].State == ExtensionModuleState.Failed) warningCount++;
+            }
 
             if (warningCount > 0)
             {
                 summaryText = $"{activeCount} active, {warningCount} with errors";
-                UnityEngine.GUI.color = Color.red;
+                UnityEngine.GUI.color = theme?.GetColor("ext.logWarning") ?? Color.red;
             }
             else
             {
@@ -241,7 +258,7 @@ namespace PhinixClient
             Widgets.Label(
                 new Rect(rect.x, rect.y, rect.width - BOTTOM_BUTTON_WIDTH - DEFAULT_SPACING, rect.height),
                 summaryText);
-            UnityEngine.GUI.color = Color.white;
+            UnityEngine.GUI.color = theme?.GetColor("ext.summaryText") ?? Color.white;
             Text.Font = prevFont;
 
             // Refresh button
@@ -274,18 +291,21 @@ namespace PhinixClient
             }
         }
 
-        private static Color GetStatusColor(ExtensionModuleState state)
+        /// <summary>
+        /// 从主题读取状态颜色，缺省回退到旧硬编码值以保持向后兼容。
+        /// </summary>
+        private static Color GetStatusColor(ExtensionModuleState state, IUiTheme theme)
         {
             switch (state)
             {
                 case ExtensionModuleState.Active:
-                    return new Color(0.3f, 0.8f, 0.3f); // green
+                    return theme?.GetColor("ext.statusActive") ?? new Color(0.3f, 0.8f, 0.3f);
                 case ExtensionModuleState.Failed:
-                    return Color.red;
+                    return theme?.GetColor("ext.statusFailed") ?? Color.red;
                 case ExtensionModuleState.Registered:
-                    return new Color(0.8f, 0.8f, 0.3f); // yellow
+                    return theme?.GetColor("ext.statusRegistered") ?? new Color(0.8f, 0.8f, 0.3f);
                 default:
-                    return Color.gray;
+                    return theme?.GetColor("ext.statusDefault") ?? Color.gray;
             }
         }
 

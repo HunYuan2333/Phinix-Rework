@@ -9,4 +9,21 @@
     <Phinix_chat_contextMenu_unblockUser>取消屏蔽用户</Phinix_chat_contextMenu_unblockUser>
     <Phinix_chat_contextMenu_copyToClipboard>复制信息到剪贴板</Phinix_chat_contextMenu_copyToClipboard>
     <Phinix_chat_contextMenu_openInBrowser>在浏览器中打开链接：{0}</Phinix_chat_contextMenu_openInBrowser>
+    <Phinix_chat_contextMenu_reply>回复</Phinix_chat_contextMenu_reply>
+    <Phinix_chat_mentionLetter_label>{0} 提到了你</Phinix_chat_mentionLetter_label>
+    <Phinix_chat_mentionLetter_description>{0} 说：{1}</Phinix_chat_mentionLetter_description>
+    <Phinix_modSettings_noticeEnabled>启用全服公告</Phinix_modSettings_noticeEnabled>
+    <Phinix_modSettings_noticeDefaultDuration>公告显示时长（秒）</Phinix_modSettings_noticeDefaultDuration>
+    <Phinix_modSettings_reloadTheme>重载主题</Phinix_modSettings_reloadTheme>
+    <Phinix_chat_emptyState>未连接。请连接到服务器开始聊天。</Phinix_chat_emptyState>
+    <Phinix_sidebar_users>用户</Phinix_sidebar_users>
+    <Phinix_sidebar_notices>通知</Phinix_sidebar_notices>
+    <Phinix_sidebar_noticesWithCount>通知（{0} 未读）</Phinix_sidebar_noticesWithCount>
+    <Phinix_notice_markAllRead>全部已读</Phinix_notice_markAllRead>
+    <Phinix_notice_justNow>刚刚</Phinix_notice_justNow>
+    <Phinix_notice_minutesAgo>{0} 分钟前</Phinix_notice_minutesAgo>
+    <Phinix_notice_hoursAgo>{0} 小时前</Phinix_notice_hoursAgo>
+    <Phinix_notice_daysAgo>{0} 天前</Phinix_notice_daysAgo>
+    <Phinix_chat_legacyModeLetter_label>已连接到旧版服务器</Phinix_chat_legacyModeLetter_label>
+    <Phinix_chat_legacyModeLetter_description>您已连接到旧版 Phinix 服务器。部分功能不可用：通知、@提及、消息回复。</Phinix_chat_legacyModeLetter_description>
 </LanguageData>

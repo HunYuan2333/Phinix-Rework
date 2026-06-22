@@ -1,5 +1,5 @@
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 
 WORKDIR /src
 
@@ -29,7 +29,7 @@ RUN dotnet build Server/Server.csproj -c Release -o /out --no-restore && \
     cp /out/TradeExtension.dll /out/Extensions/
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/runtime:10.0
+FROM mcr.microsoft.com/dotnet/runtime:10.0-noble
 
 # CWD is the data directory - server saves config, logs, databases here
 WORKDIR /data

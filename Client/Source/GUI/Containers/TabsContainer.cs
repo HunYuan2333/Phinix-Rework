@@ -68,13 +68,23 @@ namespace PhinixClient.GUI
             // To work around this we just trim the tab height off of the container rect
             inRect = inRect.BottomPartPixels(inRect.height - TabDrawer.TabHeight);
 
-            // We draw the top with tabs
-            TabRecord selectedRecord = TabDrawer.DrawTabs(inRect, tabs.Select(e => e.tab).ToList());
+            // We draw the top with tabs (build tab list manually to avoid LINQ allocation in Draw path)
+            List<TabRecord> tabRecords = new List<TabRecord>(tabs.Count);
+            for (int i = 0; i < tabs.Count; i++)
+                tabRecords.Add(tabs[i].tab);
+            TabRecord selectedRecord = TabDrawer.DrawTabs(inRect, tabRecords);
 
             // Change the selected record if it was clicked
             if (selectedRecord != null)
             {
-                selectedTab = tabs.IndexOf(tabs.Single(tabEntry => tabEntry.tab.label == selectedRecord.label));
+                for (int i = 0; i < tabs.Count; i++)
+                {
+                    if (tabs[i].tab.label == selectedRecord.label)
+                    {
+                        selectedTab = i;
+                        break;
+                    }
+                }
                 onTabChange?.Invoke(selectedTab);
             }
 
