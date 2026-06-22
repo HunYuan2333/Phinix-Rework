@@ -80,7 +80,7 @@ namespace UserManagement
         /// <summary>
         /// Lock for user store operations.
         /// </summary>
-        protected override object userStoreLock => new object();
+        protected override object userStoreLock { get; } = new object();
 
         public ClientUserManager(NetClient netClient, ClientAuthenticator authenticator)
         {

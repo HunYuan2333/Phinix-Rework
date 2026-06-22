@@ -36,6 +36,8 @@ namespace Phinix.ChatExtension.Client
 
         public float PreferredWidth => 210f;
 
+        public string TabLabel => "Phinix_sidebar_users".Translate();
+
         public void Draw(Rect inRect)
         {
             Rect settingsButtonRect = inRect.TopPartPixels(SettingsButtonHeight);

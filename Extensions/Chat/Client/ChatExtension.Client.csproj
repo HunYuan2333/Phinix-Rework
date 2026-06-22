@@ -85,9 +85,12 @@
     <Compile Include="ChatMessageRenderer.cs" />
     <Compile Include="ChatSettingsPanelProvider.cs" />
     <Compile Include="ChatSidebarProvider.cs" />
+    <Compile Include="ChatTheme.cs" />
     <Compile Include="ChatUiHostContext.cs" />
     <Compile Include="FrameworkClientChatServiceAdapter.cs" />
     <Compile Include="IChatTabContent.cs" />
+    <Compile Include="NoticeBannerProvider.cs" />
+    <Compile Include="NoticeSidebarProvider.cs" />
     <Compile Include="PhinixFrameworkChatService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UserList.cs" />

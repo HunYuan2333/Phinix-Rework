@@ -121,13 +121,21 @@ namespace Phinix.LegacyAdapter.Client
         public bool CanHandleOutgoingText(string rawMessage)
         {
             // 仅在 Legacy 模式下拦截。FrameworkV2 模式返回 false，传递给 Chat handler。
-            return lifecycle?.CompatibilityMode == FrameworkCompatibilityMode.Legacy
+            bool canHandle = lifecycle?.CompatibilityMode == FrameworkCompatibilityMode.Legacy
                    && !string.IsNullOrWhiteSpace(rawMessage);
+            log?.Invoke(
+                $"[LegacyAdapter] CanHandleOutgoingText: mode={lifecycle?.CompatibilityMode}, canHandle={canHandle}, textLen={rawMessage?.Length ?? 0}",
+                LogLevel.DEBUG);
+            return canHandle;
         }
 
         public ClientOutgoingMessageResult HandleOutgoingText(
             string rawMessage, ClientFrameworkContext context)
         {
+            log?.Invoke(
+                $"[LegacyAdapter] HandleOutgoingText: sending via legacy Chat protocol, textLen={rawMessage?.Length ?? 0}",
+                LogLevel.DEBUG);
+
             // 旧版服务器不广播回发送者，需要本地注入回声消息
             displaySink?.Enqueue(new FrameworkDisplayMessage
             {
@@ -138,7 +146,11 @@ namespace Phinix.LegacyAdapter.Client
                 Source = "builtin_chat"
             });
 
-            chatAdapter.SendChatMessage(rawMessage);
+            bool sent = chatAdapter.SendChatMessage(rawMessage);
+            log?.Invoke(
+                $"[LegacyAdapter] HandleOutgoingText: chatAdapter.SendChatMessage returned {sent}",
+                LogLevel.DEBUG);
+
             // 始终返回 Handled，防止后续 Chat handler 在 Legacy 模式下显示错误提示
             return new ClientOutgoingMessageResult
             {

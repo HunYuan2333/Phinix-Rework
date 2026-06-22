@@ -14,7 +14,7 @@ namespace Authentication
     /// Client authentication module.
     /// Handles incoming greetings and attempts to authenticate with a server.
     /// </summary>
-    public class ClientAuthenticator : Authenticator
+    public class ClientAuthenticator : Authenticator, IDisposable
     {
         /// <inheritdoc />
         public override event EventHandler<LogEventArgs> OnLogEntry;
@@ -487,6 +487,19 @@ namespace Authentication
             Authenticated = false;
             SessionId = null;
             sessionExtendTimer.Stop();
+        }
+
+        /// <summary>
+        /// Disposes managed resources: session extension timer and event subscriptions.
+        /// </summary>
+        public void Dispose()
+        {
+            sessionExtendTimer?.Stop();
+            sessionExtendTimer?.Dispose();
+            if (netClient != null)
+            {
+                netClient.OnDisconnect -= disconnectHandler;
+            }
         }
     }
 }

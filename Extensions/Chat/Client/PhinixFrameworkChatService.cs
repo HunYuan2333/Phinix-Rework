@@ -49,9 +49,59 @@ namespace Phinix.ChatExtension.Client
             };
         }
 
+        public FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context, IEnumerable<string> mentionedUuids, string replyToMessageId, string replyToSnippet)
+        {
+            global::Phinix.Framework.BuiltInChatMessagePayload payload = new global::Phinix.Framework.BuiltInChatMessagePayload
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                Message = rawMessage ?? string.Empty
+            };
+
+            if (mentionedUuids != null)
+            {
+                payload.MentionedUuids.AddRange(mentionedUuids);
+            }
+
+            if (!string.IsNullOrEmpty(replyToMessageId))
+            {
+                payload.ReplyToMessageId = replyToMessageId;
+            }
+
+            if (!string.IsNullOrEmpty(replyToSnippet))
+            {
+                payload.ReplyToSnippet = replyToSnippet;
+            }
+
+            return new FrameworkPacket
+            {
+                Flow = global::Phinix.Framework.FrameworkFlow.Message,
+                MessageType = FrameworkChatProtocol.MessageType,
+                MessageId = payload.MessageId,
+                SenderUuid = context.SenderUuid,
+                PayloadBytes = payload.ToByteArray()
+            };
+        }
+
         public FrameworkDisplayMessage RenderMessage(FrameworkPacket message)
         {
-            global::Phinix.Framework.BuiltInChatMessagePayload payload = global::Phinix.Framework.BuiltInChatMessagePayload.Parser.ParseFrom(message.PayloadBytes ?? Array.Empty<byte>());
+            global::Phinix.Framework.BuiltInChatMessagePayload payload;
+            try
+            {
+                payload = global::Phinix.Framework.BuiltInChatMessagePayload.Parser.ParseFrom(message.PayloadBytes ?? Array.Empty<byte>());
+            }
+            catch (Exception ex)
+            {
+                Verse.Log.Warning($"[PhinixChat] Failed to parse BuiltInChatMessagePayload: {ex.Message}");
+                // Return a displayable error message instead of letting the exception propagate
+                return new FrameworkDisplayMessage
+                {
+                    MessageId = message?.MessageId ?? Guid.NewGuid().ToString(),
+                    SenderUuid = FrameworkProtocol.SystemSenderUuid,
+                    Source = "builtin_chat",
+                    Text = "[Phinix] Failed to decode incoming chat message.",
+                    IsNotice = false
+                };
+            }
             long timestampTicks = payload.Timestamp != null
                 ? payload.Timestamp.ToDateTime().ToUniversalTime().Ticks
                 : message.TimestampUtcTicks;
@@ -62,7 +112,12 @@ namespace Phinix.ChatExtension.Client
                 SenderUuid = payload.SenderUuid ?? message.SenderUuid,
                 TimestampUtcTicks = timestampTicks,
                 Source = "builtin_chat",
-                Text = payload.Message
+                Text = payload.Message,
+                MentionedUuids = payload.MentionedUuids?.Count > 0 ? new List<string>(payload.MentionedUuids) : new List<string>(),
+                ReplyToMessageId = payload.ReplyToMessageId ?? string.Empty,
+                ReplyToSnippet = payload.ReplyToSnippet ?? string.Empty,
+                IsNotice = payload.IsNotice,
+                NoticeDurationSeconds = payload.NoticeDurationSeconds
             };
         }
 
@@ -169,7 +224,14 @@ namespace Phinix.ChatExtension.Client
                 timestamp: new DateTime(message.TimestampUtcTicks, DateTimeKind.Utc),
                 status: UIChatMessageStatus.Confirmed,
                 user: user,
-                source: message.Source);
+                source: message.Source)
+            {
+                MentionedUuids = message.MentionedUuids ?? new List<string>(),
+                ReplyToMessageId = message.ReplyToMessageId,
+                ReplyToSnippet = message.ReplyToSnippet,
+                IsNotice = message.IsNotice,
+                NoticeDurationSeconds = message.NoticeDurationSeconds
+            };
         }
 
         public bool CanFormat(FrameworkDisplayMessage message)

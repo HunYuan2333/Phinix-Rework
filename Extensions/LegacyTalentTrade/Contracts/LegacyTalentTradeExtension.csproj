@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{6A2E1B4C-7D8E-4F0A-9B3C-1D2E3F4A5B6E}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Phinix.LegacyTalentTradeExtension</RootNamespace>
+    <AssemblyName>LegacyTalentTradeExtension</AssemblyName>
+    <TargetFrameworks>net472;net10.0</TargetFrameworks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <Target Name="CopyToClientExtensions" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net472'">
+    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\15-LegacyTalentTradeExtension.dll" />
+  </Target>
+</Project>

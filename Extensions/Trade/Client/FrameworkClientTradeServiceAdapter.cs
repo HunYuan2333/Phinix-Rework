@@ -137,11 +137,20 @@ namespace Phinix.TradeExtension.Client
                 FrameworkPacket itemPacket = FrameworkSerialization.BuildItemPacket(
                     payload, sessionContext.SessionId, sessionContext.Uuid);
                 itemPacketIds.Add(itemPacket.MessageId);
-                frameworkClient.SendFrameworkPacket(itemPacket);
 
-                log?.Invoke(
-                    $"[TradeAdapter] Sent item packet id={itemPacket.MessageId} for tradeId={tradeId}",
-                    LogLevel.DEBUG);
+                if (!frameworkClient.TryHandleOutgoingItem(payload))
+                {
+                    log?.Invoke(
+                        $"[TradeAdapter] No IClientOutgoingItemHandler registered — falling back to direct SendFrameworkPacket for item id={itemPacket.MessageId}",
+                        LogLevel.DEBUG);
+                    frameworkClient.SendFrameworkPacket(itemPacket);
+                }
+                else
+                {
+                    log?.Invoke(
+                        $"[TradeAdapter] Item packet id={itemPacket.MessageId} routed through TryHandleOutgoingItem pipeline",
+                        LogLevel.DEBUG);
+                }
             }
 
             FrameworkPacket cmdPacket = tradeService.CreateOfferUpdateRequest(tradeId, itemPacketIds, createContext());

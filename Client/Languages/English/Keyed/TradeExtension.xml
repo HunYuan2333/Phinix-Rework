@@ -8,13 +8,21 @@
     <Phinix_trade_confirmOurTradeCheckboxUnchecked>You have not confirmed</Phinix_trade_confirmOurTradeCheckboxUnchecked>
     <Phinix_trade_confirmTheirTradeCheckboxChecked>{0} has confirmed</Phinix_trade_confirmTheirTradeCheckboxChecked>
     <Phinix_trade_confirmTheirTradeCheckboxUnchecked>{0} has not confirmed</Phinix_trade_confirmTheirTradeCheckboxUnchecked>
+    <Phinix_trade_confirmTrade>Confirm trade</Phinix_trade_confirmTrade>
+    <Phinix_trade_confirmAccepted>✓ Confirmed</Phinix_trade_confirmAccepted>
     <Phinix_trade_updateButton>Update</Phinix_trade_updateButton>
     <Phinix_trade_resetButton>Reset</Phinix_trade_resetButton>
     <Phinix_trade_cancelButton>Cancel</Phinix_trade_cancelButton>
-    <Phinix_trade_sortByLabel>Sort by</Phinix_trade_sortByLabel>
     <Phinix_trade_searchLabel>Search</Phinix_trade_searchLabel>
     <Phinix_trade_noItemsAvailable>No items available</Phinix_trade_noItemsAvailable>
     <Phinix_trade_noItemsAvailableWithSearch>No items match your search</Phinix_trade_noItemsAvailableWithSearch>
+    <Phinix_trade_offerEmpty>Offer empty — select items below to add</Phinix_trade_offerEmpty>
+
+    <!-- Trade window: item context menu -->
+    <Phinix_trade_selectAll>Select all</Phinix_trade_selectAll>
+    <Phinix_trade_selectHalf>Select half</Phinix_trade_selectHalf>
+    <Phinix_trade_selectNone>Select none</Phinix_trade_selectNone>
+    <Phinix_trade_select100>Select 100</Phinix_trade_select100>
 
     <!-- Trade list -->
     <Phinix_trade_noActiveTradesPlaceholder>You have no active trades.</Phinix_trade_noActiveTradesPlaceholder>

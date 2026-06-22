@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <!-- Tab -->
+  <Phinix_legacyTalentTrade_tab>Talent Trade</Phinix_legacyTalentTrade_tab>
+  <Phinix_legacyTalentTrade_pleaseLogIn>Please log in to Phinix chat first.</Phinix_legacyTalentTrade_pleaseLogIn>
+  <Phinix_legacyTalentTrade_comingSoon>Coming soon...</Phinix_legacyTalentTrade_comingSoon>
+
+  <!-- Sub tabs -->
+  <Phinix_legacyTalentTrade_subTabDirectTrade>Direct Trade</Phinix_legacyTalentTrade_subTabDirectTrade>
+  <Phinix_legacyTalentTrade_subTabMarket>Market</Phinix_legacyTalentTrade_subTabMarket>
+  <Phinix_legacyTalentTrade_subTabRental>Rental</Phinix_legacyTalentTrade_subTabRental>
+
+  <!-- Settings -->
+  <Phinix_legacyTalentTrade_settingsCategory>Phinix Talent Trade</Phinix_legacyTalentTrade_settingsCategory>
+  <Phinix_legacyTalentTrade_settingNotifications>Enable trade notifications</Phinix_legacyTalentTrade_settingNotifications>
+  <Phinix_legacyTalentTrade_settingNotificationsDesc>Show in-game messages for trade events.</Phinix_legacyTalentTrade_settingNotificationsDesc>
+  <Phinix_legacyTalentTrade_settingDebugLog>Enable debug logging</Phinix_legacyTalentTrade_settingDebugLog>
+  <Phinix_legacyTalentTrade_settingDebugLogDesc>Show detailed polling and sync diagnostics in the log. Enable only while troubleshooting.</Phinix_legacyTalentTrade_settingDebugLogDesc>
+
+  <!-- Common -->
+  <Phinix_legacyTalentTrade_ageUnit> yrs</Phinix_legacyTalentTrade_ageUnit>
+  <Phinix_legacyTalentTrade_silver>Silver</Phinix_legacyTalentTrade_silver>
+  <Phinix_legacyTalentTrade_confirm>Confirm</Phinix_legacyTalentTrade_confirm>
+  <Phinix_legacyTalentTrade_cancel>Cancel</Phinix_legacyTalentTrade_cancel>
+  <Phinix_legacyTalentTrade_refresh>Refresh</Phinix_legacyTalentTrade_refresh>
+  <Phinix_legacyTalentTrade_search>Search</Phinix_legacyTalentTrade_search>
+  <Phinix_legacyTalentTrade_selectPawn>Select Colonist</Phinix_legacyTalentTrade_selectPawn>
+  <Phinix_legacyTalentTrade_selectTradeablePawn>Select Tradeable Unit</Phinix_legacyTalentTrade_selectTradeablePawn>
+  <Phinix_legacyTalentTrade_selectRentalPawn>Select Rentable Colonist</Phinix_legacyTalentTrade_selectRentalPawn>
+  <Phinix_legacyTalentTrade_noPawnsAvailable>No colonists available.</Phinix_legacyTalentTrade_noPawnsAvailable>
+  <Phinix_legacyTalentTrade_noTradeablePawnsAvailable>No tradeable units available.</Phinix_legacyTalentTrade_noTradeablePawnsAvailable>
+  <Phinix_legacyTalentTrade_rentalNoColonistsAvailable>No rentable colonists available.</Phinix_legacyTalentTrade_rentalNoColonistsAvailable>
+  <Phinix_legacyTalentTrade_rentalColonistOnly>Rental currently supports only regular colonists, not animals, mechs, or prisoners.</Phinix_legacyTalentTrade_rentalColonistOnly>
+  <Phinix_legacyTalentTrade_select>Select</Phinix_legacyTalentTrade_select>
+
+  <!-- Market -->
+  <Phinix_legacyTalentTrade_marketListTitle>Market Listings</Phinix_legacyTalentTrade_marketListTitle>
+  <Phinix_legacyTalentTrade_marketMyListings>My Listings</Phinix_legacyTalentTrade_marketMyListings>
+  <Phinix_legacyTalentTrade_marketPrice>Price</Phinix_legacyTalentTrade_marketPrice>
+  <Phinix_legacyTalentTrade_marketSell>List for Sale</Phinix_legacyTalentTrade_marketSell>
+  <Phinix_legacyTalentTrade_marketDelist>Delist</Phinix_legacyTalentTrade_marketDelist>
+  <Phinix_legacyTalentTrade_marketBuy>Buy</Phinix_legacyTalentTrade_marketBuy>
+  <Phinix_legacyTalentTrade_marketSeller>Seller: {0}</Phinix_legacyTalentTrade_marketSeller>
+  <Phinix_legacyTalentTrade_marketPriceFormat>{0} silver</Phinix_legacyTalentTrade_marketPriceFormat>
+  <Phinix_legacyTalentTrade_marketNoListings>No listings available.</Phinix_legacyTalentTrade_marketNoListings>
+  <Phinix_legacyTalentTrade_marketBuyConfirm>Buy {0}? Price: {1} silver</Phinix_legacyTalentTrade_marketBuyConfirm>
+  <Phinix_legacyTalentTrade_cannotBuyNoRace>Cannot buy {0}: you are missing race mod "{1}"</Phinix_legacyTalentTrade_cannotBuyNoRace>
+  <Phinix_legacyTalentTrade_raceIncompatible>Cannot sell {0}: buyer is missing race mod "{1}"</Phinix_legacyTalentTrade_raceIncompatible>
+
+  <!-- Direct Trade -->
+  <Phinix_legacyTalentTrade_tradeWith>Trade</Phinix_legacyTalentTrade_tradeWith>
+  <Phinix_legacyTalentTrade_tradeOnlineUsers>Online Users</Phinix_legacyTalentTrade_tradeOnlineUsers>
+  <Phinix_legacyTalentTrade_tradeActiveTrades>Active Trades</Phinix_legacyTalentTrade_tradeActiveTrades>
+  <Phinix_legacyTalentTrade_tradeOpen>Open</Phinix_legacyTalentTrade_tradeOpen>
+  <Phinix_legacyTalentTrade_tradeStatus>Status: {0}</Phinix_legacyTalentTrade_tradeStatus>
+  <Phinix_legacyTalentTrade_tradeNoActive>No active trades.</Phinix_legacyTalentTrade_tradeNoActive>
+  <Phinix_legacyTalentTrade_tradeRequestSent>Trade request sent to {0}.</Phinix_legacyTalentTrade_tradeRequestSent>
+  <Phinix_legacyTalentTrade_tradeRequestReceived>{0} sent you a trade request.</Phinix_legacyTalentTrade_tradeRequestReceived>
+  <Phinix_legacyTalentTrade_tradeMyOffer>My Offer</Phinix_legacyTalentTrade_tradeMyOffer>
+  <Phinix_legacyTalentTrade_tradeTheirOffer>Their Offer</Phinix_legacyTalentTrade_tradeTheirOffer>
+  <Phinix_legacyTalentTrade_tradeAddPawn>+ Add Colonist</Phinix_legacyTalentTrade_tradeAddPawn>
+  <Phinix_legacyTalentTrade_tradeAddUnit>+ Add Unit</Phinix_legacyTalentTrade_tradeAddUnit>
+  <Phinix_legacyTalentTrade_tradeSilverAmount>Silver Amount</Phinix_legacyTalentTrade_tradeSilverAmount>
+  <Phinix_legacyTalentTrade_tradeLock>Lock In</Phinix_legacyTalentTrade_tradeLock>
+  <Phinix_legacyTalentTrade_tradeWaitingLock>Waiting for other party...</Phinix_legacyTalentTrade_tradeWaitingLock>
+  <Phinix_legacyTalentTrade_tradeConfirmSend>Confirm Send</Phinix_legacyTalentTrade_tradeConfirmSend>
+  <Phinix_legacyTalentTrade_tradeUnlock>Unlock</Phinix_legacyTalentTrade_tradeUnlock>
+  <Phinix_legacyTalentTrade_tradeBothLocked>Both sides confirmed, executing trade...</Phinix_legacyTalentTrade_tradeBothLocked>
+  <Phinix_legacyTalentTrade_tradeCompleted>Trade completed!</Phinix_legacyTalentTrade_tradeCompleted>
+  <Phinix_legacyTalentTrade_tradeCancelled>Trade cancelled.</Phinix_legacyTalentTrade_tradeCancelled>
+  <Phinix_legacyTalentTrade_tradeAcceptRequest>Accept</Phinix_legacyTalentTrade_tradeAcceptRequest>
+  <Phinix_legacyTalentTrade_tradeRejectRequest>Reject</Phinix_legacyTalentTrade_tradeRejectRequest>
+
+  <!-- Rental -->
+  <Phinix_legacyTalentTrade_rentalListTitle>Rental Listings</Phinix_legacyTalentTrade_rentalListTitle>
+  <Phinix_legacyTalentTrade_rentalMyListings>My Rentals</Phinix_legacyTalentTrade_rentalMyListings>
+  <Phinix_legacyTalentTrade_rentalMyRentals>Rented</Phinix_legacyTalentTrade_rentalMyRentals>
+  <Phinix_legacyTalentTrade_rentalPricePerDay>Daily Rate</Phinix_legacyTalentTrade_rentalPricePerDay>
+  <Phinix_legacyTalentTrade_rentalMaxDays>Max Days</Phinix_legacyTalentTrade_rentalMaxDays>
+  <Phinix_legacyTalentTrade_rentalDeposit>Deposit</Phinix_legacyTalentTrade_rentalDeposit>
+  <Phinix_legacyTalentTrade_rentalList>List for Rent</Phinix_legacyTalentTrade_rentalList>
+  <Phinix_legacyTalentTrade_rentalDelist>Delist</Phinix_legacyTalentTrade_rentalDelist>
+  <Phinix_legacyTalentTrade_rentalRent>Rent</Phinix_legacyTalentTrade_rentalRent>
+  <Phinix_legacyTalentTrade_rentalReturn>Return</Phinix_legacyTalentTrade_rentalReturn>
+  <Phinix_legacyTalentTrade_rentalDaysLeft>{0} days left</Phinix_legacyTalentTrade_rentalDaysLeft>
+  <Phinix_legacyTalentTrade_rentalOwner>Owner: {0}</Phinix_legacyTalentTrade_rentalOwner>
+  <Phinix_legacyTalentTrade_rentalPriceFormat>{0} silver/day</Phinix_legacyTalentTrade_rentalPriceFormat>
+  <Phinix_legacyTalentTrade_rentalDepositFormat>Deposit: {0} silver</Phinix_legacyTalentTrade_rentalDepositFormat>
+  <Phinix_legacyTalentTrade_rentalNoListings>No rental listings.</Phinix_legacyTalentTrade_rentalNoListings>
+  <Phinix_legacyTalentTrade_rentalPawnDied>Your colonist {0} died while rented out and has been revived and returned.</Phinix_legacyTalentTrade_rentalPawnDied>
+  <Phinix_legacyTalentTrade_rentalPawnDiedTitle>Rented Colonist Died</Phinix_legacyTalentTrade_rentalPawnDiedTitle>
+  <Phinix_legacyTalentTrade_rentalExpired>Rental for {0} has expired. Colonist returned automatically.</Phinix_legacyTalentTrade_rentalExpired>
+  <Phinix_legacyTalentTrade_rentalExpiredTitle>Rental Expired</Phinix_legacyTalentTrade_rentalExpiredTitle>
+  <Phinix_legacyTalentTrade_rentalRentConfirm>Rent {0}? Daily rate: {1} silver, {2} days, deposit: {3} silver</Phinix_legacyTalentTrade_rentalRentConfirm>
+  <Phinix_legacyTalentTrade_rentalDays>Days</Phinix_legacyTalentTrade_rentalDays>
+  <Phinix_legacyTalentTrade_rentalSelectDays>Select Days</Phinix_legacyTalentTrade_rentalSelectDays>
+
+  <Phinix_legacyTalentTrade_tradeRemovePawn>Remove</Phinix_legacyTalentTrade_tradeRemovePawn>
+  <Phinix_legacyTalentTrade_pawnKindColonist>Colonist</Phinix_legacyTalentTrade_pawnKindColonist>
+  <Phinix_legacyTalentTrade_pawnKindAnimal>Animal</Phinix_legacyTalentTrade_pawnKindAnimal>
+  <Phinix_legacyTalentTrade_pawnKindMech>Mech</Phinix_legacyTalentTrade_pawnKindMech>
+  <Phinix_legacyTalentTrade_pawnKindPrisoner>Prisoner</Phinix_legacyTalentTrade_pawnKindPrisoner>
+
+  <!-- Pawn transfer -->
+  <Phinix_legacyTalentTrade_transferReport>About to send tradeable unit "{0}" to {1}</Phinix_legacyTalentTrade_transferReport>
+  <Phinix_legacyTalentTrade_transferRaceOk>OK Race: {0} — installed on receiver</Phinix_legacyTalentTrade_transferRaceOk>
+  <Phinix_legacyTalentTrade_transferRaceFail>FAIL Race: {0} — not installed on receiver, cannot trade</Phinix_legacyTalentTrade_transferRaceFail>
+  <Phinix_legacyTalentTrade_transferEquipRemoved>REMOVED Equipment: {0} — not installed, will stay local</Phinix_legacyTalentTrade_transferEquipRemoved>
+  <Phinix_legacyTalentTrade_transferHediffRemoved>REMOVED Implant: {0} — not installed, will be removed</Phinix_legacyTalentTrade_transferHediffRemoved>
+  <Phinix_legacyTalentTrade_transferTraitOk>OK Trait: {0} — installed on receiver</Phinix_legacyTalentTrade_transferTraitOk>
+  <Phinix_legacyTalentTrade_transferTraitRemoved>REMOVED Trait: {0} — not installed, will be removed</Phinix_legacyTalentTrade_transferTraitRemoved>
+  <Phinix_legacyTalentTrade_transferConfirmSend>Confirm Send</Phinix_legacyTalentTrade_transferConfirmSend>
+
+  <!-- Notifications -->
+  <Phinix_legacyTalentTrade_pawnReceivedTitle>Tradeable Unit Received</Phinix_legacyTalentTrade_pawnReceivedTitle>
+  <Phinix_legacyTalentTrade_pawnReceivedMessage>You received tradeable unit {0}.</Phinix_legacyTalentTrade_pawnReceivedMessage>
+  <Phinix_legacyTalentTrade_pawnRestored>Tradeable unit {0} has been delisted and returned.</Phinix_legacyTalentTrade_pawnRestored>
+  <Phinix_legacyTalentTrade_sellerOffline>Seller is offline, purchase cancelled.</Phinix_legacyTalentTrade_sellerOffline>
+  <Phinix_legacyTalentTrade_cannotDelistWrongSave>Cannot delist: this listing belongs to another save.</Phinix_legacyTalentTrade_cannotDelistWrongSave>
+  <Phinix_legacyTalentTrade_forceCleanup>Force Cleanup</Phinix_legacyTalentTrade_forceCleanup>
+  <Phinix_legacyTalentTrade_noListingsToClean>No listings to clean up.</Phinix_legacyTalentTrade_noListingsToClean>
+  <Phinix_legacyTalentTrade_cleanupDone>Cleaned up {0} listings. Tradeable units sent to the warp.</Phinix_legacyTalentTrade_cleanupDone>
+  <Phinix_legacyTalentTrade_buyLetterTitle>Tradeable Unit Sold</Phinix_legacyTalentTrade_buyLetterTitle>
+  <Phinix_legacyTalentTrade_buyLetterText>{0} purchased your tradeable unit {1} for {2} silver.</Phinix_legacyTalentTrade_buyLetterText>
+  <Phinix_legacyTalentTrade_ocPawnBlocked>This unit is protected by OC identity and cannot be traded. Don't ask me why, ask Lumi.</Phinix_legacyTalentTrade_ocPawnBlocked>
+
+  <!-- Version notification -->
+  <Phinix_legacyTalentTrade_versionTitle>Talent Trade {0}</Phinix_legacyTalentTrade_versionTitle>
+  <Phinix_legacyTalentTrade_versionText>Talent Trade mod loaded, current version: {0}\n\nAccess trading features through the Phinix chat interface.</Phinix_legacyTalentTrade_versionText>
+  <Phinix_legacyTalentTrade_listingExpired>Listing expired: {0} has been returned via drop pod.</Phinix_legacyTalentTrade_listingExpired>
+</LanguageData>

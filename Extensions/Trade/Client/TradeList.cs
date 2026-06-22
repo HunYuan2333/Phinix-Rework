@@ -113,6 +113,7 @@ namespace Phinix.TradeExtension.Client
 
                 // Background highlight
                 if (i % 2 != 0) Widgets.DrawHighlight(rowRect);
+                else if (Mouse.IsOver(rowRect)) Widgets.DrawBoxSolid(rowRect, TradeTheme.RowHoverBg);
 
                 // Save the current text settings
                 GameFont previousFont = Text.Font;
@@ -229,11 +230,11 @@ namespace Phinix.TradeExtension.Client
         {
             lock (tradesLock)
             {
-                // Update any trade rows with the updated user
+                bool changed = false;
                 int matchIndex = trades.FindIndex(0, t => t.OtherPartyUuid == args.Uuid);
                 while (matchIndex >= 0)
                 {
-                    // Update the user's display name and replace the trade
+                    changed = true;
                     ImmutableUser user = trades[matchIndex].OtherParty;
                     user = new ImmutableUser(
                         uuid: user.Uuid,
@@ -257,13 +258,14 @@ namespace Phinix.TradeExtension.Client
                     }
                     catch (ArgumentOutOfRangeException)
                     {
-                        // Hit the end of the list, stop searching
                         break;
                     }
                 }
 
-                // Mark the rows to be updated if we made any changes
-                tradesChanged = matchIndex >= 0;
+                if (changed)
+                {
+                    tradesChanged = true;
+                }
             }
         }
     }

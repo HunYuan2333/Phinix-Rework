@@ -10,7 +10,7 @@ using Utils;
 
 namespace Connections
 {
-    public class NetClient : NetCommon
+    public class NetClient : NetCommon, IDisposable
     {
         /// <inheritdoc />
         public override event EventHandler<LogEventArgs> OnLogEntry;
@@ -260,6 +260,15 @@ namespace Connections
             }
 
             stopPollThread();
+        }
+
+        /// <summary>
+        /// Disposes managed resources: client NetManager, poll/probe threads, and event subscriptions.
+        /// </summary>
+        public void Dispose()
+        {
+            Disconnect();
+            clientNetManager = null;
         }
 
         private void startPollThread()

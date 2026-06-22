@@ -9,4 +9,21 @@
     <Phinix_chat_contextMenu_unblockUser>Unblock user</Phinix_chat_contextMenu_unblockUser>
     <Phinix_chat_contextMenu_copyToClipboard>Copy to clipboard</Phinix_chat_contextMenu_copyToClipboard>
     <Phinix_chat_contextMenu_openInBrowser>Open {0} in browser</Phinix_chat_contextMenu_openInBrowser>
+    <Phinix_chat_contextMenu_reply>Reply</Phinix_chat_contextMenu_reply>
+    <Phinix_chat_mentionLetter_label>{0} mentioned you</Phinix_chat_mentionLetter_label>
+    <Phinix_chat_mentionLetter_description>{0} says: {1}</Phinix_chat_mentionLetter_description>
+    <Phinix_modSettings_noticeEnabled>Enable server notices</Phinix_modSettings_noticeEnabled>
+    <Phinix_modSettings_noticeDefaultDuration>Notice display duration (seconds)</Phinix_modSettings_noticeDefaultDuration>
+    <Phinix_modSettings_reloadTheme>Reload theme</Phinix_modSettings_reloadTheme>
+    <Phinix_chat_emptyState>Not connected. Connect to a server to start chatting.</Phinix_chat_emptyState>
+    <Phinix_sidebar_users>Users</Phinix_sidebar_users>
+    <Phinix_sidebar_notices>Notices</Phinix_sidebar_notices>
+    <Phinix_sidebar_noticesWithCount>Notices ({0} unread)</Phinix_sidebar_noticesWithCount>
+    <Phinix_notice_markAllRead>Mark all read</Phinix_notice_markAllRead>
+    <Phinix_notice_justNow>Just now</Phinix_notice_justNow>
+    <Phinix_notice_minutesAgo>{0} min ago</Phinix_notice_minutesAgo>
+    <Phinix_notice_hoursAgo>{0} h ago</Phinix_notice_hoursAgo>
+    <Phinix_notice_daysAgo>{0} d ago</Phinix_notice_daysAgo>
+    <Phinix_chat_legacyModeLetter_label>Connected to legacy server</Phinix_chat_legacyModeLetter_label>
+    <Phinix_chat_legacyModeLetter_description>You are connected to an older Phinix server. Some features are unavailable: notices, @mentions, and reply.</Phinix_chat_legacyModeLetter_description>
 </LanguageData>
