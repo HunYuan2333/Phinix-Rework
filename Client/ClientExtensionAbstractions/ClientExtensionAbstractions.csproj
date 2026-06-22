@@ -77,6 +77,8 @@
     <Compile Include="UI\IBadgeProvider.cs" />
     <Compile Include="UI\IMainTabProvider.cs" />
     <Compile Include="UI\IServerSidebarProvider.cs" />
+    <Compile Include="UI\INoticeBannerProvider.cs" />
+    <Compile Include="UI\IUiTheme.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj">

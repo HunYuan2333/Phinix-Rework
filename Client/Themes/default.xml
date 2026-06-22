@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<PhinixTheme version="1">
+  <color key="primaryText"      r="1.00" g="0.95" b="0.88" a="1.00" />
+  <color key="secondaryText"    r="0.55" g="0.52" b="0.48" a="0.80" />
+  <color key="background"       r="0.08" g="0.08" b="0.06" a="0.00" />
+  <color key="surface"          r="1.00" g="1.00" b="1.00" a="0.04" />
+  <color key="separator"        r="1.00" g="1.00" b="1.00" a="0.06" />
+  <color key="hoverHighlight"   r="1.00" g="1.00" b="1.00" a="0.08" />
+  <color key="pending"          r="1.00" g="1.00" b="1.00" a="0.60" />
+  <color key="error"            r="0.85" g="0.30" b="0.25" a="1.00" />
+  <color key="success"          r="0.30" g="0.65" b="0.35" a="1.00" />
+  <color key="warning"          r="0.90" g="0.72" b="0.25" a="1.00" />
+
+  <color key="chat.mentionText"       r="0.45" g="0.75" b="1.00" a="1.00" />
+  <color key="chat.mentionSelfBg"     r="0.35" g="0.35" b="0.15" a="0.10" />
+  <color key="chat.selfName"          r="0.55" g="0.75" b="1.00" a="1.00" />
+  <color key="chat.selfMessageBg"     r="0.15" g="0.25" b="0.40" a="0.06" />
+  <color key="chat.rowHoverBg"        r="1.00" g="1.00" b="1.00" a="0.04" />
+  <color key="chat.groupIndentLine"   r="1.00" g="1.00" b="1.00" a="0.08" />
+  <color key="chat.replyQuoteBorder"  r="0.30" g="0.50" b="0.75" a="0.50" />
+  <color key="chat.replyQuoteBg"      r="1.00" g="1.00" b="1.00" a="0.03" />
+  <color key="chat.replyQuoteText"    r="0.55" g="0.52" b="0.48" a="0.65" />
+  <color key="chat.noticeAccent"      r="0.90" g="0.72" b="0.25" a="0.90" />
+  <color key="chat.noticeBg"          r="0.25" g="0.20" b="0.08" a="0.10" />
+  <color key="chat.noticeBannerBg"    r="0.12" g="0.10" b="0.06" a="0.90" />
+  <color key="chat.noticeProgress"    r="0.90" g="0.72" b="0.25" a="0.70" />
+  <color key="chat.inputReplyBorder"  r="0.30" g="0.50" b="0.90" a="0.70" />
+  <color key="chat.inputReplyBg"      r="0.15" g="0.25" b="0.45" a="0.08" />
+  <color key="chat.blockedBg"         r="0.00" g="0.00" b="0.00" a="0.35" />
+  <color key="chat.blockedName"       r="0.55" g="0.52" b="0.48" a="1.00" />
+  <color key="chat.pendingMessage"    r="1.00" g="1.00" b="1.00" a="0.45" />
+  <color key="chat.deniedMessage"     r="0.85" g="0.30" b="0.25" a="1.00" />
+
+  <color key="trade.ourOfferAccent"   r="0.30" g="0.65" b="0.35" a="0.70" />
+  <color key="trade.theirOfferAccent" r="0.45" g="0.75" b="1.00" a="0.70" />
+  <color key="trade.ourOfferBg"       r="0.30" g="0.65" b="0.35" a="0.04" />
+  <color key="trade.theirOfferBg"     r="0.45" g="0.75" b="1.00" a="0.04" />
+  <color key="trade.cancelButton"     r="0.85" g="0.30" b="0.25" a="1.00" />
+  <color key="trade.acceptedBadge"    r="0.30" g="0.65" b="0.35" a="1.00" />
+  <color key="trade.pendingBadge"     r="0.55" g="0.52" b="0.48" a="0.80" />
+  <color key="trade.rowHoverBg"       r="1.00" g="1.00" b="1.00" a="0.04" />
+  <color key="trade.panelBg"          r="1.00" g="1.00" b="1.00" a="0.03" />
+  <color key="trade.searchPlaceholder" r="0.55" g="0.52" b="0.48" a="0.50" />
+
+  <!-- === Extension Manager 状态色 === -->
+  <color key="ext.statusActive"     r="0.30" g="0.80" b="0.30" a="1.00" />
+  <color key="ext.statusFailed"     r="1.00" g="0.00" b="0.00" a="1.00" />
+  <color key="ext.statusRegistered" r="0.80" g="0.80" b="0.30" a="1.00" />
+  <color key="ext.statusDefault"    r="0.50" g="0.50" b="0.50" a="1.00" />
+  <color key="ext.logDiagnostic"    r="0.50" g="0.50" b="0.50" a="1.00" />
+  <color key="ext.logWarning"       r="1.00" g="0.00" b="0.00" a="1.00" />
+  <color key="ext.headerText"       r="0.50" g="0.50" b="0.50" a="1.00" />
+  <color key="ext.summaryText"      r="1.00" g="1.00" b="1.00" a="1.00" />
+
+  <!-- === 用户名配色 HSV 参数 === -->
+  <param key="nameColor.saturation" value="0.55" />
+  <param key="nameColor.value"      value="0.85" />
+</PhinixTheme>

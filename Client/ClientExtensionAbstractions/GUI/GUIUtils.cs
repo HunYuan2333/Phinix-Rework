@@ -47,7 +47,7 @@ namespace PhinixClient.GUI
                 if (quotient < 1000) return $"{Math.Round(quotient, precision)}{prefix}";
             }
 
-            return $"{Math.Round(quotient, precision)}{prefixes[prefixes.Length]}";
+            return $"{Math.Round(quotient, precision)}{prefixes[prefixes.Length - 1]}";
         }
     }
 }

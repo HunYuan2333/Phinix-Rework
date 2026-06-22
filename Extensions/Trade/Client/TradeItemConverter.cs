@@ -41,29 +41,36 @@ namespace PhinixClient.Trade
                 innerItem);
         }
 
+        private static readonly Dictionary<string, ThingDef> thingDefCache = new Dictionary<string, ThingDef>();
+
+        static TradeItemConverter()
+        {
+            // 预构建 defName → ThingDef 字典，避免每次转换做 O(n) 全表扫描
+            foreach (ThingDef def in DefDatabase<ThingDef>.AllDefs)
+            {
+                if (!string.IsNullOrEmpty(def.defName))
+                    thingDefCache[def.defName] = def;
+            }
+        }
+
+        private static ThingDef GetThingDefByName(string defName)
+        {
+            if (string.IsNullOrEmpty(defName)) return null;
+            thingDefCache.TryGetValue(defName, out ThingDef def);
+            return def;
+        }
+
         public static Thing ConvertThingFromSnapshot(TradeItemSnapshot item)
         {
-            ThingDef thingDef;
-            try
-            {
-                thingDef = DefDatabase<ThingDef>.AllDefs.Single(def => def.defName == item.DefName);
-            }
-            catch (InvalidOperationException e)
-            {
-                throw new InvalidOperationException(string.Format("Could not find a single def that matches def name '{0}'", item.DefName), e);
-            }
+            ThingDef thingDef = GetThingDefByName(item.DefName);
+
+            if (thingDef == null)
+                throw new InvalidOperationException(string.Format("Could not find a def that matches def name '{0}'", item.DefName));
 
             ThingDef stuffDef = null;
-            try
+            if (!string.IsNullOrEmpty(item.StuffDefName))
             {
-                if (!string.IsNullOrEmpty(item.StuffDefName))
-                {
-                    stuffDef = DefDatabase<ThingDef>.AllDefs.Single(def => def.defName == item.StuffDefName);
-                }
-            }
-            catch (InvalidOperationException e)
-            {
-                throw new InvalidOperationException(string.Format("Could not find a single def that matches stuff def name '{0}'", item.StuffDefName), e);
+                stuffDef = GetThingDefByName(item.StuffDefName);
             }
 
             Thing verseThing = ThingMaker.MakeThing(thingDef, stuffDef);
@@ -91,7 +98,7 @@ namespace PhinixClient.Trade
             }
             catch (InvalidOperationException)
             {
-                ThingDef thingDef = DefDatabase<ThingDef>.AllDefs.Single(def => def.defName == "UnknownItem");
+                ThingDef thingDef = GetThingDefByName("UnknownItem");
 
                 UnknownItem verseThing = (UnknownItem)ThingMaker.MakeThing(thingDef);
                 verseThing.stackCount = item?.StackCount ?? 1;

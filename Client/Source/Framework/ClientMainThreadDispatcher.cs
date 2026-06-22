@@ -21,6 +21,7 @@ namespace PhinixClient.Framework
                 if (pendingActions.Count >= MaxPendingActions)
                 {
                     pendingActions.Dequeue(); // drop oldest
+                    Verse.Log.Error($"[Phinix] ClientMainThreadDispatcher queue overflow ({MaxPendingActions}), dropping oldest action. Background producers may be outpacing the main thread.");
                 }
                 pendingActions.Enqueue(action);
             }

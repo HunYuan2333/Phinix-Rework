@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using Phinix.ChatExtension;
 using PhinixClient;
 using PhinixClient.Framework;
 using UserManagement;
 using Utils;
+using Utils.Framework;
 
 namespace Phinix.ChatExtension.Client
 {
@@ -125,6 +127,12 @@ namespace Phinix.ChatExtension.Client
         private readonly ISet<string> blockedUsersView;
         private readonly Action<string> createTrade;
         private readonly Action<LogEventArgs> log;
+        private readonly IFrameworkChatClientApi chatApi;
+        private readonly IFrameworkClientTransport transport;
+        private readonly IClientUserDirectory userDirectory;
+
+        public UIChatMessage ReplyTarget { get; private set; }
+        public event EventHandler ReplyTargetChanged;
 
         public ChatUiHostContext(
             IClientChatService chatService,
@@ -132,7 +140,10 @@ namespace Phinix.ChatExtension.Client
             IClientSettingsContext settings,
             IClientUserEventStream userEvents,
             Action<string> createTrade,
-            Action<LogEventArgs> log)
+            Action<LogEventArgs> log,
+            IFrameworkChatClientApi chatApi = null,
+            IFrameworkClientTransport transport = null,
+            IClientUserDirectory userDirectory = null)
         {
             this.chatService = chatService;
             this.session = session;
@@ -140,6 +151,9 @@ namespace Phinix.ChatExtension.Client
             this.userEvents = userEvents;
             this.createTrade = createTrade;
             this.log = log;
+            this.chatApi = chatApi;
+            this.transport = transport;
+            this.userDirectory = userDirectory;
             this.blockedUsersView = new ReadOnlyBlockedUserSet(this);
             refreshBlockedUsers();
             this.userEvents.BlockedUsersChanged += (_, __) => refreshBlockedUsers();
@@ -196,6 +210,61 @@ namespace Phinix.ChatExtension.Client
         }
 
         public void Log(LogEventArgs args) => log?.Invoke(args);
+
+        public void SetReplyTarget(UIChatMessage message)
+        {
+            ReplyTarget = message;
+            ReplyTargetChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ClearReplyTarget()
+        {
+            ReplyTarget = null;
+            ReplyTargetChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SendChatMessage(string text, IEnumerable<string> mentionedUuids)
+        {
+            if (chatApi == null || transport == null) return;
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            // 设计哲学 §3.7：优先走 handler 管线。
+            // - Legacy 模式：通过 TryHandleOutgoingMessage → LegacyAdapter 翻译协议
+            // - FrameworkV2 模式：因为 ChatMessageHandler 当前不支持 mentionedUuids/reply
+            //   参数，暂时走直接路径。TODO: 扩展 IClientMessageHandler.HandleOutgoingText
+            //   使其支持附加元数据后，统一走管线。
+            if (!transport.HasRemoteCapability(FrameworkChatProtocol.MessageType))
+            {
+                log?.Invoke(new LogEventArgs(
+                    "[ChatUiHostContext] Server lacks framework chat capability, routing through handler pipeline (Legacy mode).",
+                    LogLevel.DEBUG));
+                if (transport.TryHandleOutgoingMessage(text))
+                {
+                    ClearReplyTarget();
+                    return;
+                }
+                log?.Invoke(new LogEventArgs(
+                    "[ChatUiHostContext] TryHandleOutgoingMessage returned false — falling through to direct FrameworkPacket send.",
+                    LogLevel.WARNING));
+            }
+
+            string replyToId = ReplyTarget?.MessageId;
+            string replyToSnippet = null;
+            if (ReplyTarget != null)
+            {
+                string snippet = TextHelper.StripRichText(ReplyTarget.Message ?? string.Empty);
+                replyToSnippet = snippet.Length > 50 ? snippet.Substring(0, 50) + "..." : snippet;
+            }
+
+            FrameworkPacket packet = chatApi.CreateOutgoingMessage(text, new ClientFrameworkContext
+            {
+                SessionId = session.SessionId,
+                SenderUuid = session.Uuid,
+                CompatibilityMode = FrameworkCompatibilityMode.FrameworkV2
+            }, mentionedUuids, replyToId, replyToSnippet);
+
+            transport.SendFrameworkPacket(packet);
+        }
 
         private void refreshBlockedUsers()
         {

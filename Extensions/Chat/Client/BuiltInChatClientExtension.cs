@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using PhinixClient;
 using PhinixClient.Framework;
+using UserManagement;
 using Utils;
 using Utils.Framework;
 using RimWorld;
 using Verse;
 using Verse.Sound;
+using UnityEngine;
 
 namespace Phinix.ChatExtension.Client
 {
@@ -28,8 +30,14 @@ namespace Phinix.ChatExtension.Client
         private IClientSessionContext sessionContext;
         private IClientSettingsContext settingsContext;
         private IClientSoundService soundService;
+        private IClientMainThreadDispatcher dispatcher;
+        private IClientUserDirectory userDirectory;
+        private NoticeBannerProvider noticeBannerProvider;
+        private NoticeSidebarProvider noticeSidebarProvider;
         private EventHandler<FrameworkCompatibilityModeChangedEventArgs> compatibilityChangedHandler;
         private EventHandler<UIChatMessageEventArgs> chatNotificationHandler;
+        private EventHandler disconnectHandler;
+        private float connectionEstablishedTime = -100f;
 
         public string ExtensionId => "builtin.chat";
 
@@ -37,6 +45,27 @@ namespace Phinix.ChatExtension.Client
 
         public void Register(IExtensionBuilder builder)
         {
+            IUiTheme theme = builder.HostContext.GetRequiredService<IUiTheme>();
+            theme.RegisterColor("chat.mentionText", new Color(0.45f, 0.75f, 1.0f, 1.0f));
+            theme.RegisterColor("chat.mentionSelfBg", new Color(0.35f, 0.35f, 0.15f, 0.12f));
+            theme.RegisterColor("chat.selfName", new Color(0.55f, 0.75f, 1.0f, 1.0f));
+            theme.RegisterColor("chat.selfMessageBg", new Color(0.15f, 0.25f, 0.4f, 0.1f));
+            theme.RegisterColor("chat.rowHoverBg", new Color(1f, 1f, 1f, 0.04f));
+            theme.RegisterColor("chat.groupIndentLine", new Color(1f, 1f, 1f, 0.08f));
+            theme.RegisterColor("chat.replyQuoteBorder", new Color(0.3f, 0.5f, 0.75f, 0.6f));
+            theme.RegisterColor("chat.replyQuoteBg", new Color(1f, 1f, 1f, 0.03f));
+            theme.RegisterColor("chat.replyQuoteText", new Color(0.55f, 0.52f, 0.48f, 0.7f));
+            theme.RegisterColor("chat.noticeAccent", new Color(0.9f, 0.72f, 0.25f, 0.9f));
+            theme.RegisterColor("chat.noticeBg", new Color(0.25f, 0.2f, 0.08f, 0.12f));
+            theme.RegisterColor("chat.noticeBannerBg", new Color(0.12f, 0.1f, 0.06f, 0.9f));
+            theme.RegisterColor("chat.noticeProgress", new Color(0.9f, 0.72f, 0.25f, 0.7f));
+            theme.RegisterColor("chat.inputReplyBorder", new Color(0.3f, 0.5f, 0.9f, 0.7f));
+            theme.RegisterColor("chat.inputReplyBg", new Color(0.15f, 0.25f, 0.45f, 0.08f));
+            theme.RegisterColor("chat.blockedBg", new Color(0f, 0f, 0f, 0.35f));
+            theme.RegisterColor("chat.blockedName", new Color(0.6f, 0.6f, 0.6f));
+            theme.RegisterColor("chat.pendingMessage", new Color(1f, 1f, 1f, 0.6f));
+            theme.RegisterColor("chat.deniedMessage", new Color(0.94f, 0.28f, 0.28f));
+
             PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService ?? new PhinixFrameworkChatService();
             chatApi = chatModule;
             chatService = chatService ?? new FrameworkClientChatServiceAdapter(
@@ -57,7 +86,10 @@ namespace Phinix.ChatExtension.Client
                         tradeRequestApi.CreateTrade(uuid);
                     }
                 },
-                args => builder.HostContext.Log?.Invoke(args.Message, args.LogLevel));
+                args => builder.HostContext.Log?.Invoke(args.Message, args.LogLevel),
+                chatApi,
+                builder.HostContext.GetRequiredService<IFrameworkClientTransport>(),
+                builder.HostContext.GetRequiredService<IClientUserDirectory>());
             chatTabContent = chatTabContent ?? new ChatMessageList(
                 chatUiHostContext);
             builder.RegisterApi(chatApi);
@@ -82,14 +114,16 @@ namespace Phinix.ChatExtension.Client
             chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
                 chatUiHostContext,
                 chatTabContent,
-            // 设计哲学 §3.7：插件不得绕过通信管线直连底层传输。
-            // 通过 IFrameworkClientTransport.TryHandleOutgoingMessage 走完整 handler 管线，
-            // 保证 Priority 排序、拦截、替换、回退机制正常工作。
-                message => builder.HostContext.GetRequiredService<IFrameworkClientTransport>().TryHandleOutgoingMessage(message));
+                builder.HostContext.GetRequiredService<IClientUserDirectory>());
             builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
-            var settingsPanelProvider = new ChatSettingsPanelProvider();
+            var settingsPanelProvider = new ChatSettingsPanelProvider(theme);
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
             builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
+            noticeBannerProvider = noticeBannerProvider ?? new NoticeBannerProvider();
+            builder.RegisterApi<INoticeBannerProvider>(noticeBannerProvider);
+
+            noticeSidebarProvider = noticeSidebarProvider ?? new NoticeSidebarProvider(chatUiHostContext);
+            builder.RegisterApi<IServerSidebarProvider>(noticeSidebarProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -99,12 +133,18 @@ namespace Phinix.ChatExtension.Client
                 return;
             }
 
+            IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
+            theme.Reload();
+            ChatTheme.Refresh(theme);
+
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
             commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
             lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
             sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
             settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
             soundService = hostContext.GetRequiredService<IClientSoundService>();
+            dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
+            userDirectory = hostContext.GetRequiredService<IClientUserDirectory>();
 
             if (chatNotificationHandler == null)
             {
@@ -119,16 +159,62 @@ namespace Phinix.ChatExtension.Client
                     {
                         soundService.Enqueue(SoundDefOf.Tick_Tiny);
                     }
+
+                    if (args.Message.IsNotice)
+                    {
+                        noticeSidebarProvider?.Add(args.Message);
+                        if (Time.realtimeSinceStartup - connectionEstablishedTime > 5f)
+                            noticeBannerProvider?.Enqueue(args.Message);
+                    }
+
+                    if (args.Message.MentionedUuids != null && args.Message.MentionedUuids.Contains(sessionContext.Uuid))
+                    {
+                        string senderName = "???";
+                        if (userDirectory.TryGetUser(args.Message.SenderUuid, out ImmutableUser mentionSender))
+                        {
+                            senderName = Utils.TextHelper.StripRichText(mentionSender.DisplayName);
+                        }
+
+                        string snippet = Utils.TextHelper.StripRichText(args.Message.Message ?? "");
+                        if (snippet.Length > 100) snippet = snippet.Substring(0, 100) + "...";
+
+                        dispatcher.Enqueue(() =>
+                        {
+                            LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
+                            if (letterDef != null)
+                            {
+                                Find.LetterStack.ReceiveLetter(
+                                    "Phinix_chat_mentionLetter_label".Translate(senderName),
+                                    "Phinix_chat_mentionLetter_description".Translate(senderName, snippet),
+                                    letterDef);
+                            }
+                        });
+                    }
                 };
             }
 
             chatService.OnChatMessageReceived -= chatNotificationHandler;
             chatService.OnChatMessageReceived += chatNotificationHandler;
 
+            if (disconnectHandler == null)
+            {
+                disconnectHandler = (_, __) =>
+                {
+                    noticeBannerProvider?.Clear();
+                    noticeSidebarProvider?.Clear();
+                };
+            }
+
+            IClientUserEventStream userEventStream = hostContext.GetRequiredService<IClientUserEventStream>();
+            userEventStream.Disconnected -= disconnectHandler;
+            userEventStream.Disconnected += disconnectHandler;
+
             if (compatibilityChangedHandler == null)
             {
                 compatibilityChangedHandler = (_, args) =>
                 {
+                    connectionEstablishedTime = Time.realtimeSinceStartup;
+
                     if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
                     {
                         if (sessionContext.Authenticated &&
@@ -140,6 +226,20 @@ namespace Phinix.ChatExtension.Client
                                 sessionContext.Uuid);
                             commandTransport.TryHandleOutgoingCommand(historyRequest);
                         }
+                    }
+                    else if (args.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
+                    {
+                        dispatcher.Enqueue(() =>
+                        {
+                            LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
+                            if (letterDef != null)
+                            {
+                                Find.LetterStack.ReceiveLetter(
+                                    "Phinix_chat_legacyModeLetter_label".Translate(),
+                                    "Phinix_chat_legacyModeLetter_description".Translate(),
+                                    letterDef);
+                            }
+                        });
                     }
                 };
             }
@@ -163,6 +263,17 @@ namespace Phinix.ChatExtension.Client
             if (chatService != null && chatNotificationHandler != null)
             {
                 chatService.OnChatMessageReceived -= chatNotificationHandler;
+            }
+
+            if (disconnectHandler != null && hostContext != null
+                && hostContext.TryGetService<IClientUserEventStream>(out var userEventStream))
+            {
+                userEventStream.Disconnected -= disconnectHandler;
+            }
+
+            if (noticeSidebarProvider != null)
+            {
+                noticeSidebarProvider.Shutdown();
             }
         }
 

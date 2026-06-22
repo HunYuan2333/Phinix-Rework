@@ -44,20 +44,29 @@ namespace PhinixClient.GUI
         public override void Draw(Rect container)
         {
             // Don't do anything if there's nothing to draw
-            if (Contents.Count == 0) return;
+            int count = Contents.Count;
+            if (count == 0) return;
 
-            // Get the height taken up by fixed-height elements
-            float fixedHeight = Contents.Where(item => !item.IsFluidHeight).Sum(item => item.CalcHeight(container.width));
+            // Get the height taken up by fixed-height elements (manual sum, no LINQ alloc)
+            float fixedHeight = 0f;
+            int fluidItems = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Displayable item = Contents[i];
+                if (item.IsFluidHeight)
+                    fluidItems++;
+                else
+                    fixedHeight += item.CalcHeight(container.width);
+            }
 
             // Divvy out the remaining height to each fluid element
             float remainingHeight = container.height - fixedHeight;
-            remainingHeight -= (Contents.Count - 1) * spacing; // Remove spacing between each element
-            int fluidItems = Contents.Count(item => item.IsFluidHeight);
+            remainingHeight -= (count - 1) * spacing; // Remove spacing between each element
             float heightPerFluid = remainingHeight / fluidItems;
 
             // Draw each item
             float yOffset = 0f;
-            for (int i = 0; i < Contents.Count; i++)
+            for (int i = 0; i < count; i++)
             {
                 Displayable item = Contents[i];
                 Rect rect;
@@ -108,7 +117,13 @@ namespace PhinixClient.GUI
         public override float CalcHeight(float width)
         {
             // Return the sum of each item's height, ignoring fluid items, and the spacing between each
-            return Contents.Where(item => !item.IsFluidHeight).Sum(item => item.CalcHeight(width)) + (spacing * (Contents.Count - 1));
+            float total = 0f;
+            foreach (Displayable item in Contents)
+            {
+                if (!item.IsFluidHeight)
+                    total += item.CalcHeight(width);
+            }
+            return total + (spacing * (Contents.Count - 1));
         }
 
         /// <inheritdoc />

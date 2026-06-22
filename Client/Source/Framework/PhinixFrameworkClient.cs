@@ -155,8 +155,16 @@ namespace PhinixClient.Framework
         {
             if (disposed) return false;
 
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingMessage: mode={CompatibilityMode}, textLen={rawMessage?.Length ?? 0}, handlers={discoveredExtensions.ClientMessageHandlers.Count}",
+                LogLevel.DEBUG));
+
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleOutgoingText(rawMessage)))
             {
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingMessage: handler={handler.GetType().Name}(P={handler.Priority}) claims it can handle",
+                    LogLevel.DEBUG));
+
                 ClientOutgoingMessageResult result = null;
                 try
                 {
@@ -180,6 +188,10 @@ namespace PhinixClient.Framework
                         $"Message handler {handler.GetType().FullName} threw for outgoing text: {ex}", LogLevel.ERROR));
                     continue;
                 }
+
+                RaiseLogEntry(new LogEventArgs(
+                    $"[Framework] TryHandleOutgoingMessage: handler={handler.GetType().Name} result action={result?.Action}, message={(result?.Message == null ? "null" : "present")}",
+                    LogLevel.DEBUG));
 
                 if (result == null)
                 {
@@ -218,6 +230,9 @@ namespace PhinixClient.Framework
                 }
             }
 
+            RaiseLogEntry(new LogEventArgs(
+                $"[Framework] TryHandleOutgoingMessage: no handler ultimately processed the message — returning false",
+                LogLevel.WARNING));
             return false;
         }
 
@@ -839,7 +854,18 @@ namespace PhinixClient.Framework
                 if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindItem;
             }
 
-            netClient.Send(FrameworkProtocol.ModuleName, FrameworkSerialization.SerializePacket(packet));
+            // Use NetClient.Send which validates connection state atomically
+            byte[] serialized = FrameworkSerialization.SerializePacket(packet);
+            try
+            {
+                netClient.Send(FrameworkProtocol.ModuleName, serialized);
+            }
+            catch (Exception ex)
+            {
+                RaiseLogEntry(new LogEventArgs(
+                    $"[PhinixFramework] Failed to send packet type={packet.MessageType}: {ex.Message}",
+                    LogLevel.ERROR));
+            }
         }
 
         private void enterLegacyMode()
