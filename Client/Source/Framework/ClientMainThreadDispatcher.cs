@@ -42,7 +42,16 @@ namespace PhinixClient.Framework
                     action = pendingActions.Dequeue();
                 }
 
-                action?.Invoke();
+                try
+                {
+                    action?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    // 设计哲学 §3.5：单个后台动作异常不得中断整条队列（否则剩余动作堆积 → 溢出）。
+                    // 记录后可观测，继续消费后续动作。
+                    Verse.Log.Error($"[Phinix] Main-thread action threw: {ex}");
+                }
             }
         }
     }
