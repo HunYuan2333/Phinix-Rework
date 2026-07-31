@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <Phinix_legacyRedpacket_tab>Red Packet (Legacy)</Phinix_legacyRedpacket_tab>
+  <Phinix_legacyRedpacket_pleaseLogInPlaceholder>You are not logged in. Connect to a server first.</Phinix_legacyRedpacket_pleaseLogInPlaceholder>
+  <Phinix_legacyRedpacket_settingNotifications>Enable red packet notifications</Phinix_legacyRedpacket_settingNotifications>
+  <Phinix_legacyRedpacket_settingNotificationsDesc>Show in-game messages when new red packets arrive.</Phinix_legacyRedpacket_settingNotificationsDesc>
+  <Phinix_legacyRedpacket_settingChatAnnouncement>Send chat reminder on red packet create</Phinix_legacyRedpacket_settingChatAnnouncement>
+  <Phinix_legacyRedpacket_settingChatAnnouncementDesc>Send a plain text chat reminder after creating a red packet.</Phinix_legacyRedpacket_settingChatAnnouncementDesc>
+  <Phinix_legacyRedpacket_settingSuppressUnknownNotify>Suppress unknown red packet notifications</Phinix_legacyRedpacket_settingSuppressUnknownNotify>
+  <Phinix_legacyRedpacket_settingSuppressUnknownNotifyDesc>Do not show top-left notifications when the red packet item is unknown.</Phinix_legacyRedpacket_settingSuppressUnknownNotifyDesc>
+  <Phinix_legacyRedpacket_sendTitle>Send Red Packet</Phinix_legacyRedpacket_sendTitle>
+  <Phinix_legacyRedpacket_searchLabel>Search</Phinix_legacyRedpacket_searchLabel>
+  <Phinix_legacyRedpacket_refreshButton>Refresh</Phinix_legacyRedpacket_refreshButton>
+  <Phinix_legacyRedpacket_packetCountLabel>Packets</Phinix_legacyRedpacket_packetCountLabel>
+  <Phinix_legacyRedpacket_typeLabel>Type</Phinix_legacyRedpacket_typeLabel>
+  <Phinix_legacyRedpacket_typeNormal>Normal</Phinix_legacyRedpacket_typeNormal>
+  <Phinix_legacyRedpacket_typeLucky>Lucky</Phinix_legacyRedpacket_typeLucky>
+  <Phinix_legacyRedpacket_sendButton>Send</Phinix_legacyRedpacket_sendButton>
+  <Phinix_legacyRedpacket_sendCooldownButton>Cooldown {0}s</Phinix_legacyRedpacket_sendCooldownButton>
+  <Phinix_legacyRedpacket_noItemsPlaceholder>No items available.</Phinix_legacyRedpacket_noItemsPlaceholder>
+  <Phinix_legacyRedpacket_listTitle>Red Packets</Phinix_legacyRedpacket_listTitle>
+  <Phinix_legacyRedpacket_notificationToggle>Notifications</Phinix_legacyRedpacket_notificationToggle>
+  <Phinix_legacyRedpacket_noPacketsPlaceholder>No active red packets.</Phinix_legacyRedpacket_noPacketsPlaceholder>
+  <Phinix_legacyRedpacket_itemLineFormat>{0} x{1}</Phinix_legacyRedpacket_itemLineFormat>
+  <Phinix_legacyRedpacket_remainingTypeLine>Packets left {0}/{1} Type {2}</Phinix_legacyRedpacket_remainingTypeLine>
+  <Phinix_legacyRedpacket_senderFormat>Sender {0}</Phinix_legacyRedpacket_senderFormat>
+  <Phinix_legacyRedpacket_timeLeftFormat>Time {0}</Phinix_legacyRedpacket_timeLeftFormat>
+  <Phinix_legacyRedpacket_detailButton>Details</Phinix_legacyRedpacket_detailButton>
+  <Phinix_legacyRedpacket_detailUnavailable>Red packet details are unavailable.</Phinix_legacyRedpacket_detailUnavailable>
+  <Phinix_legacyRedpacket_detailSenderTitle>{0}'s red packet</Phinix_legacyRedpacket_detailSenderTitle>
+  <Phinix_legacyRedpacket_detailPacketAmountLine>Packets {0}/{1}</Phinix_legacyRedpacket_detailPacketAmountLine>
+  <Phinix_legacyRedpacket_detailRemainingItemLine>Items left {0}/{1}</Phinix_legacyRedpacket_detailRemainingItemLine>
+  <Phinix_legacyRedpacket_detailClaimAmount>{0}</Phinix_legacyRedpacket_detailClaimAmount>
+  <Phinix_legacyRedpacket_detailBestTag>Luckiest</Phinix_legacyRedpacket_detailBestTag>
+  <Phinix_legacyRedpacket_detailNoClaims>No claims yet.</Phinix_legacyRedpacket_detailNoClaims>
+  <Phinix_legacyRedpacket_claimButton>Claim</Phinix_legacyRedpacket_claimButton>
+  <Phinix_legacyRedpacket_claimedLabel>Claimed</Phinix_legacyRedpacket_claimedLabel>
+  <Phinix_legacyRedpacket_expiredLabel>Expired</Phinix_legacyRedpacket_expiredLabel>
+  <Phinix_legacyRedpacket_pendingLabel>Pending</Phinix_legacyRedpacket_pendingLabel>
+  <Phinix_legacyRedpacket_emptyLabel>Empty</Phinix_legacyRedpacket_emptyLabel>
+  <Phinix_legacyRedpacket_rowClaimedOut>Fully claimed</Phinix_legacyRedpacket_rowClaimedOut>
+  <Phinix_legacyRedpacket_errorSelectItem>Select an item and amount.</Phinix_legacyRedpacket_errorSelectItem>
+  <Phinix_legacyRedpacket_errorPacketCount>Invalid packet count.</Phinix_legacyRedpacket_errorPacketCount>
+  <Phinix_legacyRedpacket_errorPacketCountTooLarge>Packet count must be less than or equal to the amount.</Phinix_legacyRedpacket_errorPacketCountTooLarge>
+  <Phinix_legacyRedpacket_minifiedSendReject>Cannot send red packets with uninstalled buildings.</Phinix_legacyRedpacket_minifiedSendReject>
+  <Phinix_legacyRedpacket_minifiedClaimReject>Cannot claim red packets with uninstalled buildings.</Phinix_legacyRedpacket_minifiedClaimReject>
+  <Phinix_legacyRedpacket_unknownItemReject>Cannot claim unknown item: {0}.</Phinix_legacyRedpacket_unknownItemReject>
+  <Phinix_legacyRedpacket_claimTimeoutMessage>Timed out. The sender may be offline.</Phinix_legacyRedpacket_claimTimeoutMessage>
+  <Phinix_legacyRedpacket_timeoutReturnMessage>Red packet timed out. Returned {0} x{1}.</Phinix_legacyRedpacket_timeoutReturnMessage>
+  <Phinix_legacyRedpacket_sentMessage>Sent red packet: {0} x{1}.</Phinix_legacyRedpacket_sentMessage>
+  <Phinix_legacyRedpacket_chatAnnounceMessage>I sent a red packet.</Phinix_legacyRedpacket_chatAnnounceMessage>
+  <Phinix_legacyRedpacket_sendCooldownMessage>Wait {0}s before sending another red packet.</Phinix_legacyRedpacket_sendCooldownMessage>
+  <Phinix_legacyRedpacket_rewardMessage>You received {0} x{1} from {2}.</Phinix_legacyRedpacket_rewardMessage>
+  <Phinix_legacyRedpacket_returnMessage>Red packet expired. Returned {0} x{1}.</Phinix_legacyRedpacket_returnMessage>
+  <Phinix_legacyRedpacket_specialReturnMessage>Special red packet expired. Returned double {0} x{1}.</Phinix_legacyRedpacket_specialReturnMessage>
+  <Phinix_legacyRedpacket_specialRaidMessage>Special red packet expired. Remaining {0} x{1} was not returned, and a raid has started.</Phinix_legacyRedpacket_specialRaidMessage>
+  <Phinix_legacyRedpacket_specialNoReturnMessage>Special red packet expired. Remaining {0} x{1} was not returned.</Phinix_legacyRedpacket_specialNoReturnMessage>
+  <Phinix_legacyRedpacket_newPacketMessage>New red packet from {0}: {1} x{2}.</Phinix_legacyRedpacket_newPacketMessage>
+  <Phinix_legacyRedpacket_completeLetterTitle>Red packet claimed</Phinix_legacyRedpacket_completeLetterTitle>
+  <Phinix_legacyRedpacket_completeLetterText>{0} x{1}&#10;Claimed in {2}.&#10;Claims:&#10;{3}</Phinix_legacyRedpacket_completeLetterText>
+  <Phinix_legacyRedpacket_expiredLetterTitle>Red packet expired</Phinix_legacyRedpacket_expiredLetterTitle>
+  <Phinix_legacyRedpacket_expiredLetterText>{0} x{1}&#10;Expired after {2}.&#10;Claims:&#10;{3}&#10;Returned: {4}</Phinix_legacyRedpacket_expiredLetterText>
+  <Phinix_legacyRedpacket_summaryNone>No claims.</Phinix_legacyRedpacket_summaryNone>
+  <Phinix_legacyRedpacket_summaryLine>{0} x{1}</Phinix_legacyRedpacket_summaryLine>
+  <Phinix_legacyRedpacket_testSuccess>Test ok</Phinix_legacyRedpacket_testSuccess>
+</LanguageData>

@@ -25,7 +25,15 @@ namespace PhinixClient.Framework
 
         public event EventHandler<FrameworkCompatibilityModeChangedEventArgs> CompatibilityModeChanged;
 
-        public void RaiseLogEntry(LogEventArgs e) => OnLogEntry?.Invoke(this, e);
+        public void RaiseLogEntry(LogEventArgs e)
+        {
+            if (e != null)
+            {
+                appendExtensionLog(e.Message, e.LogLevel);
+            }
+
+            OnLogEntry?.Invoke(this, e);
+        }
 
         public FrameworkCompatibilityMode CompatibilityMode { get; private set; } = FrameworkCompatibilityMode.Unknown;
 
@@ -42,6 +50,10 @@ namespace PhinixClient.Framework
         private readonly Timer negotiationTimer;
         private readonly ElapsedEventHandler negotiationElapsedHandler;
         private readonly EventHandler disconnectHandler;
+        private const int MaxExtensionLogEntries = 300;
+        private readonly object extensionLogLock = new object();
+        private readonly List<FrameworkLogEntry> extensionLog = new List<FrameworkLogEntry>();
+        private int extensionLogVersion;
         private int displayMessageCountAtLastCheck;
         private bool disposed;
 
@@ -119,6 +131,8 @@ namespace PhinixClient.Framework
 
         public IReadOnlyList<ExtensionDiscoveryResult> ExtensionResults => discoveredExtensions.ExtensionResults.AsReadOnly();
 
+        public ExtensionDependencyGraph ExtensionDependencyGraph => discoveredExtensions.DependencyGraph;
+
         public IReadOnlyList<string> ExtensionDiagnostics => discoveredExtensions.Diagnostics.AsReadOnly();
 
         public IReadOnlyList<string> ExtensionWarnings => discoveredExtensions.Warnings.AsReadOnly();
@@ -126,6 +140,32 @@ namespace PhinixClient.Framework
         public bool HasWarnings => discoveredExtensions.Warnings.Count > 0;
 
         public int WarningCount => discoveredExtensions.Warnings.Count;
+
+        /// <summary>
+        /// 扩展管理面板日志缓冲版本号。UI 仅在版本变化时重取快照，避免每帧复制。
+        /// 设计哲学 §3.6：缓冲有容量上限（<see cref="MaxExtensionLogEntries"/>），超出移除最旧条目。
+        /// </summary>
+        public int ExtensionLogVersion
+        {
+            get
+            {
+                lock (extensionLogLock)
+                {
+                    return extensionLogVersion;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 返回扩展管理日志快照（最新在前）。调用方应缓存，仅在 <see cref="ExtensionLogVersion"/> 变化时重取。
+        /// </summary>
+        public IReadOnlyList<FrameworkLogEntry> GetExtensionLogSnapshot()
+        {
+            lock (extensionLogLock)
+            {
+                return new List<FrameworkLogEntry>(extensionLog);
+            }
+        }
 
         public IReadOnlyList<IItemCodec> ItemCodecs => discoveredExtensions.ItemCodecs.AsReadOnly();
 
@@ -524,6 +564,28 @@ namespace PhinixClient.Framework
             return ResolveExtensionApis<IClientSettingsPanelProvider>();
         }
 
+        private void appendExtensionLog(string message, LogLevel level)
+        {
+#if !DEBUG
+            // Release 构建不捕获 DEBUG 级日志，扩展面板日志与输出保持一致的分类
+            if (level == LogLevel.DEBUG)
+            {
+                return;
+            }
+#endif
+
+            lock (extensionLogLock)
+            {
+                extensionLog.Add(new FrameworkLogEntry(message, level, DateTime.UtcNow.Ticks));
+                if (extensionLog.Count > MaxExtensionLogEntries)
+                {
+                    extensionLog.RemoveAt(0);
+                }
+
+                extensionLogVersion++;
+            }
+        }
+
         private void packetHandler(string module, string connectionId, byte[] data)
         {
             if (disposed) return;
@@ -539,7 +601,9 @@ namespace PhinixClient.Framework
                 return;
             }
 
-            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] packetHandler received: kind={packet.Kind}, type={packet.MessageType}, flow={packet.Flow}", LogLevel.INFO));
+            // 管线消息路由细节 → DEBUG（设计哲学 §3.8）：聊天等高频消息在 Release 构建下被过滤，
+            // 避免每条消息都刷 RimWorld 日志（社区反馈"constant log spam from chatting"）
+            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] packetHandler received: kind={packet.Kind}, type={packet.MessageType}, flow={packet.Flow}", LogLevel.DEBUG));
 
             switch (packet.Kind)
             {

@@ -72,7 +72,9 @@ namespace PhinixClient.GUI
             List<TabRecord> tabRecords = new List<TabRecord>(tabs.Count);
             for (int i = 0; i < tabs.Count; i++)
                 tabRecords.Add(tabs[i].tab);
-            TabRecord selectedRecord = TabDrawer.DrawTabs(inRect, tabRecords);
+            // 响应式宽度：最大宽度 = 可用宽度 / tab 数，避免固定宽度导致多个 tab 重叠/越界
+            float maxTabWidth = Mathf.Max(80f, inRect.width / Mathf.Max(1, tabRecords.Count));
+            TabRecord selectedRecord = TabDrawer.DrawTabs(inRect, tabRecords, maxTabWidth);
 
             // Change the selected record if it was clicked
             if (selectedRecord != null)

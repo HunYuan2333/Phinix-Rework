@@ -53,13 +53,30 @@
     <!-- Extension Manager -->
     <Phinix_extensions_loadedExtensions>已加载扩展 ({0})</Phinix_extensions_loadedExtensions>
     <Phinix_extensions_loadingLog>加载日志</Phinix_extensions_loadingLog>
-    <Phinix_extensions_refresh>刷新</Phinix_extensions_refresh>
-    <Phinix_extensions_openDirectory>打开扩展目录</Phinix_extensions_openDirectory>
     <Phinix_extensions_state_active>已激活</Phinix_extensions_state_active>
     <Phinix_extensions_state_failed>失败</Phinix_extensions_state_failed>
     <Phinix_extensions_state_registered>已注册</Phinix_extensions_state_registered>
     <Phinix_extensions_state_shutdown>已关闭</Phinix_extensions_state_shutdown>
     <Phinix_extensions_state_discovered>已发现</Phinix_extensions_state_discovered>
+    <Phinix_extensions_state_disabled>已禁用</Phinix_extensions_state_disabled>
+    <Phinix_extensions_state_dependencyDisabled>已禁用（依赖）</Phinix_extensions_state_dependencyDisabled>
     <Phinix_extensions_state_unknown>未知</Phinix_extensions_state_unknown>
     <Phinix_extensions_warningsPresent>{0} 个扩展存在问题，请查看扩展标签页。</Phinix_extensions_warningsPresent>
+    <Phinix_extensions_summaryActiveTotal>{0} 激活 / 共 {1}</Phinix_extensions_summaryActiveTotal>
+    <Phinix_extensions_summaryDisabled>{0} 已禁用</Phinix_extensions_summaryDisabled>
+    <Phinix_extensions_summaryDepDisabled>{0} 因依赖被禁用</Phinix_extensions_summaryDepDisabled>
+    <Phinix_extensions_summaryUndeclared>{0} 个未声明依赖</Phinix_extensions_summaryUndeclared>
+    <Phinix_extensions_summaryPending>{0} 个待重启</Phinix_extensions_summaryPending>
+    <Phinix_extensions_pendingDisable>重启后将被禁用</Phinix_extensions_pendingDisable>
+    <Phinix_extensions_pendingEnable>重启后将被启用</Phinix_extensions_pendingEnable>
+    <Phinix_extensions_toggleDisabled>{0} 将在重启后被禁用</Phinix_extensions_toggleDisabled>
+    <Phinix_extensions_toggleEnabled>{0} 将在重启后被启用</Phinix_extensions_toggleEnabled>
+    <Phinix_extensions_logEmpty>暂无日志。</Phinix_extensions_logEmpty>
+    <Phinix_extensions_dependencies>依赖</Phinix_extensions_dependencies>
+    <Phinix_extensions_none>无</Phinix_extensions_none>
+    <Phinix_extensions_depDisabledHint>因其依赖项被禁用而禁用。</Phinix_extensions_depDisabledHint>
+    <Phinix_extensions_disableImpact>禁用 {0} 将同时禁用：{1}</Phinix_extensions_disableImpact>
+    <Phinix_extensions_undeclaredDeps>存在未声明的依赖</Phinix_extensions_undeclaredDeps>
+    <Phinix_modSettings_extensionsSectionTitle>扩展</Phinix_modSettings_extensionsSectionTitle>
+    <Phinix_modSettings_extensionsRestartRequired>更改将在重启后生效</Phinix_modSettings_extensionsRestartRequired>
 </LanguageData>

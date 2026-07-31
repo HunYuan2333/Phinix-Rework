@@ -53,13 +53,30 @@
     <!-- Extension Manager -->
     <Phinix_extensions_loadedExtensions>Loaded Extensions ({0})</Phinix_extensions_loadedExtensions>
     <Phinix_extensions_loadingLog>Loading Log</Phinix_extensions_loadingLog>
-    <Phinix_extensions_refresh>Refresh</Phinix_extensions_refresh>
-    <Phinix_extensions_openDirectory>Open Extension Directory</Phinix_extensions_openDirectory>
     <Phinix_extensions_state_active>Active</Phinix_extensions_state_active>
     <Phinix_extensions_state_failed>Failed</Phinix_extensions_state_failed>
     <Phinix_extensions_state_registered>Registered</Phinix_extensions_state_registered>
     <Phinix_extensions_state_shutdown>Shut Down</Phinix_extensions_state_shutdown>
     <Phinix_extensions_state_discovered>Discovered</Phinix_extensions_state_discovered>
+    <Phinix_extensions_state_disabled>Disabled</Phinix_extensions_state_disabled>
+    <Phinix_extensions_state_dependencyDisabled>Disabled (dependency)</Phinix_extensions_state_dependencyDisabled>
     <Phinix_extensions_state_unknown>Unknown</Phinix_extensions_state_unknown>
     <Phinix_extensions_warningsPresent>{0} extension(s) have warnings. Check the Extensions tab.</Phinix_extensions_warningsPresent>
+    <Phinix_extensions_summaryActiveTotal>{0} active / {1} total</Phinix_extensions_summaryActiveTotal>
+    <Phinix_extensions_summaryDisabled>{0} disabled</Phinix_extensions_summaryDisabled>
+    <Phinix_extensions_summaryDepDisabled>{0} disabled by dependencies</Phinix_extensions_summaryDepDisabled>
+    <Phinix_extensions_summaryUndeclared>{0} with undeclared dependencies</Phinix_extensions_summaryUndeclared>
+    <Phinix_extensions_summaryPending>{0} pending restart</Phinix_extensions_summaryPending>
+    <Phinix_extensions_pendingDisable>will be disabled after restart</Phinix_extensions_pendingDisable>
+    <Phinix_extensions_pendingEnable>will be enabled after restart</Phinix_extensions_pendingEnable>
+    <Phinix_extensions_toggleDisabled>{0} will be disabled after restart</Phinix_extensions_toggleDisabled>
+    <Phinix_extensions_toggleEnabled>{0} will be enabled after restart</Phinix_extensions_toggleEnabled>
+    <Phinix_extensions_logEmpty>No log entries yet.</Phinix_extensions_logEmpty>
+    <Phinix_extensions_dependencies>Dependencies</Phinix_extensions_dependencies>
+    <Phinix_extensions_none>none</Phinix_extensions_none>
+    <Phinix_extensions_depDisabledHint>Disabled because one of its dependencies is disabled.</Phinix_extensions_depDisabledHint>
+    <Phinix_extensions_disableImpact>Disabling {0} also disables: {1}</Phinix_extensions_disableImpact>
+    <Phinix_extensions_undeclaredDeps>Has undeclared dependencies</Phinix_extensions_undeclaredDeps>
+    <Phinix_modSettings_extensionsSectionTitle>Extensions</Phinix_modSettings_extensionsSectionTitle>
+    <Phinix_modSettings_extensionsRestartRequired>Changes take effect after restart</Phinix_modSettings_extensionsRestartRequired>
 </LanguageData>

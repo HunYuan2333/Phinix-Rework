@@ -67,6 +67,10 @@ namespace Phinix.ChatExtension.Client
             theme.RegisterColor("chat.deniedMessage", new Color(0.94f, 0.28f, 0.28f));
 
             PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService ?? new PhinixFrameworkChatService();
+            if (chatModule.Log == null)
+            {
+                chatModule.Log = (message, level) => builder.HostContext.Log?.Invoke(message, level);
+            }
             chatApi = chatModule;
             chatService = chatService ?? new FrameworkClientChatServiceAdapter(
                 chatApi,

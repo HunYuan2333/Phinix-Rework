@@ -45,6 +45,8 @@
   <!-- === Extension Manager 状态色 === -->
   <color key="ext.statusActive"     r="0.30" g="0.80" b="0.30" a="1.00" />
   <color key="ext.statusFailed"     r="1.00" g="0.00" b="0.00" a="1.00" />
+  <color key="ext.statusDisabled"   r="0.45" g="0.45" b="0.45" a="1.00" />
+  <color key="ext.statusDependencyDisabled" r="0.95" g="0.75" b="0.25" a="1.00" />
   <color key="ext.statusRegistered" r="0.80" g="0.80" b="0.30" a="1.00" />
   <color key="ext.statusDefault"    r="0.50" g="0.50" b="0.50" a="1.00" />
   <color key="ext.logDiagnostic"    r="0.50" g="0.50" b="0.50" a="1.00" />

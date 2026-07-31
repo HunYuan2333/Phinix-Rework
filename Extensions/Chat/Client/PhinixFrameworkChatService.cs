@@ -6,6 +6,7 @@ using Google.Protobuf.WellKnownTypes;
 using PhinixClient;
 using PhinixClient.Framework;
 using UserManagement;
+using Utils;
 using Utils.Framework;
 using Verse;
 
@@ -13,6 +14,12 @@ namespace Phinix.ChatExtension.Client
 {
     public class PhinixFrameworkChatService : IFrameworkChatClientApi
     {
+        /// <summary>
+        /// 框架日志回调（设计哲学 §3.8：插件日志必须走 hostContext.Log，不得绕过框架机制）。
+        /// 由 BuiltInChatClientExtension 在 Register 阶段注入。
+        /// </summary>
+        public Action<string, LogLevel> Log { get; set; }
+
         /// <summary>
         /// 系统消息通用占位用户，延迟初始化避免静态构造阶段访问翻译系统。
         /// RimWorld 的 LanguageDatabase 在 mod 构造函数之后才激活；
@@ -91,7 +98,7 @@ namespace Phinix.ChatExtension.Client
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning($"[PhinixChat] Failed to parse BuiltInChatMessagePayload: {ex.Message}");
+                Log?.Invoke($"[PhinixChat] Failed to parse BuiltInChatMessagePayload: {ex.Message}", LogLevel.WARNING);
                 // Return a displayable error message instead of letting the exception propagate
                 return new FrameworkDisplayMessage
                 {

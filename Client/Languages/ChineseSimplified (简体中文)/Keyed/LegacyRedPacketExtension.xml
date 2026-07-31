@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LanguageData>
+  <Phinix_legacyRedpacket_tab>红包 (Legacy)</Phinix_legacyRedpacket_tab>
+  <Phinix_legacyRedpacket_pleaseLogInPlaceholder>未登录。请先连接服务器。</Phinix_legacyRedpacket_pleaseLogInPlaceholder>
+  <Phinix_legacyRedpacket_settingNotifications>启用红包消息提醒</Phinix_legacyRedpacket_settingNotifications>
+  <Phinix_legacyRedpacket_settingNotificationsDesc>收到新红包时显示游戏内提醒消息。</Phinix_legacyRedpacket_settingNotificationsDesc>
+  <Phinix_legacyRedpacket_settingChatAnnouncement>发送红包后发聊天提醒</Phinix_legacyRedpacket_settingChatAnnouncement>
+  <Phinix_legacyRedpacket_settingChatAnnouncementDesc>发红包后向聊天频道发送一条纯文字提醒消息。</Phinix_legacyRedpacket_settingChatAnnouncementDesc>
+  <Phinix_legacyRedpacket_settingSuppressUnknownNotify>未知红包不发通知</Phinix_legacyRedpacket_settingSuppressUnknownNotify>
+  <Phinix_legacyRedpacket_settingSuppressUnknownNotifyDesc>当红包物品为未知物品时，不在左上角显示通知。</Phinix_legacyRedpacket_settingSuppressUnknownNotifyDesc>
+  <Phinix_legacyRedpacket_sendTitle>发红包</Phinix_legacyRedpacket_sendTitle>
+  <Phinix_legacyRedpacket_searchLabel>搜索</Phinix_legacyRedpacket_searchLabel>
+  <Phinix_legacyRedpacket_refreshButton>刷新</Phinix_legacyRedpacket_refreshButton>
+  <Phinix_legacyRedpacket_packetCountLabel>红包个数</Phinix_legacyRedpacket_packetCountLabel>
+  <Phinix_legacyRedpacket_typeLabel>红包类型</Phinix_legacyRedpacket_typeLabel>
+  <Phinix_legacyRedpacket_typeNormal>普通红包</Phinix_legacyRedpacket_typeNormal>
+  <Phinix_legacyRedpacket_typeLucky>拼手气红包</Phinix_legacyRedpacket_typeLucky>
+  <Phinix_legacyRedpacket_sendButton>发送</Phinix_legacyRedpacket_sendButton>
+  <Phinix_legacyRedpacket_sendCooldownButton>冷却 {0}秒</Phinix_legacyRedpacket_sendCooldownButton>
+  <Phinix_legacyRedpacket_noItemsPlaceholder>没有可用物资。</Phinix_legacyRedpacket_noItemsPlaceholder>
+  <Phinix_legacyRedpacket_listTitle>红包列表</Phinix_legacyRedpacket_listTitle>
+  <Phinix_legacyRedpacket_notificationToggle>消息提醒</Phinix_legacyRedpacket_notificationToggle>
+  <Phinix_legacyRedpacket_noPacketsPlaceholder>没有可抢红包。</Phinix_legacyRedpacket_noPacketsPlaceholder>
+  <Phinix_legacyRedpacket_itemLineFormat>{0} x{1}</Phinix_legacyRedpacket_itemLineFormat>
+  <Phinix_legacyRedpacket_remainingTypeLine>红包剩余数量 {0}/{1} 类型 {2}</Phinix_legacyRedpacket_remainingTypeLine>
+  <Phinix_legacyRedpacket_senderFormat>发送者 {0}</Phinix_legacyRedpacket_senderFormat>
+  <Phinix_legacyRedpacket_timeLeftFormat>剩余时间 {0}</Phinix_legacyRedpacket_timeLeftFormat>
+  <Phinix_legacyRedpacket_detailButton>红包详情</Phinix_legacyRedpacket_detailButton>
+  <Phinix_legacyRedpacket_detailUnavailable>红包详情暂不可用。</Phinix_legacyRedpacket_detailUnavailable>
+  <Phinix_legacyRedpacket_detailSenderTitle>{0}发的红包</Phinix_legacyRedpacket_detailSenderTitle>
+  <Phinix_legacyRedpacket_detailPacketAmountLine>红包数量 {0}/{1}</Phinix_legacyRedpacket_detailPacketAmountLine>
+  <Phinix_legacyRedpacket_detailRemainingItemLine>剩余物品 {0}/{1}</Phinix_legacyRedpacket_detailRemainingItemLine>
+  <Phinix_legacyRedpacket_detailClaimAmount>{0}个</Phinix_legacyRedpacket_detailClaimAmount>
+  <Phinix_legacyRedpacket_detailBestTag>手气最佳</Phinix_legacyRedpacket_detailBestTag>
+  <Phinix_legacyRedpacket_detailNoClaims>暂无领取记录。</Phinix_legacyRedpacket_detailNoClaims>
+  <Phinix_legacyRedpacket_claimButton>抢红包</Phinix_legacyRedpacket_claimButton>
+  <Phinix_legacyRedpacket_claimedLabel>已领取</Phinix_legacyRedpacket_claimedLabel>
+  <Phinix_legacyRedpacket_expiredLabel>已过期</Phinix_legacyRedpacket_expiredLabel>
+  <Phinix_legacyRedpacket_pendingLabel>处理中</Phinix_legacyRedpacket_pendingLabel>
+  <Phinix_legacyRedpacket_emptyLabel>已领完</Phinix_legacyRedpacket_emptyLabel>
+  <Phinix_legacyRedpacket_rowClaimedOut>已抢完</Phinix_legacyRedpacket_rowClaimedOut>
+  <Phinix_legacyRedpacket_errorSelectItem>请选择物资并输入数量。</Phinix_legacyRedpacket_errorSelectItem>
+  <Phinix_legacyRedpacket_errorPacketCount>红包个数不合法。</Phinix_legacyRedpacket_errorPacketCount>
+  <Phinix_legacyRedpacket_errorPacketCountTooLarge>红包个数不能大于物资数量。</Phinix_legacyRedpacket_errorPacketCountTooLarge>
+  <Phinix_legacyRedpacket_minifiedSendReject>无法发送卸载的建筑物红包。</Phinix_legacyRedpacket_minifiedSendReject>
+  <Phinix_legacyRedpacket_minifiedClaimReject>无法领取卸载的建筑物红包。</Phinix_legacyRedpacket_minifiedClaimReject>
+  <Phinix_legacyRedpacket_unknownItemReject>无法领取未知物品：{0}。</Phinix_legacyRedpacket_unknownItemReject>
+  <Phinix_legacyRedpacket_claimTimeoutMessage>处理超时，红包发送者可能离线。</Phinix_legacyRedpacket_claimTimeoutMessage>
+  <Phinix_legacyRedpacket_timeoutReturnMessage>红包处理超时，返还 {0} x{1}。</Phinix_legacyRedpacket_timeoutReturnMessage>
+  <Phinix_legacyRedpacket_sentMessage>已发送红包：{0} x{1}。</Phinix_legacyRedpacket_sentMessage>
+  <Phinix_legacyRedpacket_chatAnnounceMessage>我发送了一个红包</Phinix_legacyRedpacket_chatAnnounceMessage>
+  <Phinix_legacyRedpacket_sendCooldownMessage>请等待 {0} 秒后再发送红包。</Phinix_legacyRedpacket_sendCooldownMessage>
+  <Phinix_legacyRedpacket_rewardMessage>你从 {2} 的红包里抢到了 {0} x{1}。</Phinix_legacyRedpacket_rewardMessage>
+  <Phinix_legacyRedpacket_returnMessage>红包过期，返还 {0} x{1}。</Phinix_legacyRedpacket_returnMessage>
+  <Phinix_legacyRedpacket_specialReturnMessage>超凡智能觉得你发送的红包很有趣，决定将剩余物资双倍返还：{0} x{1}。</Phinix_legacyRedpacket_specialReturnMessage>
+  <Phinix_legacyRedpacket_specialRaidMessage>超凡智能被你的红包激怒了！剩余物资 {0} x{1} 未返还，并引来了一次袭击。</Phinix_legacyRedpacket_specialRaidMessage>
+  <Phinix_legacyRedpacket_specialNoReturnMessage>超凡智能没收了红包剩余物资：{0} x{1}（未返还）。</Phinix_legacyRedpacket_specialNoReturnMessage>
+  <Phinix_legacyRedpacket_newPacketMessage>新红包：{0} 发送了 {1} x{2}。</Phinix_legacyRedpacket_newPacketMessage>
+  <Phinix_legacyRedpacket_completeLetterTitle>红包领取完毕</Phinix_legacyRedpacket_completeLetterTitle>
+  <Phinix_legacyRedpacket_completeLetterText>{0} x{1}&#10;用时 {2}。&#10;领取明细：&#10;{3}</Phinix_legacyRedpacket_completeLetterText>
+  <Phinix_legacyRedpacket_expiredLetterTitle>红包已过期</Phinix_legacyRedpacket_expiredLetterTitle>
+  <Phinix_legacyRedpacket_expiredLetterText>{0} x{1}&#10;已过期，用时 {2}。&#10;领取明细：&#10;{3}&#10;返还：{4}</Phinix_legacyRedpacket_expiredLetterText>
+  <Phinix_legacyRedpacket_summaryNone>无人领取。</Phinix_legacyRedpacket_summaryNone>
+  <Phinix_legacyRedpacket_summaryLine>{0} x{1}</Phinix_legacyRedpacket_summaryLine>
+  <Phinix_legacyRedpacket_testSuccess>测试成功</Phinix_legacyRedpacket_testSuccess>
+</LanguageData>

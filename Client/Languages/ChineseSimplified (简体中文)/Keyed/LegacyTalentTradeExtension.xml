@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <!-- Tab -->
+  <Phinix_legacyTalentTrade_tab>人才贸易</Phinix_legacyTalentTrade_tab>
+  <Phinix_legacyTalentTrade_pleaseLogIn>请先登录 Phinix 聊天室。</Phinix_legacyTalentTrade_pleaseLogIn>
+  <Phinix_legacyTalentTrade_comingSoon>即将推出…</Phinix_legacyTalentTrade_comingSoon>
+
+  <!-- Sub tabs -->
+  <Phinix_legacyTalentTrade_subTabDirectTrade>直接交易</Phinix_legacyTalentTrade_subTabDirectTrade>
+  <Phinix_legacyTalentTrade_subTabMarket>公共市场</Phinix_legacyTalentTrade_subTabMarket>
+  <Phinix_legacyTalentTrade_subTabRental>租借</Phinix_legacyTalentTrade_subTabRental>
+
+  <!-- Settings -->
+  <Phinix_legacyTalentTrade_settingsCategory>Phinix 人才贸易</Phinix_legacyTalentTrade_settingsCategory>
+  <Phinix_legacyTalentTrade_settingNotifications>启用交易消息提醒</Phinix_legacyTalentTrade_settingNotifications>
+  <Phinix_legacyTalentTrade_settingNotificationsDesc>收到交易相关消息时显示游戏内提醒。</Phinix_legacyTalentTrade_settingNotificationsDesc>
+  <Phinix_legacyTalentTrade_settingDebugLog>启用调试日志</Phinix_legacyTalentTrade_settingDebugLog>
+  <Phinix_legacyTalentTrade_settingDebugLogDesc>在日志中显示详细的网络轮询和同步调试信息，仅在排查问题时开启。</Phinix_legacyTalentTrade_settingDebugLogDesc>
+
+  <!-- Common -->
+  <Phinix_legacyTalentTrade_ageUnit>岁</Phinix_legacyTalentTrade_ageUnit>
+  <Phinix_legacyTalentTrade_silver>银子</Phinix_legacyTalentTrade_silver>
+  <Phinix_legacyTalentTrade_confirm>确认</Phinix_legacyTalentTrade_confirm>
+  <Phinix_legacyTalentTrade_cancel>取消</Phinix_legacyTalentTrade_cancel>
+  <Phinix_legacyTalentTrade_refresh>刷新</Phinix_legacyTalentTrade_refresh>
+  <Phinix_legacyTalentTrade_search>搜索</Phinix_legacyTalentTrade_search>
+  <Phinix_legacyTalentTrade_selectPawn>选择殖民者</Phinix_legacyTalentTrade_selectPawn>
+  <Phinix_legacyTalentTrade_selectTradeablePawn>选择可交易单位</Phinix_legacyTalentTrade_selectTradeablePawn>
+  <Phinix_legacyTalentTrade_selectRentalPawn>选择可出租殖民者</Phinix_legacyTalentTrade_selectRentalPawn>
+  <Phinix_legacyTalentTrade_noPawnsAvailable>没有可用的殖民者。</Phinix_legacyTalentTrade_noPawnsAvailable>
+  <Phinix_legacyTalentTrade_noTradeablePawnsAvailable>没有可交易单位。</Phinix_legacyTalentTrade_noTradeablePawnsAvailable>
+  <Phinix_legacyTalentTrade_rentalNoColonistsAvailable>没有可出租的殖民者。</Phinix_legacyTalentTrade_rentalNoColonistsAvailable>
+  <Phinix_legacyTalentTrade_rentalColonistOnly>租借目前仅支持普通殖民者，不支持动物、机械体或囚犯。</Phinix_legacyTalentTrade_rentalColonistOnly>
+  <Phinix_legacyTalentTrade_select>选择</Phinix_legacyTalentTrade_select>
+
+  <!-- Market -->
+  <Phinix_legacyTalentTrade_marketListTitle>市场列表</Phinix_legacyTalentTrade_marketListTitle>
+  <Phinix_legacyTalentTrade_marketMyListings>我的挂牌</Phinix_legacyTalentTrade_marketMyListings>
+  <Phinix_legacyTalentTrade_marketPrice>价格</Phinix_legacyTalentTrade_marketPrice>
+  <Phinix_legacyTalentTrade_marketSell>上架出售</Phinix_legacyTalentTrade_marketSell>
+  <Phinix_legacyTalentTrade_marketDelist>下架</Phinix_legacyTalentTrade_marketDelist>
+  <Phinix_legacyTalentTrade_marketBuy>购买</Phinix_legacyTalentTrade_marketBuy>
+  <Phinix_legacyTalentTrade_marketSeller>卖家: {0}</Phinix_legacyTalentTrade_marketSeller>
+  <Phinix_legacyTalentTrade_marketPriceFormat>{0} 银</Phinix_legacyTalentTrade_marketPriceFormat>
+  <Phinix_legacyTalentTrade_marketNoListings>暂无挂牌。</Phinix_legacyTalentTrade_marketNoListings>
+  <Phinix_legacyTalentTrade_marketBuyConfirm>确认购买 {0}？价格: {1} 银</Phinix_legacyTalentTrade_marketBuyConfirm>
+  <Phinix_legacyTalentTrade_cannotBuyNoRace>无法购买 {0}：你缺少种族 mod "{1}"</Phinix_legacyTalentTrade_cannotBuyNoRace>
+  <Phinix_legacyTalentTrade_raceIncompatible>无法出售 {0}：买家缺少种族 mod "{1}"</Phinix_legacyTalentTrade_raceIncompatible>
+  <Phinix_legacyTalentTrade_sellerOffline>卖家已离线，交易取消。</Phinix_legacyTalentTrade_sellerOffline>
+
+  <!-- Direct Trade -->
+  <Phinix_legacyTalentTrade_tradeWith>交易</Phinix_legacyTalentTrade_tradeWith>
+  <Phinix_legacyTalentTrade_tradeOnlineUsers>在线用户</Phinix_legacyTalentTrade_tradeOnlineUsers>
+  <Phinix_legacyTalentTrade_tradeActiveTrades>活跃交易</Phinix_legacyTalentTrade_tradeActiveTrades>
+  <Phinix_legacyTalentTrade_tradeOpen>打开</Phinix_legacyTalentTrade_tradeOpen>
+  <Phinix_legacyTalentTrade_tradeStatus>状态: {0}</Phinix_legacyTalentTrade_tradeStatus>
+  <Phinix_legacyTalentTrade_tradeNoActive>没有活跃的交易。</Phinix_legacyTalentTrade_tradeNoActive>
+  <Phinix_legacyTalentTrade_tradeRequestSent>已向 {0} 发送交易请求。</Phinix_legacyTalentTrade_tradeRequestSent>
+  <Phinix_legacyTalentTrade_tradeRequestReceived>{0} 向你发起了交易请求。</Phinix_legacyTalentTrade_tradeRequestReceived>
+  <Phinix_legacyTalentTrade_tradeMyOffer>我的报价</Phinix_legacyTalentTrade_tradeMyOffer>
+  <Phinix_legacyTalentTrade_tradeTheirOffer>对方报价</Phinix_legacyTalentTrade_tradeTheirOffer>
+  <Phinix_legacyTalentTrade_tradeAddPawn>+ 添加殖民者</Phinix_legacyTalentTrade_tradeAddPawn>
+  <Phinix_legacyTalentTrade_tradeAddUnit>+ 添加单位</Phinix_legacyTalentTrade_tradeAddUnit>
+  <Phinix_legacyTalentTrade_tradeSilverAmount>银子数量</Phinix_legacyTalentTrade_tradeSilverAmount>
+  <Phinix_legacyTalentTrade_tradeLock>锁定确认</Phinix_legacyTalentTrade_tradeLock>
+  <Phinix_legacyTalentTrade_tradeWaitingLock>等待对方确认…</Phinix_legacyTalentTrade_tradeWaitingLock>
+
+  <!-- Rental -->
+  <Phinix_legacyTalentTrade_rentalListTitle>出租列表</Phinix_legacyTalentTrade_rentalListTitle>
+  <Phinix_legacyTalentTrade_rentalMyListings>我的出租</Phinix_legacyTalentTrade_rentalMyListings>
+  <Phinix_legacyTalentTrade_rentalMyRentals>我租的</Phinix_legacyTalentTrade_rentalMyRentals>
+  <Phinix_legacyTalentTrade_rentalPricePerDay>日租金</Phinix_legacyTalentTrade_rentalPricePerDay>
+  <Phinix_legacyTalentTrade_rentalMaxDays>最长天数</Phinix_legacyTalentTrade_rentalMaxDays>
+  <Phinix_legacyTalentTrade_rentalDeposit>押金</Phinix_legacyTalentTrade_rentalDeposit>
+  <Phinix_legacyTalentTrade_rentalList>上架出租</Phinix_legacyTalentTrade_rentalList>
+  <Phinix_legacyTalentTrade_rentalDelist>下架</Phinix_legacyTalentTrade_rentalDelist>
+  <Phinix_legacyTalentTrade_rentalRent>租借</Phinix_legacyTalentTrade_rentalRent>
+  <Phinix_legacyTalentTrade_rentalReturn>归还</Phinix_legacyTalentTrade_rentalReturn>
+  <Phinix_legacyTalentTrade_rentalDaysLeft>剩余 {0} 天</Phinix_legacyTalentTrade_rentalDaysLeft>
+  <Phinix_legacyTalentTrade_rentalOwner>出租方: {0}</Phinix_legacyTalentTrade_rentalOwner>
+  <Phinix_legacyTalentTrade_rentalPriceFormat>{0} 银/天</Phinix_legacyTalentTrade_rentalPriceFormat>
+  <Phinix_legacyTalentTrade_rentalDepositFormat>押金: {0} 银</Phinix_legacyTalentTrade_rentalDepositFormat>
+  <Phinix_legacyTalentTrade_rentalNoListings>暂无出租。</Phinix_legacyTalentTrade_rentalNoListings>
+  <Phinix_legacyTalentTrade_rentalPawnDied>你的殖民者 {0} 在租借期间死亡，已复活归还。</Phinix_legacyTalentTrade_rentalPawnDied>
+  <Phinix_legacyTalentTrade_rentalPawnDiedTitle>租借殖民者死亡</Phinix_legacyTalentTrade_rentalPawnDiedTitle>
+  <Phinix_legacyTalentTrade_rentalExpired>殖民者 {0} 的租借到期，已自动归还。</Phinix_legacyTalentTrade_rentalExpired>
+  <Phinix_legacyTalentTrade_rentalExpiredTitle>租借到期</Phinix_legacyTalentTrade_rentalExpiredTitle>
+  <Phinix_legacyTalentTrade_rentalRentConfirm>确认租借 {0}？日租金: {1} 银，租 {2} 天，押金: {3} 银</Phinix_legacyTalentTrade_rentalRentConfirm>
+  <Phinix_legacyTalentTrade_rentalDays>天数</Phinix_legacyTalentTrade_rentalDays>
+  <Phinix_legacyTalentTrade_rentalSelectDays>选择天数</Phinix_legacyTalentTrade_rentalSelectDays>
+
+  <!-- Direct Trade extra -->
+  <Phinix_legacyTalentTrade_tradeConfirmSend>确认发送</Phinix_legacyTalentTrade_tradeConfirmSend>
+  <Phinix_legacyTalentTrade_tradeUnlock>解锁</Phinix_legacyTalentTrade_tradeUnlock>
+  <Phinix_legacyTalentTrade_tradeBothLocked>双方已确认，执行交易中…</Phinix_legacyTalentTrade_tradeBothLocked>
+  <Phinix_legacyTalentTrade_tradeCompleted>交易完成！</Phinix_legacyTalentTrade_tradeCompleted>
+  <Phinix_legacyTalentTrade_tradeCancelled>交易已取消。</Phinix_legacyTalentTrade_tradeCancelled>
+  <Phinix_legacyTalentTrade_tradeRemovePawn>移除</Phinix_legacyTalentTrade_tradeRemovePawn>
+  <Phinix_legacyTalentTrade_pawnKindColonist>殖民者</Phinix_legacyTalentTrade_pawnKindColonist>
+  <Phinix_legacyTalentTrade_pawnKindAnimal>动物</Phinix_legacyTalentTrade_pawnKindAnimal>
+  <Phinix_legacyTalentTrade_pawnKindMech>机械体</Phinix_legacyTalentTrade_pawnKindMech>
+  <Phinix_legacyTalentTrade_pawnKindPrisoner>囚犯</Phinix_legacyTalentTrade_pawnKindPrisoner>
+  <Phinix_legacyTalentTrade_tradeAcceptRequest>接受</Phinix_legacyTalentTrade_tradeAcceptRequest>
+  <Phinix_legacyTalentTrade_tradeRejectRequest>拒绝</Phinix_legacyTalentTrade_tradeRejectRequest>
+
+  <!-- Pawn transfer -->
+  <Phinix_legacyTalentTrade_transferReport>即将发送可交易单位 "{0}" 给 {1}</Phinix_legacyTalentTrade_transferReport>
+  <Phinix_legacyTalentTrade_transferRaceOk>✓ 种族: {0} — 对方已安装</Phinix_legacyTalentTrade_transferRaceOk>
+  <Phinix_legacyTalentTrade_transferRaceFail>✗ 种族: {0} — 对方未安装，无法交易</Phinix_legacyTalentTrade_transferRaceFail>
+  <Phinix_legacyTalentTrade_transferEquipRemoved>✗ 装备: {0} — 对方未安装，将留在本地</Phinix_legacyTalentTrade_transferEquipRemoved>
+  <Phinix_legacyTalentTrade_transferHediffRemoved>✗ 植入体: {0} — 对方未安装，将被移除</Phinix_legacyTalentTrade_transferHediffRemoved>
+  <Phinix_legacyTalentTrade_transferTraitOk>✓ 特性: {0} — 对方已安装</Phinix_legacyTalentTrade_transferTraitOk>
+  <Phinix_legacyTalentTrade_transferTraitRemoved>✗ 特性: {0} — 对方未安装，将被移除</Phinix_legacyTalentTrade_transferTraitRemoved>
+  <Phinix_legacyTalentTrade_transferConfirmSend>确认发送</Phinix_legacyTalentTrade_transferConfirmSend>
+
+  <!-- Notifications -->
+  <Phinix_legacyTalentTrade_pawnReceivedTitle>收到可交易单位</Phinix_legacyTalentTrade_pawnReceivedTitle>
+  <Phinix_legacyTalentTrade_pawnReceivedMessage>你收到了可交易单位 {0}。</Phinix_legacyTalentTrade_pawnReceivedMessage>
+  <Phinix_legacyTalentTrade_pawnRestored>可交易单位 {0} 已下架归还。</Phinix_legacyTalentTrade_pawnRestored>
+  <Phinix_legacyTalentTrade_cannotDelistWrongSave>无法下架：该挂牌属于另一个存档。</Phinix_legacyTalentTrade_cannotDelistWrongSave>
+  <Phinix_legacyTalentTrade_forceCleanup>强制清理</Phinix_legacyTalentTrade_forceCleanup>
+  <Phinix_legacyTalentTrade_noListingsToClean>没有需要清理的挂牌。</Phinix_legacyTalentTrade_noListingsToClean>
+  <Phinix_legacyTalentTrade_cleanupDone>已清理 {0} 条挂牌。可交易单位已送往亚空间。</Phinix_legacyTalentTrade_cleanupDone>
+  <Phinix_legacyTalentTrade_buyLetterTitle>可交易单位已售出</Phinix_legacyTalentTrade_buyLetterTitle>
+  <Phinix_legacyTalentTrade_buyLetterText>{0} 购买了你的可交易单位 {1}，售价 {2} 银。</Phinix_legacyTalentTrade_buyLetterText>
+  <Phinix_legacyTalentTrade_ocPawnBlocked>该单位受 OC 身份保护，无法交易。不要问我为什么，去问绿米。</Phinix_legacyTalentTrade_ocPawnBlocked>
+
+  <!-- Version notification -->
+  <Phinix_legacyTalentTrade_versionTitle>人才贸易 {0}</Phinix_legacyTalentTrade_versionTitle>
+  <Phinix_legacyTalentTrade_versionText>人才贸易 mod 已加载，当前版本：{0}\n\n通过 Phinix 聊天界面访问交易功能。</Phinix_legacyTalentTrade_versionText>
+  <Phinix_legacyTalentTrade_listingExpired>挂牌超时：{0} 已通过空投返还。</Phinix_legacyTalentTrade_listingExpired>
+</LanguageData>
