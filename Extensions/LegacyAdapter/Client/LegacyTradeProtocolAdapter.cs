@@ -90,7 +90,7 @@ namespace Phinix.LegacyAdapter.Client
         {
             log?.Invoke(
                 $"[LegacyAdapter] HandleOutgoingCommand: msgType={command?.MessageType ?? "null"}, mode={lifecycle?.CompatibilityMode}",
-                LogLevel.INFO);
+                LogLevel.DEBUG);
 
             try
             {
@@ -138,11 +138,11 @@ namespace Phinix.LegacyAdapter.Client
                     if (payload != null)
                     {
                         int rawCount = payload.Items?.Count ?? 0;
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate tradeId={payload.TradeId}, rawItems={rawCount}", LogLevel.INFO);
+                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate tradeId={payload.TradeId}, rawItems={rawCount}", LogLevel.DEBUG);
 
                         var items = ConvertToProtoThings(payload.Items);
                         int convertedCount = items?.Count ?? 0;
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate converted {rawCount} items → {convertedCount} proto things", LogLevel.INFO);
+                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate converted {rawCount} items → {convertedCount} proto things", LogLevel.DEBUG);
 
                         if (rawCount > 0 && convertedCount == 0)
                         {
@@ -222,7 +222,7 @@ namespace Phinix.LegacyAdapter.Client
                 byte[] packedBytes = packed.ToByteArray();
                 log?.Invoke(
                     $"[LegacyAdapter] SendUpdateItems: tradeId={tradeId}, items={itemCount}, bytes={packedBytes.Length}, module=Trading",
-                    LogLevel.INFO);
+                    LogLevel.DEBUG);
                 legacyTransport.Send(TradingModuleName, packedBytes);
                 log?.Invoke($"[LegacyAdapter] Sent UpdateTradeItems for {tradeId} ({itemCount} items)", LogLevel.DEBUG);
             }

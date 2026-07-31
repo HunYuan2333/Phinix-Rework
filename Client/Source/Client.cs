@@ -166,6 +166,35 @@ namespace PhinixClient
                     // even when DevMode is off
                     Log(new LogEventArgs(message, level));
                 });
+
+            // 构建扩展依赖图（纯反射，不实例化模块）——在 DiscoverExtensions 之前就绪
+            // 《插件启用禁用与扩展管理实施方案》§4.7：host 先 ScanCandidateModuleTypes
+            // → Build graph → 构造 policy → 注册服务
+            List<Type> candidateModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes();
+            ExtensionDependencyGraph dependencyGraph = ExtensionDependencyGraph.Build(candidateModuleTypes);
+            foreach (string graphWarning in dependencyGraph.BuildWarnings)
+            {
+                Verse.Log.Warning($"[Phinix] {graphWarning}");
+            }
+
+            // 构造 v1 静态激活策略并注册为服务——DiscoverExtensions 将从 hostContext 解析此策略
+            // 设计哲学 §1.1 插件平权：全部扩展可禁用，host 不硬编码"谁不可禁用"
+            var activationPolicy = new StaticActivationPolicy(Settings.DisabledExtensions, dependencyGraph);
+            extensionHostContext.AddService<IExtensionActivationPolicy>(activationPolicy);
+
+            // 注册 host 核心的 ExtensionManagerTab——必须在 new PhinixFrameworkClient 之前注册，
+            // 因为 DiscoverExtensions 内部 module.Register(builder) 会向同一个 ApiRegistry 注册插件的 provider，
+            // 随后 MainTabProviders 的 lazy cache 在首次被读取时一次性解析全部 provider。
+            // 如果在此之后注册，cache 已被填充为仅含 Chat/Trade，ExtensionManagerTab 会被遗漏。
+            extensionHostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.host", new ExtensionManagerTab());
+            // host 核心的扩展管理设置面板（Mod Settings 页，Order=50）。
+            // 与 ExtensionManagerTab 共用 ExtensionDisplayState 静态计算，勾选后两处显示一致。
+            extensionHostContext.ApiRegistry.RegisterApi<IClientSettingsPanelProvider>(
+                "builtin.host", new ExtensionControlSettingsPanelProvider());
+            // 通用 UI 主题同时注册为 API——扩展管理 Tab 等 host UI 通过 ResolveExtensionApis 解析。
+            // 插件仍通过 GetRequiredService&lt;IUiTheme&gt; 使用服务方式，两种通道并存，互不冲突。
+            extensionHostContext.ApiRegistry.RegisterApi<IUiTheme>("builtin.host", uiTheme);
+
             Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
             Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
@@ -173,9 +202,6 @@ namespace PhinixClient
             {
                 Settings.MigrateLegacySettings(settingsContext, frameworkClient.ResolveExtensionApis<IClientLegacySettingsMigrator>());
             }
-
-            // Register the host-built Extension Manager Tab — same IMainTabProvider hook as all extensions
-            extensionHostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.host", new ExtensionManagerTab());
             // Subscribe to log events (after construction so constructor diagnostics
             // already went through the hostContext.Log callback above)
             authenticator.OnLogEntry += ILoggableHandler;
@@ -321,7 +347,9 @@ namespace PhinixClient
                             listing.Gap(6f);
                         }
 
-                        TaggedString sectionLabel = panel.SectionId;
+                        // SectionId 可能直接是翻译键（如扩展管理面板），先 Translate 再展示；
+                        // 非键值（如 "chat.display"）Translate 原样返回，行为不变。
+                        TaggedString sectionLabel = panel.SectionId.ToString().Translate();
                         listing.Label(sectionLabel, -1f, TaggedString.Empty);
                         panel.DrawSettings(listing, settingsContext);
                     }
@@ -512,7 +540,12 @@ namespace PhinixClient
             switch (args.LogLevel)
             {
                 case LogLevel.DEBUG:
+#if DEBUG
                     if (Prefs.DevMode) Verse.Log.Message(args.Message);
+#else
+                    // Release 构建隐藏 DEBUG 级日志（管线消息路由、布局诊断、用户包等），
+                    // 避免聊天消息与连接/断开日志刷屏；INFO/WARNING/ERROR 保留
+#endif
                     break;
                 case LogLevel.WARNING:
                     Verse.Log.Warning(args.Message);

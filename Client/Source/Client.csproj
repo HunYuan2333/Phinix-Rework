@@ -124,6 +124,8 @@
     <Compile Include="Framework\ClientUserEventStream.cs" />
     <Compile Include="Framework\ClientWindowService.cs" />
 
+    <Compile Include="Framework\ExtensionControlSettingsPanelProvider.cs" />
+    <Compile Include="Framework\StaticActivationPolicy.cs" />
     <Compile Include="Framework\PhinixFrameworkClient.cs" />
     <Compile Include="Framework\NetClientLegacyTransportAdapter.cs" />
     <Compile Include="LegacySettings.cs" />

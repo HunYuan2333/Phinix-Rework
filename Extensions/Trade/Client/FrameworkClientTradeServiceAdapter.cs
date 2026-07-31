@@ -178,7 +178,7 @@ namespace Phinix.TradeExtension.Client
 
             log?.Invoke(
                 $"[TradeAdapter] SendTradePacket: msgType={packet.MessageType}, mode={lifecycle.CompatibilityMode}",
-                LogLevel.INFO);
+                LogLevel.DEBUG);
 
             if (commandTransport == null || !commandTransport.TryHandleOutgoingCommand(packet))
             {

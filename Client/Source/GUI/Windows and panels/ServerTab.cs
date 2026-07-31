@@ -8,12 +8,36 @@ using static PhinixClient.Client;
 
 namespace PhinixClient
 {
+    /// <summary>
+    /// 主窗口。响应式布局（设计哲学 §8.3 鲁棒）：
+    /// - 初始尺寸按屏幕分辨率缩放，clamp 到安全区间；用户手动调整过的尺寸持久化（Settings.ServerTabWidth/Height），
+    ///   下次打开优先恢复。
+    /// - 允许拖动调整大小，拖动期间每帧 clamp 到最小尺寸，防止布局塌陷。
+    /// - Tab 条用 RimWorld 原生 <see cref="TabDrawer"/>，最大宽度 =（可用宽度 - 侧栏宽度）/ tab 数，
+    ///   窗口变窄或 tab 增多时自动缩小，避免固定宽度导致重叠/越界。
+    /// - 侧栏宽度响应式：按插件偏好宽度但不超过窗口 38%，且保证主内容区不小于保底宽度。
+    /// </summary>
     public class ServerTab : MainTabWindow
     {
         private const float DEFAULT_SPACING = 10f;
         private const float SIDEBAR_TAB_HEIGHT = 30f;
 
-        public override Vector2 InitialSize => new Vector2(1000f, 680f);
+        // 窗口尺寸（响应式上下限 + 屏幕分辨率比例）
+        private const float MIN_WINDOW_WIDTH = 640f;
+        private const float MIN_WINDOW_HEIGHT = 480f;
+        private const float MAX_WINDOW_WIDTH = 1280f;
+        private const float MAX_WINDOW_HEIGHT = 800f;
+        private const float WINDOW_WIDTH_RATIO = 0.72f;
+        private const float WINDOW_HEIGHT_RATIO = 0.78f;
+
+        // Tab 条参数：上限改小（200 → 150），下限保证可读
+        private const float MIN_TAB_WIDTH = 80f;
+        private const float MAX_TAB_WIDTH = 150f;
+
+        // 侧栏响应式约束
+        private const float SIDEBAR_MAX_RATIO = 0.38f;
+        private const float SIDEBAR_MIN_WIDTH = 120f;
+        private const float MAIN_MIN_WIDTH = 480f;
 
         private readonly List<IMainTabProvider> tabProviders;
         private readonly List<IServerSidebarProvider> sidebarProviders;
@@ -26,6 +50,7 @@ namespace PhinixClient
         public ServerTab()
         {
             this.closeOnAccept = false;
+            this.resizeable = true;
 
             tabProviders = Instance.MainTabProviders
                 .OrderBy(p => p.TabOrder)
@@ -49,8 +74,56 @@ namespace PhinixClient
             }
         }
 
+        /// <summary>
+        /// 响应式初始尺寸：优先恢复用户上次调整的尺寸，否则按屏幕分辨率计算并 clamp 到安全区间。
+        /// </summary>
+        public override Vector2 InitialSize
+        {
+            get
+            {
+                Settings settings = Instance?.Settings;
+                float savedWidth = settings?.ServerTabWidth ?? 0f;
+                float savedHeight = settings?.ServerTabHeight ?? 0f;
+                if (savedWidth >= MIN_WINDOW_WIDTH && savedHeight >= MIN_WINDOW_HEIGHT)
+                {
+                    return new Vector2(savedWidth, savedHeight);
+                }
+
+                return new Vector2(
+                    Mathf.Clamp(Screen.width * WINDOW_WIDTH_RATIO, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH),
+                    Mathf.Clamp(Screen.height * WINDOW_HEIGHT_RATIO, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT));
+            }
+        }
+
+        public override void PreClose()
+        {
+            // 记忆窗口尺寸（拖动结束后最后一次 windowRect 即最终尺寸）
+            Settings settings = Instance?.Settings;
+            if (settings != null)
+            {
+                settings.ServerTabWidth = Mathf.Max(MIN_WINDOW_WIDTH, windowRect.width);
+                settings.ServerTabHeight = Mathf.Max(MIN_WINDOW_HEIGHT, windowRect.height);
+                settings.AcceptChanges();
+            }
+            base.PreClose();
+        }
+
         public override void DoWindowContents(Rect inRect)
         {
+            // 拖动过程中强制最小尺寸（WindowResizer 默认允许拖到很小），防止布局塌陷
+            Rect clamped = windowRect;
+            clamped.width = Mathf.Max(MIN_WINDOW_WIDTH, clamped.width);
+            clamped.height = Mathf.Max(MIN_WINDOW_HEIGHT, clamped.height);
+            windowRect = clamped;
+
+            // 实时同步记忆尺寸，关闭时由 PreClose 落盘
+            Settings settings = Instance?.Settings;
+            if (settings != null)
+            {
+                settings.ServerTabWidth = windowRect.width;
+                settings.ServerTabHeight = windowRect.height;
+            }
+
             float bannerHeight = 0f;
             foreach (var bannerProvider in bannerProviders)
             {
@@ -80,20 +153,31 @@ namespace PhinixClient
 
             Rect mainRect = usableRect;
             Rect rightColumnRect = default;
+            float sidebarWidth = 0f;
             if (sidebarProviders.Count > 0)
             {
                 // 手动计算 Maximum，避免 Draw 路径 LINQ 分配
-                float sidebarWidth = 0f;
+                float desiredWidth = 0f;
                 for (int i = 0; i < sidebarProviders.Count; i++)
                 {
                     float w = sidebarProviders[i].PreferredWidth;
-                    if (w > sidebarWidth) sidebarWidth = w;
+                    if (w > desiredWidth) desiredWidth = w;
                 }
+
+                // 响应式约束：不超过窗口 38%，且主内容区保底 MAIN_MIN_WIDTH
+                float maxByRatio = usableRect.width * SIDEBAR_MAX_RATIO;
+                float maxByMain = usableRect.width - MAIN_MIN_WIDTH - DEFAULT_SPACING;
+                float minSidebar = Mathf.Min(SIDEBAR_MIN_WIDTH, maxByMain);
+                sidebarWidth = Mathf.Clamp(desiredWidth, minSidebar, Mathf.Min(maxByRatio, maxByMain));
+
                 rightColumnRect = usableRect.RightPartPixels(sidebarWidth);
                 mainRect = usableRect.LeftPartPixels(usableRect.width - (sidebarWidth + DEFAULT_SPACING));
             }
 
-            TabDrawer.DrawTabs(usableRect, tabList, 200f);
+            // 主 Tab 条：最大宽度 =（可用宽度 - 侧栏）/ tab 数，保证 n × maxTabWidth ≤ 可用宽度
+            float tabAreaWidth = usableRect.width - sidebarWidth - (sidebarWidth > 0f ? DEFAULT_SPACING : 0f);
+            float maxTabWidth = ComputeTabMaxWidth(tabAreaWidth, tabList.Count);
+            TabDrawer.DrawTabs(usableRect, tabList, maxTabWidth);
 
             if (activeTab >= 0 && activeTab < tabProviders.Count)
             {
@@ -115,7 +199,9 @@ namespace PhinixClient
                     rightColumnRect.x, sidebarTabRect.yMax,
                     rightColumnRect.width, rightColumnRect.yMax - sidebarTabRect.yMax);
 
-                TabDrawer.DrawTabs(sidebarTabRect, sidebarTabList, rightColumnRect.width);
+                float sidebarTabMaxWidth = Mathf.Max(
+                    MIN_TAB_WIDTH, rightColumnRect.width / Mathf.Max(1, sidebarTabList.Count));
+                TabDrawer.DrawTabs(sidebarTabRect, sidebarTabList, sidebarTabMaxWidth);
 
                 if (activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
                 {
@@ -133,6 +219,19 @@ namespace PhinixClient
                 Event.current.Use();
                 Event.current.keyCode = KeyCode.None;
             }
+        }
+
+        /// <summary>
+        /// 响应式 tab 最大宽度：可用宽度均分给每个 tab，clamp 到 [MIN_TAB_WIDTH, MAX_TAB_WIDTH]。
+        /// </summary>
+        private static float ComputeTabMaxWidth(float availableWidth, int tabCount)
+        {
+            if (tabCount <= 0)
+            {
+                return MAX_TAB_WIDTH;
+            }
+            float perTab = availableWidth / tabCount;
+            return Mathf.Clamp(perTab, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
         }
     }
 }

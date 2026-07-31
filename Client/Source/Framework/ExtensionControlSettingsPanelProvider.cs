@@ -18,6 +18,14 @@ namespace PhinixClient.Framework
     /// </summary>
     internal sealed class ExtensionControlSettingsPanelProvider : IClientSettingsPanelProvider
     {
+        // 布局缓存（设计哲学 §8.3）：设置面板每帧重绘，排序、文本拼接、颜色标记只在
+        // 扩展结果数量或设置版本变化时重建一次，Draw 路径零分配。
+        private List<ExtensionDiscoveryResult> cachedSortedResults;
+        private string[] cachedLabels;
+        private string[] cachedHints;
+        private int cachedResultsCount = -1;
+        private int cachedSettingsVersion = -1;
+
         public string SectionId => "Phinix_modSettings_extensionsSectionTitle";
 
         public float Order => 50f;
@@ -38,20 +46,26 @@ namespace PhinixClient.Framework
             IReadOnlyList<ExtensionDiscoveryResult> results = frameworkClient.ExtensionResults;
             ExtensionDependencyGraph dependencyGraph = frameworkClient.ExtensionDependencyGraph;
             Settings hostSettings = Client.Instance?.Settings;
-            IReadOnlyCollection<string> disabledIds = hostSettings?.DisabledExtensions;
-
-            // 按字母序展示——面板只在打开时绘制，少量分配可接受
-            List<ExtensionDiscoveryResult> sortedResults = new List<ExtensionDiscoveryResult>(results);
-            sortedResults.Sort((a, b) => string.Compare(a.ExtensionId, b.ExtensionId, StringComparison.OrdinalIgnoreCase));
-
-            foreach (ExtensionDiscoveryResult result in sortedResults)
+            int resultsCount = results?.Count ?? 0;
+            int settingsVersion = hostSettings?.SettingsVersion ?? 0;
+            if (cachedSortedResults == null ||
+                cachedResultsCount != resultsCount ||
+                cachedSettingsVersion != settingsVersion)
             {
-                string extensionId = result.ExtensionId ?? result.DisplayName ?? "?";
-                string displayLabel = string.IsNullOrEmpty(result.DisplayName)
-                    ? extensionId
-                    : $"{result.DisplayName} ({extensionId})";
+                RebuildCache(results, dependencyGraph, hostSettings);
+                cachedResultsCount = resultsCount;
+                cachedSettingsVersion = settingsVersion;
+            }
 
-                ExtensionDisplayState display = ExtensionDisplayState.Compute(result, disabledIds, dependencyGraph);
+            if (cachedSortedResults == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < cachedSortedResults.Count; i++)
+            {
+                ExtensionDiscoveryResult result = cachedSortedResults[i];
+                string extensionId = result.ExtensionId ?? result.DisplayName ?? "?";
 
                 // 复选框语义：勾选 = 启用（不在禁用列表中）。运行时依赖禁用状态不可单独启用。
                 bool canToggle = result.State != ExtensionModuleState.DependencyDisabled;
@@ -60,7 +74,7 @@ namespace PhinixClient.Framework
 
                 if (canToggle)
                 {
-                    listing.CheckboxLabeled(displayLabel, ref newEnabled);
+                    listing.CheckboxLabeled(cachedLabels[i], ref newEnabled);
                     if (newEnabled != isEnabled && hostSettings != null)
                     {
                         hostSettings.SetExtensionDisabled(extensionId, !newEnabled);
@@ -70,37 +84,74 @@ namespace PhinixClient.Framework
                 else
                 {
                     // 依赖被禁用：不可单独启用，不渲染可交互复选框
-                    listing.Label(displayLabel);
+                    listing.Label(cachedLabels[i]);
                 }
+
+                if (cachedHints[i] != null)
+                {
+                    listing.Label(cachedHints[i]);
+                }
+            }
+
+            listing.Gap(4f);
+            listing.Label("Phinix_modSettings_extensionsRestartRequired".Translate().Colorize(Color.gray));
+        }
+
+        /// <summary>
+        /// 缓存重建：排序、标签拼接、待重启提示与依赖警告文本一次性生成。
+        /// 仅当扩展结果数量或设置版本变化时调用（§8.3 布局缓存）。
+        /// </summary>
+        private void RebuildCache(
+            IReadOnlyList<ExtensionDiscoveryResult> results,
+            ExtensionDependencyGraph dependencyGraph,
+            Settings hostSettings)
+        {
+            IReadOnlyCollection<string> disabledIds = hostSettings?.DisabledExtensions;
+
+            cachedSortedResults = new List<ExtensionDiscoveryResult>(results);
+            cachedSortedResults.Sort((a, b) => string.Compare(a.ExtensionId, b.ExtensionId, StringComparison.OrdinalIgnoreCase));
+
+            int count = cachedSortedResults.Count;
+            cachedLabels = new string[count];
+            cachedHints = new string[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                ExtensionDiscoveryResult result = cachedSortedResults[i];
+                string extensionId = result.ExtensionId ?? result.DisplayName ?? "?";
+                cachedLabels[i] = string.IsNullOrEmpty(result.DisplayName)
+                    ? extensionId
+                    : $"{result.DisplayName} ({extensionId})";
+
+                ExtensionDisplayState display = ExtensionDisplayState.Compute(result, disabledIds, dependencyGraph);
 
                 if (display.PendingChange == ExtensionPendingChange.WillDisableAfterRestart)
                 {
-                    listing.Label(("  " + "Phinix_extensions_pendingDisable".Translate()).Colorize(Color.yellow));
+                    cachedHints[i] = ("  " + "Phinix_extensions_pendingDisable".Translate()).Colorize(Color.yellow);
                 }
                 else if (display.PendingChange == ExtensionPendingChange.WillEnableAfterRestart)
                 {
-                    listing.Label(("  " + "Phinix_extensions_pendingEnable".Translate()).Colorize(new Color(0.55f, 0.75f, 1f)));
+                    cachedHints[i] = ("  " + "Phinix_extensions_pendingEnable".Translate()).Colorize(new Color(0.55f, 0.75f, 1f));
                 }
-
-                if (display.Reason == ExtensionDisplayReason.DependencyDisabled && display.PendingChange == ExtensionPendingChange.None)
+                else if (display.Reason == ExtensionDisplayReason.DependencyDisabled)
                 {
                     string detail = result.StateDetail;
                     if (string.IsNullOrEmpty(detail))
                     {
                         detail = "Phinix_extensions_depDisabledHint".Translate();
                     }
-                    listing.Label(("  ⚠ " + detail).Colorize(Color.yellow));
+                    cachedHints[i] = ("  ⚠ " + detail).Colorize(Color.yellow);
                 }
 
                 // 老插件未声明依赖关系提示
                 if (dependencyGraph != null && dependencyGraph.IsUndeclared(extensionId))
                 {
-                    listing.Label(("  " + "Phinix_extensions_undeclaredDeps".Translate()).Colorize(Color.gray));
+                    string undeclaredHint = ("  " + "Phinix_extensions_undeclaredDeps".Translate()).Colorize(Color.gray);
+                    cachedHints[i] = cachedHints[i] == null
+                        ? undeclaredHint
+                        : cachedHints[i] + "\n" + undeclaredHint;
                 }
             }
-
-            listing.Gap(4f);
-            listing.Label("Phinix_modSettings_extensionsRestartRequired".Translate().Colorize(Color.gray));
         }
     }
 }

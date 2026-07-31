@@ -65,6 +65,39 @@ namespace PhinixClient
             set => collapseBlockedUsers = value;
         }
 
+        private HashSet<string> disabledExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// 用户显式禁用的扩展 ID 集合。v1 重启生效——DiscoverExtensions 在实例化模块之前咨询此集合。
+        /// 设计哲学 §2.3：禁用列表来自用户设置，动态读取，host 不硬编码"哪些可禁用"。
+        /// </summary>
+        public HashSet<string> DisabledExtensions => disabledExtensions;
+
+        private HashSet<string> originalDisabledExtensions;
+
+        private int settingsVersion;
+        /// <summary>
+        /// 禁用列表变更计数，供 UI 缓存失效判断。仅在 SetExtensionDisabled 实际改变列表时递增。
+        /// </summary>
+        public int SettingsVersion => settingsVersion;
+
+        private float serverTabWidth = 1000f;
+        private float serverTabHeight = 680f;
+        /// <summary>主窗口（ServerTab）上次使用的尺寸，随窗口关闭持久化。</summary>
+        public float ServerTabWidth
+        {
+            get => serverTabWidth;
+            set => serverTabWidth = value;
+        }
+
+        public float ServerTabHeight
+        {
+            get => serverTabHeight;
+            set => serverTabHeight = value;
+        }
+
+        private float originalServerTabWidth;
+        private float originalServerTabHeight;
+
         private bool legacyAcceptingTrades = true;
         private bool legacyShowNameFormatting = true;
         private bool legacyShowChatFormatting = true;
@@ -88,6 +121,9 @@ namespace PhinixClient
                        migrated != originalMigrated ||
                        !blockedUsers.SequenceEqual(originalBlockedUsers) ||
                        !extensionSettingsEqual() ||
+                       !disabledExtensions.SetEquals(originalDisabledExtensions) ||
+                       serverTabWidth != originalServerTabWidth ||
+                       serverTabHeight != originalServerTabHeight ||
                        collapseBlockedUsers != originalCollapseBlockedUsers;
             }
         }
@@ -109,6 +145,7 @@ namespace PhinixClient
             originalBlockedUsers = new HashSet<string>();
             blockedUsers = new HashSet<string>();
             originalExtensionSettings = new Dictionary<string, object>();
+            originalDisabledExtensions = new HashSet<string>();
 
             SetOriginalValues();
         }
@@ -155,6 +192,31 @@ namespace PhinixClient
             extensionSettings[key] = value;
         }
 
+        /// <summary>
+        /// 启用或禁用指定扩展。v1 重启生效。
+        /// </summary>
+        public void SetExtensionDisabled(string extensionId, bool disabled)
+        {
+            if (string.IsNullOrEmpty(extensionId)) return;
+
+            bool changed = disabled
+                ? disabledExtensions.Add(extensionId)
+                : disabledExtensions.Remove(extensionId);
+            if (changed)
+            {
+                settingsVersion++;
+            }
+        }
+
+        /// <summary>
+        /// 查询指定扩展是否被用户禁用。
+        /// </summary>
+        public bool IsExtensionDisabled(string extensionId)
+        {
+            if (string.IsNullOrEmpty(extensionId) || disabledExtensions == null) return false;
+            return disabledExtensions.Contains(extensionId);
+        }
+
         public override void ExposeData()
         {
             Scribe_Values.Look(ref serverAddress, "serverAddress", "phinix.chat");
@@ -163,6 +225,9 @@ namespace PhinixClient
             Scribe_Values.Look(ref migrated, "migrated", false);
             Scribe_Collections.Look(ref blockedUsers, "blockedUsers", LookMode.Value);
             Scribe_Values.Look(ref collapseBlockedUsers, "collapseBlockedUsers", true);
+            Scribe_Collections.Look(ref disabledExtensions, "disabledExtensions", LookMode.Value);
+            Scribe_Values.Look(ref serverTabWidth, "serverTabWidth", 1000f);
+            Scribe_Values.Look(ref serverTabHeight, "serverTabHeight", 680f);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -213,6 +278,7 @@ namespace PhinixClient
             // Prevent scribe from interpreting a missing value as null
             if (blockedUsers is null) blockedUsers = new HashSet<string>();
             if (extensionSettings is null) extensionSettings = new Dictionary<string, object>();
+            if (disabledExtensions is null) disabledExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc/>
@@ -310,9 +376,21 @@ namespace PhinixClient
             originalDisplayName = displayName;
             originalMigrated = migrated;
             originalCollapseBlockedUsers = collapseBlockedUsers;
+            originalServerTabWidth = serverTabWidth;
+            originalServerTabHeight = serverTabHeight;
 
             originalBlockedUsers.Clear();
             originalBlockedUsers.AddRange(blockedUsers);
+
+            if (originalDisabledExtensions == null)
+            {
+                originalDisabledExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+            originalDisabledExtensions.Clear();
+            foreach (string extensionId in disabledExtensions)
+            {
+                originalDisabledExtensions.Add(extensionId);
+            }
 
             originalExtensionSettings.Clear();
             if (extensionSettings != null)
