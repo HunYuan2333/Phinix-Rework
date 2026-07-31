@@ -115,16 +115,24 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
             if (!initialized) return;
 
-            TalentTradeTransport.Update();
-            PollRelayBuffer();
-
-            // Only run game-dependent operations when a map is loaded
-            if (Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null)
+            try
             {
-                RunMainThreadQueue();
-                CheckPurchaseTimeouts();
-                ExpireOldListings();
-                HeartbeatMyListings();
+                TalentTradeTransport.Update();
+                PollRelayBuffer();
+
+                // Only run game-dependent operations when a map is loaded
+                if (Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null)
+                {
+                    RunMainThreadQueue();
+                    CheckPurchaseTimeouts();
+                    ExpireOldListings();
+                    HeartbeatMyListings();
+                }
+            }
+            catch (Exception ex)
+            {
+                // 设计哲学 §3.5：单帧异常不中断后续帧，也不得外泄到框架主线程队列
+                LegacyTalentTradeRuntime.LogError("【三角洲贸易】TalentTradeManager.Update error: " + ex);
             }
         }
 
@@ -521,7 +529,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             string[] parts;
             if (!TalentTradeProtocol.TryParse(message, out msgType, out parts)) return;
 
-            // Dedup
+            // Dedup（在 handler 之前登记：即使本条处理失败也不重试，与原行为一致）
             string dedupKey = BuildDedupKey(msgType, parts);
             if (!string.IsNullOrEmpty(dedupKey))
             {
@@ -531,80 +539,89 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 }
             }
 
-            switch (msgType)
+            try
             {
-                case TalentTradeMessageType.MarketList:
-                    HandleMarketList(parts);
-                    break;
-                case TalentTradeMessageType.MarketDelist:
-                    HandleMarketDelist(parts);
-                    break;
-                case TalentTradeMessageType.MarketBuy:
-                    HandleMarketBuy(parts);
-                    break;
-                case TalentTradeMessageType.MarketSell:
-                    HandleMarketSell(parts);
-                    break;
-                case TalentTradeMessageType.MarketPaid:
-                    HandleMarketPaid(parts);
-                    break;
-                case TalentTradeMessageType.MarketSync:
-                    HandleMarketSync(parts);
-                    break;
-                case TalentTradeMessageType.TradeRequest:
-                    HandleTradeRequest(parts);
-                    break;
-                case TalentTradeMessageType.TradeAccept:
-                    HandleTradeAccept(parts);
-                    break;
-                case TalentTradeMessageType.TradeReject:
-                    HandleTradeReject(parts);
-                    break;
-                case TalentTradeMessageType.TradeOffer:
-                    HandleTradeOffer(parts);
-                    break;
-                case TalentTradeMessageType.TradeLock:
-                    HandleTradeLock(parts);
-                    break;
-                case TalentTradeMessageType.TradeExecute:
-                    HandleTradeExecute(parts);
-                    break;
-                case TalentTradeMessageType.TradeCancel:
-                    HandleTradeCancel(parts);
-                    break;
-                case TalentTradeMessageType.RentalList:
-                    HandleRentalList(parts);
-                    break;
-                case TalentTradeMessageType.RentalDelist:
-                    HandleRentalDelist(parts);
-                    break;
-                case TalentTradeMessageType.RentalRent:
-                    HandleRentalRent(parts);
-                    break;
-                case TalentTradeMessageType.RentalConfirm:
-                    HandleRentalConfirm(parts);
-                    break;
-                case TalentTradeMessageType.RentalReturn:
-                    HandleRentalReturn(parts);
-                    break;
-                case TalentTradeMessageType.RentalExpiry:
-                    HandleRentalExpiry(parts);
-                    break;
-                case TalentTradeMessageType.RentalDead:
-                    HandleRentalDead(parts);
-                    break;
-                case TalentTradeMessageType.RentalRevive:
-                    HandleRentalRevive(parts);
-                    break;
-                case TalentTradeMessageType.DefManifest:
-                    HandleDefManifest(parts);
-                    break;
-                case TalentTradeMessageType.DefAck:
-                    HandleDefAck(parts);
-                    break;
-                case TalentTradeMessageType.BlobPart:
-                    HandleBlobPart(parts);
-                    break;
+                switch (msgType)
+                {
+                    case TalentTradeMessageType.MarketList:
+                        HandleMarketList(parts);
+                        break;
+                    case TalentTradeMessageType.MarketDelist:
+                        HandleMarketDelist(parts);
+                        break;
+                    case TalentTradeMessageType.MarketBuy:
+                        HandleMarketBuy(parts);
+                        break;
+                    case TalentTradeMessageType.MarketSell:
+                        HandleMarketSell(parts);
+                        break;
+                    case TalentTradeMessageType.MarketPaid:
+                        HandleMarketPaid(parts);
+                        break;
+                    case TalentTradeMessageType.MarketSync:
+                        HandleMarketSync(parts);
+                        break;
+                    case TalentTradeMessageType.TradeRequest:
+                        HandleTradeRequest(parts);
+                        break;
+                    case TalentTradeMessageType.TradeAccept:
+                        HandleTradeAccept(parts);
+                        break;
+                    case TalentTradeMessageType.TradeReject:
+                        HandleTradeReject(parts);
+                        break;
+                    case TalentTradeMessageType.TradeOffer:
+                        HandleTradeOffer(parts);
+                        break;
+                    case TalentTradeMessageType.TradeLock:
+                        HandleTradeLock(parts);
+                        break;
+                    case TalentTradeMessageType.TradeExecute:
+                        HandleTradeExecute(parts);
+                        break;
+                    case TalentTradeMessageType.TradeCancel:
+                        HandleTradeCancel(parts);
+                        break;
+                    case TalentTradeMessageType.RentalList:
+                        HandleRentalList(parts);
+                        break;
+                    case TalentTradeMessageType.RentalDelist:
+                        HandleRentalDelist(parts);
+                        break;
+                    case TalentTradeMessageType.RentalRent:
+                        HandleRentalRent(parts);
+                        break;
+                    case TalentTradeMessageType.RentalConfirm:
+                        HandleRentalConfirm(parts);
+                        break;
+                    case TalentTradeMessageType.RentalReturn:
+                        HandleRentalReturn(parts);
+                        break;
+                    case TalentTradeMessageType.RentalExpiry:
+                        HandleRentalExpiry(parts);
+                        break;
+                    case TalentTradeMessageType.RentalDead:
+                        HandleRentalDead(parts);
+                        break;
+                    case TalentTradeMessageType.RentalRevive:
+                        HandleRentalRevive(parts);
+                        break;
+                    case TalentTradeMessageType.DefManifest:
+                        HandleDefManifest(parts);
+                        break;
+                    case TalentTradeMessageType.DefAck:
+                        HandleDefAck(parts);
+                        break;
+                    case TalentTradeMessageType.BlobPart:
+                        HandleBlobPart(parts);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 设计哲学 §3.5：单条消息处理失败跳过，不中断同一批其余消息
+                LegacyTalentTradeRuntime.LogWarning($"【三角洲贸易】Failed to process {msgType} message: {ex}");
+                return;
             }
 
             // 入站消息都会变更状态（新增/删除/更新），统一递增状态版本（§8.3）

@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Threading;
 using HarmonyLib;
 using PhinixClient;
 using PhinixClient.Framework;
@@ -23,6 +24,9 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         private Harmony harmony;
         private System.Timers.Timer driveTimer;
         private bool activated;
+        // 防重复入队：队列中已有待执行的 Update 时不再入队（Timer 200ms 远快于主线程消费，
+        // 若无此标志，主线程繁忙/卡顿时队列会积压到溢出）
+        private int updatePending;
 
         public string ExtensionId => "builtin.legacy-talent-trade";
 
@@ -64,7 +68,24 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         private void OnDriveTick(object sender, System.Timers.ElapsedEventArgs e)
         {
-            LegacyTalentTradeRuntime.Dispatcher?.Enqueue(TalentTradeManager.Update);
+            if (Interlocked.CompareExchange(ref updatePending, 1, 0) != 0) return;
+            if (LegacyTalentTradeRuntime.Dispatcher == null)
+            {
+                Interlocked.Exchange(ref updatePending, 0);
+                return;
+            }
+
+            LegacyTalentTradeRuntime.Dispatcher.Enqueue(() =>
+            {
+                try
+                {
+                    TalentTradeManager.Update();
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref updatePending, 0);
+                }
+            });
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
