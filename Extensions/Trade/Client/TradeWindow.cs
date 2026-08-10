@@ -138,8 +138,6 @@ namespace Phinix.TradeExtension.Client
             Rect resetButtonRect = new Rect(cancelButtonRect.xMin - BUTTON_WIDTH - DEFAULT_SPACING, bottomBarRect.yMin, BUTTON_WIDTH, bottomBarRect.height);
             Rect updateButtonRect = new Rect(resetButtonRect.xMin - BUTTON_WIDTH - DEFAULT_SPACING, bottomBarRect.yMin, BUTTON_WIDTH, bottomBarRect.height);
 
-            hostContext.Log(new LogEventArgs($"[TradeWindow] Layout: inRect=({inRect.x},{inRect.y},{inRect.width}x{inRect.height}), titleRect=({titleRect.width}x{titleRect.height}), offerAreaRect=({offerAreaRect.width}x{offerAreaRect.height}), bottomBarRect=({bottomBarRect.y},{bottomBarRect.height}), availableItemsRect=({availableItemsRect.y},{availableItemsRect.width}x{availableItemsRect.height})", LogLevel.INFO));
-
             GameFont previousFont = Text.Font;
             TextAnchor previousAnchor = Text.Anchor;
 
@@ -239,13 +237,11 @@ namespace Phinix.TradeExtension.Client
 
             if (!filteredAvailableItems.Any(stack => stack.Count > 0))
             {
-                hostContext.Log(new LogEventArgs($"[TradeWindow] No items to show: availableItems={availableItems.Count}, filteredAvailableItems={filteredAvailableItems.Count}, availableItemsRect=({availableItemsRect.x},{availableItemsRect.y},{availableItemsRect.width}x{availableItemsRect.height})", LogLevel.INFO));
                 Widgets.DrawMenuSection(availableItemsRect);
                 Widgets.NoneLabelCenteredVertically(availableItemsRect, ("Phinix_trade_noItemsAvailable" + (availableItems.Any() ? "WithSearch" : "")).Translate());
             }
             else
             {
-                hostContext.Log(new LogEventArgs($"[TradeWindow] Drawing item list: filteredCount={filteredAvailableItems.Count}, availableItemsRect=({availableItemsRect.x},{availableItemsRect.y},{availableItemsRect.width}x{availableItemsRect.height})", LogLevel.INFO));
                 drawItemStackList(availableItemsRect, filteredAvailableItems, ref availableItemsScrollPos, true);
             }
         }
@@ -308,7 +304,7 @@ namespace Phinix.TradeExtension.Client
                 .Where(stack => stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1)
                 .ToList();
 
-            hostContext.Log(new LogEventArgs($"[TradeWindow] refreshAvailableItems: homeMaps={homeMaps.Count()}, allItemsTradable={hostContext.AllItemsTradable}, rawThings={rawThings.Count}, groupedStacks={availableItems.Count}, filteredStacks={filteredAvailableItems.Count}, searchText='{searchText}'", LogLevel.INFO));
+            hostContext.Log(new LogEventArgs($"[TradeWindow] refreshAvailableItems: homeMaps={homeMaps.Count()}, allItemsTradable={hostContext.AllItemsTradable}, rawThings={rawThings.Count}, groupedStacks={availableItems.Count}, filteredStacks={filteredAvailableItems.Count}, searchText='{searchText}'", LogLevel.DEBUG));
         }
 
         private void applyTradeUpdated(TradeUpdateEventArgs args)

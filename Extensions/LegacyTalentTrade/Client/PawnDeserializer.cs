@@ -84,6 +84,15 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                     pawnNode = doc.DocumentElement["saveable"];
                 }
 
+                // These trackers contain references to objects owned by the
+                // sender's save (Ideo, apparel policy, drug policy, and royal
+                // title state). They cannot be resolved in the receiver's
+                // save and cause Scribe to emit noisy cross-reference errors
+                // or invoke tracker post-load code with null state. The
+                // receiver's Scribe load creates fresh trackers; PostProcessPawn
+                // then applies the local faction/ideology semantics.
+                RemoveCrossSaveTrackers(pawnNode);
+
                 // Set up Scribe for loading
                 Scribe.mode = LoadSaveMode.LoadingVars;
                 Scribe.loader.curXmlParent = pawnNode;
@@ -129,6 +138,21 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             return pawn;
         }
 
+        private static void RemoveCrossSaveTrackers(XmlNode pawnNode)
+        {
+            if (pawnNode == null) return;
+
+            string[] trackerNames = { "ideo", "outfits", "drugs", "royalty" };
+            for (int i = 0; i < trackerNames.Length; i++)
+            {
+                XmlNode tracker = pawnNode.SelectSingleNode("./" + trackerNames[i]);
+                if (tracker != null && tracker.ParentNode != null)
+                {
+                    tracker.ParentNode.RemoveChild(tracker);
+                }
+            }
+        }
+
         /// <summary>
         /// Post-process a deserialized pawn to fix cross-save incompatibilities.
         /// </summary>
@@ -140,6 +164,16 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             bool isMech = pawn.RaceProps != null && pawn.RaceProps.IsMechanoid;
             bool isColonyMech = pawn.IsColonyMech || isMech;
             bool isPrisoner = pawn.guest != null && pawn.guest.IsPrisoner;
+
+            // Scribe creates these trackers when their XML nodes are absent,
+            // but keep the invariant explicit for malformed/old payloads.
+            if (pawn.outfits == null)
+                pawn.outfits = new Pawn_OutfitTracker(pawn);
+            if (pawn.drugs == null)
+                pawn.drugs = new Pawn_DrugPolicyTracker(pawn);
+            if (pawn.RaceProps != null && pawn.RaceProps.Humanlike &&
+                ModsConfig.IdeologyActive && pawn.ideo == null)
+                pawn.ideo = new Pawn_IdeoTracker(pawn);
 
             // Regenerate Thing IDs to avoid conflicts
             pawn.SetForbidden(false, false);

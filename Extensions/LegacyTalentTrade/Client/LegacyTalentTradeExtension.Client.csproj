@@ -97,6 +97,7 @@
     <Compile Include="TalentTradeTransport.cs" />
     <Compile Include="TradeablePawnUtility.cs" />
     <Compile Include="TradeOfferSerializer.cs" />
+    <Compile Include="TransferCompatibilityUi.cs" />
     <Compile Include="VersionNotifier.cs" />
   </ItemGroup>
   <ItemGroup>

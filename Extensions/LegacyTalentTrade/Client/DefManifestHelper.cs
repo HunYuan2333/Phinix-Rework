@@ -110,9 +110,14 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             foreach (string defName in manifest.RaceDefs)
             {
                 if (DefDatabase<ThingDef>.GetNamedSilentFail(defName) != null)
+                {
                     report.Compatible.Add("Phinix_legacyTalentTrade_transferRaceOk".Translate(defName));
+                }
                 else
+                {
                     report.Missing.Add("Phinix_legacyTalentTrade_transferRaceFail".Translate(defName));
+                    report.FatalMissing.Add(defName);
+                }
             }
 
             // Apparel
@@ -244,6 +249,47 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             return manifest;
         }
 
+        /// <summary>
+        /// Encode a manifest for an optional protocol metadata field. The
+        /// payload is compressed before it is placed in the pipe protocol.
+        /// </summary>
+        public static string SerializeCompressed(DefManifest manifest)
+        {
+            if (manifest == null) return string.Empty;
+            try
+            {
+                return TalentTradeTransport.Compress(SerializeManifest(manifest));
+            }
+            catch (Exception ex)
+            {
+                LegacyTalentTradeRuntime.LogWarning("【三角洲贸易】Def manifest encode failed: " + ex);
+                return string.Empty;
+            }
+        }
+
+        public static string SerializeCompressed(Pawn pawn)
+        {
+            return pawn == null ? string.Empty : SerializeCompressed(CollectFromPawn(pawn));
+        }
+
+        public static bool TryDeserializeCompressed(string data, out DefManifest manifest)
+        {
+            manifest = null;
+            if (string.IsNullOrEmpty(data)) return false;
+
+            try
+            {
+                string raw = TalentTradeTransport.Decompress(data);
+                manifest = DeserializeManifest(raw);
+                return manifest != null;
+            }
+            catch (Exception ex)
+            {
+                LegacyTalentTradeRuntime.LogWarning("【三角洲贸易】Def manifest decode failed: " + ex);
+                return false;
+            }
+        }
+
         private static void AppendCategory(StringBuilder sb, string name, HashSet<string> defs)
         {
             if (defs.Count == 0) return;
@@ -282,8 +328,10 @@ namespace Phinix.LegacyTalentTradeExtension.Client
     {
         public List<string> Compatible = new List<string>();
         public List<string> Missing = new List<string>();
+        public List<string> FatalMissing = new List<string>();
 
         public bool HasMissing { get { return Missing.Count > 0; } }
+        public bool HasFatalMissing { get { return FatalMissing.Count > 0; } }
 
         public string ToSummary()
         {

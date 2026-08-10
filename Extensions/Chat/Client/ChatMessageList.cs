@@ -6,6 +6,7 @@ using System.Threading;
 using PhinixClient;
 using PhinixClient.Framework;
 using UnityEngine;
+using UnityEngine.Networking;
 using UserManagement;
 using Utils;
 using Utils.Framework;
@@ -30,15 +31,28 @@ namespace Phinix.ChatExtension.Client
         private const float HIGHLIGHT_BORDER_WIDTH = 2f;
         private const float HIGHLIGHT_FLASH_SECONDS = 1.2f;
         private const long GROUP_TIME_THRESHOLD_SECONDS = 60;
+        private const float IMAGE_TOP_PADDING = 4f;
+        private const float IMAGE_BOTTOM_PADDING = 4f;
+        private const float IMAGE_LOADING_HEIGHT = 120f;
+        private const float IMAGE_MIN_HEIGHT = 48f;
+        private const int IMAGE_CACHE_LIMIT = 128;
 
         private static readonly Regex UrlRegex = new Regex(@"https?:\/\/\S+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex MentionRegex = new Regex(@"@(\S+)", RegexOptions.Compiled);
+        private static readonly string[] ImageFileExtensions = { "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff" };
+        private static readonly char[] UrlTrailingPunctuation = { '.', ',', ';', ':', '!', '?', ')', ']', '}', '，', '。', '、', '；', '：', '！', '？', '）', '》', '"', '\'' };
+        private static readonly Dictionary<string, Texture2D> imageTextureCache = new Dictionary<string, Texture2D>();
+        private static readonly List<string> imageCacheOrder = new List<string>();
+        private static readonly Dictionary<string, List<Action<Texture2D>>> pendingImageCallbacks = new Dictionary<string, List<Action<Texture2D>>>();
+        private static readonly string ImageLoadingLabel = "Phinix_chat_imageLoading".Translate();
+        private static readonly string ImageFailedLabel = "Phinix_chat_imageFailed".Translate();
 
         private readonly List<UIChatMessage> filteredMessages = new List<UIChatMessage>();
         private readonly List<UIChatMessage> messages = new List<UIChatMessage>();
         private readonly object messagesLock = new object();
         private readonly Dictionary<string, Rect> messageRectCache = new Dictionary<string, Rect>();
         private readonly Dictionary<string, CachedMessageDisplay> displayCache = new Dictionary<string, CachedMessageDisplay>();
+        private readonly Dictionary<string, List<ChatImageState>> messageImageStates = new Dictionary<string, List<ChatImageState>>();
         private readonly IChatUiHostContext hostContext;
 
         private bool messagesChanged;
@@ -73,6 +87,16 @@ namespace Phinix.ChatExtension.Client
             public string DisplayNameFormatted;
             public bool HasMentions;
             public float NameLineHeight;
+            public List<ChatImageState> Images;
+        }
+
+        private sealed class ChatImageState
+        {
+            public string Url;
+            public bool IsLoading;
+            public bool Failed;
+            public Texture2D Texture;
+            public float DisplayHeight;
         }
 
         public ChatMessageList(IChatUiHostContext hostContext)
@@ -172,6 +196,7 @@ namespace Phinix.ChatExtension.Client
             lock (messagesLock)
             {
                 messages.Clear();
+                messageImageStates.Clear();
                 clearMessages = true;
             }
         }
@@ -194,7 +219,16 @@ namespace Phinix.ChatExtension.Client
             {
                 messages.Add(args.Message);
                 messagesChanged = true;
-                messages.RemoveRange(0, Math.Max(0, messages.Count - hostContext.ChatMessageLimit));
+                int removedCount = messages.Count - hostContext.ChatMessageLimit;
+                if (removedCount > 0)
+                {
+                    for (int i = 0; i < removedCount; i++)
+                    {
+                        messageImageStates.Remove(messages[i].MessageId);
+                    }
+
+                    messages.RemoveRange(0, removedCount);
+                }
             }
         }
 
@@ -287,6 +321,20 @@ namespace Phinix.ChatExtension.Client
                     }
                 }
 
+                List<ChatImageState> imageStates = null;
+                float imageHeight = 0f;
+                if (!isSystem && !isNotice && chatMessage.Status != UIChatMessageStatus.Denied && hostContext.ShowImages)
+                {
+                    imageStates = GetOrCreateImageStates(chatMessage);
+                    float imageWidth = contentWidth - (isGrouped ? GROUP_INDENT : 0f);
+                    for (int i = 0; i < imageStates.Count; i++)
+                    {
+                        ChatImageState imageState = imageStates[i];
+                        imageState.DisplayHeight = CalcImageDisplayHeight(imageState, imageWidth);
+                        imageHeight += imageState.DisplayHeight + IMAGE_TOP_PADDING + IMAGE_BOTTOM_PADDING;
+                    }
+                }
+
                 float height;
                 if (isSystem || isNotice)
                 {
@@ -309,6 +357,8 @@ namespace Phinix.ChatExtension.Client
                 {
                     height += QUOTE_HEIGHT;
                 }
+
+                height += imageHeight;
 
                 Rect messageRect = new Rect(
                     x: inRect.x,
@@ -335,6 +385,7 @@ namespace Phinix.ChatExtension.Client
                     DisplayNameFormatted = displayNameFormatted,
                     HasMentions = hasMentions,
                     NameLineHeight = nameLineHeight,
+                    Images = imageStates,
                 };
 
                 try
@@ -506,9 +557,6 @@ namespace Phinix.ChatExtension.Client
 
                 cursorY = DrawReplyQuote(inRect.x, cursorY, textWidth, chatMessage, cached);
 
-                float textHeight = inRect.y + inRect.height - GROUP_BOTTOM_PADDING - cursorY;
-                Rect textRect = new Rect(textX, cursorY, textWidth, textHeight);
-
                 string messageText = cached.MessageText;
                 if (!cached.ShowChatFormatting || cached.Status != UIChatMessageStatus.Confirmed)
                     messageText = TextHelper.StripRichText(messageText);
@@ -521,12 +569,17 @@ namespace Phinix.ChatExtension.Client
                 else if (cached.Status == UIChatMessageStatus.Denied)
                     messageText = TextHelper.StripRichText(messageText).Colorize(ChatTheme.DeniedMessage);
 
+                float textHeight = Text.CalcHeight(messageText, textWidth);
+                Rect textRect = new Rect(textX, cursorY, textWidth, textHeight);
                 Widgets.Label(textRect, messageText);
 
                 if (Widgets.ButtonInvisible(textRect, false))
                 {
                     drawMessageContextMenu(chatMessage);
                 }
+
+                cursorY += textHeight + GROUP_BOTTOM_PADDING;
+                drawMessageImages(textX, cursorY, textWidth, chatMessage, cached);
             }
             else
             {
@@ -554,9 +607,6 @@ namespace Phinix.ChatExtension.Client
                 float cursorY = nameY + cached.NameLineHeight + MESSAGE_TOP_PADDING;
                 cursorY = DrawReplyQuote(inRect.x, cursorY, inRect.width, chatMessage, cached);
 
-                float msgHeight = inRect.y + inRect.height - MESSAGE_BOTTOM_PADDING - cursorY;
-                Rect msgRect = new Rect(inRect.x, cursorY, inRect.width, msgHeight);
-
                 string messageText = cached.MessageText;
                 if (!cached.ShowChatFormatting || cached.Status != UIChatMessageStatus.Confirmed)
                     messageText = TextHelper.StripRichText(messageText);
@@ -569,13 +619,263 @@ namespace Phinix.ChatExtension.Client
                 else if (cached.Status == UIChatMessageStatus.Denied)
                     messageText = TextHelper.StripRichText(messageText).Colorize(ChatTheme.DeniedMessage);
 
+                float textHeight = Text.CalcHeight(messageText, inRect.width);
+                Rect msgRect = new Rect(inRect.x, cursorY, inRect.width, textHeight);
                 Widgets.Label(msgRect, messageText);
 
                 if (Widgets.ButtonInvisible(msgRect, false))
                 {
                     drawMessageContextMenu(chatMessage);
                 }
+
+                cursorY += textHeight + MESSAGE_BOTTOM_PADDING;
+                drawMessageImages(inRect.x, cursorY, inRect.width, chatMessage, cached);
             }
+        }
+
+        private void drawMessageImages(float x, float y, float width, UIChatMessage chatMessage, CachedMessageDisplay cached)
+        {
+            if (cached.Images == null || cached.Images.Count == 0)
+            {
+                return;
+            }
+
+            float cursorY = y;
+            for (int i = 0; i < cached.Images.Count; i++)
+            {
+                ChatImageState imageState = cached.Images[i];
+                float imageHeight = imageState.DisplayHeight;
+                if (imageHeight <= 0f)
+                {
+                    continue;
+                }
+
+                cursorY += IMAGE_TOP_PADDING;
+                Rect imageRect = new Rect(x, cursorY, width, imageHeight);
+                cursorY += imageHeight + IMAGE_BOTTOM_PADDING;
+
+                if (imageState.Texture != null)
+                {
+                    Widgets.DrawTextureFitted(imageRect, imageState.Texture, 1f);
+                    if (Widgets.ButtonInvisible(imageRect, false))
+                    {
+                        Application.OpenURL(imageState.Url);
+                    }
+                }
+                else if (imageState.Failed)
+                {
+                    Widgets.DrawBoxSolid(imageRect, ChatTheme.ImagePlaceholderBg);
+                    Widgets.Label(imageRect, ImageFailedLabel.Colorize(ChatTheme.ImageFailedText));
+                }
+                else
+                {
+                    Widgets.DrawBoxSolid(imageRect, ChatTheme.ImagePlaceholderBg);
+                    TextAnchor oldAnchor = Text.Anchor;
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    Widgets.Label(imageRect, ImageLoadingLabel.Colorize(ChatTheme.ReplyQuoteText));
+                    Text.Anchor = oldAnchor;
+                }
+            }
+        }
+
+        private List<ChatImageState> GetOrCreateImageStates(UIChatMessage chatMessage)
+        {
+            if (!messageImageStates.TryGetValue(chatMessage.MessageId, out List<ChatImageState> states))
+            {
+                states = new List<ChatImageState>();
+                HashSet<string> seenUrls = new HashSet<string>();
+                foreach (string url in parseImageUrls(chatMessage.Message))
+                {
+                    if (seenUrls.Add(url))
+                    {
+                        states.Add(CreateImageState(url));
+                    }
+                }
+
+                messageImageStates[chatMessage.MessageId] = states;
+            }
+
+            return states;
+        }
+
+        private ChatImageState CreateImageState(string url)
+        {
+            ChatImageState state = new ChatImageState { Url = url };
+            if (imageTextureCache.TryGetValue(url, out Texture2D cachedTexture))
+            {
+                state.Texture = cachedTexture;
+                return state;
+            }
+
+            state.IsLoading = true;
+            StartImageDownload(state);
+            return state;
+        }
+
+        private void StartImageDownload(ChatImageState state)
+        {
+            if (pendingImageCallbacks.TryGetValue(state.Url, out List<Action<Texture2D>> existingCallbacks))
+            {
+                existingCallbacks.Add(texture => ApplyLoadedTexture(state, texture));
+                return;
+            }
+
+            List<Action<Texture2D>> callbacks = new List<Action<Texture2D>> { texture => ApplyLoadedTexture(state, texture) };
+            pendingImageCallbacks[state.Url] = callbacks;
+
+            UnityWebRequest request;
+            try
+            {
+                request = UnityWebRequestTexture.GetTexture(state.Url);
+                request.timeout = 30;
+            }
+            catch (Exception ex)
+            {
+                pendingImageCallbacks.Remove(state.Url);
+                hostContext.Log(new LogEventArgs(string.Format("Failed to create image request for {0}: {1}", state.Url, ex.Message), LogLevel.WARNING));
+                InvokeImageCallbacks(callbacks, null);
+                return;
+            }
+
+            var operation = request.SendWebRequest();
+            operation.completed += _ =>
+            {
+                pendingImageCallbacks.Remove(state.Url);
+                Texture2D texture = null;
+                if (request.isDone && request.result == UnityWebRequest.Result.Success)
+                {
+                    try
+                    {
+                        texture = DownloadHandlerTexture.GetContent(request);
+                    }
+                    catch (Exception ex)
+                    {
+                        hostContext.Log(new LogEventArgs(string.Format("Failed to decode image {0}: {1}", state.Url, ex.Message), LogLevel.WARNING));
+                    }
+                }
+                else
+                {
+                    hostContext.Log(new LogEventArgs(string.Format("Failed to download image {0}: {1}", state.Url, request.error), LogLevel.WARNING));
+                }
+
+                request.Dispose();
+                InvokeImageCallbacks(callbacks, texture);
+            };
+        }
+
+        private static void InvokeImageCallbacks(List<Action<Texture2D>> callbacks, Texture2D texture)
+        {
+            for (int i = 0; i < callbacks.Count; i++)
+            {
+                callbacks[i](texture);
+            }
+        }
+
+        private void ApplyLoadedTexture(ChatImageState state, Texture2D texture)
+        {
+            bool wasLoading = state.IsLoading;
+            state.IsLoading = false;
+            if (texture != null)
+            {
+                state.Texture = texture;
+                CacheImageTexture(state.Url, texture);
+            }
+            else
+            {
+                state.Failed = true;
+            }
+
+            if (wasLoading)
+            {
+                messagesChanged = true;
+            }
+        }
+
+        private static void CacheImageTexture(string url, Texture2D texture)
+        {
+            if (imageTextureCache.ContainsKey(url))
+            {
+                imageTextureCache[url] = texture;
+                return;
+            }
+
+            imageTextureCache[url] = texture;
+            imageCacheOrder.Add(url);
+            while (imageCacheOrder.Count > IMAGE_CACHE_LIMIT)
+            {
+                string oldestUrl = imageCacheOrder[0];
+                imageCacheOrder.RemoveAt(0);
+                if (imageTextureCache.TryGetValue(oldestUrl, out Texture2D oldTexture))
+                {
+                    imageTextureCache.Remove(oldestUrl);
+                    if (oldTexture != null)
+                    {
+                        UnityEngine.Object.Destroy(oldTexture);
+                    }
+                }
+            }
+        }
+
+        private float CalcImageDisplayHeight(ChatImageState state, float width)
+        {
+            if (state.Texture != null)
+            {
+                int textureWidth = Mathf.Max(1, state.Texture.width);
+                float aspect = state.Texture.height / (float)textureWidth;
+                float height = width * aspect;
+                return Mathf.Clamp(height, IMAGE_MIN_HEIGHT, hostContext.MaxImageHeight);
+            }
+
+            if (state.Failed)
+            {
+                return 22f;
+            }
+
+            return IMAGE_LOADING_HEIGHT;
+        }
+
+        private IEnumerable<string> parseImageUrls(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                yield break;
+            }
+
+            MatchCollection matches = UrlRegex.Matches(message);
+            foreach (Match match in matches)
+            {
+                string url = match.Value.TrimEnd(UrlTrailingPunctuation);
+                if (IsImageUrl(url))
+                {
+                    yield return url;
+                }
+            }
+        }
+
+        private static bool IsImageUrl(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+            {
+                return false;
+            }
+
+            string path = uri.AbsolutePath;
+            int dotIndex = path.LastIndexOf('.');
+            if (dotIndex < 0 || dotIndex >= path.Length - 1)
+            {
+                return false;
+            }
+
+            string extension = path.Substring(dotIndex + 1);
+            for (int i = 0; i < ImageFileExtensions.Length; i++)
+            {
+                if (string.Equals(extension, ImageFileExtensions[i], StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private float DrawReplyQuote(float x, float y, float width, UIChatMessage chatMessage, CachedMessageDisplay cached)

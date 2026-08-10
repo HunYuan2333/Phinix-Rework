@@ -65,6 +65,8 @@ namespace Phinix.ChatExtension.Client
             theme.RegisterColor("chat.blockedName", new Color(0.6f, 0.6f, 0.6f));
             theme.RegisterColor("chat.pendingMessage", new Color(1f, 1f, 1f, 0.6f));
             theme.RegisterColor("chat.deniedMessage", new Color(0.94f, 0.28f, 0.28f));
+            theme.RegisterColor("chat.imagePlaceholderBg", new Color(1f, 1f, 1f, 0.05f));
+            theme.RegisterColor("chat.imageFailedText", new Color(0.7f, 0.4f, 0.4f, 0.8f));
 
             PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService ?? new PhinixFrameworkChatService();
             if (chatModule.Log == null)

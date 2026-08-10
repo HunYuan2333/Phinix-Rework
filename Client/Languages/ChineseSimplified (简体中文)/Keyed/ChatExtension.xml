@@ -26,4 +26,8 @@
     <Phinix_notice_daysAgo>{0} 天前</Phinix_notice_daysAgo>
     <Phinix_chat_legacyModeLetter_label>已连接到旧版服务器</Phinix_chat_legacyModeLetter_label>
     <Phinix_chat_legacyModeLetter_description>您已连接到旧版 Phinix 服务器。部分功能不可用：通知、@提及、消息回复。</Phinix_chat_legacyModeLetter_description>
+    <Phinix_modSettings_chatImagesEnabled>在聊天中自动渲染图片</Phinix_modSettings_chatImagesEnabled>
+    <Phinix_modSettings_chatImagesMaxHeight>聊天内图片最大高度（像素）</Phinix_modSettings_chatImagesMaxHeight>
+    <Phinix_chat_imageLoading>图片加载中…</Phinix_chat_imageLoading>
+    <Phinix_chat_imageFailed>图片加载失败</Phinix_chat_imageFailed>
 </LanguageData>

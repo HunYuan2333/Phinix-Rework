@@ -61,6 +61,18 @@ namespace Phinix.ChatExtension.Client
             int.TryParse(noticeDurationStr, out int noticeDuration);
             settings.Set("chat.notice.defaultDuration", noticeDuration);
 
+            bool chatImagesEnabled = settings.Get("chat.images.enabled", true);
+            listing.CheckboxLabeled("Phinix_modSettings_chatImagesEnabled".Translate(), ref chatImagesEnabled);
+            settings.Set("chat.images.enabled", chatImagesEnabled);
+
+            listing.Label("Phinix_modSettings_chatImagesMaxHeight".Translate());
+            string maxImageHeightStr = settings.Get("chat.images.maxHeight", 240f).ToString();
+            maxImageHeightStr = listing.TextEntry(maxImageHeightStr);
+            if (float.TryParse(maxImageHeightStr, out float maxImageHeight))
+            {
+                settings.Set("chat.images.maxHeight", maxImageHeight);
+            }
+
             if (theme != null)
             {
                 listing.Gap(4f);

@@ -112,6 +112,10 @@
   <Phinix_legacyTalentTrade_transferTraitOk>✓ 特性: {0} — 对方已安装</Phinix_legacyTalentTrade_transferTraitOk>
   <Phinix_legacyTalentTrade_transferTraitRemoved>✗ 特性: {0} — 对方未安装，将被移除</Phinix_legacyTalentTrade_transferTraitRemoved>
   <Phinix_legacyTalentTrade_transferConfirmSend>确认发送</Phinix_legacyTalentTrade_transferConfirmSend>
+  <Phinix_legacyTalentTrade_compatibilityUnknown>无法获取兼容性清单。继续可能丢失装备、植入体、特性或其他内容，仍要继续吗？</Phinix_legacyTalentTrade_compatibilityUnknown>
+  <Phinix_legacyTalentTrade_compatibilityWarning>接收方缺少以下内容，交易时可能会被移除：</Phinix_legacyTalentTrade_compatibilityWarning>
+  <Phinix_legacyTalentTrade_compatibilityFatal>无法接收 {0}：缺少其种族定义。</Phinix_legacyTalentTrade_compatibilityFatal>
+  <Phinix_legacyTalentTrade_tradeLockConfirm>确认进行交易？缺失内容不会被传输。</Phinix_legacyTalentTrade_tradeLockConfirm>
 
   <!-- Notifications -->
   <Phinix_legacyTalentTrade_pawnReceivedTitle>收到可交易单位</Phinix_legacyTalentTrade_pawnReceivedTitle>

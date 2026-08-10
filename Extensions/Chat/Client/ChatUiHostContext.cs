@@ -168,6 +168,16 @@ namespace Phinix.ChatExtension.Client
         public bool ShowNameFormatting => settings.Get<bool>("chat.showNameFormatting", true);
 
         public bool ShowChatFormatting => settings.Get<bool>("chat.showChatFormatting", true);
+        public bool ShowImages => settings.Get<bool>("chat.images.enabled", true);
+
+        public float MaxImageHeight
+        {
+            get
+            {
+                float maxHeight = settings.Get<float>("chat.images.maxHeight", 240f);
+                return maxHeight < 48f ? 48f : (maxHeight > 512f ? 512f : maxHeight);
+            }
+        }
 
         public ISet<string> BlockedUsers => blockedUsersView;
 

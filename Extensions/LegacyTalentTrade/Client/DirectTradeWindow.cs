@@ -216,7 +216,19 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 if (Widgets.ButtonText(lockBtn, "Phinix_legacyTalentTrade_tradeLock".Translate()))
                 {
                     SendCurrentOffer(isInitiator);
-                    TalentTradeManager.LockTrade(trade.Id);
+                    TradeOffer theirOffer = isInitiator ? trade.TargetOffer : trade.InitiatorOffer;
+                    if (theirOffer == null || theirOffer.PawnData == null || theirOffer.PawnData.Count == 0)
+                    {
+                        TalentTradeManager.LockTrade(trade.Id);
+                    }
+                    else
+                    {
+                        TransferCompatibilityUi.ConfirmMany(
+                            "Phinix_legacyTalentTrade_tradeLockConfirm".Translate(),
+                            "Phinix_legacyTalentTrade_tradeTheirOffer".Translate(),
+                            theirOffer.PawnManifestData,
+                            delegate { TalentTradeManager.LockTrade(trade.Id); });
+                    }
                 }
             }
             else
@@ -313,6 +325,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
             myOffer.Pawns.Add(summary);
             myOffer.PawnData.Add(b64);
+            myOffer.PawnManifestData.Add(DefManifestHelper.SerializeCompressed(pawn));
             trade.HeldPawns.Add(pawn);
         }
 
@@ -339,6 +352,8 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                         }
                     });
                 }
+                if (index < myOffer.PawnManifestData.Count)
+                    myOffer.PawnManifestData.RemoveAt(index);
                 myOffer.PawnData.RemoveAt(index);
             }
 

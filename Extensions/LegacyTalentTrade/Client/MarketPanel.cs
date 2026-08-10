@@ -338,6 +338,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             string listingId = Guid.NewGuid().ToString("N").Substring(0, 12);
             string localName = TalentTradeManager.GetLocalDisplayName();
             PawnSummary summary = PawnSummary.FromPawn(selectedPawn);
+            string defManifestData = DefManifestHelper.SerializeCompressed(selectedPawn);
 
             // Serialize pawn data and hold it
             string b64Pawn = PawnSerializer.Serialize(selectedPawn);
@@ -350,10 +351,10 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             PawnSerializer.DespawnAndHold(selectedPawn);
 
             // Register locally
-            TalentTradeManager.AddLocalMarketListing(listingId, localUuid, localName, summary, priceValue, selectedPawn, b64Pawn);
+            TalentTradeManager.AddLocalMarketListing(listingId, localUuid, localName, summary, priceValue, selectedPawn, b64Pawn, defManifestData);
 
             // Broadcast listing
-            string msg = TalentTradeProtocol.BuildMarketList(listingId, localUuid, summary.ToBase64(), priceValue, localName);
+            string msg = TalentTradeProtocol.BuildMarketList(listingId, localUuid, summary.ToBase64(), priceValue, localName, defManifestData);
             TalentTradeManager.SendProtocol(msg);
 
             // Reset sell state
@@ -382,13 +383,15 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
             string pawnName2 = listing.Summary != null ? listing.Summary.GetDisplayLabel() : "???";
             string confirmText = "Phinix_legacyTalentTrade_marketBuyConfirm".Translate(pawnName2, listing.PriceSilver.ToString());
-
-            Dialog_MessageBox dialog = Dialog_MessageBox.CreateConfirmation(confirmText, delegate
-            {
-                LegacyTalentTradeRuntime.LogMessage("【三角洲贸易】Buy confirmation accepted");
-                DoBuy(listing);
-            }, destructive: false);
-            Find.WindowStack.Add(dialog);
+            TransferCompatibilityUi.Confirm(
+                confirmText,
+                pawnName2,
+                listing.DefManifestData,
+                delegate
+                {
+                    LegacyTalentTradeRuntime.LogMessage("【三角洲贸易】Buy confirmation accepted");
+                    DoBuy(listing);
+                });
         }
 
         private void DoBuy(MarketListing listing)

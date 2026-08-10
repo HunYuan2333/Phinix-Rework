@@ -15,6 +15,9 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         public string SellerUuid;
         public string SellerName;
         public PawnSummary Summary;
+        // Optional metadata from the seller. Empty for listings created by
+        // older clients; receivers must then show an unknown-compatibility warning.
+        public string DefManifestData;
         public int PriceSilver;
         public MarketListingState State = MarketListingState.Active;
         public DateTime CreatedAtUtc;

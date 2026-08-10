@@ -213,7 +213,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         /// <summary>
         /// Register a local market listing (seller side). Stores the held pawn and serialized data.
         /// </summary>
-        public static void AddLocalMarketListing(string listingId, string sellerUuid, string sellerName, PawnSummary summary, int priceSilver, Pawn heldPawn, string b64PawnData)
+        public static void AddLocalMarketListing(string listingId, string sellerUuid, string sellerName, PawnSummary summary, int priceSilver, Pawn heldPawn, string b64PawnData, string defManifestData = "")
         {
             MarkStateChanged();
             MarketListing listing = new MarketListing
@@ -222,6 +222,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 SellerUuid = sellerUuid,
                 SellerName = sellerName,
                 Summary = summary,
+                DefManifestData = defManifestData,
                 PriceSilver = priceSilver,
                 State = MarketListingState.Active,
                 CreatedAtUtc = DateTime.UtcNow,
@@ -324,7 +325,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         /// Register a local rental listing (owner side). Stores the held pawn and serialized data.
         /// </summary>
         public static void AddLocalRentalListing(string rentalId, string ownerUuid, string ownerName, PawnSummary summary,
-            int pricePerDay, int maxDays, int deposit, Pawn heldPawn, string b64PawnData)
+            int pricePerDay, int maxDays, int deposit, Pawn heldPawn, string b64PawnData, string defManifestData = "")
         {
             MarkStateChanged();
             RentalContract contract = new RentalContract
@@ -333,6 +334,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 OwnerUuid = ownerUuid,
                 OwnerName = ownerName,
                 Summary = summary,
+                DefManifestData = defManifestData,
                 PricePerDay = pricePerDay,
                 MaxDays = maxDays,
                 Deposit = deposit,
@@ -693,6 +695,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             int priceSilver;
             if (!int.TryParse(parts[6], out priceSilver)) return;
             string sellerName = TalentTradeProtocol.DecodeField(parts[7]);
+            string defManifestData = parts.Length > 8 ? parts[8] : string.Empty;
 
             PawnSummary summary = PawnSummary.FromBase64(b64Summary);
 
@@ -703,6 +706,8 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 {
                     // Update LastRefreshUtc for heartbeat
                     existing.LastRefreshUtc = DateTime.UtcNow;
+                    if (!string.IsNullOrEmpty(defManifestData))
+                        existing.DefManifestData = defManifestData;
                     if (LegacyTalentTradeRuntime.Settings?.EnableDebugLog == true)
                     {
                         LegacyTalentTradeRuntime.LogMessage($"【三角洲贸易】Updated heartbeat for listing {listingId}");
@@ -717,6 +722,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                         SellerUuid = sellerUuid,
                         SellerName = sellerName,
                         Summary = summary,
+                        DefManifestData = defManifestData,
                         PriceSilver = priceSilver,
                         State = MarketListingState.Active,
                         CreatedAtUtc = DateTime.UtcNow,
@@ -909,7 +915,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 if (l.State != MarketListingState.Active) continue;
                 if (l.Summary == null) continue;
 
-                string msg = TalentTradeProtocol.BuildMarketList(l.Id, localUuid, l.Summary.ToBase64(), l.PriceSilver, localName);
+                string msg = TalentTradeProtocol.BuildMarketList(l.Id, localUuid, l.Summary.ToBase64(), l.PriceSilver, localName, l.DefManifestData);
                 SendProtocol(msg);
             }
         }
@@ -1161,6 +1167,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             int deposit;
             if (!int.TryParse(parts[8], out deposit)) return;
             string ownerName = TalentTradeProtocol.DecodeField(parts[9]);
+            string defManifestData = parts.Length > 10 ? parts[10] : string.Empty;
 
             PawnSummary summary = PawnSummary.FromBase64(b64Summary);
             if (!TradeablePawnUtility.CanRentPawn(summary))
@@ -1174,6 +1181,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 OwnerUuid = ownerUuid,
                 OwnerName = ownerName,
                 Summary = summary,
+                DefManifestData = defManifestData,
                 PricePerDay = pricePerDay,
                 MaxDays = maxDays,
                 Deposit = deposit,
@@ -1631,7 +1639,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 if (l == null || l.SellerUuid != localUuid || l.State != MarketListingState.Active) continue;
                 if (l.Summary == null) continue;
 
-                string msg = TalentTradeProtocol.BuildMarketList(l.Id, localUuid, l.Summary.ToBase64(), l.PriceSilver, localName);
+                string msg = TalentTradeProtocol.BuildMarketList(l.Id, localUuid, l.Summary.ToBase64(), l.PriceSilver, localName, l.DefManifestData);
                 SendProtocol(msg);
                 count++;
             }
@@ -1940,7 +1948,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                     MarketListing l = kvp.Value;
                     if (l.Summary != null)
                     {
-                        string msg = TalentTradeProtocol.BuildMarketList(l.Id, localUuid, l.Summary.ToBase64(), l.PriceSilver, localName);
+                        string msg = TalentTradeProtocol.BuildMarketList(l.Id, localUuid, l.Summary.ToBase64(), l.PriceSilver, localName, l.DefManifestData);
                         SendProtocol(msg);
                     }
                 }

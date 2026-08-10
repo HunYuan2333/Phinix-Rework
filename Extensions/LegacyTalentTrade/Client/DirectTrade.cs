@@ -22,6 +22,8 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         public List<string> ItemSummaries = new List<string>();
         // Serialized pawn data (b64 compressed XML) — populated when pawns are added to the offer
         public List<string> PawnData = new List<string>();
+        // One compressed Def manifest per PawnData entry. Optional for legacy offers.
+        public List<string> PawnManifestData = new List<string>();
     }
 
     public class DirectTrade
