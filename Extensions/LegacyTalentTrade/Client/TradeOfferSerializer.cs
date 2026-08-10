@@ -11,7 +11,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
     /// </summary>
     public static class TradeOfferSerializer
     {
-        // Format: silver|pawnCount|b64Summary1|b64Summary2|...|pawnDataCount|b64PawnData1|...
+        // Format: silver|pawnCount|b64Summary1|...|pawnDataCount|b64PawnData1|...|manifestCount|b64Manifest1|...
         public static string ToBase64(TradeOffer offer)
         {
             if (offer == null) return "";
@@ -33,6 +33,17 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 {
                     sb.Append('|');
                     sb.Append(offer.PawnData[i]);
+                }
+
+                // Optional tail keeps old clients compatible: they stop after
+                // PawnData and ignore the additional manifest fields.
+                sb.Append('|');
+                int manifestCount = Math.Min(offer.PawnData.Count, offer.PawnManifestData.Count);
+                sb.Append(manifestCount);
+                for (int i = 0; i < manifestCount; i++)
+                {
+                    sb.Append('|');
+                    sb.Append(offer.PawnManifestData[i] ?? string.Empty);
                 }
 
                 return Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
@@ -82,6 +93,19 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                         for (int i = 0; i < dataCount && idx < parts.Length; i++)
                         {
                             offer.PawnData.Add(parts[idx++]);
+                        }
+
+                        // Optional metadata tail. Legacy offers simply end
+                        // here and remain valid, but will be shown as unknown
+                        // compatibility by the receiver.
+                        if (idx < parts.Length)
+                        {
+                            int manifestCount;
+                            if (int.TryParse(parts[idx++], out manifestCount))
+                            {
+                                for (int i = 0; i < manifestCount && idx < parts.Length; i++)
+                                    offer.PawnManifestData.Add(parts[idx++]);
+                            }
                         }
                     }
                 }

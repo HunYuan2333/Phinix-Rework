@@ -107,9 +107,9 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         // --- Market ---
 
-        public static string BuildMarketList(string listingId, string sellerUuid, string b64PawnSummary, int priceSilver, string sellerName)
+        public static string BuildMarketList(string listingId, string sellerUuid, string b64PawnSummary, int priceSilver, string sellerName, string b64DefManifest = "")
         {
-            return Join("mlist", listingId, sellerUuid, b64PawnSummary, priceSilver.ToString(), EncodeField(sellerName));
+            return Join("mlist", listingId, sellerUuid, b64PawnSummary, priceSilver.ToString(), EncodeField(sellerName), b64DefManifest);
         }
 
         public static string BuildMarketDelist(string listingId, string sellerUuid)
@@ -139,9 +139,9 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         // --- Rental ---
 
-        public static string BuildRentalList(string rentalId, string ownerUuid, string b64PawnSummary, int pricePerDay, int maxDays, int deposit, string ownerName)
+        public static string BuildRentalList(string rentalId, string ownerUuid, string b64PawnSummary, int pricePerDay, int maxDays, int deposit, string ownerName, string b64DefManifest = "")
         {
-            return Join("rlist", rentalId, ownerUuid, b64PawnSummary, pricePerDay.ToString(), maxDays.ToString(), deposit.ToString(), EncodeField(ownerName));
+            return Join("rlist", rentalId, ownerUuid, b64PawnSummary, pricePerDay.ToString(), maxDays.ToString(), deposit.ToString(), EncodeField(ownerName), b64DefManifest);
         }
 
         public static string BuildRentalDelist(string rentalId, string ownerUuid)

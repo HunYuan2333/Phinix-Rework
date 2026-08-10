@@ -18,6 +18,8 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         public string OwnerName;
         public string RenterName;
         public PawnSummary Summary;
+        // Optional metadata from the owner; see MarketListing.DefManifestData.
+        public string DefManifestData;
         public int PricePerDay;
         public int Deposit;
         public int MaxDays;

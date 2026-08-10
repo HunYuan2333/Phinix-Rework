@@ -110,6 +110,10 @@
   <Phinix_legacyTalentTrade_transferTraitOk>OK Trait: {0} — installed on receiver</Phinix_legacyTalentTrade_transferTraitOk>
   <Phinix_legacyTalentTrade_transferTraitRemoved>REMOVED Trait: {0} — not installed, will be removed</Phinix_legacyTalentTrade_transferTraitRemoved>
   <Phinix_legacyTalentTrade_transferConfirmSend>Confirm Send</Phinix_legacyTalentTrade_transferConfirmSend>
+  <Phinix_legacyTalentTrade_compatibilityUnknown>Compatibility metadata is unavailable. Continuing may lose equipment, implants, traits, or other content. Continue anyway?</Phinix_legacyTalentTrade_compatibilityUnknown>
+  <Phinix_legacyTalentTrade_compatibilityWarning>Some content is missing on this client and may be removed during transfer:</Phinix_legacyTalentTrade_compatibilityWarning>
+  <Phinix_legacyTalentTrade_compatibilityFatal>Cannot receive {0}: the required race definition is missing.</Phinix_legacyTalentTrade_compatibilityFatal>
+  <Phinix_legacyTalentTrade_tradeLockConfirm>Confirm this trade. Missing content will not be transferred.</Phinix_legacyTalentTrade_tradeLockConfirm>
 
   <!-- Notifications -->
   <Phinix_legacyTalentTrade_pawnReceivedTitle>Tradeable Unit Received</Phinix_legacyTalentTrade_pawnReceivedTitle>

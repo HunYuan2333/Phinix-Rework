@@ -68,6 +68,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         private void OnDriveTick(object sender, System.Timers.ElapsedEventArgs e)
         {
+            if (!activated || !LegacyTalentTradeRuntime.IsActive) return;
             if (Interlocked.CompareExchange(ref updatePending, 1, 0) != 0) return;
             if (LegacyTalentTradeRuntime.Dispatcher == null)
             {

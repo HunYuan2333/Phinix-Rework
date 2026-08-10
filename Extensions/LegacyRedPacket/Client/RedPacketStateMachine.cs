@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using PhinixClient.Framework;
 using Phinix.LegacyRedPacketExtension;
 using Phinix.TradeExtension.Client;
@@ -59,6 +60,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private readonly Action<string, LogLevel> log;
 
         private System.Timers.Timer driveTimer;
+        // Timer callbacks run on a pool thread. Keep at most one relay Tick in
+        // the host dispatcher so a stalled main thread cannot accumulate one
+        // action every interval.
+        private int tickPending;
         private bool initialized;
         private bool disposed;
 
@@ -128,7 +133,25 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private void OnDriveTick(object sender, System.Timers.ElapsedEventArgs e)
         {
             if (disposed) return;
-            dispatcher?.Enqueue(Tick);
+            if (Interlocked.CompareExchange(ref tickPending, 1, 0) != 0) return;
+
+            if (dispatcher == null)
+            {
+                Interlocked.Exchange(ref tickPending, 0);
+                return;
+            }
+
+            dispatcher.Enqueue(() =>
+            {
+                try
+                {
+                    Tick();
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref tickPending, 0);
+                }
+            });
         }
 
         private void Tick()

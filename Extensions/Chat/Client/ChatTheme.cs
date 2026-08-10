@@ -26,6 +26,8 @@ namespace Phinix.ChatExtension.Client
         public static Color BlockedName;
         public static Color PendingMessage;
         public static Color DeniedMessage;
+        public static Color ImagePlaceholderBg;
+        public static Color ImageFailedText;
 
         // 用户名配色 HSV 参数——由主题 XML <param> 控制，颜色计算统一走这里
         private static float nameColorSaturation = 0.55f;
@@ -52,6 +54,8 @@ namespace Phinix.ChatExtension.Client
             BlockedName = theme.GetColor("chat.blockedName");
             PendingMessage = theme.GetColor("chat.pendingMessage");
             DeniedMessage = theme.GetColor("chat.deniedMessage");
+            ImagePlaceholderBg = theme.GetColor("chat.imagePlaceholderBg");
+            ImageFailedText = theme.GetColor("chat.imageFailedText");
 
             // 读取主题化的 HSV 参数
             nameColorSaturation = theme.GetFloat("nameColor.saturation", 0.55f);

@@ -370,6 +370,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             string rentalId = Guid.NewGuid().ToString("N").Substring(0, 12);
             string localName = TalentTradeManager.GetLocalDisplayName();
             PawnSummary summary = PawnSummary.FromPawn(selectedPawn);
+            string defManifestData = DefManifestHelper.SerializeCompressed(selectedPawn);
 
             // Serialize pawn
             string b64Pawn = PawnSerializer.Serialize(selectedPawn);
@@ -383,11 +384,11 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
             // Register locally
             TalentTradeManager.AddLocalRentalListing(rentalId, localUuid, localName, summary,
-                pricePerDayValue, maxDaysValue, depositValue, selectedPawn, b64Pawn);
+                pricePerDayValue, maxDaysValue, depositValue, selectedPawn, b64Pawn, defManifestData);
 
             // Broadcast
             string msg = TalentTradeProtocol.BuildRentalList(rentalId, localUuid, summary.ToBase64(),
-                pricePerDayValue, maxDaysValue, depositValue, localName);
+                pricePerDayValue, maxDaysValue, depositValue, localName, defManifestData);
             TalentTradeManager.SendProtocol(msg);
 
             ResetListState();
@@ -414,11 +415,11 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             string confirmText = "Phinix_legacyTalentTrade_rentalRentConfirm".Translate(
                 pawnName2, contract.PricePerDay.ToString(), contract.MaxDays.ToString(), contract.Deposit.ToString());
 
-            Dialog_MessageBox dialog = Dialog_MessageBox.CreateConfirmation(confirmText, delegate
-            {
-                DoRent(contract);
-            }, destructive: false);
-            Find.WindowStack.Add(dialog);
+            TransferCompatibilityUi.Confirm(
+                confirmText,
+                pawnName2,
+                contract.DefManifestData,
+                delegate { DoRent(contract); });
         }
 
         private void DoRent(RentalContract contract)
