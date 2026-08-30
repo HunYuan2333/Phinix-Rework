@@ -296,6 +296,56 @@ namespace PhinixClient
                     Verse.Log.Warning($"  [Phinix] {warning}");
                 }
             }
+
+            // 清晰呈现每个扩展的运行状态，便于用户分辨"某功能（如红包）没接入 / 被禁用 / 加载失败(BUG)"。
+            LogExtensionStatusSummary();
+        }
+
+        /// <summary>
+        /// 逐条打印各扩展的最终状态，让用户一眼分清"功能没接入 / 被禁用 / 加载失败(需上报)"。
+        /// 设计哲学 §3.8：信息级别即可观测，避免含糊的"看不到 XX"反馈。
+        /// </summary>
+        private void LogExtensionStatusSummary()
+        {
+            if (frameworkClient == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<ExtensionDiscoveryResult> results = frameworkClient.ExtensionResults;
+            if (results.Count == 0)
+            {
+                Verse.Log.Message("[Phinix] No framework extensions were discovered.");
+                return;
+            }
+
+            Verse.Log.Message($"[Phinix] Extension status summary ({results.Count}):");
+            foreach (ExtensionDiscoveryResult result in results)
+            {
+                Verse.Log.Message($"  [Phinix] {result.ExtensionId}: {DescribeExtensionState(result)}");
+            }
+        }
+
+        private static string DescribeExtensionState(ExtensionDiscoveryResult result)
+        {
+            switch (result.State)
+            {
+                case ExtensionModuleState.Active:
+                case ExtensionModuleState.Registered:
+                    return "ACTIVE (loaded OK)";
+                case ExtensionModuleState.Disabled:
+                    return "DISABLED (not integrated — user disabled it; enable in Phinix mod settings → Extensions)";
+                case ExtensionModuleState.DependencyDisabled:
+                    return "DISABLED (not integrated — a required dependency is missing or disabled)";
+                case ExtensionModuleState.Failed:
+                    return string.IsNullOrEmpty(result.StateDetail)
+                        ? "FAILED (this is a bug, please report it)"
+                        : $"FAILED (this is a bug, please report it): {result.StateDetail}";
+                case ExtensionModuleState.Shutdown:
+                    return "shut down";
+                default:
+                    return result.State.ToString();
+            }
         }
 
         public override void DoSettingsWindowContents(Rect inRect)

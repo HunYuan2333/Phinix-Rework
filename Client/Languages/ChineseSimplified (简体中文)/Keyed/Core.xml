@@ -44,11 +44,11 @@
 
     <!-- Core errors -->
     <Phinix_error_loginFailedTitle>登录失败</Phinix_error_loginFailedTitle>
-    <Phinix_error_loginFailedMessage>尝试登录服务器失败：{0} ({1})</Phinix_error_loginFailedMessage>
+    <Phinix_error_loginFailedMessage>登录服务器失败：{0} ({1})。\n你的账号/会话可能无效，请检查服务器设置与凭据后重试。</Phinix_error_loginFailedMessage>
     <Phinix_error_authFailedTitle>身份验证失败</Phinix_error_authFailedTitle>
-    <Phinix_error_authFailedMessage>尝试在服务器验证身份失败：{0} ({1})</Phinix_error_authFailedMessage>
+    <Phinix_error_authFailedMessage>服务器验证身份失败：{0} ({1})。\n请检查 Phinix 模组设置中的服务器地址、端口与显示名称是否正确，然后重试。</Phinix_error_authFailedMessage>
     <Phinix_error_connectionFailedTitle>连接失败</Phinix_error_connectionFailedTitle>
-    <Phinix_error_connectionFailedMessage>无法连接至服务器{0}:{1}</Phinix_error_connectionFailedMessage>
+    <Phinix_error_connectionFailedMessage>无法连接服务器 {0}:{1}。\n请确认服务器正在运行且可访问，并检查 Phinix 模组设置里的地址与端口是否正确。</Phinix_error_connectionFailedMessage>
 
     <!-- Extension Manager -->
     <Phinix_extensions_loadedExtensions>已加载扩展 ({0})</Phinix_extensions_loadedExtensions>

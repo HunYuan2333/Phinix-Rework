@@ -29,5 +29,5 @@
     <Phinix_modSettings_chatImagesEnabled>Render images in chat</Phinix_modSettings_chatImagesEnabled>
     <Phinix_modSettings_chatImagesMaxHeight>Maximum inline image height (pixels)</Phinix_modSettings_chatImagesMaxHeight>
     <Phinix_chat_imageLoading>Loading image…</Phinix_chat_imageLoading>
-    <Phinix_chat_imageFailed>Failed to load image</Phinix_chat_imageFailed>
+    <Phinix_chat_imageFailed>Failed to load image (format may be unsupported)</Phinix_chat_imageFailed>
 </LanguageData>

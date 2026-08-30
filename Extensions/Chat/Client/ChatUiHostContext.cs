@@ -163,6 +163,8 @@ namespace Phinix.ChatExtension.Client
 
         public string Uuid => session.Uuid;
 
+        public bool IsOnline => session.Authenticated && session.LoggedIn;
+
         public int ChatMessageLimit => settings.Get<int>("chat.messageLimit", 100);
 
         public bool ShowNameFormatting => settings.Get<bool>("chat.showNameFormatting", true);

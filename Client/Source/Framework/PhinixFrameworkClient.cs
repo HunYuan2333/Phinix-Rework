@@ -178,7 +178,7 @@ namespace PhinixClient.Framework
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
 
             negotiationTimer.Start();
-            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Starting capability negotiation with server. Capabilities: {string.Join(", ", capabilities)}", LogLevel.INFO));
+            RaiseLogEntry(new LogEventArgs($"[Phinix] Starting capability negotiation with server. Capabilities: {string.Join(", ", capabilities)}", LogLevel.INFO));
             sendPacket(new FrameworkPacket
             {
                 Kind = FrameworkProtocol.KindHello,
@@ -196,13 +196,13 @@ namespace PhinixClient.Framework
             if (disposed) return false;
 
             RaiseLogEntry(new LogEventArgs(
-                $"[Framework] TryHandleOutgoingMessage: mode={CompatibilityMode}, textLen={rawMessage?.Length ?? 0}, handlers={discoveredExtensions.ClientMessageHandlers.Count}",
+                $"[Phinix] TryHandleOutgoingMessage: mode={CompatibilityMode}, textLen={rawMessage?.Length ?? 0}, handlers={discoveredExtensions.ClientMessageHandlers.Count}",
                 LogLevel.DEBUG));
 
             foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleOutgoingText(rawMessage)))
             {
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework] TryHandleOutgoingMessage: handler={handler.GetType().Name}(P={handler.Priority}) claims it can handle",
+                    $"[Phinix] TryHandleOutgoingMessage: handler={handler.GetType().Name}(P={handler.Priority}) claims it can handle",
                     LogLevel.DEBUG));
 
                 ClientOutgoingMessageResult result = null;
@@ -230,7 +230,7 @@ namespace PhinixClient.Framework
                 }
 
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework] TryHandleOutgoingMessage: handler={handler.GetType().Name} result action={result?.Action}, message={(result?.Message == null ? "null" : "present")}",
+                    $"[Phinix] TryHandleOutgoingMessage: handler={handler.GetType().Name} result action={result?.Action}, message={(result?.Message == null ? "null" : "present")}",
                     LogLevel.DEBUG));
 
                 if (result == null)
@@ -271,7 +271,7 @@ namespace PhinixClient.Framework
             }
 
             RaiseLogEntry(new LogEventArgs(
-                $"[Framework] TryHandleOutgoingMessage: no handler ultimately processed the message — returning false",
+                $"[Phinix] TryHandleOutgoingMessage: no handler ultimately processed the message — returning false",
                 LogLevel.WARNING));
             return false;
         }
@@ -282,7 +282,7 @@ namespace PhinixClient.Framework
             if (command == null) return false;
 
             RaiseLogEntry(new LogEventArgs(
-                $"[Framework] TryHandleOutgoingCommand: msgType={command.MessageType}, mode={CompatibilityMode}",
+                $"[Phinix] TryHandleOutgoingCommand: msgType={command.MessageType}, mode={CompatibilityMode}",
                 LogLevel.DEBUG));
 
             ClientFrameworkContext context = new ClientFrameworkContext
@@ -306,7 +306,7 @@ namespace PhinixClient.Framework
                 .ToList();
 
             RaiseLogEntry(new LogEventArgs(
-                $"[Framework] TryHandleOutgoingCommand: found {handlers.Count()} handler(s) — " +
+                $"[Phinix] TryHandleOutgoingCommand: found {handlers.Count()} handler(s) — " +
                 string.Join(", ", handlers.Select(h => $"{h.GetType().Name}(P={h.Priority})")),
                 LogLevel.DEBUG));
 
@@ -315,7 +315,7 @@ namespace PhinixClient.Framework
             {
                 bool canHandle = handler.CanHandleOutgoingCommand(command);
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework]   {handler.GetType().Name}(P={handler.Priority}).CanHandle → {canHandle}",
+                    $"[Phinix]   {handler.GetType().Name}(P={handler.Priority}).CanHandle → {canHandle}",
                     LogLevel.DEBUG));
 
                 if (!canHandle) continue;
@@ -329,12 +329,12 @@ namespace PhinixClient.Framework
                 catch (Exception ex)
                 {
                     RaiseLogEntry(new LogEventArgs(
-                        $"[Framework] Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                        $"[Phinix] Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
                     continue;
                 }
 
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework]   {handler.GetType().Name}.HandleOutgoing → Action={result?.Action}, Command={(result?.Command == null ? "null" : "present")}",
+                    $"[Phinix]   {handler.GetType().Name}.HandleOutgoing → Action={result?.Action}, Command={(result?.Command == null ? "null" : "present")}",
                     LogLevel.DEBUG));
 
                 if (result == null || result.Action == MessageHandlingResultAction.Continue)
@@ -348,7 +348,7 @@ namespace PhinixClient.Framework
                     if (result.Action == MessageHandlingResultAction.Handled)
                     {
                         RaiseLogEntry(new LogEventArgs(
-                            $"[Framework] TryHandleOutgoingCommand: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
+                            $"[Phinix] TryHandleOutgoingCommand: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
                             LogLevel.DEBUG));
                         return true;
                     }
@@ -362,7 +362,7 @@ namespace PhinixClient.Framework
                 sendPacket(outgoingCommand);
 
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework] TryHandleOutgoingCommand: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
+                    $"[Phinix] TryHandleOutgoingCommand: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
                     LogLevel.DEBUG));
 
                 if (result.Action != MessageHandlingResultAction.Continue) return true;
@@ -371,7 +371,7 @@ namespace PhinixClient.Framework
             if (!anyHandlerTried)
             {
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework] TryHandleOutgoingCommand: NO handler claimed '{command.MessageType}' — returning false",
+                    $"[Phinix] TryHandleOutgoingCommand: NO handler claimed '{command.MessageType}' — returning false",
                     LogLevel.WARNING));
             }
 
@@ -384,7 +384,7 @@ namespace PhinixClient.Framework
             if (itemPayload == null || string.IsNullOrEmpty(itemPayload.CodecId)) return false;
 
             RaiseLogEntry(new LogEventArgs(
-                $"[Framework] TryHandleOutgoingItem: codecId={itemPayload.CodecId}, mode={CompatibilityMode}",
+                $"[Phinix] TryHandleOutgoingItem: codecId={itemPayload.CodecId}, mode={CompatibilityMode}",
                 LogLevel.DEBUG));
 
             ClientFrameworkContext context = new ClientFrameworkContext
@@ -409,7 +409,7 @@ namespace PhinixClient.Framework
                 catch (Exception ex)
                 {
                     RaiseLogEntry(new LogEventArgs(
-                        $"[Framework] Outgoing item handler {handler.GetType().FullName}.CanHandle threw: {ex}", LogLevel.ERROR));
+                        $"[Phinix] Outgoing item handler {handler.GetType().FullName}.CanHandle threw: {ex}", LogLevel.ERROR));
                     continue;
                 }
 
@@ -424,7 +424,7 @@ namespace PhinixClient.Framework
                 catch (Exception ex)
                 {
                     RaiseLogEntry(new LogEventArgs(
-                        $"[Framework] Outgoing item handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                        $"[Phinix] Outgoing item handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
                     continue;
                 }
 
@@ -437,7 +437,7 @@ namespace PhinixClient.Framework
                     if (result.Action == ItemHandlingResultAction.Handled)
                     {
                         RaiseLogEntry(new LogEventArgs(
-                            $"[Framework] TryHandleOutgoingItem: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
+                            $"[Phinix] TryHandleOutgoingItem: handled by {handler.GetType().Name} (no FrameworkPacket to send)",
                             LogLevel.DEBUG));
                         return true;
                     }
@@ -451,7 +451,7 @@ namespace PhinixClient.Framework
                 sendPacket(outgoingItem);
 
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework] TryHandleOutgoingItem: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
+                    $"[Phinix] TryHandleOutgoingItem: sent FrameworkPacket via sendPacket() from {handler.GetType().Name}",
                     LogLevel.DEBUG));
 
                 if (result.Action != ItemHandlingResultAction.Continue) return true;
@@ -460,7 +460,7 @@ namespace PhinixClient.Framework
             if (!anyHandlerTried)
             {
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Framework] TryHandleOutgoingItem: NO handler claimed item payload (codecId='{itemPayload.CodecId}') — returning false",
+                    $"[Phinix] TryHandleOutgoingItem: NO handler claimed item payload (codecId='{itemPayload.CodecId}') — returning false",
                     LogLevel.WARNING));
             }
 
@@ -603,12 +603,12 @@ namespace PhinixClient.Framework
 
             // 管线消息路由细节 → DEBUG（设计哲学 §3.8）：聊天等高频消息在 Release 构建下被过滤，
             // 避免每条消息都刷 RimWorld 日志（社区反馈"constant log spam from chatting"）
-            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] packetHandler received: kind={packet.Kind}, type={packet.MessageType}, flow={packet.Flow}", LogLevel.DEBUG));
+            RaiseLogEntry(new LogEventArgs($"[Phinix] packetHandler received: kind={packet.Kind}, type={packet.MessageType}, flow={packet.Flow}", LogLevel.DEBUG));
 
             switch (packet.Kind)
             {
                 case FrameworkProtocol.KindCapabilities:
-                    RaiseLogEntry(new LogEventArgs("[PhinixFramework] Processing KindCapabilities from server...", LogLevel.INFO));
+                    RaiseLogEntry(new LogEventArgs("[Phinix] Processing KindCapabilities from server...", LogLevel.INFO));
                     FrameworkCapabilitiesPayload capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(packet.PayloadJson);
                     lock (remoteCapabilities)
                     {
@@ -620,7 +620,7 @@ namespace PhinixClient.Framework
                     }
 
                     negotiationTimer.Stop();
-                    RaiseLogEntry(new LogEventArgs($"[PhinixFramework] KindCapabilities processed: {remoteCapabilities.Count} capabilities, setting FrameworkV2 mode.", LogLevel.INFO));
+                    RaiseLogEntry(new LogEventArgs($"[Phinix] KindCapabilities processed: {remoteCapabilities.Count} capabilities, setting FrameworkV2 mode.", LogLevel.INFO));
                     setCompatibilityMode(
                         FrameworkCompatibilityMode.FrameworkV2,
                         $"Framework capability negotiation succeeded with {remoteCapabilities.Count} negotiated remote capability/capabilities.",
@@ -700,7 +700,8 @@ namespace PhinixClient.Framework
                 {
                     if (result.DisplayMessage == null)
                     {
-                        RaiseLogEntry(new LogEventArgs($"Framework message '{currentMessage?.MessageType ?? "unknown"}' was consumed without producing display output. Silent consumption should move to a future command/control flow.", LogLevel.WARNING));
+                        // 被消费但无显示输出：对通知/命令类消息属正常模式，属路由细节，不升为 WARNING 刷屏。
+                        RaiseLogEntry(new LogEventArgs($"[Phinix] Framework message '{currentMessage?.MessageType ?? "unknown"}' was consumed without producing display output.", LogLevel.DEBUG));
                     }
                     return;
                 }
@@ -735,9 +736,7 @@ namespace PhinixClient.Framework
 
         private void handleCommand(FrameworkPacket command)
         {
-            // Diagnostic: log all incoming commands to trace server responses
-            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] handleCommand received: type={command.MessageType}, flow={command.Flow}, kind={command.Kind}", LogLevel.DEBUG));
-
+            // 命令的 kind/type/flow 已在 packetHandler received 记录，这里不再重复打。
             bool matchedHandler = false;
             FrameworkPacket currentCommand = command;
             ClientFrameworkContext context = new ClientFrameworkContext
@@ -793,8 +792,6 @@ namespace PhinixClient.Framework
 
         private void handleItem(FrameworkPacket itemPacket)
         {
-            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] handleItem received: type={itemPacket.MessageType}, flow={itemPacket.Flow}, kind={itemPacket.Kind}", LogLevel.DEBUG));
-
             bool matchedHandler = false;
             FrameworkPacket currentItem = itemPacket;
             ClientFrameworkContext context = new ClientFrameworkContext
@@ -898,7 +895,7 @@ namespace PhinixClient.Framework
             if (packet == null) return;
             if (!netClient.Connected)
             {
-                RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Dropping packet type={packet.MessageType} — netClient not connected", LogLevel.WARNING));
+                RaiseLogEntry(new LogEventArgs($"[Phinix] Dropping packet type={packet.MessageType} — netClient not connected", LogLevel.WARNING));
                 return;
             }
 
@@ -927,7 +924,7 @@ namespace PhinixClient.Framework
             catch (Exception ex)
             {
                 RaiseLogEntry(new LogEventArgs(
-                    $"[PhinixFramework] Failed to send packet type={packet.MessageType}: {ex.Message}",
+                    $"[Phinix] Failed to send packet type={packet.MessageType}: {ex.Message}",
                     LogLevel.ERROR));
             }
         }
@@ -937,7 +934,7 @@ namespace PhinixClient.Framework
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
             if (CompatibilityMode != FrameworkCompatibilityMode.Unknown) return;
 
-            RaiseLogEntry(new LogEventArgs($"[PhinixFramework] Negotiation timer fired. CompatibilityMode={CompatibilityMode}. Falling back to Legacy.", LogLevel.INFO));
+            RaiseLogEntry(new LogEventArgs($"[Phinix] Negotiation timer fired. CompatibilityMode={CompatibilityMode}. Falling back to Legacy.", LogLevel.INFO));
             setCompatibilityMode(
                 FrameworkCompatibilityMode.Legacy,
                 "Framework capability negotiation timed out; falling back to legacy compatibility mode.",

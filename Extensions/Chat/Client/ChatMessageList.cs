@@ -44,8 +44,6 @@ namespace Phinix.ChatExtension.Client
         private static readonly Dictionary<string, Texture2D> imageTextureCache = new Dictionary<string, Texture2D>();
         private static readonly List<string> imageCacheOrder = new List<string>();
         private static readonly Dictionary<string, List<Action<Texture2D>>> pendingImageCallbacks = new Dictionary<string, List<Action<Texture2D>>>();
-        private static readonly string ImageLoadingLabel = "Phinix_chat_imageLoading".Translate();
-        private static readonly string ImageFailedLabel = "Phinix_chat_imageFailed".Translate();
 
         private readonly List<UIChatMessage> filteredMessages = new List<UIChatMessage>();
         private readonly List<UIChatMessage> messages = new List<UIChatMessage>();
@@ -62,6 +60,7 @@ namespace Phinix.ChatExtension.Client
         private bool scrollToBottom;
         private bool stickyScroll = true;
         private bool clearMessages;
+        private bool wasOnline;
 
         private float viewportHeight;
         private string hoveredReplyTargetId;
@@ -113,6 +112,17 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            // 设计哲学 §3.5 同步韧性：启动即连接时，历史同步可能在聊天列表事件订阅
+            // 完成前就已写入消息存储，导致"进入存档后左侧在线用户正常、聊天界面却未初始化"。
+            // 复刻 ChatSidebarProvider 的"上线瞬间刷新"：一旦会话上线，就从存储重读一次
+            // 完整历史，补齐被遗漏的同步。仅在上线状态翻转时触发一次，不在 Draw 路径每帧执行。
+            bool online = hostContext.IsOnline;
+            if (online && !wasOnline)
+            {
+                ReplaceWithBuffer();
+            }
+            wasOnline = online;
+
             if (clearMessages)
             {
                 filteredMessages.Clear();
@@ -665,14 +675,15 @@ namespace Phinix.ChatExtension.Client
                 else if (imageState.Failed)
                 {
                     Widgets.DrawBoxSolid(imageRect, ChatTheme.ImagePlaceholderBg);
-                    Widgets.Label(imageRect, ImageFailedLabel.Colorize(ChatTheme.ImageFailedText));
+                    // 绘制时实时翻译，避免静态字段在类加载时缓存未加载的原始键。
+                    Widgets.Label(imageRect, "Phinix_chat_imageFailed".Translate().Colorize(ChatTheme.ImageFailedText));
                 }
                 else
                 {
                     Widgets.DrawBoxSolid(imageRect, ChatTheme.ImagePlaceholderBg);
                     TextAnchor oldAnchor = Text.Anchor;
                     Text.Anchor = TextAnchor.MiddleCenter;
-                    Widgets.Label(imageRect, ImageLoadingLabel.Colorize(ChatTheme.ReplyQuoteText));
+                    Widgets.Label(imageRect, "Phinix_chat_imageLoading".Translate().Colorize(ChatTheme.ReplyQuoteText));
                     Text.Anchor = oldAnchor;
                 }
             }
@@ -750,12 +761,33 @@ namespace Phinix.ChatExtension.Client
                     }
                     catch (Exception ex)
                     {
-                        hostContext.Log(new LogEventArgs(string.Format("Failed to decode image {0}: {1}", state.Url, ex.Message), LogLevel.WARNING));
+                        // 下载成功但解码异常：多为不支持的图片格式（如 webp）。
+                        hostContext.Log(new LogEventArgs(
+                            string.Format("Image {0} uses an unsupported image format (Unity could not decode it, e.g. webp): {1}", state.Url, ex.Message),
+                            LogLevel.WARNING));
                     }
+
+                    if (texture == null)
+                    {
+                        hostContext.Log(new LogEventArgs(
+                            string.Format("Image {0} uses an unsupported image format (e.g. webp), so it cannot be displayed.", state.Url),
+                            LogLevel.WARNING));
+                    }
+                }
+                else if (request.result == UnityWebRequest.Result.DataProcessingError)
+                {
+                    // 已收到数据但下载处理器解码失败：多为不支持的图片格式（如 webp），
+                    // 区别于"网络/协议"层面的下载失败。
+                    hostContext.Log(new LogEventArgs(
+                        string.Format("Image {0} uses an unsupported image format (e.g. webp, which Unity cannot decode), so it cannot be displayed.", state.Url),
+                        LogLevel.WARNING));
                 }
                 else
                 {
-                    hostContext.Log(new LogEventArgs(string.Format("Failed to download image {0}: {1}", state.Url, request.error), LogLevel.WARNING));
+                    // 网络/协议层面下载失败。
+                    hostContext.Log(new LogEventArgs(
+                        string.Format("Could not download image {0}: {1}", state.Url, request.error),
+                        LogLevel.WARNING));
                 }
 
                 request.Dispose();
