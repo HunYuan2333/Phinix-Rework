@@ -38,6 +38,7 @@ namespace Phinix.ChatExtension.Client
         private EventHandler<UIChatMessageEventArgs> chatNotificationHandler;
         private EventHandler disconnectHandler;
         private float connectionEstablishedTime = -100f;
+        private Action<string, LogLevel> hostLog;
 
         public string ExtensionId => "builtin.chat";
 
@@ -139,6 +140,8 @@ namespace Phinix.ChatExtension.Client
                 return;
             }
 
+            hostLog = hostContext?.Log;
+
             IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
             theme.Reload();
             ChatTheme.Refresh(theme);
@@ -186,13 +189,21 @@ namespace Phinix.ChatExtension.Client
 
                         dispatcher.Enqueue(() =>
                         {
-                            LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
-                            if (letterDef != null)
+                            try
                             {
-                                Find.LetterStack.ReceiveLetter(
-                                    "Phinix_chat_mentionLetter_label".Translate(senderName),
-                                    "Phinix_chat_mentionLetter_description".Translate(senderName, snippet),
-                                    letterDef);
+                                // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
+                                LetterDef letterDef = DefDatabase<LetterDef>.GetNamedSilentFail("TradeCreated");
+                                if (letterDef != null && Find.LetterStack != null)
+                                {
+                                    Find.LetterStack.ReceiveLetter(
+                                        "Phinix_chat_mentionLetter_label".Translate(senderName),
+                                        "Phinix_chat_mentionLetter_description".Translate(senderName, snippet),
+                                        letterDef);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                hostLog?.Invoke($"Failed to raise chat mention letter: {ex.Message}", LogLevel.WARNING);
                             }
                         });
                     }
@@ -237,13 +248,21 @@ namespace Phinix.ChatExtension.Client
                     {
                         dispatcher.Enqueue(() =>
                         {
-                            LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
-                            if (letterDef != null)
+                            try
                             {
-                                Find.LetterStack.ReceiveLetter(
-                                    "Phinix_chat_legacyModeLetter_label".Translate(),
-                                    "Phinix_chat_legacyModeLetter_description".Translate(),
-                                    letterDef);
+                                // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
+                                LetterDef letterDef = DefDatabase<LetterDef>.GetNamedSilentFail("TradeCreated");
+                                if (letterDef != null && Find.LetterStack != null)
+                                {
+                                    Find.LetterStack.ReceiveLetter(
+                                        "Phinix_chat_legacyModeLetter_label".Translate(),
+                                        "Phinix_chat_legacyModeLetter_description".Translate(),
+                                        letterDef);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                hostLog?.Invoke($"Failed to raise legacy-mode chat letter: {ex.Message}", LogLevel.WARNING);
                             }
                         });
                     }

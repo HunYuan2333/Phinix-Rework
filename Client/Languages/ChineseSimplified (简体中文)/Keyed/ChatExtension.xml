@@ -29,5 +29,5 @@
     <Phinix_modSettings_chatImagesEnabled>在聊天中自动渲染图片</Phinix_modSettings_chatImagesEnabled>
     <Phinix_modSettings_chatImagesMaxHeight>聊天内图片最大高度（像素）</Phinix_modSettings_chatImagesMaxHeight>
     <Phinix_chat_imageLoading>图片加载中…</Phinix_chat_imageLoading>
-    <Phinix_chat_imageFailed>图片加载失败</Phinix_chat_imageFailed>
+    <Phinix_chat_imageFailed>图片加载失败（格式可能不受支持）</Phinix_chat_imageFailed>
 </LanguageData>

@@ -17,6 +17,8 @@ namespace Phinix.ChatExtension.Client
         private const float DEFAULT_SPACING = 10f;
         private const float REPLY_BAR_HEIGHT = 24f;
         private const float REPLY_LINE_WIDTH = 3f;
+        // 聊天输入框的 GUI 控制名，用于保持键盘焦点，防止按键逃逸到游戏快捷键/侧栏搜索框。
+        private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
 
         private static readonly Regex AtPartialRegex = new Regex(@"@([^\s]*)$", RegexOptions.Compiled);
 
@@ -25,6 +27,7 @@ namespace Phinix.ChatExtension.Client
         private readonly IClientUserDirectory userDirectory;
 
         private string message = "";
+        private bool chatInputFocused;
 
         public string TabLabel => "Phinix_tabs_chat".Translate();
         public float TabOrder => 0;
@@ -92,12 +95,31 @@ namespace Phinix.ChatExtension.Client
                 Event.current.type == EventType.KeyDown &&
                 (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
 
+            // 注册输入框控制名并保持键盘焦点：
+            // - 用户点击别处（鼠标按下）时不抢焦点，避免打断用户点击侧栏搜索等。
+            // - 新消息触发的重绘/布局变化不会让焦点丢失，避免按键逃逸到游戏快捷键/搜索框导致"取消输入"。
+            GUI.SetNextControlName(CHAT_INPUT_CONTROL);
             message = Widgets.TextField(messageBoxRect, message);
+
+            bool userClickedElsewhere = Event.current != null && Event.current.type == EventType.MouseDown;
+            if (chatInputFocused && !userClickedElsewhere)
+            {
+                // 本帧开始时输入框仍持有焦点，则重新聚焦以跨帧保持（对已聚焦的控件 FocusControl 是空操作）。
+                GUI.FocusControl(CHAT_INPUT_CONTROL);
+            }
+            chatInputFocused = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL;
 
             if (enterPressed && !string.IsNullOrEmpty(message))
             {
                 sendChatMessage();
+                // Fully claim the Enter/KeypadEnter event here so it neither
+                // bubbles up to RimWorld's Window layer (which could close this
+                // MainTabWindow on Enter) nor leaks to other mods that draw later
+                // in the same frame. This is intentionally scoped to "we actually
+                // sent": when the message is empty we leave the event untouched,
+                // so RimTalk & co. still get their own Enter-to-send.
                 Event.current.Use();
+                Event.current.keyCode = KeyCode.None;
             }
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))

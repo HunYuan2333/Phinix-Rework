@@ -44,11 +44,11 @@
 
     <!-- Core errors -->
     <Phinix_error_loginFailedTitle>Login failed</Phinix_error_loginFailedTitle>
-    <Phinix_error_loginFailedMessage>Failed to log in to the server: {0} ({1})</Phinix_error_loginFailedMessage>
+    <Phinix_error_loginFailedMessage>Failed to log in to the server: {0} ({1}).\nYour account/session may be invalid. Check the server settings and your credentials, then try again.</Phinix_error_loginFailedMessage>
     <Phinix_error_authFailedTitle>Authentication failed</Phinix_error_authFailedTitle>
-    <Phinix_error_authFailedMessage>Failed to authenticate with the server: {0} ({1})</Phinix_error_authFailedMessage>
+    <Phinix_error_authFailedMessage>Failed to authenticate with the server: {0} ({1}).\nCheck the server address/port and your display name in Phinix mod options, then try again.</Phinix_error_authFailedMessage>
     <Phinix_error_connectionFailedTitle>Connecting failed</Phinix_error_connectionFailedTitle>
-    <Phinix_error_connectionFailedMessage>Could not connect to a server at {0}:{1}</Phinix_error_connectionFailedMessage>
+    <Phinix_error_connectionFailedMessage>Could not connect to a server at {0}:{1}.\nMake sure the server is running and reachable, and that the address/port in Phinix mod options are correct.</Phinix_error_connectionFailedMessage>
 
     <!-- Extension Manager -->
     <Phinix_extensions_loadedExtensions>Loaded Extensions ({0})</Phinix_extensions_loadedExtensions>
