@@ -17,7 +17,8 @@ namespace Phinix.ChatExtension.Client
         private const float DEFAULT_SPACING = 10f;
         private const float REPLY_BAR_HEIGHT = 24f;
         private const float REPLY_LINE_WIDTH = 3f;
-        // 聊天输入框的 GUI 控制名，用于保持键盘焦点，防止按键逃逸到游戏快捷键/侧栏搜索框。
+        // 聊天输入框的 GUI 控制名。仅用于在"输入框丢了焦点（非用户点击）"时把它救回来，
+        // 不会在字段已聚焦时反复调用 FocusControl，避免 IMGUI 文本缓冲被重置清空。
         private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
 
         private static readonly Regex AtPartialRegex = new Regex(@"@([^\s]*)$", RegexOptions.Compiled);
@@ -27,7 +28,8 @@ namespace Phinix.ChatExtension.Client
         private readonly IClientUserDirectory userDirectory;
 
         private string message = "";
-        private bool chatInputFocused;
+        // 是否期望聊天输入框保持键盘焦点（用户点进输入框后为 true）。
+        private bool chatInputKeepFocus;
 
         public string TabLabel => "Phinix_tabs_chat".Translate();
         public float TabOrder => 0;
@@ -95,19 +97,29 @@ namespace Phinix.ChatExtension.Client
                 Event.current.type == EventType.KeyDown &&
                 (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
 
-            // 注册输入框控制名并保持键盘焦点：
-            // - 用户点击别处（鼠标按下）时不抢焦点，避免打断用户点击侧栏搜索等。
-            // - 新消息触发的重绘/布局变化不会让焦点丢失，避免按键逃逸到游戏快捷键/搜索框导致"取消输入"。
             GUI.SetNextControlName(CHAT_INPUT_CONTROL);
             message = Widgets.TextField(messageBoxRect, message);
 
+            // 焦点保持（只救回、不反复抢）：
+            //  - 用户点击别处（鼠标按下）→ 放弃保持焦点，尊重用户操作。
+            //  - 字段当前有焦点 → 标记"需要保持"（此时不调用 FocusControl，避免清空输入）。
+            //  - 字段本应有焦点但丢了（非点击，如新消息重绘）→ 才 FocusControl 补一次。
             bool userClickedElsewhere = Event.current != null && Event.current.type == EventType.MouseDown;
-            if (chatInputFocused && !userClickedElsewhere)
+            if (userClickedElsewhere)
             {
-                // 本帧开始时输入框仍持有焦点，则重新聚焦以跨帧保持（对已聚焦的控件 FocusControl 是空操作）。
+                chatInputKeepFocus = false;
+            }
+
+            bool currentlyFocused = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL;
+            if (currentlyFocused)
+            {
+                chatInputKeepFocus = true;
+            }
+            else if (chatInputKeepFocus)
+            {
+                // 此刻字段未聚焦，FocusControl 会用当前 message 文本恢复焦点，不会清空输入。
                 GUI.FocusControl(CHAT_INPUT_CONTROL);
             }
-            chatInputFocused = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL;
 
             if (enterPressed && !string.IsNullOrEmpty(message))
             {
