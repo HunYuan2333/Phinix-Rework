@@ -55,6 +55,17 @@ namespace Phinix.ChatExtension.Client
             refreshUserLists();
         }
 
+        public int OnlineCount
+        {
+            get
+            {
+                lock (userListsLock)
+                {
+                    return onlineUsers.Count;
+                }
+            }
+        }
+
         public void Draw(Rect inRect)
         {
             if (onlineUsersChanged || blockedUsersChanged)

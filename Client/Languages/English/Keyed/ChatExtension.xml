@@ -24,6 +24,8 @@
     <Phinix_notice_minutesAgo>{0} min ago</Phinix_notice_minutesAgo>
     <Phinix_notice_hoursAgo>{0} h ago</Phinix_notice_hoursAgo>
     <Phinix_notice_daysAgo>{0} d ago</Phinix_notice_daysAgo>
+    <Phinix_chat_onlineCount>{0} online</Phinix_chat_onlineCount>
+    <Phinix_chat_notConnected>Not connected</Phinix_chat_notConnected>
     <Phinix_chat_legacyModeLetter_label>Connected to legacy server</Phinix_chat_legacyModeLetter_label>
     <Phinix_chat_legacyModeLetter_description>You are connected to an older Phinix server. Some features are unavailable: notices, @mentions, and reply.</Phinix_chat_legacyModeLetter_description>
     <Phinix_modSettings_chatImagesEnabled>Render images in chat</Phinix_modSettings_chatImagesEnabled>
