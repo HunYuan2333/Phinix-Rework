@@ -46,6 +46,8 @@ namespace PhinixClient
         private readonly List<TabRecord> sidebarTabList = new List<TabRecord>();
         private int activeTab = 0;
         private int activeSidebarTab = 0;
+        private IUiAcceptKeyHandler activeAcceptKeyHandler;
+        private bool hadInputLastDraw = true;
 
         public ServerTab()
         {
@@ -107,6 +109,23 @@ namespace PhinixClient
                 settings.AcceptChanges();
             }
             base.PreClose();
+        }
+
+        public override void OnAcceptKeyPressed()
+        {
+            IUiAcceptKeyHandler handler = activeAcceptKeyHandler;
+            if (!CanHandleAcceptKey(handler) || !handler.TryHandleAcceptKey())
+            {
+                closeOnAccept = false;
+                return;
+            }
+
+            closeOnAccept = false;
+            Event current = Event.current;
+            if (current != null && current.type != EventType.Used)
+            {
+                current.Use();
+            }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -210,6 +229,55 @@ namespace PhinixClient
                 }
             }
 
+            RefreshAcceptKeyHandler();
+            TryHandleConsumedAcceptKey();
+            closeOnAccept = CanHandleAcceptKey(activeAcceptKeyHandler);
+            hadInputLastDraw = Find.WindowStack.GetsInput(this);
+        }
+
+        private void RefreshAcceptKeyHandler()
+        {
+            activeAcceptKeyHandler = null;
+
+            if (activeTab >= 0 && activeTab < tabProviders.Count)
+            {
+                activeAcceptKeyHandler = tabProviders[activeTab] as IUiAcceptKeyHandler;
+            }
+
+            if (activeAcceptKeyHandler == null &&
+                activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
+            {
+                activeAcceptKeyHandler = sidebarProviders[activeSidebarTab] as IUiAcceptKeyHandler;
+            }
+        }
+
+        private void TryHandleConsumedAcceptKey()
+        {
+            Event current = Event.current;
+            if (!hadInputLastDraw ||
+                current == null ||
+                current.type != EventType.Used ||
+                current.rawType != EventType.KeyDown ||
+                !IsEnterKey(current.keyCode) ||
+                !Find.WindowStack.GetsInput(this) ||
+                !CanHandleAcceptKey(activeAcceptKeyHandler))
+            {
+                return;
+            }
+
+            activeAcceptKeyHandler.TryHandleAcceptKey();
+        }
+
+        private static bool CanHandleAcceptKey(IUiAcceptKeyHandler handler)
+        {
+            return handler != null &&
+                handler.WantsAcceptKey &&
+                string.IsNullOrEmpty(Input.compositionString);
+        }
+
+        private static bool IsEnterKey(KeyCode keyCode)
+        {
+            return keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter;
         }
 
         /// <summary>
