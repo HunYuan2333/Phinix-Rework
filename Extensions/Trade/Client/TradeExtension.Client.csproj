@@ -76,11 +76,13 @@
     <Compile Include="FrameworkLegacyTradeClientAdapter.cs" />
     <Compile Include="FrameworkClientTradeServiceAdapter.cs" />
     <Compile Include="PendingThings.cs" />
+    <Compile Include="PoppedThing.cs" />
     <Compile Include="PhinixDefaultTradeBehaviour.cs" />
     <Compile Include="PhinixFrameworkTradeClientRepository.cs" />
     <Compile Include="PhinixFrameworkTradeClientService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StackedThings.cs" />
+    <Compile Include="StoredThingCollector.cs" />
     <Compile Include="TradeClientItemPipeline.cs" />
     <Compile Include="TradeItemConverter.cs" />
     <Compile Include="TradeList.cs" />

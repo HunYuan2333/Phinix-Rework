@@ -56,7 +56,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 settings,
                 relay,
                 builder.HostContext.Log);
-            tab = new RedPacketTab(session, userDirectory, settingsContext, settings, transport, stateMachine);
+            tab = new RedPacketTab(
+                session,
+                userDirectory,
+                settingsContext,
+                settings,
+                transport,
+                stateMachine,
+                builder.HostContext.Log);
             unreadBadge = new RedPacketUnreadBadge(session, stateMachine);
             settingsPanel = new RedPacketSettingsPanel(settingsContext, settings);
 

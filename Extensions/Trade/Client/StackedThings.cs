@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using PhinixClient.Trade;
 using UnityEngine;
+using Utils;
 using Verse;
 
 namespace Phinix.TradeExtension.Client
@@ -107,34 +108,52 @@ namespace Phinix.TradeExtension.Client
         /// <returns>Selected things</returns>
         public IEnumerable<Thing> PopSelected()
         {
-            List<Thing> poppedThings = new List<Thing>();
+            return PopSelectedWithOrigins().Select(poppedThing => poppedThing.Thing);
+        }
+
+        public IEnumerable<PoppedThing> PopSelectedWithOrigins()
+        {
+            List<PoppedThing> poppedThings = new List<PoppedThing>();
+            List<Thing> thingsToRemove = new List<Thing>();
 
             int remainingThings = Selected;
-            foreach (Thing thing in Things)
+            try
             {
-                // Check if we have popped all the necessary things, exiting the loop if so
-                if (remainingThings == 0) break;
+                foreach (Thing thing in Things)
+                {
+                    if (remainingThings == 0)
+                    {
+                        break;
+                    }
 
-                // Check if this thing has more in its stack than we need to take
-                if (thing.stackCount > remainingThings)
-                {
-                    // Just split off the amount we need from this stack
-                    poppedThings.Add(thing.SplitOff(remainingThings));
-                    remainingThings = 0;
-                }
-                else
-                {
-                    // Subtract this thing's stack size from the remaining count and add it to the popped list
-                    poppedThings.Add(thing);
-                    remainingThings -= thing.stackCount;
+                    Map originMap = thing.Map;
+                    IntVec3 originPosition = thing.Position;
+                    Rot4 originRotation = thing.Rotation;
+                    bool wasSpawned = thing.Spawned;
+
+                    if (thing.stackCount > remainingThings)
+                    {
+                        Thing splitThing = thing.SplitOff(remainingThings);
+                        poppedThings.Add(new PoppedThing(splitThing, originMap, originPosition, originRotation, wasSpawned));
+                        remainingThings = 0;
+                    }
+                    else
+                    {
+                        poppedThings.Add(new PoppedThing(thing, originMap, originPosition, originRotation, wasSpawned));
+                        thingsToRemove.Add(thing);
+                        remainingThings -= thing.stackCount;
+                    }
                 }
             }
+            catch
+            {
+                PoppedThing.RestoreAll(poppedThings, null, nameof(StackedThings));
+                throw;
+            }
 
-            // Clear the selected counter now that everything has been split off
             Selected = 0;
 
-            // Remove the things we popped
-            foreach (Thing thing in poppedThings)
+            foreach (Thing thing in thingsToRemove)
             {
                 Things.Remove(thing);
             }
@@ -187,48 +206,63 @@ namespace Phinix.TradeExtension.Client
         /// </summary>
         /// <param name="items">Items to group</param>
         /// <returns>Grouped items list</returns>
-        public static List<StackedThings> GroupThings(IEnumerable<Thing> items)
+        public static List<StackedThings> GroupThings(
+            IEnumerable<Thing> items,
+            System.Action<string, LogLevel> log = null)
         {
-            // Set up an item dictionary
             Dictionary<string, List<StackedThings>> groupedItems = new Dictionary<string, List<StackedThings>>();
 
-            foreach (Thing item in items)
+            try
             {
-                // Check if this item type already has a group
-                if (groupedItems.ContainsKey(item.def.defName))
+                foreach (Thing item in items ?? Enumerable.Empty<Thing>())
                 {
-                    // Loop over all the item stacks in the group
-                    bool stacked = false;
-                    foreach (StackedThings itemStack in groupedItems[item.def.defName])
+                    if (item == null || item.Destroyed || item.def == null ||
+                        string.IsNullOrEmpty(item.def.defName) || item.stackCount <= 0)
                     {
-                        // Check if this item can stack on this stack
-                        if (itemStack.CanStack(item))
+                        continue;
+                    }
+
+                    string defName = item.def.defName;
+                    if (groupedItems.TryGetValue(defName, out List<StackedThings> itemStacks))
+                    {
+                        bool stacked = false;
+                        foreach (StackedThings itemStack in itemStacks)
                         {
-                            // Increment this stack's item count by the item's stack count and break the loop
-                            itemStack.Things.Add(item);
-                            stacked = true;
-                            break;
+                            try
+                            {
+                                if (itemStack.CanStack(item))
+                                {
+                                    itemStack.Things.Add(item);
+                                    stacked = true;
+                                    break;
+                                }
+                            }
+                            catch (System.Exception exception)
+                            {
+                                log?.Invoke(
+                                    $"[StackedThings] Failed to compare stackability for thing '{item.ThingID}'; using an isolated stack.{System.Environment.NewLine}{exception}",
+                                    LogLevel.WARNING);
+                            }
+                        }
+
+                        if (!stacked)
+                        {
+                            itemStacks.Add(new StackedThings(new[] { item }));
                         }
                     }
-
-                    // Check if a stack wasn't found within this group
-                    if (!stacked)
+                    else
                     {
-                        // Add a new stack with this item in it
-                        groupedItems[item.def.defName].Add(new StackedThings(new[]{item}));
+                        groupedItems.Add(defName, new List<StackedThings> { new StackedThings(new[] { item }) });
                     }
                 }
-                else
-                {
-                    // Create a new item stack with this item in it
-                    StackedThings itemStack = new StackedThings(new[]{item});
-
-                    // Add a new group with the item stack
-                    groupedItems.Add(item.def.defName, new List<StackedThings>{itemStack});
-                }
+            }
+            catch (System.Exception exception)
+            {
+                log?.Invoke(
+                    $"[StackedThings] Item enumeration failed; returning the groups collected so far.{System.Environment.NewLine}{exception}",
+                    LogLevel.WARNING);
             }
 
-            // Return the grouped items dictionary
             return groupedItems.SelectMany(pair => pair.Value).ToList();
         }
     }
