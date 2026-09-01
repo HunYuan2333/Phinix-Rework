@@ -18,6 +18,7 @@ namespace Phinix.ChatExtension.Client
         private const float REPLY_BAR_HEIGHT = 24f;
         private const float REPLY_LINE_WIDTH = 3f;
         private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
+        private const int REFOCUS_ATTEMPTS = 2;
 
         private static readonly Regex AtPartialRegex = new Regex(@"@([^\s]*)$", RegexOptions.Compiled);
 
@@ -27,7 +28,7 @@ namespace Phinix.ChatExtension.Client
 
         private string message = "";
         private bool chatInputOwned;
-        private bool focusRecoveryAttempted;
+        private int refocusAttemptsRemaining;
 
         public string TabLabel => "Phinix_tabs_chat".Translate();
         public float TabOrder => 0;
@@ -99,6 +100,7 @@ namespace Phinix.ChatExtension.Client
             GUI.SetNextControlName(CHAT_INPUT_CONTROL);
             message = Widgets.TextField(messageBoxRect, message);
             UpdateInputOwnership(messageBoxRect);
+            TryRefocusAfterAccept();
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))
             {
@@ -116,6 +118,7 @@ namespace Phinix.ChatExtension.Client
             }
 
             sendChatMessage();
+            refocusAttemptsRemaining = REFOCUS_ATTEMPTS;
             return true;
         }
 
@@ -128,7 +131,7 @@ namespace Phinix.ChatExtension.Client
             if (mouseDown)
             {
                 chatInputOwned = current.button == 0 && Mouse.IsOver(messageBoxRect);
-                focusRecoveryAttempted = false;
+                refocusAttemptsRemaining = 0;
                 return;
             }
 
@@ -136,12 +139,40 @@ namespace Phinix.ChatExtension.Client
             if (currentlyFocused)
             {
                 chatInputOwned = true;
-                focusRecoveryAttempted = false;
             }
-            else if (chatInputOwned && !focusRecoveryAttempted)
+        }
+
+        private void TryRefocusAfterAccept()
+        {
+            if (refocusAttemptsRemaining <= 0)
             {
-                GUI.FocusControl(CHAT_INPUT_CONTROL);
-                focusRecoveryAttempted = true;
+                return;
+            }
+
+            Event current = Event.current;
+            bool mouseDown = current != null &&
+                (current.type == EventType.MouseDown || current.rawType == EventType.MouseDown);
+            Window currentWindow = Find.WindowStack.currentlyDrawnWindow;
+            if (mouseDown ||
+                Find.WindowStack.FloatMenu != null ||
+                currentWindow == null ||
+                !Find.WindowStack.GetsInput(currentWindow))
+            {
+                refocusAttemptsRemaining = 0;
+                return;
+            }
+
+            if (current == null || current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            GUI.FocusControl(CHAT_INPUT_CONTROL);
+            refocusAttemptsRemaining--;
+            chatInputOwned = true;
+            if (GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL)
+            {
+                refocusAttemptsRemaining = 0;
             }
         }
 
