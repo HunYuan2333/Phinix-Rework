@@ -87,8 +87,12 @@ namespace Phinix.TradeExtension.Client
 
             refreshAvailableItems();
 
-            ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
-            theirOfferCache = StackedThings.GroupThings(trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
+            ourOfferCache = StackedThings.GroupThings(
+                trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                logMessage);
+            theirOfferCache = StackedThings.GroupThings(
+                trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                logMessage);
         }
 
         public override void Close(bool doCloseSound = true)
@@ -114,8 +118,12 @@ namespace Phinix.TradeExtension.Client
                 if (Monitor.TryEnter(updatedTradeLock))
                 {
                     trade = updatedTrade;
-                    ourOfferCache = StackedThings.GroupThings(trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
-                    theirOfferCache = StackedThings.GroupThings(trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown));
+                    ourOfferCache = StackedThings.GroupThings(
+                        trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                        logMessage);
+                    theirOfferCache = StackedThings.GroupThings(
+                        trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                        logMessage);
                     tradeUpdated = false;
                     Monitor.Exit(updatedTradeLock);
                 }
@@ -169,19 +177,20 @@ namespace Phinix.TradeExtension.Client
 
             if (Widgets.ButtonText(updateButtonRect, "Phinix_trade_updateButton".Translate()))
             {
+                string token = null;
+                List<PoppedThing> selectedThings = new List<PoppedThing>();
                 try
                 {
-                    string token = Guid.NewGuid().ToString();
-                    List<Thing> selectedThings = new List<Thing>();
+                    token = Guid.NewGuid().ToString();
 
                     foreach (StackedThings itemStack in availableItems)
                     {
-                        Thing[] things = itemStack.PopSelected().ToArray();
-                        foreach (Thing thing in things)
-                        {
-                            if (thing.Spawned) thing.DeSpawn();
-                        }
-                        selectedThings.AddRange(things);
+                        selectedThings.AddRange(itemStack.PopSelectedWithOrigins());
+                    }
+
+                    foreach (PoppedThing selectedThing in selectedThings)
+                    {
+                        selectedThing.DeSpawn();
                     }
 
                     lock (pendingItemStacksLock)
@@ -192,14 +201,25 @@ namespace Phinix.TradeExtension.Client
                             Timestamp = DateTime.UtcNow
                         });
                     }
-                    hostContext.Log(new LogEventArgs("Added items to pending", LogLevel.DEBUG));
+                    hostContext.Log(new LogEventArgs($"Added {selectedThings.Count} item stack(s) to pending", LogLevel.DEBUG));
 
-                    IEnumerable<TradeItemSnapshot> actualOffer = trade.ItemsOnOffer.Concat(selectedThings.Select(TradeItemConverter.ConvertThingFromVerse));
+                    IEnumerable<TradeItemSnapshot> actualOffer = trade.ItemsOnOffer.Concat(
+                        selectedThings.Select(selectedThing => TradeItemConverter.ConvertThingFromVerse(selectedThing.Thing)));
                     tradeService.UpdateTradeItems(trade.TradeId, actualOffer, token);
                     hostContext.Log(new LogEventArgs("Sent update", LogLevel.DEBUG));
                 }
                 catch (Exception ex)
                 {
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        lock (pendingItemStacksLock)
+                        {
+                            pendingItemStacks.Remove(token);
+                        }
+                    }
+
+                    restorePoppedThings(selectedThings, "TradeWindow.UpdateTradeItems");
+                    refreshAvailableItems();
                     hostContext.Log(new LogEventArgs($"Failed to update trade items: {ex}", LogLevel.ERROR));
                 }
             }
@@ -286,20 +306,12 @@ namespace Phinix.TradeExtension.Client
 
         private void refreshAvailableItems()
         {
-            IEnumerable<Map> homeMaps = Find.Maps.Where(map => map.IsPlayerHome);
-            IEnumerable<Thing> things;
-            if (hostContext.AllItemsTradable)
-            {
-                things = homeMaps.SelectMany(map => map.listerThings.AllThings);
-            }
-            else
-            {
-                IEnumerable<SlotGroup> haulDestinations = homeMaps.SelectMany(map => map.haulDestinationManager.AllGroups);
-                things = haulDestinations.SelectMany(haulDestination => haulDestination.HeldThings);
-            }
-
-            var rawThings = things.Where(thing => thing.def.category == ThingCategory.Item && !thing.def.IsCorpse).ToList();
-            availableItems = StackedThings.GroupThings(rawThings);
+            List<Map> homeMaps = Find.Maps.Where(map => map != null && map.IsPlayerHome).ToList();
+            List<Thing> rawThings = StoredThingCollector
+                .Collect(homeMaps, hostContext.AllItemsTradable, logMessage)
+                .Where(thing => thing.def.category == ThingCategory.Item && !thing.def.IsCorpse)
+                .ToList();
+            availableItems = StackedThings.GroupThings(rawThings, logMessage);
             filteredAvailableItems = availableItems
                 .Where(stack => stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1)
                 .ToList();
@@ -310,22 +322,22 @@ namespace Phinix.TradeExtension.Client
         private void applyTradeUpdated(TradeUpdateEventArgs args)
         {
             hostContext.Log(new LogEventArgs($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}", LogLevel.DEBUG));
-            if (args.Trade == null || !string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase))
+            bool matchingTrade = args.Trade != null &&
+                string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase);
+            if (matchingTrade)
             {
-                return;
-            }
+                bool? pendingAcceptedValue = getPendingAccepted();
+                if (args.FailureReason != TradeFailureReason.None ||
+                    (pendingAcceptedValue.HasValue && args.Trade.Accepted == pendingAcceptedValue.Value))
+                {
+                    clearPendingAccepted();
+                }
 
-            bool? pendingAcceptedValue = getPendingAccepted();
-            if (args.FailureReason != TradeFailureReason.None ||
-                (pendingAcceptedValue.HasValue && args.Trade.Accepted == pendingAcceptedValue.Value))
-            {
-                clearPendingAccepted();
-            }
-
-            lock (updatedTradeLock)
-            {
-                updatedTrade = args.Trade;
-                tradeUpdated = true;
+                lock (updatedTradeLock)
+                {
+                    updatedTrade = args.Trade;
+                    tradeUpdated = true;
+                }
             }
 
             if (string.IsNullOrEmpty(args.Token))
@@ -338,7 +350,7 @@ namespace Phinix.TradeExtension.Client
             lock (pendingItemStacksLock)
             {
                 foundPendingThings = pendingItemStacks.TryGetValue(args.Token, out pendingThings);
-                if (foundPendingThings && args.FailureReason == TradeFailureReason.None)
+                if (foundPendingThings)
                 {
                     pendingItemStacks.Remove(args.Token);
                 }
@@ -351,8 +363,9 @@ namespace Phinix.TradeExtension.Client
 
             if (args.FailureReason == TradeFailureReason.None)
             {
-                foreach (Thing thing in pendingThings.Things)
+                foreach (PoppedThing pendingThing in pendingThings.Things)
                 {
+                    Thing thing = pendingThing.Thing;
                     if (!thing.Destroyed)
                     {
                         thing.Destroy();
@@ -361,12 +374,36 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            foreach (Thing thing in pendingThings.Things)
+            restorePoppedThings(pendingThings.Things, "TradeWindow.TradeUpdateFailure");
+            refreshAvailableItems();
+        }
+
+        private void restorePoppedThings(IEnumerable<PoppedThing> poppedThings, string context)
+        {
+            List<Thing> unrestoredThings = PoppedThing.RestoreAll(poppedThings, logMessage, context);
+            if (unrestoredThings.Count == 0)
             {
-                GenSpawn.Spawn(thing, thing.Position, thing.Map, thing.Rotation, WipeMode.VanishOrMoveAside);
+                return;
             }
 
-            refreshAvailableItems();
+            try
+            {
+                hostContext.DropPods(unrestoredThings);
+                hostContext.Log(new LogEventArgs(
+                    $"[{context}] Returned {unrestoredThings.Count} thing(s) by drop pod after direct restoration failed.",
+                    LogLevel.WARNING));
+            }
+            catch (Exception exception)
+            {
+                hostContext.Log(new LogEventArgs(
+                    $"[{context}] Failed to return {unrestoredThings.Count} thing(s) by drop pod.{Environment.NewLine}{exception}",
+                    LogLevel.ERROR));
+            }
+        }
+
+        private void logMessage(string message, LogLevel level)
+        {
+            hostContext.Log(new LogEventArgs(message, level));
         }
 
         private bool? getPendingAccepted()

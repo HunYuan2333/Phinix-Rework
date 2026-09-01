@@ -48,6 +48,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private readonly RedPacketSettings settings;
         private readonly IFrameworkClientTransport transport;
         private readonly RedPacketStateMachine stateMachine;
+        private readonly Action<string, LogLevel> log;
 
         private Vector2 availableItemsScroll = Vector2.zero;
         private Vector2 packetListScroll = Vector2.zero;
@@ -69,7 +70,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             IClientSettingsContext settingsContext,
             RedPacketSettings settings,
             IFrameworkClientTransport transport,
-            RedPacketStateMachine stateMachine)
+            RedPacketStateMachine stateMachine,
+            Action<string, LogLevel> log)
         {
             this.session = session;
             this.userDirectory = userDirectory;
@@ -77,6 +79,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             this.settings = settings;
             this.transport = transport;
             this.stateMachine = stateMachine;
+            this.log = log;
         }
 
         public string TabLabel => "Phinix_legacyRedpacket_tab".Translate();
@@ -123,25 +126,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void RefreshAvailableItems()
         {
-            IEnumerable<Map> homeMaps = Find.Maps.Where(map => map.IsPlayerHome);
-            IEnumerable<Thing> things;
-
+            List<Map> homeMaps = Find.Maps.Where(map => map != null && map.IsPlayerHome).ToList();
             bool allItemsTradable = settingsContext != null && settingsContext.Get("trade.allItemsTradable", false);
-            if (allItemsTradable)
-            {
-                things = homeMaps.SelectMany(map => map.listerThings.AllThings);
-            }
-            else
-            {
-                IEnumerable<SlotGroup> haulDestinations = homeMaps.SelectMany(map => map.haulDestinationManager.AllGroups);
-                things = haulDestinations.SelectMany(haulDestination => haulDestination.HeldThings);
-            }
-
             availableItems = StackedThings.GroupThings(
-                things.Where(thing =>
+                StoredThingCollector.Collect(homeMaps, allItemsTradable, log).Where(thing =>
                     thing.def.category == ThingCategory.Item
                     && !thing.def.IsCorpse
-                    && !(thing is MinifiedThing))
+                    && !(thing is MinifiedThing)),
+                log
             );
 
             selectedStack = null;
@@ -625,48 +617,74 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             string itemLabel = selectedStack.Label;
-            List<Thing> selectedThings = selectedStack.PopSelected().ToList();
-            if (!selectedThings.Any())
+            List<PoppedThing> poppedThings = null;
+            try
             {
+                poppedThings = selectedStack.PopSelectedWithOrigins().ToList();
+                if (!poppedThings.Any())
+                {
+                    Messages.Message("Phinix_legacyRedpacket_errorSelectItem".Translate(), MessageTypeDefOf.RejectInput);
+                    return;
+                }
+
+                foreach (PoppedThing poppedThing in poppedThings)
+                {
+                    poppedThing.DeSpawn();
+                }
+
+                List<Thing> selectedThings = poppedThings.Select(poppedThing => poppedThing.Thing).ToList();
+                TradeItemSnapshot sourceSnapshot = TradeItemConverter.ConvertThingFromVerse(selectedThings[0]);
+                TradeItemSnapshot template = new TradeItemSnapshot(
+                    sourceSnapshot.DefName,
+                    totalCount,
+                    sourceSnapshot.HitPoints,
+                    sourceSnapshot.Quality,
+                    sourceSnapshot.StuffDefName,
+                    sourceSnapshot.InnerItem);
+
+                bool special = stateMachine.IsSpecialPacketItem(template);
+                RedPacket packet = new RedPacket
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    SenderUuid = LocalUuid,
+                    SenderDisplayName = GetLocalDisplayName(),
+                    Template = template,
+                    TotalCount = totalCount,
+                    RemainingCount = totalCount,
+                    TotalPackets = packetCount,
+                    RemainingPackets = packetCount,
+                    Type = selectedType,
+                    LuckyAlgorithmVersion = stateMachine.GetLuckyAlgorithmVersionForType(selectedType),
+                    CreatedAtUtc = now,
+                    ExpiresAtUtc = now.AddMinutes(special ? 1 : 10),
+                    Expired = false
+                };
+
+                packet.StoredThings.AddRange(selectedThings);
+                stateMachine.AddLocalPacket(packet);
+            }
+            catch (Exception exception)
+            {
+                RestorePoppedThings(poppedThings);
+                selectedStack = null;
+                RefreshAvailableItems();
+                log?.Invoke(
+                    $"[RedPacketTab] Failed to create a red packet; selected things were restored.{Environment.NewLine}{exception}",
+                    LogLevel.ERROR);
                 Messages.Message("Phinix_legacyRedpacket_errorSelectItem".Translate(), MessageTypeDefOf.RejectInput);
                 return;
             }
 
-            foreach (Thing thing in selectedThings)
+            try
             {
-                if (thing.Spawned) thing.DeSpawn();
+                TryBroadcastChatAnnouncement();
             }
-
-            TradeItemSnapshot sourceSnapshot = TradeItemConverter.ConvertThingFromVerse(selectedThings[0]);
-            TradeItemSnapshot template = new TradeItemSnapshot(
-                sourceSnapshot.DefName,
-                totalCount,
-                sourceSnapshot.HitPoints,
-                sourceSnapshot.Quality,
-                sourceSnapshot.StuffDefName,
-                sourceSnapshot.InnerItem);
-
-            bool special = stateMachine.IsSpecialPacketItem(template);
-            RedPacket packet = new RedPacket
+            catch (Exception exception)
             {
-                Id = Guid.NewGuid().ToString("N"),
-                SenderUuid = LocalUuid,
-                SenderDisplayName = GetLocalDisplayName(),
-                Template = template,
-                TotalCount = totalCount,
-                RemainingCount = totalCount,
-                TotalPackets = packetCount,
-                RemainingPackets = packetCount,
-                Type = selectedType,
-                LuckyAlgorithmVersion = stateMachine.GetLuckyAlgorithmVersionForType(selectedType),
-                CreatedAtUtc = now,
-                ExpiresAtUtc = now.AddMinutes(special ? 1 : 10),
-                Expired = false
-            };
-
-            packet.StoredThings.AddRange(selectedThings);
-            stateMachine.AddLocalPacket(packet);
-            TryBroadcastChatAnnouncement();
+                log?.Invoke(
+                    $"[RedPacketTab] Red packet was created, but its chat announcement failed.{Environment.NewLine}{exception}",
+                    LogLevel.WARNING);
+            }
 
             Messages.Message("Phinix_legacyRedpacket_sentMessage".Translate(itemLabel, totalCount), MessageTypeDefOf.PositiveEvent);
             nextSendAllowedUtc = now.AddSeconds(SEND_COOLDOWN_SECONDS);
@@ -674,6 +692,30 @@ namespace Phinix.LegacyRedPacketExtension.Client
             selectedStack = null;
             packetCountText = "1";
             RefreshAvailableItems();
+        }
+
+        private void RestorePoppedThings(IEnumerable<PoppedThing> poppedThings)
+        {
+            List<Thing> unrestoredThings = PoppedThing.RestoreAll(poppedThings, log, "RedPacketTab.CreatePacket");
+            if (unrestoredThings.Count == 0)
+            {
+                return;
+            }
+
+            bool dropCurrentMap = settingsContext != null && settingsContext.Get("trade.dropCurrentMap", false);
+            try
+            {
+                RedPacketDropHelper.DropPodsWithLimit(unrestoredThings, dropCurrentMap);
+                log?.Invoke(
+                    $"[RedPacketTab] Returned {unrestoredThings.Count} thing(s) by drop pod after direct restoration failed.",
+                    LogLevel.WARNING);
+            }
+            catch (Exception exception)
+            {
+                log?.Invoke(
+                    $"[RedPacketTab] Failed to return {unrestoredThings.Count} thing(s) by drop pod.{Environment.NewLine}{exception}",
+                    LogLevel.ERROR);
+            }
         }
 
         private string GetLocalDisplayName()

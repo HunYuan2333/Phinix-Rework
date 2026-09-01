@@ -10,13 +10,15 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    public class ChatMainTabProvider : IMainTabProvider, IBadgeProvider
+    public class ChatMainTabProvider : IMainTabProvider, IBadgeProvider, IUiAcceptKeyHandler
     {
         private const float CHAT_TEXTBOX_HEIGHT = 30f;
         private const float CHAT_SEND_BUTTON_WIDTH = 80f;
         private const float DEFAULT_SPACING = 10f;
         private const float REPLY_BAR_HEIGHT = 24f;
         private const float REPLY_LINE_WIDTH = 3f;
+        private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
+        private const int REFOCUS_ATTEMPTS = 2;
 
         private static readonly Regex AtPartialRegex = new Regex(@"@([^\s]*)$", RegexOptions.Compiled);
 
@@ -25,9 +27,16 @@ namespace Phinix.ChatExtension.Client
         private readonly IClientUserDirectory userDirectory;
 
         private string message = "";
+        private bool chatInputOwned;
+        private int refocusAttemptsRemaining;
 
         public string TabLabel => "Phinix_tabs_chat".Translate();
         public float TabOrder => 0;
+
+        public bool WantsAcceptKey =>
+            chatInputOwned &&
+            !string.IsNullOrEmpty(message) &&
+            Find.WindowStack.FloatMenu == null;
 
         public string BadgeText
         {
@@ -88,24 +97,10 @@ namespace Phinix.ChatExtension.Client
                 }
             }
 
-            bool enterPressed = Event.current != null &&
-                Event.current.type == EventType.KeyDown &&
-                (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
-
+            GUI.SetNextControlName(CHAT_INPUT_CONTROL);
             message = Widgets.TextField(messageBoxRect, message);
-
-            if (enterPressed && !string.IsNullOrEmpty(message))
-            {
-                sendChatMessage();
-                // Fully claim the Enter/KeypadEnter event here so it neither
-                // bubbles up to RimWorld's Window layer (which could close this
-                // MainTabWindow on Enter) nor leaks to other mods that draw later
-                // in the same frame. This is intentionally scoped to "we actually
-                // sent": when the message is empty we leave the event untouched,
-                // so RimTalk & co. still get their own Enter-to-send.
-                Event.current.Use();
-                Event.current.keyCode = KeyCode.None;
-            }
+            UpdateInputOwnership(messageBoxRect);
+            TryRefocusAfterAccept();
 
             if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))
             {
@@ -113,6 +108,72 @@ namespace Phinix.ChatExtension.Client
             }
 
             HandleAtAutocomplete(messageBoxRect);
+        }
+
+        public bool TryHandleAcceptKey()
+        {
+            if (!WantsAcceptKey)
+            {
+                return false;
+            }
+
+            sendChatMessage();
+            refocusAttemptsRemaining = REFOCUS_ATTEMPTS;
+            return true;
+        }
+
+        private void UpdateInputOwnership(Rect messageBoxRect)
+        {
+            Event current = Event.current;
+            bool mouseDown = current != null &&
+                (current.type == EventType.MouseDown || current.rawType == EventType.MouseDown);
+
+            if (mouseDown)
+            {
+                chatInputOwned = current.button == 0 && Mouse.IsOver(messageBoxRect);
+                refocusAttemptsRemaining = 0;
+                return;
+            }
+
+            bool currentlyFocused = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL;
+            if (currentlyFocused)
+            {
+                chatInputOwned = true;
+            }
+        }
+
+        private void TryRefocusAfterAccept()
+        {
+            if (refocusAttemptsRemaining <= 0)
+            {
+                return;
+            }
+
+            Event current = Event.current;
+            bool mouseDown = current != null &&
+                (current.type == EventType.MouseDown || current.rawType == EventType.MouseDown);
+            Window currentWindow = Find.WindowStack.currentlyDrawnWindow;
+            if (mouseDown ||
+                Find.WindowStack.FloatMenu != null ||
+                currentWindow == null ||
+                !Find.WindowStack.GetsInput(currentWindow))
+            {
+                refocusAttemptsRemaining = 0;
+                return;
+            }
+
+            if (current == null || current.type != EventType.Repaint)
+            {
+                return;
+            }
+
+            GUI.FocusControl(CHAT_INPUT_CONTROL);
+            refocusAttemptsRemaining--;
+            chatInputOwned = true;
+            if (GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL)
+            {
+                refocusAttemptsRemaining = 0;
+            }
         }
 
         private void HandleAtAutocomplete(Rect textFieldRect)

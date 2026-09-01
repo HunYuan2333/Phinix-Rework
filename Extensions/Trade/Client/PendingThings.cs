@@ -1,6 +1,4 @@
 using System;
-using Verse;
-
 namespace Phinix.TradeExtension.Client
 {
     internal struct PendingThings
@@ -8,7 +6,7 @@ namespace Phinix.TradeExtension.Client
         /// <summary>
         /// Collection of stacked items that were added to the trade.
         /// </summary>
-        public Thing[] Things;
+        public PoppedThing[] Things;
 
         /// <summary>
         /// Time the trade update was created.
