@@ -1,0 +1,33 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <OutputType>Exe</OutputType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <AssemblyName>LegacyTradeRuntimeTests</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Memory">
+      <HintPath>..\..\.nuget\System.Memory.4.5.3\lib\netstandard2.0\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>..\..\.nuget\System.Runtime.CompilerServices.Unsafe.4.5.2\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Compile Include="Program.cs" />
+    <ProjectReference Include="..\..\Extensions\Trade\Client\TradeExtension.Client.csproj" />
+    <ProjectReference Include="..\..\Extensions\LegacyAdapter\Client\PhinixLegacyAdapter.Client.csproj" />
+    <ProjectReference Include="..\..\Extensions\Trade\Contracts\TradeExtension.csproj" />
+    <ProjectReference Include="..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj" />
+    <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj" />
+    <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />
+    <ProjectReference Include="..\..\Common\Connections\Connections.csproj" />
+    <ProjectReference Include="..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

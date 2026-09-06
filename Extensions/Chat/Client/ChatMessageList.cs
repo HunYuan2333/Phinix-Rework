@@ -54,6 +54,8 @@ namespace Phinix.ChatExtension.Client
         private readonly IChatUiHostContext hostContext;
 
         private bool messagesChanged;
+        private bool layoutDirty = true;
+        private Rect layoutRect;
         private Vector2 chatScroll = new Vector2(0, 0);
         private float oldHeight;
         private float cachedTotalHeight;
@@ -123,26 +125,45 @@ namespace Phinix.ChatExtension.Client
             }
             wasOnline = online;
 
-            if (clearMessages)
+            bool markAsRead = false;
+            if (Monitor.TryEnter(messagesLock))
             {
-                filteredMessages.Clear();
-                clearMessages = false;
-                recalculateMessageRects(inRect);
+                try
+                {
+                    if (clearMessages)
+                    {
+                        filteredMessages.Clear();
+                        messageImageStates.Clear();
+                        clearMessages = false;
+                        layoutDirty = true;
+                    }
+
+                    if (messagesChanged)
+                    {
+                        filteredMessages.Clear();
+                        filteredMessages.AddRange(messages);
+                        messagesChanged = false;
+                        layoutDirty = true;
+                        markAsRead = true;
+                    }
+                }
+                finally
+                {
+                    Monitor.Exit(messagesLock);
+                }
             }
 
-            if (messagesChanged)
+            if (markAsRead)
             {
-                if (Monitor.TryEnter(messagesLock))
-                {
-                    filteredMessages.Clear();
-                    filteredMessages.AddRange(messages);
-                    messagesChanged = false;
+                hostContext.ChatService.MarkAsRead();
+            }
 
-                    hostContext.ChatService.MarkAsRead();
-
-                    Monitor.Exit(messagesLock);
-                    recalculateMessageRects(inRect);
-                }
+            if (layoutDirty || !layoutRect.Equals(inRect))
+            {
+                layoutDirty = true;
+                recalculateMessageRects(inRect);
+                layoutRect = inRect;
+                layoutDirty = false;
             }
 
             if (filteredMessages.Count == 0)
@@ -167,12 +188,24 @@ namespace Phinix.ChatExtension.Client
 
             Widgets.BeginScrollView(inRect, ref chatScroll, innerContainer);
 
-            foreach (UIChatMessage chatMessage in filteredMessages)
+            try
             {
-                drawChatMessage(messageRectCache[chatMessage.MessageId], chatMessage);
+                foreach (UIChatMessage chatMessage in filteredMessages)
+                {
+                    if (messageRectCache.TryGetValue(chatMessage.MessageId, out Rect messageRect))
+                    {
+                        drawChatMessage(messageRect, chatMessage);
+                    }
+                    else
+                    {
+                        layoutDirty = true;
+                    }
+                }
             }
-
-            Widgets.EndScrollView();
+            finally
+            {
+                Widgets.EndScrollView();
+            }
 
             if (flashHighlightId != null && Time.realtimeSinceStartup > flashHighlightUntil)
             {
@@ -206,8 +239,8 @@ namespace Phinix.ChatExtension.Client
             lock (messagesLock)
             {
                 messages.Clear();
-                messageImageStates.Clear();
                 clearMessages = true;
+                messagesChanged = true;
             }
         }
 
@@ -232,11 +265,6 @@ namespace Phinix.ChatExtension.Client
                 int removedCount = messages.Count - hostContext.ChatMessageLimit;
                 if (removedCount > 0)
                 {
-                    for (int i = 0; i < removedCount; i++)
-                    {
-                        messageImageStates.Remove(messages[i].MessageId);
-                    }
-
                     messages.RemoveRange(0, removedCount);
                 }
             }
@@ -259,6 +287,12 @@ namespace Phinix.ChatExtension.Client
         {
             messageRectCache.Clear();
             displayCache.Clear();
+
+            HashSet<string> activeMessageIds = new HashSet<string>(filteredMessages.Select(message => message.MessageId));
+            foreach (string messageId in messageImageStates.Keys.Where(messageId => !activeMessageIds.Contains(messageId)).ToArray())
+            {
+                messageImageStates.Remove(messageId);
+            }
 
             string localUuid = hostContext.Uuid;
             float currentY = inRect.yMin;
@@ -734,21 +768,23 @@ namespace Phinix.ChatExtension.Client
             List<Action<Texture2D>> callbacks = new List<Action<Texture2D>> { texture => ApplyLoadedTexture(state, texture) };
             pendingImageCallbacks[state.Url] = callbacks;
 
-            UnityWebRequest request;
+            UnityWebRequest request = null;
+            UnityWebRequestAsyncOperation operation;
             try
             {
                 request = UnityWebRequestTexture.GetTexture(state.Url);
                 request.timeout = 30;
+                operation = request.SendWebRequest();
             }
             catch (Exception ex)
             {
+                request?.Dispose();
                 pendingImageCallbacks.Remove(state.Url);
-                hostContext.Log(new LogEventArgs(string.Format("Failed to create image request for {0}: {1}", state.Url, ex.Message), LogLevel.WARNING));
                 InvokeImageCallbacks(callbacks, null);
+                hostContext.Log(new LogEventArgs(string.Format("Failed to start image request for {0}: {1}", state.Url, ex.Message), LogLevel.WARNING));
                 return;
             }
 
-            var operation = request.SendWebRequest();
             operation.completed += _ =>
             {
                 pendingImageCallbacks.Remove(state.Url);
@@ -819,7 +855,7 @@ namespace Phinix.ChatExtension.Client
 
             if (wasLoading)
             {
-                messagesChanged = true;
+                layoutDirty = true;
             }
         }
 
