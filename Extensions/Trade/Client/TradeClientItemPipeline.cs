@@ -74,7 +74,6 @@ namespace Phinix.TradeExtension.Client
         {
             return (tradeItems ?? Enumerable.Empty<TradeItemSnapshot>())
                 .Select(encodeTradeItem)
-                .Where(payload => payload != null)
                 .ToArray();
         }
 
@@ -88,21 +87,21 @@ namespace Phinix.TradeExtension.Client
 
         private FrameworkItemPayload encodeTradeItem(TradeItemSnapshot item)
         {
-            IItemCodec codec = codecs.FirstOrDefault(candidate => candidate.CanEncode(item, codecContext));
-            if (codec == null)
-            {
-                codecContext.Log?.Invoke("No item codec could encode trade item payload; dropping item.", LogLevel.WARNING);
-                return null;
-            }
-
+            IItemCodec codec = null;
             try
             {
-                return codec.Encode(item, codecContext);
+                codec = codecs.FirstOrDefault(candidate => candidate.CanEncode(item, codecContext));
+                if (codec == null)
+                {
+                    throw new InvalidOperationException("No item codec can encode this trade item.");
+                }
+
+                return codec.Encode(item, codecContext)
+                    ?? throw new InvalidOperationException($"Item codec '{codec.CodecId}' returned no payload.");
             }
             catch (Exception exception)
             {
-                codecContext.Log?.Invoke($"Failed to encode item with codec '{codec.CodecId}': {exception.Message}", LogLevel.WARNING);
-                return null;
+                throw new InvalidOperationException($"The entire trade update was rejected because item encoding failed (codec '{codec?.CodecId ?? "unresolved"}').", exception);
             }
         }
 

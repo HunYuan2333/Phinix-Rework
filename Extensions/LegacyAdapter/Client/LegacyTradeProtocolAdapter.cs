@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Connections;
 using Google.Protobuf;
 using Phinix.TradeExtension;
 using Phinix.TradeExtension.Client;
@@ -137,23 +138,28 @@ namespace Phinix.LegacyAdapter.Client
                     var payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateRequest>(packet.PayloadJson);
                     if (payload != null)
                     {
-                        int rawCount = payload.Items?.Count ?? 0;
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate tradeId={payload.TradeId}, rawItems={rawCount}", LogLevel.DEBUG);
-
-                        var items = ConvertToProtoThings(payload.Items);
-                        int convertedCount = items?.Count ?? 0;
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate converted {rawCount} items → {convertedCount} proto things", LogLevel.DEBUG);
-
-                        if (rawCount > 0 && convertedCount == 0)
+                        var resultApi = tradeApi as IFrameworkTradeUpdateResultApi
+                            ?? throw new InvalidOperationException("Trade operation result API is unavailable.");
+                        string token = packet.GetCorrelationId();
+                        if (string.IsNullOrEmpty(token)) token = Guid.NewGuid().ToString();
+                        resultApi.BeginTradeUpdate(payload.TradeId, token);
+                        try
                         {
-                            string firstCodecId = payload.Items[0]?.CodecId ?? "null";
-                            log?.Invoke(
-                                $"[LegacyAdapter] ERROR: All {rawCount} items dropped during conversion! First item CodecId={firstCodecId}, PayloadBytes.Length={payload.Items[0]?.PayloadBytes?.Length ?? -1}, PayloadJson.Length={payload.Items[0]?.PayloadJson?.Length ?? -1}",
-                                LogLevel.ERROR);
+                            if (payload.ItemPacketRefs != null && payload.ItemPacketRefs.Count > 0)
+                            {
+                                throw new InvalidOperationException("Legacy trade updates require complete item payloads.");
+                            }
+                            var items = ConvertToProtoThings(payload.Items);
+                            SendUpdateItems(payload.TradeId, items, token);
                         }
-
-                        SendUpdateItems(payload.TradeId, items, packet.GetCorrelationId());
-                        ApplyLocalOfferSnapshot(payload.TradeId, payload.Items, packet.GetCorrelationId());
+                        catch (Exception ex)
+                        {
+                            if (!(ex is TradeSendOutcomeUnknownException))
+                            {
+                                resultApi.CompleteTradeUpdate(payload.TradeId, token, TradeFailureReason.InternalServerError, ex.Message);
+                            }
+                            throw;
+                        }
                     }
                     else
                     {
@@ -205,30 +211,35 @@ namespace Phinix.LegacyAdapter.Client
 
         public void SendUpdateItems(string tradeId, IEnumerable<Trading.ProtoThing> items, string token = "")
         {
+            var packet = new Trading.UpdateTradeItemsPacket
+            {
+                SessionId = sessionContext.SessionId ?? string.Empty,
+                Uuid = sessionContext.Uuid ?? string.Empty,
+                TradeId = tradeId ?? string.Empty,
+                Token = token ?? string.Empty
+            };
+            if (items != null) packet.Items.AddRange(items);
+            byte[] packedBytes = ProtobufPacketHelper.Pack(packet).ToByteArray();
+
             try
             {
-                var packet = new Trading.UpdateTradeItemsPacket
-                {
-                    SessionId = sessionContext.SessionId ?? string.Empty,
-                    Uuid = sessionContext.Uuid ?? string.Empty,
-                    TradeId = tradeId ?? string.Empty,
-                    Token = token ?? string.Empty
-                };
-                if (items != null)
-                    packet.Items.AddRange(items);
-
-                int itemCount = packet.Items.Count;
-                var packed = ProtobufPacketHelper.Pack(packet);
-                byte[] packedBytes = packed.ToByteArray();
-                log?.Invoke(
-                    $"[LegacyAdapter] SendUpdateItems: tradeId={tradeId}, items={itemCount}, bytes={packedBytes.Length}, module=Trading",
-                    LogLevel.DEBUG);
                 legacyTransport.Send(TradingModuleName, packedBytes);
-                log?.Invoke($"[LegacyAdapter] Sent UpdateTradeItems for {tradeId} ({itemCount} items)", LogLevel.DEBUG);
+            }
+            catch (NotConnectedException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                log?.Invoke($"[LegacyAdapter] Failed to send UpdateTradeItems: {ex}", LogLevel.ERROR);
+                throw new TradeSendOutcomeUnknownException(ex);
+            }
+        }
+
+        private sealed class TradeSendOutcomeUnknownException : Exception
+        {
+            public TradeSendOutcomeUnknownException(Exception innerException)
+                : base("The trade send outcome is unknown; pending items must be retained until a server response or reconciliation.", innerException)
+            {
             }
         }
 
@@ -353,7 +364,7 @@ namespace Phinix.LegacyAdapter.Client
             log?.Invoke($"[LegacyAdapter] Trade completed/cancelled: {packet.TradeId} success={packet.Success}", LogLevel.DEBUG);
         }
 
-        private void ApplyLocalOfferSnapshot(string tradeId, List<FrameworkItemPayload> items, string token)
+        private void ApplyConfirmedOfferSnapshot(string tradeId, List<FrameworkItemPayload> items)
         {
             if (tradeApi == null || string.IsNullOrEmpty(tradeId))
                 return;
@@ -363,7 +374,7 @@ namespace Phinix.LegacyAdapter.Client
             if (target == null)
             {
                 log?.Invoke(
-                    $"[LegacyAdapter] ApplyLocalOfferSnapshot: trade {tradeId} not in repo; waiting for legacy echo",
+                    $"[LegacyAdapter] Confirmed offer for unknown trade {tradeId}; no snapshot updated",
                     LogLevel.WARNING);
                 return;
             }
@@ -376,18 +387,15 @@ namespace Phinix.LegacyAdapter.Client
             if (local == null)
             {
                 log?.Invoke(
-                    $"[LegacyAdapter] ApplyLocalOfferSnapshot: local participant '{sessionContext.Uuid}' not found for {tradeId}",
+                    $"[LegacyAdapter] Confirmed offer: local participant '{sessionContext.Uuid}' not found for {tradeId}",
                     LogLevel.ERROR);
                 return;
             }
 
-            if (!string.IsNullOrEmpty(token))
-                tradeApi.TrackPendingTradeUpdate(tradeId, token);
-
             local.ItemsOnOffer = CloneFrameworkItems(items);
             legacyRepositoryApi?.UpsertTrade(target);
             log?.Invoke(
-                $"[LegacyAdapter] ApplyLocalOfferSnapshot: local offer updated for {tradeId}, items={local.ItemsOnOffer.Count}",
+                $"[LegacyAdapter] Confirmed local offer updated for {tradeId}, items={local.ItemsOnOffer.Count}",
                 LogLevel.DEBUG);
         }
 
@@ -464,27 +472,13 @@ namespace Phinix.LegacyAdapter.Client
             {
                 // Legacy update packets are client-perspective snapshots: Items=local offer,
                 // OtherPartyItems=remote offer. This also covers server echo packets with empty Uuid.
-                if (packet.Items.Count > 0 || (local.ItemsOnOffer == null || local.ItemsOnOffer.Count == 0))
-                {
-                    local.ItemsOnOffer = ConvertProtoThings(packet.Items);
-                }
-                else
-                {
-                    log?.Invoke(
-                        $"[LegacyAdapter] HandleUpdateItems: preserving local offer for {packet.TradeId}; legacy echo Items is empty",
-                        LogLevel.DEBUG);
-                }
+                local.ItemsOnOffer = ConvertProtoThings(packet.Items);
                 remote.ItemsOnOffer = ConvertProtoThings(packet.OtherPartyItems);
             }
             else
             {
                 remote.ItemsOnOffer = ConvertProtoThings(packet.Items);
                 local.ItemsOnOffer = ConvertProtoThings(packet.OtherPartyItems);
-            }
-
-            if (!string.IsNullOrEmpty(packet.Token))
-            {
-                tradeApi.TrackPendingTradeUpdate(packet.TradeId, packet.Token);
             }
 
             legacyRepositoryApi?.UpsertTrade(target);
@@ -495,7 +489,14 @@ namespace Phinix.LegacyAdapter.Client
         {
             if (packet == null) return;
 
-            if (!packet.Success)
+            var resultApi = tradeApi as IFrameworkTradeUpdateResultApi
+                ?? throw new InvalidOperationException("Trade operation result API is unavailable.");
+            if (!resultApi.IsTradeUpdatePending(packet.TradeId, packet.Token)) return;
+
+            ApplyConfirmedOfferSnapshot(packet.TradeId, ConvertProtoThings(packet.Items));
+            TradeFailureReason failureReason = packet.Success ? TradeFailureReason.None : ConvertFailureReason(packet.FailureReason);
+            bool completed = resultApi.CompleteTradeUpdate(packet.TradeId, packet.Token, failureReason, packet.FailureMessage);
+            if (completed && !packet.Success)
             {
                 displaySink.Enqueue(new FrameworkDisplayMessage
                 {
@@ -503,6 +504,21 @@ namespace Phinix.LegacyAdapter.Client
                     Source = "system",
                     Text = $"物品更新失败: {packet.FailureMessage ?? "未知原因"}"
                 });
+            }
+        }
+
+        private static TradeFailureReason ConvertFailureReason(Trading.TradeFailureReason reason)
+        {
+            switch (reason)
+            {
+                case Trading.TradeFailureReason.SessionId: return TradeFailureReason.SessionInvalid;
+                case Trading.TradeFailureReason.Uuid: return TradeFailureReason.LoginInvalid;
+                case Trading.TradeFailureReason.OtherPartyOffline: return TradeFailureReason.OtherPartyOffline;
+                case Trading.TradeFailureReason.OtherPartyDoesNotExist: return TradeFailureReason.OtherPartyDoesNotExist;
+                case Trading.TradeFailureReason.AlreadyTrading: return TradeFailureReason.AlreadyTrading;
+                case Trading.TradeFailureReason.TradeDoesNotExist: return TradeFailureReason.TradeDoesNotExist;
+                case Trading.TradeFailureReason.NotAcceptingTrades: return TradeFailureReason.NotAcceptingTrades;
+                default: return TradeFailureReason.InternalServerError;
             }
         }
 
@@ -788,8 +804,11 @@ namespace Phinix.LegacyAdapter.Client
             {
                 var payload = payloads[i];
                 var protoThing = ConvertToProtoThing(payload, i);
-                if (protoThing != null)
-                    protoThings.Add(protoThing);
+                if (protoThing == null)
+                {
+                    throw new InvalidOperationException($"Trade item {i} cannot be represented by the legacy server; the entire update was rejected.");
+                }
+                protoThings.Add(protoThing);
             }
             return protoThings;
         }
@@ -801,6 +820,11 @@ namespace Phinix.LegacyAdapter.Client
         private Trading.ProtoThing ConvertToProtoThing(FrameworkItemPayload payload, int index)
         {
             if (payload == null) return null;
+
+            if (!string.Equals(payload.CodecId, "core.item.vanilla", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Legacy trading does not support item codec '{payload.CodecId}'.");
+            }
 
             // 优先从 PayloadBytes 反序列化 FrameworkVanillaItemData（"core.item.vanilla" codec）
             if (payload.PayloadBytes != null && payload.PayloadBytes.Length > 0)

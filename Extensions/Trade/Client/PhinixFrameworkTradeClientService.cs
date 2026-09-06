@@ -9,7 +9,7 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi
+    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkTradeUpdateResultApi
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private readonly ITradeItemPayloadEncoder itemPipeline;
@@ -17,6 +17,8 @@ namespace Phinix.TradeExtension.Client
         private readonly Action<LogEventArgs> log;
         private readonly Dictionary<string, string> pendingTradeCreationByTradeId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> pendingTradeUpdateTokensByTradeId = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, HashSet<string>> unconfirmedTradeUpdates = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly object tradeUpdateLock = new object();
 
         public event EventHandler RepositoryChanged;
         public event EventHandler<TradeCreationEventArgs> OnTradeCreationSuccess;
@@ -240,6 +242,66 @@ namespace Phinix.TradeExtension.Client
             };
         }
 
+        public void BeginTradeUpdate(string tradeId, string token)
+        {
+            if (string.IsNullOrEmpty(tradeId))
+            {
+                throw new ArgumentException("A trade ID is required.", nameof(tradeId));
+            }
+
+            lock (tradeUpdateLock)
+            {
+                if (!unconfirmedTradeUpdates.TryGetValue(tradeId, out HashSet<string> tokens))
+                {
+                    tokens = new HashSet<string>(StringComparer.Ordinal);
+                    unconfirmedTradeUpdates.Add(tradeId, tokens);
+                }
+
+                if (!tokens.Add(token ?? string.Empty))
+                {
+                    throw new InvalidOperationException("This trade update is already awaiting a result.");
+                }
+            }
+        }
+
+        public bool IsTradeUpdatePending(string tradeId, string token)
+        {
+            if (string.IsNullOrEmpty(tradeId)) return false;
+            lock (tradeUpdateLock)
+            {
+                return unconfirmedTradeUpdates.TryGetValue(tradeId, out HashSet<string> tokens) &&
+                    tokens.Contains(token ?? string.Empty);
+            }
+        }
+
+        public bool CompleteTradeUpdate(string tradeId, string token, TradeFailureReason failureReason, string failureMessage)
+        {
+            if (string.IsNullOrEmpty(tradeId)) return false;
+
+            ClientTradeSnapshot trade = GetTradeOrPlaceholder(tradeId);
+            lock (tradeUpdateLock)
+            {
+                if (!unconfirmedTradeUpdates.TryGetValue(tradeId, out HashSet<string> tokens) ||
+                    !tokens.Remove(token ?? string.Empty))
+                {
+                    return false;
+                }
+
+                if (tokens.Count == 0) unconfirmedTradeUpdates.Remove(tradeId);
+            }
+
+            TradeUpdateEventArgs args = new TradeUpdateEventArgs(trade, failureReason, failureMessage, token);
+            if (failureReason == TradeFailureReason.None)
+            {
+                OnTradeUpdateSuccess?.Invoke(this, args);
+            }
+            else
+            {
+                OnTradeUpdateFailure?.Invoke(this, args);
+            }
+            return true;
+        }
+
         public void TrackPendingTradeUpdate(string tradeId, string token)
         {
             if (string.IsNullOrEmpty(tradeId))
@@ -459,8 +521,7 @@ namespace Phinix.TradeExtension.Client
             }
             else if (existed)
             {
-                bool emittedPendingEvent = FlushPendingEventsForTrade(snapshot.TradeId, true);
-                if (!emittedPendingEvent && TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot updatedTrade))
+                if (TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot updatedTrade))
                 {
                     log?.Invoke(new LogEventArgs(
                         $"Legacy trade update event emitted for '{snapshot.TradeId}'.",

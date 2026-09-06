@@ -4,6 +4,8 @@
 >
 > **中文版**：[设计哲学.md](./设计哲学.md)
 >
+> **Compatibility boundaries and recovery contracts (Chinese)**: [Compatibility-Boundaries.md](./Compatibility-Boundaries.md)
+>
 > **Last updated**: 2026-06-01, compiled based on Phase 5 architecture migration landing point and codebase audit.
 
 ---

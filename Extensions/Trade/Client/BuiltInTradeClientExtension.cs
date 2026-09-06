@@ -64,6 +64,7 @@ namespace Phinix.TradeExtension.Client
                 builder.HostContext.GetRequiredService<IClientSessionContext>(),
                 builder.HostContext.Log);
             builder.RegisterApi(tradeApi);
+            builder.RegisterApi<IFrameworkTradeUpdateResultApi>((IFrameworkTradeUpdateResultApi)tradeApi);
             builder.RegisterApi<IFrameworkLegacyTradeRepositoryApi>(legacyTradeAdapter);
             builder.RegisterApi<IFrameworkLegacyTradeCompletionApi>(legacyTradeAdapter);
             builder.RegisterApi(tradeFacade);
