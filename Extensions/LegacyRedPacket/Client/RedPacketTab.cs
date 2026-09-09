@@ -40,7 +40,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private const float RIGHT_PADDING = 5f;
         private const int SEND_COOLDOWN_SECONDS = 60;
 
-        private static readonly Regex ItemCountInputRegex = new Regex("\\d*");
+        private static readonly Regex ItemCountInputRegex = new Regex("\\d*", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         private readonly IClientSessionContext session;
         private readonly IClientUserDirectory userDirectory;
@@ -268,49 +268,60 @@ namespace Phinix.LegacyRedPacketExtension.Client
             bool scrollRequired = contentRect.height > inRect.height;
             if (scrollRequired) Widgets.BeginScrollView(inRect, ref availableItemsScroll, contentRect);
 
-            bool alternateBackground = false;
-            float currentY = contentRect.yMin;
+            // RP-09: 只绘制可见行
+            int firstVisible = Mathf.Max(0, Mathf.FloorToInt((scrollRequired ? availableItemsScroll.y : 0f) / rowHeight) - 1);
+            int lastVisible = Mathf.Min(drawCount - 1,
+                Mathf.CeilToInt(((scrollRequired ? availableItemsScroll.y : 0f) + inRect.height) / rowHeight) + 1);
+
+            int drawIndex = 0;
             for (int i = 0; i < filteredItems.Count; i++)
             {
                 StackedThings stack = filteredItems[i];
                 if (stack.Things.Count == 0) continue;
 
-                Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
-                if (alternateBackground || selectedStack == stack) Widgets.DrawHighlight(rowRect);
+                if (drawIndex > lastVisible) break;
 
-                Rect iconRect = rowRect.LeftPartPixels(ITEM_ICON_WIDTH);
-                Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
-
-                float inputAreaWidth = COUNT_FIELD_WIDTH + AVAILABLE_COUNT_WIDTH + DEFAULT_SPACING;
-                Rect inputAreaRect = new Rect(rowRect.xMax - (RIGHT_PADDING + inputAreaWidth), rowRect.yMin, inputAreaWidth, rowRect.height);
-                Rect quantityFieldRect = new Rect(inputAreaRect.xMin, inputAreaRect.yMin, COUNT_FIELD_WIDTH, inputAreaRect.height);
-                Rect availableCountRect = new Rect(quantityFieldRect.xMax + DEFAULT_SPACING, inputAreaRect.yMin, AVAILABLE_COUNT_WIDTH, inputAreaRect.height);
-
-                Rect itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin, inputAreaRect.xMin - iconRect.xMax - (DEFAULT_SPACING * 2), rowRect.height);
-                if (itemNameRect.width < 0f) itemNameRect.width = 0f;
-
-                int oldSelected = stack.Selected;
-
-                string buf = stack.Selected == 0 ? string.Empty : stack.Selected.ToString();
-                buf = Widgets.TextField(quantityFieldRect, buf, 100, ItemCountInputRegex);
-                stack.Selected = string.IsNullOrEmpty(buf) ? 0 : Mathf.Clamp(int.Parse(buf), 0, stack.Count);
-
-                TextAnchor previousAnchor = Text.Anchor;
-                GameFont previousFont = Text.Font;
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Text.Font = GameFont.Small;
-                Widgets.Label(availableCountRect, "/ " + stack.Count);
-                Widgets.LabelFit(itemNameRect, stack.Label);
-                Text.Anchor = previousAnchor;
-                Text.Font = previousFont;
-
-                if (stack.Selected != oldSelected)
+                if (drawIndex >= firstVisible)
                 {
-                    OnSelectedChanged(stack, stack.Selected);
+                    float currentY = contentRect.yMin + drawIndex * rowHeight;
+                    Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
+                    if ((drawIndex % 2 != 0) || selectedStack == stack) Widgets.DrawHighlight(rowRect);
+
+                    Rect iconRect = rowRect.LeftPartPixels(ITEM_ICON_WIDTH);
+                    Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
+
+                    float inputAreaWidth = COUNT_FIELD_WIDTH + AVAILABLE_COUNT_WIDTH + DEFAULT_SPACING;
+                    Rect inputAreaRect = new Rect(rowRect.xMax - (RIGHT_PADDING + inputAreaWidth), rowRect.yMin, inputAreaWidth, rowRect.height);
+                    Rect quantityFieldRect = new Rect(inputAreaRect.xMin, inputAreaRect.yMin, COUNT_FIELD_WIDTH, inputAreaRect.height);
+                    Rect availableCountRect = new Rect(quantityFieldRect.xMax + DEFAULT_SPACING, inputAreaRect.yMin, AVAILABLE_COUNT_WIDTH, inputAreaRect.height);
+
+                    Rect itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin, inputAreaRect.xMin - iconRect.xMax - (DEFAULT_SPACING * 2), rowRect.height);
+                    if (itemNameRect.width < 0f) itemNameRect.width = 0f;
+
+                    int oldSelected = stack.Selected;
+
+                    string buf = stack.Selected == 0 ? string.Empty : stack.Selected.ToString();
+                    buf = Widgets.TextField(quantityFieldRect, buf, 100, ItemCountInputRegex);
+                    stack.Selected = string.IsNullOrEmpty(buf) ? 0
+                        : int.TryParse(buf, out int parsedCount) ? Mathf.Clamp(parsedCount, 0, stack.Count)
+                        : stack.Selected;
+
+                    TextAnchor previousAnchor = Text.Anchor;
+                    GameFont previousFont = Text.Font;
+                    Text.Anchor = TextAnchor.MiddleLeft;
+                    Text.Font = GameFont.Small;
+                    Widgets.Label(availableCountRect, "/ " + stack.Count);
+                    Widgets.LabelFit(itemNameRect, stack.Label);
+                    Text.Anchor = previousAnchor;
+                    Text.Font = previousFont;
+
+                    if (stack.Selected != oldSelected)
+                    {
+                        OnSelectedChanged(stack, stack.Selected);
+                    }
                 }
 
-                alternateBackground = !alternateBackground;
-                currentY += rowHeight;
+                drawIndex++;
             }
 
             if (scrollRequired) Widgets.EndScrollView();
@@ -381,12 +392,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Text.Font = previousListFont;
 
             Rect viewRect = new Rect(0f, 0f, viewWidth, rowHeight * packets.Length);
-            float currentY = 0f;
 
             Widgets.BeginScrollView(listBodyRect, ref packetListScroll, viewRect);
-            for (int i = 0; i < packets.Length; i++)
+
+            // RP-09: 只绘制可见行及少量 overscan，避免大列表每帧遍历全部行
+            int firstVisible = Mathf.Max(0, Mathf.FloorToInt(packetListScroll.y / rowHeight) - 1);
+            int lastVisible = Mathf.Min(packets.Length - 1,
+                Mathf.CeilToInt((packetListScroll.y + listBodyRect.height) / rowHeight) + 1);
+
+            for (int i = firstVisible; i <= lastVisible; i++)
             {
                 RedPacket packet = packets[i];
+                float currentY = i * rowHeight;
 
                 Rect rowRect = new Rect(viewRect.xMin, currentY, viewRect.width, rowHeight);
                 if (i % 2 != 0) Widgets.DrawHighlight(rowRect);
@@ -402,8 +419,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
                 DrawPacketRowText(textRect, packet);
                 DrawPacketRowAction(buttonRect, packet);
-
-                currentY += rowHeight;
             }
             Widgets.EndScrollView();
         }

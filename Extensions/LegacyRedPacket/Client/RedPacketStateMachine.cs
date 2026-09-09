@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using PhinixClient.Framework;
@@ -27,7 +28,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
     /// 驱动：Timer 每 200ms 通过主线程调度器触发 Tick（中继轮询 + 状态机 + 过期结算）。
     /// 设计哲学 §3.5/§3.6/§3.8：异常隔离、有界集合、日志分级。
     /// </summary>
-    internal sealed class RedPacketStateMachine
+    internal sealed class RedPacketStateMachine : IDisposable
     {
         private static readonly object PacketsLock = new object();
         private static readonly Dictionary<string, RedPacket> Packets = new Dictionary<string, RedPacket>();
@@ -35,6 +36,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private static readonly Dictionary<string, DateTime> PendingClaims = new Dictionary<string, DateTime>();
         private static readonly object ProcessedLock = new object();
         private static readonly HashSet<string> ProcessedProtocolKeys = new HashSet<string>();
+        /// <summary>RP-05: FIFO 淘汰顺序，与 ProcessedProtocolKeys 同步。</summary>
+        private static readonly Queue<string> ProcessedProtocolKeyOrder = new Queue<string>();
         private static volatile bool testPingReceived;
         private static DateTime nextExpiryCheckUtc = DateTime.MinValue;
         private static DateTime nextClaimTimeoutCheckUtc = DateTime.MinValue;
@@ -128,6 +131,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             Clear();
+        }
+
+        /// <summary>
+        /// RP-13: IDisposable 实现，幂等委托到 Shutdown。
+        /// </summary>
+        public void Dispose()
+        {
+            if (!disposed) Shutdown();
         }
 
         private void OnDriveTick(object sender, System.Timers.ElapsedEventArgs e)
@@ -377,6 +388,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             lock (ProcessedLock)
             {
                 ProcessedProtocolKeys.Clear();
+                ProcessedProtocolKeyOrder.Clear();
             }
             relay?.Clear();
             MarkBadgeDirty();
@@ -408,9 +420,32 @@ namespace Phinix.LegacyRedPacketExtension.Client
             claimableCount = count;
         }
 
-        private void HandleCreate(string[] parts)
+        /// <summary>
+        /// RP-00: Safe 包装——校验通过后注册去重，通知由 PollRelayBuffer 批次合并。
+        /// </summary>
+        private bool HandleCreateSafe(string[] parts, ref int newPacketCount, ref RedPacket lastNewPacket)
         {
-            if (parts.Length < 14) return;
+            RedPacket newPacket = HandleCreateCore(parts);
+            if (newPacket == null) return false;
+
+            MarkProcessed(RedPacketMessageType.Create, parts);
+
+            if (IsOnline && !newPacket.Expired)
+            {
+                string localUuid = LocalUuid;
+                if (!string.IsNullOrEmpty(localUuid) && !newPacket.IsSender(localUuid))
+                {
+                    newPacketCount++;
+                    lastNewPacket = newPacket;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>返回成功添加的 RedPacket；失败返回 null。</summary>
+        private RedPacket HandleCreateCore(string[] parts)
+        {
+            if (parts.Length < 14) return null;
 
             string packetId = parts[3];
             string senderUuid = parts[4];
@@ -418,8 +453,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             string stuffDefName = parts[6];
             if (!int.TryParse(parts[7], out int qualityValue)) qualityValue = 0;
             if (!int.TryParse(parts[8], out int hitPoints)) hitPoints = 0;
-            if (!int.TryParse(parts[9], out int totalCount)) return;
-            if (!int.TryParse(parts[10], out int totalPackets)) return;
+            if (!int.TryParse(parts[9], out int totalCount)) return null;
+            if (!int.TryParse(parts[10], out int totalPackets)) return null;
             if (!int.TryParse(parts[11], out int typeValue)) typeValue = 0;
             RedPacketType packetType = (RedPacketType)typeValue;
             int luckyAlgorithmVersion = ResolveLuckyAlgorithmVersion(packetType, parts);
@@ -432,6 +467,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             RememberDisplayName(senderUuid, senderDisplayName);
 
+            // RP-02: DateTime 安全构造
+            if (createdTicks < 0 || createdTicks > DateTime.MaxValue.Ticks) return null;
+            if (expiresTicks < 0 || expiresTicks > DateTime.MaxValue.Ticks) return null;
             DateTime createdAt = new DateTime(createdTicks, DateTimeKind.Utc);
             DateTime expiresAt = new DateTime(expiresTicks, DateTimeKind.Utc);
 
@@ -463,33 +501,35 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 packet.CompletedAtUtc = expiresAt;
             }
 
-            bool added = false;
             lock (PacketsLock)
             {
-                if (Packets.ContainsKey(packetId)) return;
-                Packets[packetId] = packet;
-                added = true;
-            }
-            MarkBadgeDirty();
+                if (Packets.ContainsKey(packetId)) return null;
 
-            if (added && IsOnline && !packet.Expired)
-            {
-                string localUuid = LocalUuid;
-                if (!string.IsNullOrEmpty(localUuid) && !packet.IsSender(localUuid))
+                // RP-05: Packets 容量淘汰（优先清理已完成/已过期且无本地存储物品的）
+                if (Packets.Count >= RedPacketLimits.MaxActivePackets)
                 {
-                    NotifyNewPacket(packet);
+                    EvictOldestFinishedPackets();
                 }
+                if (Packets.Count >= RedPacketLimits.MaxActivePackets)
+                {
+                    log?.Invoke("[RedPacket] Packets dict at capacity, cannot add " + packetId, LogLevel.WARNING);
+                    return null;
+                }
+
+                Packets[packetId] = packet;
             }
+
+            return packet;
         }
 
-        private void HandleClaim(string[] parts)
+        private bool HandleClaimSafe(string[] parts)
         {
-            if (parts.Length < 5) return;
-            if (!IsOnline) return;
+            if (parts.Length < 5) return false;
+            if (!IsOnline) return false;
 
             string packetId = parts[3];
             string claimerUuid = parts[4];
-            if (string.IsNullOrEmpty(packetId) || string.IsNullOrEmpty(claimerUuid)) return;
+            if (string.IsNullOrEmpty(packetId) || string.IsNullOrEmpty(claimerUuid)) return false;
             string claimerDisplayName = string.Empty;
             if (parts.Length >= 6)
             {
@@ -507,18 +547,22 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Dictionary<string, int> claimsSnapshot = null;
             lock (PacketsLock)
             {
-                if (!Packets.TryGetValue(packetId, out packet)) return;
-                if (packet.Expired || packet.RemainingPackets <= 0 || packet.RemainingCount <= 0) return;
-                if (packet.IsSender(claimerUuid)) return;
-                if (packet.HasClaimed(claimerUuid)) return;
+                if (!Packets.TryGetValue(packetId, out packet)) return false;
+                if (packet.Expired || packet.RemainingPackets <= 0 || packet.RemainingCount <= 0) return false;
+                if (packet.IsSender(claimerUuid)) return false;
+                if (packet.HasClaimed(claimerUuid)) return false;
 
                 amount = ComputeAmount(packet, claimerUuid);
-                if (amount <= 0) return;
+                if (amount <= 0) return false;
 
                 packet.RemainingPackets = Math.Max(0, packet.RemainingPackets - 1);
                 packet.RemainingCount = Math.Max(0, packet.RemainingCount - amount);
                 packet.ClaimedUuids.Add(claimerUuid);
-                packet.ClaimedAmounts[claimerUuid] = amount;
+                // RP-05: 单红包明细上限
+                if (packet.ClaimedAmounts.Count < RedPacketLimits.MaxClaimDetailsPerPacket)
+                {
+                    packet.ClaimedAmounts[claimerUuid] = amount;
+                }
 
                 isLocalClaimer = !string.IsNullOrEmpty(localUuid) && claimerUuid == localUuid;
                 if (isLocalClaimer)
@@ -543,7 +587,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
                 isSender = !string.IsNullOrEmpty(localUuid) && packet.IsSender(localUuid);
             }
-            MarkBadgeDirty();
+
+            // RP-07: 校验应用成功后登记去重
+            MarkProcessed(RedPacketMessageType.Claim, parts);
 
             if (isSender)
             {
@@ -580,11 +626,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
                 MarkPacketFinished(packetId, completedAtUtc, expired: false);
             }
+
+            return true;
         }
 
-        private void HandleAssign(string[] parts)
+        private bool HandleAssignSafe(string[] parts)
         {
-            if (parts.Length < 8) return;
+            if (parts.Length < 8) return false;
 
             string packetId = parts[3];
             string claimerUuid = parts[4];
@@ -606,7 +654,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Dictionary<string, int> claimsSnapshot = null;
             lock (PacketsLock)
             {
-                if (!Packets.TryGetValue(packetId, out packet)) return;
+                if (!Packets.TryGetValue(packetId, out packet)) return false;
 
                 alreadyClaimed = !string.IsNullOrEmpty(claimerUuid) && packet.ClaimedUuids.Contains(claimerUuid);
                 packet.RemainingPackets = remainingPackets;
@@ -614,7 +662,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (!alreadyClaimed && !string.IsNullOrEmpty(claimerUuid))
                 {
                     packet.ClaimedUuids.Add(claimerUuid);
-                    packet.ClaimedAmounts[claimerUuid] = amount;
+                    // RP-05: 单红包明细上限
+                    if (packet.ClaimedAmounts.Count < RedPacketLimits.MaxClaimDetailsPerPacket)
+                    {
+                        packet.ClaimedAmounts[claimerUuid] = amount;
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(localUuid) && claimerUuid == localUuid)
@@ -638,7 +690,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
                 isSender = !string.IsNullOrEmpty(localUuid) && packet.IsSender(localUuid);
             }
-            MarkBadgeDirty();
+
+            // RP-07: 登记去重
+            MarkProcessed(RedPacketMessageType.Assign, parts);
 
             if (claimerUuid == localUuid && amount > 0 && !alreadyClaimed)
             {
@@ -670,21 +724,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
                 MarkPacketFinished(packetId, completedAtUtc, expired: false);
             }
+
+            return true;
         }
 
-        private void HandleTimeout(string[] parts)
+        private bool HandleTimeoutSafe(string[] parts)
         {
-            if (parts.Length < 4) return;
+            if (parts.Length < 4) return false;
 
             string packetId = parts[3];
-            if (string.IsNullOrEmpty(packetId)) return;
+            if (string.IsNullOrEmpty(packetId)) return false;
 
             RedPacket packet;
             bool isSender = false;
             DateTime completedAtUtc = DateTime.UtcNow;
             lock (PacketsLock)
             {
-                if (!Packets.TryGetValue(packetId, out packet)) return;
+                if (!Packets.TryGetValue(packetId, out packet)) return false;
                 string localUuid = LocalUuid;
                 isSender = !string.IsNullOrEmpty(localUuid) && packet.IsSender(localUuid);
                 packet.Expired = true;
@@ -694,22 +750,57 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
                 PendingClaims.Remove(packetId);
             }
-            MarkBadgeDirty();
+
+            // RP-07: 登记去重
+            MarkProcessed(RedPacketMessageType.Timeout, parts);
 
             if (isSender)
             {
                 ReturnRemainingTimeout(packet);
             }
             MarkPacketFinished(packetId, completedAtUtc, expired: true);
+
+            return true;
         }
 
         private void PollRelayBuffer()
         {
+            int processed = 0;
+            bool stateChanged = false;
+            int newPacketCount = 0;
+            RedPacket lastNewPacket = null;
+            long startTicks = Stopwatch.GetTimestamp();
+            double freqMs = Stopwatch.Frequency / 1000.0;
+
             string message;
-            while (relay.TryDequeueIncoming(out message))
+            while (processed < RedPacketLimits.MaxMessagesPerTick
+                   && relay.TryDequeueIncoming(out message))
             {
-                ProcessProtocolMessage(message);
+                try
+                {
+                    // RP-08: 单消息异常隔离
+                    bool changed = ProcessProtocolMessageSafe(message, ref newPacketCount, ref lastNewPacket);
+                    if (changed) stateChanged = true;
+                }
+                catch (Exception ex)
+                {
+                    log?.Invoke("[RedPacket] Message processing failed, skipping: " + ex, LogLevel.WARNING);
+                }
+                processed++;
+
+                // RP-00: 时间预算硬上限
+                double elapsedMs = (Stopwatch.GetTimestamp() - startTicks) / freqMs;
+                if (elapsedMs >= RedPacketLimits.TickTimeBudgetMs)
+                    break;
             }
+
+            // RP-00: 批次结束后只更新一次 badge 和 UI 版本
+            if (stateChanged)
+                MarkBadgeDirty();
+
+            // RP-00: 通知合并——同 Tick 多个新红包只显示一条汇总
+            if (newPacketCount > 0)
+                NotifyNewPacketsBatched(newPacketCount, lastNewPacket);
         }
 
         private void CheckClaimTimeouts()
@@ -744,40 +835,51 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
-        private void ProcessProtocolMessage(string message)
+        /// <summary>
+        /// RP-00: 合并 IsProtocolMessage + TryParse（只解码一次）。
+        /// RP-07: 去重登记延迟到 Handler 成功后。
+        /// RP-08: 异常不冒泡（由 PollRelayBuffer 外层 catch 兜底）。
+        /// 返回 true 表示状态发生了变更（需要 badge 刷新）。
+        /// </summary>
+        private bool ProcessProtocolMessageSafe(string message, ref int newPacketCount, ref RedPacket lastNewPacket)
         {
-            if (string.IsNullOrEmpty(message)) return;
-            bool maybeProtocol = RedPacketProtocol.IsProtocolMessage(message);
-            bool maybeTest = message.IndexOf("rptest", StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!maybeProtocol && !maybeTest) return;
+            if (string.IsNullOrEmpty(message)) return false;
 
-            string plainMessage = message.IndexOf('<') >= 0 ? TextHelper.StripRichText(message) : message;
-            string trimmed = plainMessage.Trim();
-            if (!string.IsNullOrEmpty(trimmed) && trimmed.Equals("rptest", StringComparison.OrdinalIgnoreCase))
+            // RP-06: 消息长度快速拒绝
+            if (message.Length > RedPacketLimits.MaxWireMessageChars) return false;
+
+            // 测试 ping（不走协议）
+            bool maybeTest = message.IndexOf("rptest", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (maybeTest)
             {
-                testPingReceived = true;
+                string plainMessage = message.IndexOf('<') >= 0 ? TextHelper.StripRichText(message) : message;
+                string trimmed = plainMessage.Trim();
+                if (!string.IsNullOrEmpty(trimmed) && trimmed.Equals("rptest", StringComparison.OrdinalIgnoreCase))
+                {
+                    testPingReceived = true;
+                }
             }
 
-            if (!maybeProtocol) return;
-            if (!RedPacketProtocol.TryParse(message, out RedPacketMessageType messageType, out string[] parts)) return;
-            if (!TryMarkProcessed(messageType, parts)) return;
+            // RP-00: 直接 TryParse，不再先调 IsProtocolMessage 重复解码
+            if (!RedPacketProtocol.TryParse(message, out RedPacketMessageType messageType, out string[] parts))
+                return false;
 
+            // RP-07: 先检查是否已处理（只读），不注册
+            if (IsAlreadyProcessed(messageType, parts)) return false;
+
+            // 调用语义 Handler（返回 true 表示状态变更 + 去重已注册）
             switch (messageType)
             {
                 case RedPacketMessageType.Create:
-                    HandleCreate(parts);
-                    break;
+                    return HandleCreateSafe(parts, ref newPacketCount, ref lastNewPacket);
                 case RedPacketMessageType.Claim:
-                    HandleClaim(parts);
-                    break;
+                    return HandleClaimSafe(parts);
                 case RedPacketMessageType.Assign:
-                    HandleAssign(parts);
-                    break;
+                    return HandleAssignSafe(parts);
                 case RedPacketMessageType.Timeout:
-                    HandleTimeout(parts);
-                    break;
+                    return HandleTimeoutSafe(parts);
                 default:
-                    break;
+                    return false;
             }
         }
 
@@ -790,18 +892,37 @@ namespace Phinix.LegacyRedPacketExtension.Client
             relay.EnqueueProtocol(protocolMessage, senderUuid);
         }
 
-        private bool TryMarkProcessed(RedPacketMessageType messageType, string[] parts)
+        /// <summary>RP-07: 只读检查，不注册去重键。</summary>
+        private bool IsAlreadyProcessed(RedPacketMessageType messageType, string[] parts)
         {
             string key = BuildProtocolKey(messageType, parts);
-            if (string.IsNullOrEmpty(key)) return false;
+            if (string.IsNullOrEmpty(key)) return true; // 无法构建 key → 视为已处理（跳过）
 
             lock (ProcessedLock)
             {
-                if (ProcessedProtocolKeys.Contains(key)) return false;
-                ProcessedProtocolKeys.Add(key);
+                return ProcessedProtocolKeys.Contains(key);
             }
+        }
 
-            return true;
+        /// <summary>RP-05/RP-07: Handler 校验通过后注册去重键（FIFO 淘汰）。</summary>
+        private void MarkProcessed(RedPacketMessageType messageType, string[] parts)
+        {
+            string key = BuildProtocolKey(messageType, parts);
+            if (string.IsNullOrEmpty(key)) return;
+
+            lock (ProcessedLock)
+            {
+                if (ProcessedProtocolKeys.Contains(key)) return;
+                ProcessedProtocolKeys.Add(key);
+                ProcessedProtocolKeyOrder.Enqueue(key);
+
+                // RP-05: FIFO 淘汰最旧条目
+                while (ProcessedProtocolKeyOrder.Count > RedPacketLimits.MaxProcessedKeys)
+                {
+                    string oldest = ProcessedProtocolKeyOrder.Dequeue();
+                    ProcessedProtocolKeys.Remove(oldest);
+                }
+            }
         }
 
         private static string BuildProtocolKey(RedPacketMessageType messageType, string[] parts)
@@ -1203,9 +1324,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             string sanitized = TextHelper.StripRichText(displayName).Trim();
             if (string.IsNullOrEmpty(sanitized)) return;
+            if (sanitized.Length > RedPacketLimits.MaxDisplayNameLength)
+            {
+                sanitized = sanitized.Substring(0, RedPacketLimits.MaxDisplayNameLength);
+            }
 
             lock (PacketsLock)
             {
+                // RP-05: 显示名缓存容量上限
+                if (!KnownDisplayNames.ContainsKey(uuid) && KnownDisplayNames.Count >= RedPacketLimits.MaxDisplayNames)
+                {
+                    var enumerator = KnownDisplayNames.Keys.GetEnumerator();
+                    if (enumerator.MoveNext())
+                    {
+                        KnownDisplayNames.Remove(enumerator.Current);
+                    }
+                }
+
                 KnownDisplayNames[uuid] = sanitized;
             }
         }
@@ -1239,6 +1374,65 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             string itemLabel = GetPacketItemLabel(packet);
             Messages.Message("Phinix_legacyRedpacket_newPacketMessage".Translate(senderName, itemLabel, packet.TotalCount), MessageTypeDefOf.PositiveEvent);
+        }
+
+        /// <summary>
+        /// RP-00: 通知合并——同一个 Tick 收到多个新红包时，合并为一条提示，避免屏幕瞬间被消息占满。
+        /// </summary>
+        private void NotifyNewPacketsBatched(int count, RedPacket lastPacket)
+        {
+            if (count <= 0) return;
+            if (count == 1 && lastPacket != null)
+            {
+                NotifyNewPacket(lastPacket);
+                return;
+            }
+
+            if (settings != null && !settings.EnableNotifications) return;
+            if (LanguageDatabase.activeLanguage == null) return;
+
+            string msgKey = "Phinix_legacyRedpacket_newPacketsBatchedMessage";
+            TaggedString translated = msgKey.Translate(count);
+            if (!translated.RawText.Contains(msgKey))
+            {
+                Messages.Message(translated, MessageTypeDefOf.PositiveEvent);
+            }
+            else
+            {
+                // 若无此 key，则至少通知最后一个红包
+                if (lastPacket != null)
+                {
+                    NotifyNewPacket(lastPacket);
+                }
+            }
+        }
+
+        /// <summary>
+        /// RP-05: 活跃红包容量上限淘汰——优先淘汰已过期或已抢完且没有本地暂存物品的记录。
+        /// </summary>
+        private static void EvictOldestFinishedPackets()
+        {
+            List<string> candidates = new List<string>();
+            foreach (KeyValuePair<string, RedPacket> kv in Packets)
+            {
+                RedPacket p = kv.Value;
+                if ((p.Expired || p.CompletedAtUtc.HasValue) && (p.StoredThings == null || p.StoredThings.Count == 0))
+                {
+                    candidates.Add(kv.Key);
+                }
+            }
+
+            if (candidates.Count > 0)
+            {
+                candidates.Sort((a, b) => Packets[a].CreatedAtUtc.CompareTo(Packets[b].CreatedAtUtc));
+                int toRemove = Math.Min(candidates.Count, Math.Max(16, Packets.Count - RedPacketLimits.MaxActivePackets + 32));
+                for (int i = 0; i < toRemove; i++)
+                {
+                    string id = candidates[i];
+                    Packets.Remove(id);
+                    PendingClaims.Remove(id);
+                }
+            }
         }
 
         private void QueueSenderSummary(RedPacket packet, Dictionary<string, int> claimsSnapshot, DateTime completedAtUtc, bool expired, int returnedCount)

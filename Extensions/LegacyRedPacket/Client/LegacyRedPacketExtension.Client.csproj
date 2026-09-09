@@ -74,6 +74,7 @@
     <Compile Include="RedPacket.cs" />
     <Compile Include="RedPacketDetailWindow.cs" />
     <Compile Include="RedPacketDropHelper.cs" />
+    <Compile Include="RedPacketLimits.cs" />
     <Compile Include="RedPacketRelay.cs" />
     <Compile Include="RedPacketSettings.cs" />
     <Compile Include="RedPacketSettingsPanel.cs" />

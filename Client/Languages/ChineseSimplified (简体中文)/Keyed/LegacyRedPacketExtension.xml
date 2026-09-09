@@ -56,6 +56,7 @@
   <Phinix_legacyRedpacket_specialRaidMessage>超凡智能被你的红包激怒了！剩余物资 {0} x{1} 未返还，并引来了一次袭击。</Phinix_legacyRedpacket_specialRaidMessage>
   <Phinix_legacyRedpacket_specialNoReturnMessage>超凡智能没收了红包剩余物资：{0} x{1}（未返还）。</Phinix_legacyRedpacket_specialNoReturnMessage>
   <Phinix_legacyRedpacket_newPacketMessage>新红包：{0} 发送了 {1} x{2}。</Phinix_legacyRedpacket_newPacketMessage>
+  <Phinix_legacyRedpacket_newPacketsBatchedMessage>收到 {0} 个新红包。</Phinix_legacyRedpacket_newPacketsBatchedMessage>
   <Phinix_legacyRedpacket_completeLetterTitle>红包领取完毕</Phinix_legacyRedpacket_completeLetterTitle>
   <Phinix_legacyRedpacket_completeLetterText>{0} x{1}&#10;用时 {2}。&#10;领取明细：&#10;{3}</Phinix_legacyRedpacket_completeLetterText>
   <Phinix_legacyRedpacket_expiredLetterTitle>红包已过期</Phinix_legacyRedpacket_expiredLetterTitle>

@@ -124,9 +124,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
             float y = 0f;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
-            for (int i = 0; i < snapshot.Claims.Count; i++)
+
+            // RP-09: 只绘制可见行
+            int firstVisible = Mathf.Max(0, Mathf.FloorToInt(claimsScroll.y / CLAIM_LINE_HEIGHT) - 1);
+            int lastVisible = Mathf.Min(snapshot.Claims.Count - 1,
+                Mathf.CeilToInt((claimsScroll.y + inRect.height) / CLAIM_LINE_HEIGHT) + 1);
+
+            for (int i = firstVisible; i <= lastVisible; i++)
             {
                 RedPacketClaimSnapshot claim = snapshot.Claims[i];
+                y = i * CLAIM_LINE_HEIGHT;
                 Rect rowRect = new Rect(0f, y, viewRect.width, CLAIM_LINE_HEIGHT);
                 if (i % 2 == 1)
                 {
@@ -158,7 +165,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
 
                 Text.Anchor = TextAnchor.MiddleLeft;
-                y += CLAIM_LINE_HEIGHT;
             }
 
             Widgets.EndScrollView();
