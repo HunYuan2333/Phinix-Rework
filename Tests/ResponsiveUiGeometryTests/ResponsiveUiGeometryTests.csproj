@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveFormLayout.cs" Link="Production\ResponsiveFormLayout.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveSplitLayout.cs" Link="Production\ResponsiveSplitLayout.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveToolbarLayout.cs" Link="Production\ResponsiveToolbarLayout.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\UiLayoutHints.cs" Link="Production\UiLayoutHints.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\UiScreenSafeArea.cs" Link="Production\UiScreenSafeArea.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\VirtualListLayout.cs" Link="Production\VirtualListLayout.cs" />
+  </ItemGroup>
+</Project>
