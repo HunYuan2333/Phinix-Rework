@@ -40,7 +40,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private const float RIGHT_PADDING = 5f;
         private const int SEND_COOLDOWN_SECONDS = 60;
 
-        private static readonly Regex ItemCountInputRegex = new Regex("\\d*", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        private static readonly Regex ItemCountInputRegex = new Regex("^\\d*$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         private readonly IClientSessionContext session;
         private readonly IClientUserDirectory userDirectory;
@@ -243,12 +243,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void DrawAvailableItems(Rect inRect)
         {
-            // 直接遍历过滤后的列表，避免每帧 ToList 分配
-            int drawCount = 0;
-            for (int i = 0; i < filteredItems.Count; i++)
+            // PopSelected/refresh normally keeps this list clean. Remove stale empty
+            // groups without summing every Thing stack on every frame.
+            for (int i = filteredItems.Count - 1; i >= 0; i--)
             {
-                if (filteredItems[i].Count > 0) drawCount++;
+                StackedThings stack = filteredItems[i];
+                if (stack == null || stack.Things == null || stack.Things.Count == 0)
+                    filteredItems.RemoveAt(i);
             }
+            int drawCount = filteredItems.Count;
 
             if (drawCount == 0)
             {
@@ -277,7 +280,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
             for (int i = 0; i < filteredItems.Count; i++)
             {
                 StackedThings stack = filteredItems[i];
-                if (stack.Things.Count == 0) continue;
 
                 if (drawIndex > lastVisible) break;
 
@@ -625,7 +627,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             int totalCount = selectedStack.Selected;
-            if (packetCount > totalCount)
+            if (packetCount > totalCount || packetCount > RedPacketLimits.MaxClaimDetailsPerPacket)
             {
                 Messages.Message("Phinix_legacyRedpacket_errorPacketCountTooLarge".Translate(), MessageTypeDefOf.RejectInput);
                 return;

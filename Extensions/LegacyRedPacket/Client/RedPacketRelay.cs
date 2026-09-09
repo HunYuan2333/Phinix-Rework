@@ -36,6 +36,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private static DateTime nextSendUtc = DateTime.MinValue;
         private static int pollInFlight;
         private static int sendInFlight;
+        private static int pollWorkerSequence;
+        private static int sendWorkerSequence;
         private static int generation;
 
         private const int PollIntervalMs = 700;
@@ -129,9 +131,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (shouldSend && HasOutgoing())
             {
-                if (Interlocked.CompareExchange(ref sendInFlight, 1, 0) == 0)
+                int workerToken = Interlocked.Increment(ref sendWorkerSequence);
+                if (Interlocked.CompareExchange(ref sendInFlight, workerToken, 0) == 0)
                 {
-                    ThreadPool.QueueUserWorkItem(_ => SendOnceWorker());
+                    int capturedGen = generation;
+                    if (Volatile.Read(ref sendInFlight) == workerToken)
+                        ThreadPool.QueueUserWorkItem(_ => SendOnceWorker(capturedGen, workerToken));
                 }
             }
 
@@ -145,9 +150,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
             }
 
-            if (shouldPoll && Interlocked.CompareExchange(ref pollInFlight, 1, 0) == 0)
+            if (shouldPoll)
             {
-                ThreadPool.QueueUserWorkItem(_ => PollWorker());
+                int pollToken = Interlocked.Increment(ref pollWorkerSequence);
+                if (Interlocked.CompareExchange(ref pollInFlight, pollToken, 0) == 0)
+                {
+                    int capturedGen = generation;
+                    if (Volatile.Read(ref pollInFlight) == pollToken)
+                        ThreadPool.QueueUserWorkItem(_ => PollWorker(capturedGen, pollToken));
+                }
             }
         }
 
@@ -159,10 +170,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
-        private void SendOnceWorker()
+        private void SendOnceWorker(int capturedGen, int workerToken)
         {
             OutgoingProtocol outbound = null;
-            int capturedGen = generation;
             try
             {
                 lock (OutgoingLock)
@@ -206,6 +216,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             catch (Exception ex)
             {
+                if (generation != capturedGen) return;
                 log?.Invoke("[RedPacket] Relay send failed, will retry: " + ex, LogLevel.WARNING);
                 if (outbound != null)
                 {
@@ -223,13 +234,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             finally
             {
-                Interlocked.Exchange(ref sendInFlight, 0);
+                // Only the worker that acquired this exact slot may release it.
+                Interlocked.CompareExchange(ref sendInFlight, 0, workerToken);
             }
         }
 
-        private void PollWorker()
+        private void PollWorker(int capturedGen, int workerToken)
         {
-            int capturedGen = generation;
             try
             {
                 long afterId;
@@ -281,6 +292,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             catch (Exception ex)
             {
+                if (generation != capturedGen) return;
                 log?.Invoke("[RedPacket] Relay poll failed, will retry: " + ex, LogLevel.WARNING);
                 lock (StateLock)
                 {
@@ -289,7 +301,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             finally
             {
-                Interlocked.Exchange(ref pollInFlight, 0);
+                Interlocked.CompareExchange(ref pollInFlight, 0, workerToken);
             }
         }
 
@@ -315,6 +327,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             int lineCount = 0;
             int totalBytes = firstLine.Length;
+            int droppedIncoming = 0;
             string line;
             while ((line = reader.ReadLine()) != null)
             {
@@ -334,11 +347,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (!long.TryParse(idPart, out long idValue)) continue;
                 if (idValue <= currentLastSeen) continue;
 
+                // A syntactically valid relay id has been consumed even when its payload
+                // is malformed. Advancing here prevents one bad row from being fetched
+                // and decoded forever.
+                if (idValue > maxId) maxId = idValue;
+
                 string b64 = line.Substring(tabIndex + 1).Trim();
                 if (string.IsNullOrEmpty(b64)) continue;
 
                 // RP-06: Base64 编码长度预检查（解码后约为 3/4）
-                if (b64.Length > RedPacketLimits.MaxWireMessageChars) continue;
+                if (b64.Length > RedPacketProtocol.MaxWireMessageChars) continue;
 
                 string message;
                 try
@@ -352,7 +370,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
 
                 // RP-06: 解码后消息长度检查
-                if (message.Length > RedPacketLimits.MaxWireMessageChars) continue;
+                if (message.Length > RedPacketProtocol.MaxWireMessageChars) continue;
 
                 // RP-16: generation 检查，防止旧 worker 回灌
                 if (generation != capturedGen) return;
@@ -362,12 +380,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     if (IncomingQueue.Count >= MaxIncomingQueue)
                     {
                         IncomingQueue.Dequeue();
+                        droppedIncoming++;
                     }
                     IncomingQueue.Enqueue(message);
                 }
-
-                if (idValue > maxId) maxId = idValue;
             }
+
+            if (droppedIncoming > 0)
+                log?.Invoke("[RedPacket] Relay incoming queue overflow, dropped " + droppedIncoming + " oldest message(s).", LogLevel.WARNING);
 
             // RP-16: 写回 lastSeenId 前再次检查 generation
             if (generation != capturedGen) return;

@@ -433,7 +433,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (IsOnline && !newPacket.Expired)
             {
                 string localUuid = LocalUuid;
-                if (!string.IsNullOrEmpty(localUuid) && !newPacket.IsSender(localUuid))
+                if (!string.IsNullOrEmpty(localUuid)
+                    && !newPacket.IsSender(localUuid)
+                    && ShouldNotifyNewPacket(newPacket))
                 {
                     newPacketCount++;
                     lastNewPacket = newPacket;
@@ -451,10 +453,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
             string senderUuid = parts[4];
             string defName = parts[5];
             string stuffDefName = parts[6];
+            if (string.IsNullOrEmpty(packetId) || packetId.Length > RedPacketLimits.MaxIdLength) return null;
+            if (string.IsNullOrEmpty(senderUuid) || senderUuid.Length > RedPacketLimits.MaxIdLength) return null;
+            if (string.IsNullOrEmpty(defName) || defName.Length > RedPacketLimits.MaxFieldLength) return null;
+            if (!string.IsNullOrEmpty(stuffDefName) && stuffDefName.Length > RedPacketLimits.MaxFieldLength) return null;
             if (!int.TryParse(parts[7], out int qualityValue)) qualityValue = 0;
             if (!int.TryParse(parts[8], out int hitPoints)) hitPoints = 0;
             if (!int.TryParse(parts[9], out int totalCount)) return null;
             if (!int.TryParse(parts[10], out int totalPackets)) return null;
+            if (totalCount <= 0 || totalPackets <= 0 || totalPackets > totalCount) return null;
+            if (totalPackets > RedPacketLimits.MaxClaimDetailsPerPacket) return null;
             if (!int.TryParse(parts[11], out int typeValue)) typeValue = 0;
             RedPacketType packetType = (RedPacketType)typeValue;
             int luckyAlgorithmVersion = ResolveLuckyAlgorithmVersion(packetType, parts);
@@ -472,6 +480,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (expiresTicks < 0 || expiresTicks > DateTime.MaxValue.Ticks) return null;
             DateTime createdAt = new DateTime(createdTicks, DateTimeKind.Utc);
             DateTime expiresAt = new DateTime(expiresTicks, DateTimeKind.Utc);
+            if (expiresAt < createdAt
+                || expiresAt - createdAt > TimeSpan.FromHours(RedPacketLimits.MaxPacketValidityHours)) return null;
 
             TradeItemSnapshot template = new TradeItemSnapshot(
                 defName,
@@ -551,6 +561,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (packet.Expired || packet.RemainingPackets <= 0 || packet.RemainingCount <= 0) return false;
                 if (packet.IsSender(claimerUuid)) return false;
                 if (packet.HasClaimed(claimerUuid)) return false;
+                if (packet.ClaimedUuids.Count >= RedPacketLimits.MaxClaimDetailsPerPacket) return false;
 
                 amount = ComputeAmount(packet, claimerUuid);
                 if (amount <= 0) return false;
@@ -657,6 +668,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (!Packets.TryGetValue(packetId, out packet)) return false;
 
                 alreadyClaimed = !string.IsNullOrEmpty(claimerUuid) && packet.ClaimedUuids.Contains(claimerUuid);
+                if (!alreadyClaimed
+                    && !string.IsNullOrEmpty(claimerUuid)
+                    && packet.ClaimedUuids.Count >= RedPacketLimits.MaxClaimDetailsPerPacket)
+                    return false;
                 packet.RemainingPackets = remainingPackets;
                 packet.RemainingCount = remainingCount;
                 if (!alreadyClaimed && !string.IsNullOrEmpty(claimerUuid))
@@ -846,7 +861,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (string.IsNullOrEmpty(message)) return false;
 
             // RP-06: 消息长度快速拒绝
-            if (message.Length > RedPacketLimits.MaxWireMessageChars) return false;
+            if (message.Length > RedPacketProtocol.MaxWireMessageChars) return false;
 
             // 测试 ping（不走协议）
             bool maybeTest = message.IndexOf("rptest", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -1363,10 +1378,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private void NotifyNewPacket(RedPacket packet)
         {
             if (packet == null) return;
-            if (settings != null && !settings.EnableNotifications) return;
-            if (settings != null
-                && settings.SuppressUnknownPacketNotification
-                && IsUnknownTemplate(packet.Template)) return;
+            if (!ShouldNotifyNewPacket(packet)) return;
             if (LanguageDatabase.activeLanguage == null) return;
 
             string senderName = packet.SenderDisplayName;
@@ -1374,6 +1386,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             string itemLabel = GetPacketItemLabel(packet);
             Messages.Message("Phinix_legacyRedpacket_newPacketMessage".Translate(senderName, itemLabel, packet.TotalCount), MessageTypeDefOf.PositiveEvent);
+        }
+
+        private bool ShouldNotifyNewPacket(RedPacket packet)
+        {
+            if (packet == null) return false;
+            if (settings != null && !settings.EnableNotifications) return false;
+            return settings == null
+                || !settings.SuppressUnknownPacketNotification
+                || !IsUnknownTemplate(packet.Template);
         }
 
         /// <summary>
@@ -1506,7 +1527,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
                 PendingClaims.Remove(packetId);
             }
-            MarkBadgeDirty();
         }
 
         private static DateTime? GetFinishedAtUtc(RedPacket packet)
