@@ -10,17 +10,15 @@ namespace PhinixClient
 {
     /// <summary>
     /// 主窗口。响应式布局（设计哲学 §8.3 鲁棒）：
-    /// - 初始尺寸按屏幕分辨率缩放，clamp 到安全区间；用户手动调整过的尺寸持久化（Settings.ServerTabWidth/Height），
+    /// - 初始尺寸按 RimWorld UI 坐标缩放，clamp 到屏幕安全区；用户手动调整过的尺寸持久化（Settings.ServerTabWidth/Height），
     ///   下次打开优先恢复。
     /// - 允许拖动调整大小，拖动期间每帧 clamp 到最小尺寸，防止布局塌陷。
-    /// - Tab 条用 RimWorld 原生 <see cref="TabDrawer"/>，最大宽度 =（可用宽度 - 侧栏宽度）/ tab 数，
-    ///   窗口变窄或 tab 增多时自动缩小，避免固定宽度导致重叠/越界。
+    /// - 主/侧栏 Tab 使用 RimWorld 原生溢出布局，Tab 增多时自动换行且内容区同步让出实际高度。
     /// - 侧栏宽度响应式：按插件偏好宽度但不超过窗口 38%，且保证主内容区不小于保底宽度。
     /// </summary>
     public class ServerTab : MainTabWindow
     {
         private const float DEFAULT_SPACING = 10f;
-        private const float SIDEBAR_TAB_HEIGHT = 30f;
 
         // 窗口尺寸（响应式上下限 + 屏幕分辨率比例）
         private const float MIN_WINDOW_WIDTH = 640f;
@@ -48,12 +46,18 @@ namespace PhinixClient
         private int activeSidebarTab = 0;
         private IUiAcceptKeyHandler activeAcceptKeyHandler;
         private bool hadInputLastDraw = true;
+        private float cachedMainTabWidth = -1f;
+        private float cachedMainTabHeight;
+        private float cachedSidebarTabWidth = -1f;
+        private float cachedSidebarTabHeight;
+        private object cachedTabLanguage;
 
         public ServerTab()
         {
             this.closeOnAccept = false;
             this.closeOnCancel = false;
             this.resizeable = true;
+            this.draggable = true;
 
             tabProviders = Instance.MainTabProviders
                 .OrderBy(p => p.TabOrder)
@@ -87,14 +91,42 @@ namespace PhinixClient
                 Settings settings = Instance?.Settings;
                 float savedWidth = settings?.ServerTabWidth ?? 0f;
                 float savedHeight = settings?.ServerTabHeight ?? 0f;
-                if (savedWidth >= MIN_WINDOW_WIDTH && savedHeight >= MIN_WINDOW_HEIGHT)
+                float preferredWidth;
+                float preferredHeight;
+                if (savedWidth > 0f && savedHeight > 0f)
                 {
-                    return new Vector2(savedWidth, savedHeight);
+                    preferredWidth = savedWidth;
+                    preferredHeight = savedHeight;
+                }
+                else
+                {
+                    preferredWidth = Mathf.Min(UI.screenWidth * WINDOW_WIDTH_RATIO, MAX_WINDOW_WIDTH);
+                    preferredHeight = Mathf.Min(UI.screenHeight * WINDOW_HEIGHT_RATIO, MAX_WINDOW_HEIGHT);
                 }
 
+                Rect safeRect = GetScreenSafeRect();
                 return new Vector2(
-                    Mathf.Clamp(Screen.width * WINDOW_WIDTH_RATIO, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH),
-                    Mathf.Clamp(Screen.height * WINDOW_HEIGHT_RATIO, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT));
+                    ClampLength(preferredWidth, MIN_WINDOW_WIDTH, safeRect.width),
+                    ClampLength(preferredHeight, MIN_WINDOW_HEIGHT, safeRect.height));
+            }
+        }
+
+        protected override void SetInitialSizeAndPosition()
+        {
+            base.SetInitialSizeAndPosition();
+            ClampWindowToScreenSafeArea();
+        }
+
+        public override void WindowUpdate()
+        {
+            base.WindowUpdate();
+            ClampWindowToScreenSafeArea();
+
+            Settings settings = Instance?.Settings;
+            if (settings != null)
+            {
+                settings.ServerTabWidth = windowRect.width;
+                settings.ServerTabHeight = windowRect.height;
             }
         }
 
@@ -104,8 +136,9 @@ namespace PhinixClient
             Settings settings = Instance?.Settings;
             if (settings != null)
             {
-                settings.ServerTabWidth = Mathf.Max(MIN_WINDOW_WIDTH, windowRect.width);
-                settings.ServerTabHeight = Mathf.Max(MIN_WINDOW_HEIGHT, windowRect.height);
+                Rect safeRect = GetScreenSafeRect();
+                settings.ServerTabWidth = ClampLength(windowRect.width, MIN_WINDOW_WIDTH, safeRect.width);
+                settings.ServerTabHeight = ClampLength(windowRect.height, MIN_WINDOW_HEIGHT, safeRect.height);
                 settings.AcceptChanges();
             }
             base.PreClose();
@@ -130,74 +163,38 @@ namespace PhinixClient
 
         public override void DoWindowContents(Rect inRect)
         {
-            // 拖动过程中强制最小尺寸（WindowResizer 默认允许拖到很小），防止布局塌陷
-            Rect clamped = windowRect;
-            clamped.width = Mathf.Max(MIN_WINDOW_WIDTH, clamped.width);
-            clamped.height = Mathf.Max(MIN_WINDOW_HEIGHT, clamped.height);
-            windowRect = clamped;
-
-            // 实时同步记忆尺寸，关闭时由 PreClose 落盘
-            Settings settings = Instance?.Settings;
-            if (settings != null)
+            object activeLanguage = LanguageDatabase.activeLanguage;
+            if (!ReferenceEquals(cachedTabLanguage, activeLanguage))
             {
-                settings.ServerTabWidth = windowRect.width;
-                settings.ServerTabHeight = windowRect.height;
+                cachedTabLanguage = activeLanguage;
+                cachedMainTabWidth = -1f;
+                cachedSidebarTabWidth = -1f;
             }
 
-            float bannerHeight = 0f;
-            foreach (var bannerProvider in bannerProviders)
-            {
-                bannerHeight += bannerProvider.CurrentHeight;
-            }
+            float mainColumnWidth;
+            float sidebarWidth;
+            ComputeColumnWidths(inRect.width, out mainColumnWidth, out sidebarWidth);
 
-            Rect usableRect;
-            if (bannerHeight > 0f)
-            {
-                float cursorY = inRect.yMin;
-                foreach (var bannerProvider in bannerProviders)
-                {
-                    float h = bannerProvider.CurrentHeight;
-                    if (h > 0f)
-                    {
-                        bannerProvider.Draw(new Rect(inRect.xMin, cursorY, inRect.width, h));
-                        cursorY += h;
-                    }
-                }
+            float mainTabHeight = Mathf.Min(GetMainTabHeight(mainColumnWidth, inRect), Mathf.Max(0f, inRect.height));
+            float maxBannerHeight = Mathf.Max(0f, inRect.height - mainTabHeight);
+            float bannerHeight = ComputeBannerHeight(maxBannerHeight);
+            DrawBanners(inRect, bannerHeight);
 
-                usableRect = inRect.BottomPartPixels(inRect.height - (bannerHeight + TabDrawer.TabHeight));
-            }
-            else
-            {
-                usableRect = inRect.BottomPartPixels(inRect.height - TabDrawer.TabHeight);
-            }
-
-            Rect mainRect = usableRect;
+            float contentHeight = Mathf.Max(0f, inRect.height - bannerHeight - mainTabHeight);
+            Rect contentRect = new Rect(inRect.xMin, inRect.yMin + bannerHeight + mainTabHeight, inRect.width, contentHeight);
+            Rect mainRect = new Rect(contentRect.xMin, contentRect.yMin, mainColumnWidth, contentRect.height);
+            Rect mainTabRect = new Rect(
+                inRect.xMin,
+                inRect.yMin + bannerHeight,
+                mainColumnWidth,
+                Mathf.Max(0f, inRect.height - bannerHeight));
             Rect rightColumnRect = default;
-            float sidebarWidth = 0f;
-            if (sidebarProviders.Count > 0)
+            if (sidebarWidth > 0f)
             {
-                // 手动计算 Maximum，避免 Draw 路径 LINQ 分配
-                float desiredWidth = 0f;
-                for (int i = 0; i < sidebarProviders.Count; i++)
-                {
-                    float w = sidebarProviders[i].PreferredWidth;
-                    if (w > desiredWidth) desiredWidth = w;
-                }
-
-                // 响应式约束：不超过窗口 38%，且主内容区保底 MAIN_MIN_WIDTH
-                float maxByRatio = usableRect.width * SIDEBAR_MAX_RATIO;
-                float maxByMain = usableRect.width - MAIN_MIN_WIDTH - DEFAULT_SPACING;
-                float minSidebar = Mathf.Min(SIDEBAR_MIN_WIDTH, maxByMain);
-                sidebarWidth = Mathf.Clamp(desiredWidth, minSidebar, Mathf.Min(maxByRatio, maxByMain));
-
-                rightColumnRect = usableRect.RightPartPixels(sidebarWidth);
-                mainRect = usableRect.LeftPartPixels(usableRect.width - (sidebarWidth + DEFAULT_SPACING));
+                rightColumnRect = new Rect(contentRect.xMax - sidebarWidth, contentRect.yMin, sidebarWidth, contentRect.height);
             }
 
-            // 主 Tab 条：最大宽度 =（可用宽度 - 侧栏）/ tab 数，保证 n × maxTabWidth ≤ 可用宽度
-            float tabAreaWidth = usableRect.width - sidebarWidth - (sidebarWidth > 0f ? DEFAULT_SPACING : 0f);
-            float maxTabWidth = ComputeTabMaxWidth(tabAreaWidth, tabList.Count);
-            TabDrawer.DrawTabs(usableRect, tabList, maxTabWidth);
+            TabDrawer.DrawTabsOverflow(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
 
             if (activeTab >= 0 && activeTab < tabProviders.Count)
             {
@@ -214,14 +211,15 @@ namespace PhinixClient
             }
             else if (sidebarProviders.Count > 1)
             {
-                Rect sidebarTabRect = rightColumnRect.TopPartPixels(SIDEBAR_TAB_HEIGHT);
+                float sidebarTabHeight = Mathf.Min(
+                    GetSidebarTabHeight(rightColumnRect.width, rightColumnRect),
+                    Mathf.Max(0f, rightColumnRect.height));
                 Rect sidebarContentRect = new Rect(
-                    rightColumnRect.x, sidebarTabRect.yMax,
-                    rightColumnRect.width, rightColumnRect.yMax - sidebarTabRect.yMax);
-
-                float sidebarTabMaxWidth = Mathf.Max(
-                    MIN_TAB_WIDTH, rightColumnRect.width / Mathf.Max(1, sidebarTabList.Count));
-                TabDrawer.DrawTabs(sidebarTabRect, sidebarTabList, sidebarTabMaxWidth);
+                    rightColumnRect.xMin,
+                    rightColumnRect.yMin + sidebarTabHeight,
+                    rightColumnRect.width,
+                    Mathf.Max(0f, rightColumnRect.height - sidebarTabHeight));
+                TabDrawer.DrawTabsOverflow(rightColumnRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
 
                 if (activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
                 {
@@ -280,17 +278,107 @@ namespace PhinixClient
             return keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter;
         }
 
-        /// <summary>
-        /// 响应式 tab 最大宽度：可用宽度均分给每个 tab，clamp 到 [MIN_TAB_WIDTH, MAX_TAB_WIDTH]。
-        /// </summary>
-        private static float ComputeTabMaxWidth(float availableWidth, int tabCount)
+        private void ComputeColumnWidths(float availableWidth, out float mainWidth, out float sidebarWidth)
         {
-            if (tabCount <= 0)
+            mainWidth = Mathf.Max(0f, availableWidth);
+            sidebarWidth = 0f;
+            if (sidebarProviders.Count == 0 || availableWidth <= DEFAULT_SPACING)
             {
-                return MAX_TAB_WIDTH;
+                return;
             }
-            float perTab = availableWidth / tabCount;
-            return Mathf.Clamp(perTab, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+
+            float desiredWidth = 0f;
+            for (int i = 0; i < sidebarProviders.Count; i++)
+            {
+                desiredWidth = Mathf.Max(desiredWidth, sidebarProviders[i].PreferredWidth);
+            }
+
+            float maxByRatio = Mathf.Max(0f, availableWidth * SIDEBAR_MAX_RATIO);
+            float maxByMain = Mathf.Max(0f, availableWidth - MAIN_MIN_WIDTH - DEFAULT_SPACING);
+            float maxSidebar = Mathf.Min(maxByRatio, maxByMain);
+            if (maxSidebar <= 0f)
+            {
+                return;
+            }
+
+            float minSidebar = Mathf.Min(SIDEBAR_MIN_WIDTH, maxSidebar);
+            sidebarWidth = Mathf.Clamp(desiredWidth, minSidebar, maxSidebar);
+            mainWidth = Mathf.Max(0f, availableWidth - sidebarWidth - DEFAULT_SPACING);
+        }
+
+        private float ComputeBannerHeight(float maximumHeight)
+        {
+            float total = 0f;
+            for (int i = 0; i < bannerProviders.Count && total < maximumHeight; i++)
+            {
+                total += Mathf.Max(0f, bannerProviders[i].CurrentHeight);
+            }
+            return Mathf.Min(total, maximumHeight);
+        }
+
+        private void DrawBanners(Rect inRect, float availableHeight)
+        {
+            float cursorY = inRect.yMin;
+            float remainingHeight = availableHeight;
+            for (int i = 0; i < bannerProviders.Count && remainingHeight > 0f; i++)
+            {
+                float height = Mathf.Min(Mathf.Max(0f, bannerProviders[i].CurrentHeight), remainingHeight);
+                if (height <= 0f)
+                {
+                    continue;
+                }
+
+                bannerProviders[i].Draw(new Rect(inRect.xMin, cursorY, inRect.width, height));
+                cursorY += height;
+                remainingHeight -= height;
+            }
+        }
+
+        private float GetMainTabHeight(float width, Rect referenceRect)
+        {
+            if (!Mathf.Approximately(cachedMainTabWidth, width))
+            {
+                cachedMainTabWidth = width;
+                Rect tabBaseRect = new Rect(referenceRect.xMin, referenceRect.yMin, width, referenceRect.height);
+                cachedMainTabHeight = TabDrawer.GetOverflowTabHeight(tabBaseRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+            }
+            return Mathf.Max(0f, cachedMainTabHeight);
+        }
+
+        private float GetSidebarTabHeight(float width, Rect referenceRect)
+        {
+            if (!Mathf.Approximately(cachedSidebarTabWidth, width))
+            {
+                cachedSidebarTabWidth = width;
+                Rect tabBaseRect = new Rect(referenceRect.xMin, referenceRect.yMin, width, referenceRect.height);
+                cachedSidebarTabHeight = TabDrawer.GetOverflowTabHeight(tabBaseRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+            }
+            return Mathf.Max(0f, cachedSidebarTabHeight);
+        }
+
+        private void ClampWindowToScreenSafeArea()
+        {
+            Rect safeRect = GetScreenSafeRect();
+            Rect clamped = windowRect;
+            clamped.width = ClampLength(clamped.width, MIN_WINDOW_WIDTH, safeRect.width);
+            clamped.height = ClampLength(clamped.height, MIN_WINDOW_HEIGHT, safeRect.height);
+            clamped.x = Mathf.Clamp(clamped.x, safeRect.xMin, safeRect.xMax - clamped.width);
+            clamped.y = Mathf.Clamp(clamped.y, safeRect.yMin, safeRect.yMax - clamped.height);
+            windowRect = clamped;
+        }
+
+        private static Rect GetScreenSafeRect()
+        {
+            float width = Mathf.Max(0f, UI.screenWidth);
+            float height = Mathf.Max(0f, UI.screenHeight);
+            return new Rect(0f, 0f, width, height);
+        }
+
+        private static float ClampLength(float value, float minimum, float maximum)
+        {
+            float nonNegativeMaximum = Mathf.Max(0f, maximum);
+            float effectiveMinimum = Mathf.Min(Mathf.Max(0f, minimum), nonNegativeMaximum);
+            return Mathf.Clamp(value, effectiveMinimum, nonNegativeMaximum);
         }
     }
 }
