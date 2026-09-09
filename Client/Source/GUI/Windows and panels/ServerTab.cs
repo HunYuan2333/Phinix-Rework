@@ -27,6 +27,7 @@ namespace PhinixClient
         private const float MAX_WINDOW_HEIGHT = 800f;
         private const float WINDOW_WIDTH_RATIO = 0.72f;
         private const float WINDOW_HEIGHT_RATIO = 0.78f;
+        private const float WINDOW_CONTENT_PADDING = 36f;
 
         // Tab 条参数：上限改小（200 → 150），下限保证可读
         private const float MIN_TAB_WIDTH = 80f;
@@ -100,8 +101,13 @@ namespace PhinixClient
                 }
                 else
                 {
-                    preferredWidth = Mathf.Min(UI.screenWidth * WINDOW_WIDTH_RATIO, MAX_WINDOW_WIDTH);
-                    preferredHeight = Mathf.Min(UI.screenHeight * WINDOW_HEIGHT_RATIO, MAX_WINDOW_HEIGHT);
+                    Vector2 providerPreferredSize = GetInitialProviderPreferredSize();
+                    preferredWidth = Mathf.Min(
+                        Mathf.Max(UI.screenWidth * WINDOW_WIDTH_RATIO, providerPreferredSize.x),
+                        MAX_WINDOW_WIDTH);
+                    preferredHeight = Mathf.Min(
+                        Mathf.Max(UI.screenHeight * WINDOW_HEIGHT_RATIO, providerPreferredSize.y),
+                        MAX_WINDOW_HEIGHT);
                 }
 
                 Rect safeRect = GetScreenSafeRect();
@@ -194,7 +200,10 @@ namespace PhinixClient
                 rightColumnRect = new Rect(contentRect.xMax - sidebarWidth, contentRect.yMin, sidebarWidth, contentRect.height);
             }
 
-            TabDrawer.DrawTabsOverflow(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+            if (mainTabRect.width > 0f && tabList.Count > 0)
+            {
+                TabDrawer.DrawTabsOverflow(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+            }
 
             if (activeTab >= 0 && activeTab < tabProviders.Count)
             {
@@ -219,7 +228,10 @@ namespace PhinixClient
                     rightColumnRect.yMin + sidebarTabHeight,
                     rightColumnRect.width,
                     Mathf.Max(0f, rightColumnRect.height - sidebarTabHeight));
-                TabDrawer.DrawTabsOverflow(rightColumnRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                if (rightColumnRect.width > 0f)
+                {
+                    TabDrawer.DrawTabsOverflow(rightColumnRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                }
 
                 if (activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
                 {
@@ -288,9 +300,15 @@ namespace PhinixClient
             }
 
             float desiredWidth = 0f;
+            float declaredMinimumWidth = 0f;
             for (int i = 0; i < sidebarProviders.Count; i++)
             {
                 desiredWidth = Mathf.Max(desiredWidth, sidebarProviders[i].PreferredWidth);
+                IResponsiveSidebarProvider responsive = sidebarProviders[i] as IResponsiveSidebarProvider;
+                float minimumWidth = responsive != null
+                    ? responsive.MinimumWidth
+                    : SIDEBAR_MIN_WIDTH;
+                declaredMinimumWidth = Mathf.Max(declaredMinimumWidth, Mathf.Max(0f, minimumWidth));
             }
 
             float maxByRatio = Mathf.Max(0f, availableWidth * SIDEBAR_MAX_RATIO);
@@ -301,9 +319,43 @@ namespace PhinixClient
                 return;
             }
 
-            float minSidebar = Mathf.Min(SIDEBAR_MIN_WIDTH, maxSidebar);
+            float minSidebar = Mathf.Min(declaredMinimumWidth, maxSidebar);
             sidebarWidth = Mathf.Clamp(desiredWidth, minSidebar, maxSidebar);
             mainWidth = Mathf.Max(0f, availableWidth - sidebarWidth - DEFAULT_SPACING);
+        }
+
+        private Vector2 GetInitialProviderPreferredSize()
+        {
+            UiLayoutHints hints = UiLayoutHints.Default;
+            if (tabProviders.Count > 0)
+            {
+                IResponsiveMainTabProvider responsive = tabProviders[0] as IResponsiveMainTabProvider;
+                if (responsive != null)
+                {
+                    UiLayoutHints declaredHints = responsive.LayoutHints;
+                    if (declaredHints.PreferredContentSize.x > 0f && declaredHints.PreferredContentSize.y > 0f)
+                    {
+                        hints = declaredHints;
+                    }
+                }
+            }
+
+            float sidebarPreferredWidth = 0f;
+            for (int i = 0; i < sidebarProviders.Count; i++)
+            {
+                sidebarPreferredWidth = Mathf.Max(
+                    sidebarPreferredWidth,
+                    Mathf.Max(0f, sidebarProviders[i].PreferredWidth));
+            }
+
+            float width = hints.PreferredContentSize.x + WINDOW_CONTENT_PADDING;
+            if (sidebarPreferredWidth > 0f)
+            {
+                width += DEFAULT_SPACING + sidebarPreferredWidth;
+            }
+
+            float height = hints.PreferredContentSize.y + WINDOW_CONTENT_PADDING + TabDrawer.TabHeight;
+            return new Vector2(width, height);
         }
 
         private float ComputeBannerHeight(float maximumHeight)
@@ -336,6 +388,10 @@ namespace PhinixClient
 
         private float GetMainTabHeight(float width, Rect referenceRect)
         {
+            if (width <= 0f || tabList.Count == 0)
+            {
+                return 0f;
+            }
             if (!Mathf.Approximately(cachedMainTabWidth, width))
             {
                 cachedMainTabWidth = width;
@@ -347,6 +403,10 @@ namespace PhinixClient
 
         private float GetSidebarTabHeight(float width, Rect referenceRect)
         {
+            if (width <= 0f || sidebarTabList.Count == 0)
+            {
+                return 0f;
+            }
             if (!Mathf.Approximately(cachedSidebarTabWidth, width))
             {
                 cachedSidebarTabWidth = width;
@@ -358,20 +418,14 @@ namespace PhinixClient
 
         private void ClampWindowToScreenSafeArea()
         {
-            Rect safeRect = GetScreenSafeRect();
-            Rect clamped = windowRect;
-            clamped.width = ClampLength(clamped.width, MIN_WINDOW_WIDTH, safeRect.width);
-            clamped.height = ClampLength(clamped.height, MIN_WINDOW_HEIGHT, safeRect.height);
-            clamped.x = Mathf.Clamp(clamped.x, safeRect.xMin, safeRect.xMax - clamped.width);
-            clamped.y = Mathf.Clamp(clamped.y, safeRect.yMin, safeRect.yMax - clamped.height);
-            windowRect = clamped;
+            windowRect = UiScreenSafeArea.ClampWindow(
+                windowRect,
+                new Vector2(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
         }
 
         private static Rect GetScreenSafeRect()
         {
-            float width = Mathf.Max(0f, UI.screenWidth);
-            float height = Mathf.Max(0f, UI.screenHeight);
-            return new Rect(0f, 0f, width, height);
+            return UiScreenSafeArea.Current;
         }
 
         private static float ClampLength(float value, float minimum, float maximum)

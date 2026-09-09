@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -18,6 +17,7 @@ namespace PhinixClient.GUI
         /// Collection of tabs that will be drawn.
         /// </summary>
         private List<TabContainerEntry> tabs;
+        private List<TabRecord> tabRecords;
 
         /// <summary>
         /// Callback invoked when a different tab is selected.
@@ -28,6 +28,9 @@ namespace PhinixClient.GUI
         /// Index of the currently-selected tab.
         /// </summary>
         private int selectedTab;
+        private float cachedTabWidth = -1f;
+        private float cachedTabHeight;
+        private object cachedLanguage;
 
         public TabsContainer(Action<int> onTabChange = null, int selectedTab = 0)
         {
@@ -35,6 +38,7 @@ namespace PhinixClient.GUI
             this.selectedTab = selectedTab;
 
             this.tabs = new List<TabContainerEntry>();
+            this.tabRecords = new List<TabRecord>();
         }
 
         /// <summary>
@@ -56,6 +60,8 @@ namespace PhinixClient.GUI
 
             // Add the tab to the tab list
             tabs.Add(new TabContainerEntry { tab = tab, displayable = displayable });
+            tabRecords.Add(tab);
+            cachedTabWidth = -1f;
         }
 
         /// <inheritdoc />
@@ -64,35 +70,27 @@ namespace PhinixClient.GUI
             // Do nothing if there's no tabs
             if (tabs.Count == 0) return;
 
-            // Ok, so for whatever reason the tabs are drawn /above/ whatever region you give them (why?!)
-            // To work around this we just trim the tab height off of the container rect
-            inRect = inRect.BottomPartPixels(inRect.height - TabDrawer.TabHeight);
-
-            // We draw the top with tabs (build tab list manually to avoid LINQ allocation in Draw path)
-            List<TabRecord> tabRecords = new List<TabRecord>(tabs.Count);
-            for (int i = 0; i < tabs.Count; i++)
-                tabRecords.Add(tabs[i].tab);
-            // 响应式宽度：最大宽度 = 可用宽度 / tab 数，避免固定宽度导致多个 tab 重叠/越界
-            float maxTabWidth = Mathf.Max(80f, inRect.width / Mathf.Max(1, tabRecords.Count));
-            TabRecord selectedRecord = TabDrawer.DrawTabs(inRect, tabRecords, maxTabWidth);
-
-            // Change the selected record if it was clicked
-            if (selectedRecord != null)
+            inRect.width = Mathf.Max(0f, inRect.width);
+            inRect.height = Mathf.Max(0f, inRect.height);
+            object language = LanguageDatabase.activeLanguage;
+            if (!ReferenceEquals(cachedLanguage, language))
             {
-                for (int i = 0; i < tabs.Count; i++)
-                {
-                    if (tabs[i].tab.label == selectedRecord.label)
-                    {
-                        selectedTab = i;
-                        break;
-                    }
-                }
-                onTabChange?.Invoke(selectedTab);
+                cachedLanguage = language;
+                cachedTabWidth = -1f;
+            }
+
+            float tabHeight = GetTabHeight(inRect.width);
+            tabHeight = Mathf.Min(tabHeight, inRect.height);
+            Rect contentRect = new Rect(inRect.xMin, inRect.yMin + tabHeight, inRect.width, Mathf.Max(0f, inRect.height - tabHeight));
+            if (inRect.width > 0f)
+            {
+                TabDrawer.DrawTabsOverflow(inRect, tabRecords, 80f, 200f);
             }
 
             // We draw the selected tab
+            selectedTab = Mathf.Clamp(selectedTab, 0, tabs.Count - 1);
             Displayable selectedDisplayable = tabs[selectedTab].displayable;
-            selectedDisplayable.Draw(inRect);
+            selectedDisplayable.Draw(contentRect);
         }
 
         /// <inheritdoc />
@@ -107,7 +105,21 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override float CalcHeight(float width)
         {
-            return TabDrawer.TabHeight;
+            return GetTabHeight(Mathf.Max(0f, width));
+        }
+
+        private float GetTabHeight(float width)
+        {
+            if (width <= 0f || tabRecords.Count == 0)
+            {
+                return 0f;
+            }
+            if (!Mathf.Approximately(cachedTabWidth, width))
+            {
+                cachedTabWidth = width;
+                cachedTabHeight = TabDrawer.GetOverflowTabHeight(new Rect(0f, 0f, width, 0f), tabRecords, 80f, 200f);
+            }
+            return Mathf.Max(0f, cachedTabHeight);
         }
     }
 }

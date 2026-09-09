@@ -47,7 +47,11 @@ namespace PhinixClient.GUI
             int count = Contents.Count;
             if (count == 0) return;
 
-            // Get the height taken up by fixed-height elements (manual sum, no LINQ alloc)
+            container.width = Mathf.Max(0f, container.width);
+            container.height = Mathf.Max(0f, container.height);
+            float effectiveSpacing = Mathf.Max(0f, spacing);
+
+            // Fixed content uses a clip fallback when its requested size exceeds the container.
             float fixedHeight = 0f;
             int fluidItems = 0;
             for (int i = 0; i < count; i++)
@@ -56,13 +60,15 @@ namespace PhinixClient.GUI
                 if (item.IsFluidHeight)
                     fluidItems++;
                 else
-                    fixedHeight += item.CalcHeight(container.width);
+                    fixedHeight += Mathf.Max(0f, item.CalcHeight(container.width));
             }
 
             // Divvy out the remaining height to each fluid element
             float remainingHeight = container.height - fixedHeight;
-            remainingHeight -= (count - 1) * spacing; // Remove spacing between each element
-            float heightPerFluid = remainingHeight / fluidItems;
+            remainingHeight -= (count - 1) * effectiveSpacing;
+            float heightPerFluid = fluidItems > 0
+                ? Mathf.Max(0f, remainingHeight) / fluidItems
+                : 0f;
 
             // Draw each item
             float yOffset = 0f;
@@ -89,7 +95,9 @@ namespace PhinixClient.GUI
                         x: container.xMin,
                         y: container.yMin + yOffset,
                         width: container.width,
-                        height: item.CalcHeight(container.width)
+                        height: Mathf.Min(
+                            Mathf.Max(0f, item.CalcHeight(container.width)),
+                            Mathf.Max(0f, container.height - yOffset))
                     );
                 }
 
@@ -97,10 +105,11 @@ namespace PhinixClient.GUI
                 item.Draw(rect);
 
                 // Increment the y offset by the item's height
-                yOffset += rect.height;
+                yOffset = Mathf.Min(container.height, yOffset + rect.height);
 
                 // Add spacing to the y offset if applicable
-                if (i < Contents.Count - 1) yOffset += spacing;
+                if (i < Contents.Count - 1)
+                    yOffset = Mathf.Min(container.height, yOffset + effectiveSpacing);
             }
         }
 
@@ -123,7 +132,7 @@ namespace PhinixClient.GUI
                 if (!item.IsFluidHeight)
                     total += item.CalcHeight(width);
             }
-            return total + (spacing * (Contents.Count - 1));
+            return Mathf.Max(0f, total + (Mathf.Max(0f, spacing) * Mathf.Max(0, Contents.Count - 1)));
         }
 
         /// <inheritdoc />

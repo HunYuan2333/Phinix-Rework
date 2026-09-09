@@ -38,15 +38,21 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
+            inRect.width = Mathf.Max(0f, inRect.width);
+            inRect.height = Mathf.Max(0f, inRect.height);
+
             // We calculate the overflowed size the children will take
             // Only supports x-overflow at the moment
             float widthChild = child.CalcWidth(inRect.height);
-            float heightChild = inRect.height - SCROLL_BAR_WIDTH;
-            if (widthChild == FLUID)
+            if (widthChild == FLUID || widthChild <= inRect.width)
             {
-                // If the child is width-fluid, we attribute all available space
-                widthChild = inRect.width;
+                ResetHorizontalScroll();
+                child.Draw(inRect);
+                return;
             }
+
+            float heightChild = Mathf.Max(0f, inRect.height - SCROLL_BAR_WIDTH);
+            widthChild = Mathf.Max(inRect.width, child.CalcWidth(heightChild));
 
             // Create an inner container that will hold the scrollable content
             Rect viewRect = new Rect(inRect.xMin, inRect.yMin, widthChild, heightChild);
@@ -71,6 +77,13 @@ namespace PhinixClient.GUI
             }
         }
 
+        private void ResetHorizontalScroll()
+        {
+            if (scrollPosition.x == 0f) return;
+            scrollPosition.x = 0f;
+            onScroll?.Invoke(scrollPosition);
+        }
+
         /// <inheritdoc />
         public override void Update()
         {
@@ -84,7 +97,11 @@ namespace PhinixClient.GUI
             if (child.IsFluidHeight) return FLUID;
 
             // Compensate for the scrollbar width
-            return child.CalcHeight(width) + SCROLL_BAR_WIDTH;
+            float childHeight = Mathf.Max(0f, child.CalcHeight(Mathf.Max(0f, width)));
+            float childWidth = child.CalcWidth(childHeight);
+            return childWidth != FLUID && childWidth > width
+                ? childHeight + SCROLL_BAR_WIDTH
+                : childHeight;
         }
     }
 }

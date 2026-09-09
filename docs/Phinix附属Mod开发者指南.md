@@ -552,7 +552,42 @@ public interface IServerSidebarProvider
 
 注册方式同上：`builder.RegisterApi<IServerSidebarProvider>(this)`。
 
-### 7.3 添加角标
+### 7.3 可选响应式布局提示（ClientExtensionAbstractions 1.1）
+
+旧版 `IMainTabProvider` 和 `IServerSidebarProvider` 的签名保持不变。需要声明内容尺寸偏好的新实现，可以让同一个 provider 额外实现可选接口；无需单独注册可选接口：
+
+```csharp
+public sealed class MyTab : IMainTabProvider, IResponsiveMainTabProvider
+{
+    private static readonly UiLayoutHints Hints = new UiLayoutHints(
+        minimumContentSize: new Vector2(480f, 320f),
+        preferredContentSize: new Vector2(760f, 560f),
+        supportsCompactLayout: true);
+
+    public UiLayoutHints LayoutHints => Hints;
+
+    // IMainTabProvider 的其他成员……
+}
+
+public sealed class MySidebar : IServerSidebarProvider, IResponsiveSidebarProvider
+{
+    public float MinimumWidth => 160f;
+    public bool CanCollapse => true;
+
+    // IServerSidebarProvider 的其他成员……
+}
+```
+
+- `MinimumContentSize` 是普通布局的最低建议内容尺寸；不是强制窗口下限。
+- `PreferredContentSize` 只参与首次打开时的首选尺寸决策，不能让窗口超过 UI 屏幕范围。
+- `SupportsCompactLayout` 表示 provider 在低于普通最小尺寸时有明确的紧凑布局。
+- `MinimumWidth` 是侧栏仍有实用价值的最小宽度；`CanCollapse` 允许 Host 在空间不足时折叠侧栏。
+- Host 空间不足时仍可能提供更小的有效 Rect。provider 必须始终把输出限制在 `Draw(Rect inRect)` 的 `inRect` 内。
+- `LayoutHints` 等 Draw 路径 getter 必须返回缓存值，不得执行集合遍历、文本测量或对象分配。
+- `ResponsiveSplitLayout`、`ResponsiveToolbarLayout`、`ResponsiveFormLayout` 和 `VirtualListLayout` 是无内部缓存的纯几何计算；调用方负责缓存结果，并在可用尺寸、语言、内容版本或相关设置变化时显式失效。
+- 未实现可选接口的旧 provider 自动使用保守默认值，可以继续加载和显示。
+
+### 7.4 添加角标
 
 实现 `IBadgeProvider`（定义于 [IBadgeProvider.cs](Client/ClientExtensionAbstractions/UI/IBadgeProvider.cs)）：
 
@@ -568,7 +603,7 @@ public interface IBadgeProvider
 
 注册方式同上：`builder.RegisterApi<IBadgeProvider>(this)`。
 
-### 7.4 添加设置面板
+### 7.5 添加设置面板
 
 实现 `IClientSettingsPanelProvider`（定义于 [IClientExtensionAbstractions.cs:182-195](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L182-L195)）：
 
@@ -586,7 +621,7 @@ public interface IClientSettingsPanelProvider
 
 完整示例参考 Chat 的实现：[ChatSettingsPanelProvider.cs](Extensions/Chat/Client/ChatSettingsPanelProvider.cs) 和 Trade 的实现：[TradeSettingsPanelProvider.cs](Extensions/Trade/Client/TradeSettingsPanelProvider.cs)。
 
-### 7.5 设置迁移（Legacy Settings）
+### 7.6 设置迁移（Legacy Settings）
 
 如果你的 Submod 需要从旧版 Phinix 的扁平 key 迁移设置到新的命名空间 key，同时实现 `IClientLegacySettingsMigrator`（定义于 [IClientExtensionAbstractions.cs:132-135](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L132-L135)）：
 
@@ -602,7 +637,7 @@ public interface IClientLegacySettingsMigrator
 
 Host 在设置窗口首次打开时会调用所有注册的 migrator。参考 [ChatSettingsPanelProvider.cs:53-67](Extensions/Chat/Client/ChatSettingsPanelProvider.cs#L53-L67)。
 
-### 7.6 推送显示消息
+### 7.7 推送显示消息
 
 如果你的 Submod 需要向消息队列注入通知（不是走 Message 管线从服务端来的消息，而是本地生成的通知），使用 `IDisplayMessageSink`（定义于 [IClientExtensionAbstractions.cs:171-175](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L171-L175)）：
 

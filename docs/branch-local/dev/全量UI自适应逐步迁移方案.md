@@ -2,8 +2,63 @@
 
 > **目标版本**：RimWorld 1.6 / .NET Framework 4.7.2 兼容客户端  
 > **覆盖范围**：Host 全部可视功能、全部随包内置客户端插件及共享 UI 基础设施  
-> **状态**：实施前设计稿  
+> **状态**：实施中（Phase 1 至 Phase 3 已完成代码实施；下一步迁移 Chat 并继续游戏内矩阵验收）
 > **设计基准**：[设计哲学.md](../../设计哲学.md)、[Compatibility-Boundaries.md](../../Compatibility-Boundaries.md)
+
+## 实施进度
+
+### 2026-09-09：Phase 1 Host 首个切片
+
+已完成：
+
+- `ServerTab` 的尺寸来源改为 `Verse.UI.screenWidth` / `Verse.UI.screenHeight`。
+- 保存尺寸、当前尺寸和窗口位置同时 Clamp 到当前 UI 屏幕范围；屏幕小于设计最小尺寸时以屏幕为硬上限。
+- `ServerTab` 启用拖动和缩放，拖动、缩放及分辨率变化后均重新执行边界约束。
+- 主 Tab 和侧栏 Tab 改用 `GetOverflowTabHeight` / `DrawTabsOverflow`，实际导航高度从内容区域扣除。
+- 公告总高度受剩余高度限制，主内容区、侧栏和公告 Rect 不产生负宽高。
+- Tab 溢出高度按有效宽度和活动语言缓存；稳定 Draw 不重复计算溢出布局。
+- Debug 1.6 和 Release 1.6 解决方案构建通过。
+
+视觉验证发现并已修正：
+
+- `DrawTabsOverflow` 从传入基准矩形顶部向下绘制，与旧 `DrawTabs` 的调用约定不同。导航必须使用独立的导航基准矩形，不能把已经扣除 Tab 高度的内容 Rect 直接传入，否则会覆盖插件内容。
+- 安全边界是防止窗口不可达的硬约束，不应表现为强制可见留白。桌面 RimWorld 默认安全区使用完整 UI 屏幕矩形 `(0, 0, UI.screenWidth, UI.screenHeight)`，允许窗口与四条屏幕边缘视觉贴齐。
+
+仍待完成：
+
+- 1、5、10、20 个主 Tab 以及 1、2、5 个侧栏 provider 的游戏内可达性验证。
+- §7 所列分辨率、UI 缩放、窗口模式切换、长文本和性能矩阵。
+- Phase 0 的自动几何诊断、可重复截图基线和 GC/帧时间基线。
+
+### 2026-09-09：Phase 2 可选响应式契约
+
+已完成：
+
+- 新增值类型 `UiLayoutHints`，包含 `MinimumContentSize`、`PreferredContentSize` 和 `SupportsCompactLayout`。
+- 新增可选接口 `IResponsiveMainTabProvider` 与 `IResponsiveSidebarProvider`，未修改任何旧 provider 接口签名。
+- Host 通过 `as` 读取提示；新用户首次打开窗口时结合活动页面首选内容尺寸和侧栏首选宽度决定初始尺寸，无法满足时仍以 UI 屏幕为硬上限。
+- 侧栏宽度计算读取可选 `MinimumWidth`；旧侧栏继续使用 120 UI 坐标单位的保守默认值。
+- `ClientExtensionAbstractions` 程序集版本更新为 `1.1.0.0`，中英文附属 Mod 开发指南已加入实现示例和降级规则。
+- 使用仍引用 `ClientExtensionAbstractions 1.0.0.0` 的旧 Chat 插件 DLL，与新 `1.1.0.0` 程序集执行真实加载验证；旧 `ChatMainTabProvider` 可解析并赋值为新版 `IMainTabProvider`。
+
+### 2026-09-09：Phase 3 共享低分配布局原语
+
+已完成：
+
+- 新增 `UiScreenSafeArea`，提供 RimWorld UI 屏幕范围和窗口 Clamp 的纯几何重载；`ServerTab` 已改用共享实现。
+- 新增 `ResponsiveSplitLayout`，根据双方最小尺寸返回 Horizontal、Vertical 或 SinglePane 结果。
+- 新增 `ResponsiveToolbarLayout`，把按优先级排列的操作写入调用方提供的 Rect 数组，支持多行和 FloatMenu 溢出入口。
+- 新增 `ResponsiveFormLayout`，支持同行与上下堆叠，并为校验错误动态预留高度。
+- 新增 `VirtualListLayout`，支持固定行高直接定位，以及基于前缀偏移和二分查找的动态行高可见范围。
+- 新增 `Tests/ResponsiveUiGeometryTests`，覆盖安全区、三种 Split 模式、工具栏换行/Overflow、表单模式、固定/动态虚拟列表、零尺寸和稳态零托管分配；测试通过。
+- 原语本身不持有缓存；调用方持有结果，并以尺寸、语言、内容版本和相关设置作为显式失效条件。
+- 旧 Horizontal/Vertical Flex 在没有 fluid 项或固定内容超出容器时采用非负 Clip 退化，不再除零或生成负子 Rect。
+- 旧 Horizontal/Vertical Scroll 仅在实际溢出时建立 ScrollView 和预留 16 UI 坐标单位滚动条空间。
+- 旧 `TabsContainer` 改为缓存 `TabRecord`，使用原生溢出 Tab，并从内容区扣除实际导航高度；Draw 路径不再每帧创建临时列表。
+
+仍待完成：
+
+- 开始 Phase 4 Chat 页面迁移，并在真实游戏环境继续验证旧容器调用页面。
 
 ---
 
@@ -43,7 +98,7 @@
 - 红包列表已开始使用可见行裁剪。
 - RimWorld 1.6 本地 API 提供 `TabDrawer.DrawTabsOverflow`、`TabDrawer.GetOverflowTabHeight`、`WindowResizer`、`Widgets.BeginScrollView`、`Widgets.LabelScrollable` 和 `Listing_Standard`。
 
-### 1.2 当前主要缺口
+### 1.2 迁移启动时主要缺口
 
 - 保存的窗口尺寸只检查最小值，没有在分辨率或 UI 缩放变化后重新限制到可见区域。
 - 主 Tab 只按数量均分并设 80px 下限；下限生效后总宽度仍可能超过可用宽度。
@@ -58,7 +113,7 @@
 
 | 所属 | UI 入口/组件 | 当前迁移结论 |
 |---|---|---|
-| Host | `ServerTab`、`ServerTabButtonWorker` | 必须迁移 |
+| Host | `ServerTab`、`ServerTabButtonWorker` | Phase 1 壳层代码已完成，待矩阵验收 |
 | Host | `SettingsWindow`、`CredentialsWindow` | 必须迁移 |
 | Host | `ExtensionManagerTab`、`ExtensionControlSettingsPanelProvider` | 必须迁移 |
 | Host | `Client.DoSettingsWindowContents` | 必须迁移 |
@@ -179,16 +234,16 @@ UI 缩放或 UI 坐标区域变化
 
 RimWorld UI 使用缩放后的 GUI 坐标。窗口尺寸与位置必须以 `Verse.UI.screenWidth` / `Verse.UI.screenHeight` 为准，不使用 Unity `Screen.width` / `Screen.height` 直接计算 GUI `Rect`。
 
-建议统一安全区：
+统一安全区是窗口不可越过的硬边界，不是必须显示出来的装饰留白。桌面 RimWorld 默认使用完整 UI 屏幕区域；只有平台确实存在不可用区域时，才由统一实现提供非零 inset：
 
 ```text
-safeRect = UI 屏幕区域 - 四周安全边距
+safeRect = (0, 0, UI.screenWidth, UI.screenHeight)
 windowRect.width  = clamp(saved/preferred width,  minWidth,  safeRect.width)
 windowRect.height = clamp(saved/preferred height, minHeight, safeRect.height)
 windowRect.position 同时 clamp，保证标题栏和关闭按钮可见
 ```
 
-如果屏幕本身小于设计最小尺寸，应以屏幕安全区为硬上限，并由内容重排/滚动承担退化，不能生成比屏幕更大的不可达窗口。
+不得为了“安全感”强制保留肉眼可见的四周空隙，否则贴边窗口会被普通用户理解为没有对齐。如果屏幕本身小于设计最小尺寸，应以屏幕安全区为硬上限，并由内容重排/滚动承担退化，不能生成比屏幕更大的不可达窗口。
 
 ### 4.2 原生 Tab 溢出
 
@@ -199,11 +254,14 @@ windowRect.position 同时 clamp，保证标题栏和关闭按钮可见
 
 Host 必须根据实际溢出高度扣减内容区，不能继续固定只扣一个 `TabDrawer.TabHeight`。若原生多行 Tab 在极端数量下占用过高，应再增加最大行数与“更多”菜单，但第一阶段不自建 Tab 绘制器。
 
+RimWorld 1.6 调用约束：`DrawTabsOverflow` 从传入 `baseRect` 的顶部开始绘制溢出行。调用方应分别维护导航基准 Rect 与扣除实际溢出高度后的内容 Rect；不要沿用旧 `DrawTabs(contentRect, ...)` 的“在内容 Rect 上方绘制”思路。
+
 ### 4.3 窗口调整
 
 - `InitialSize` 用于首选尺寸。
 - `SetInitialSizeAndPosition` 可用于屏幕安全定位。
 - `resizeable` / `WindowResizer` 保留用户调整能力。
+- Host 主窗口启用 `draggable`；拖动后的窗口仍需 Clamp，但允许精确贴合屏幕边缘。
 - 不在每帧强制把用户窗口扩大到首选尺寸。
 - 只修正越过硬最小值或屏幕安全区的非法尺寸/位置。
 
@@ -336,14 +394,15 @@ layoutVersion
 
 #### 工作项
 
-1. 将 GUI 尺寸来源改为 `UI.screenWidth` / `UI.screenHeight`。
-2. 对保存尺寸同时做最小值和当前屏幕安全区上限 Clamp。
-3. 修复分辨率降低、UI 缩放提高后窗口部分离屏。
-4. 使用 `GetOverflowTabHeight` 和 `DrawTabsOverflow` 替代单行 Tab 平均压缩。
-5. 主 Tab 与侧栏 Tab 使用同一溢出规则。
-6. 公告总高度 Clamp 到可用内容高度；内容区永不生成负高。
-7. 侧栏宽度计算在所有输入下保证 `mainRect` 和 `rightColumnRect` 非负。
-8. 仅在尺寸/Tab 集/语言变化时刷新 Tab 布局缓存。
+1. [x] 将 GUI 尺寸来源改为 `UI.screenWidth` / `UI.screenHeight`。
+2. [x] 对保存尺寸同时做最小值和当前屏幕安全区上限 Clamp。
+3. [x] 修复分辨率降低、UI 缩放提高后窗口部分离屏。
+4. [x] 使用 `GetOverflowTabHeight` 和 `DrawTabsOverflow` 替代单行 Tab 平均压缩。
+5. [x] 主 Tab 与侧栏 Tab 使用同一溢出规则。
+6. [x] 公告总高度 Clamp 到可用内容高度；内容区永不生成负高。
+7. [x] 侧栏宽度计算在所有输入下保证 `mainRect` 和 `rightColumnRect` 非负。
+8. [x] 仅在尺寸/Tab 集/语言变化时刷新 Tab 布局缓存。
+9. [x] 主窗口允许拖动，并在拖动后限制到完整 UI 屏幕硬边界。
 
 #### 完成标准
 
@@ -370,11 +429,11 @@ layoutVersion
 
 #### 工作项
 
-1. 新增可选接口，不修改已有接口签名。
-2. 定义旧 provider 的默认提示与降级行为。
-3. Host 只通过 `as`/接口解析读取提示。
-4. 更新 API 版本并提供第三方示例。
-5. 增加“旧插件仅实现 `IMainTabProvider`”的兼容加载测试。
+1. [x] 新增可选接口，不修改已有接口签名。
+2. [x] 定义旧 provider 的默认提示与降级行为。
+3. [x] Host 只通过 `as`/接口解析读取提示。
+4. [x] 更新 API 版本并提供第三方示例。
+5. [x] 增加“旧插件仅实现 `IMainTabProvider`”的兼容加载测试。
 
 #### 完成标准
 
@@ -401,11 +460,11 @@ layoutVersion
 
 #### 工作项
 
-1. 所有核心布局算法实现为纯几何计算。
-2. 返回 struct 或写入调用方缓存，不创建每帧对象。
-3. 明确缓存失效键和手动 `Invalidate()` 路径。
-4. 增加极窄、极矮、零尺寸和超长标签测试。
-5. 加固旧 Flex/Scroll/Tabs 容器的退化输入。
+1. [x] 所有核心布局算法实现为纯几何计算。
+2. [x] 返回 struct 或写入调用方缓存，不创建每帧对象。
+3. [x] 明确调用方缓存所有权、失效键和显式重算路径。
+4. [x] 增加极窄、极矮、零尺寸和超长标签测试。
+5. [x] 加固旧 Flex/Scroll/Tabs 容器的退化输入。
 
 #### 完成标准
 

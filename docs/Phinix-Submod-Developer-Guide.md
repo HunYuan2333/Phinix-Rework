@@ -555,7 +555,42 @@ public interface IServerSidebarProvider
 
 Registration same as above: `builder.RegisterApi<IServerSidebarProvider>(this)`.
 
-### 7.3 Adding a Badge
+### 7.3 Optional Responsive Layout Hints (ClientExtensionAbstractions 1.1)
+
+The signatures of the legacy `IMainTabProvider` and `IServerSidebarProvider` interfaces remain unchanged. New implementations that want to declare content-size preferences can implement an additional optional interface on the same provider instance. Do not register the optional interface separately:
+
+```csharp
+public sealed class MyTab : IMainTabProvider, IResponsiveMainTabProvider
+{
+    private static readonly UiLayoutHints Hints = new UiLayoutHints(
+        minimumContentSize: new Vector2(480f, 320f),
+        preferredContentSize: new Vector2(760f, 560f),
+        supportsCompactLayout: true);
+
+    public UiLayoutHints LayoutHints => Hints;
+
+    // Other IMainTabProvider members...
+}
+
+public sealed class MySidebar : IServerSidebarProvider, IResponsiveSidebarProvider
+{
+    public float MinimumWidth => 160f;
+    public bool CanCollapse => true;
+
+    // Other IServerSidebarProvider members...
+}
+```
+
+- `MinimumContentSize` is the recommended minimum for the normal layout, not a mandatory window minimum.
+- `PreferredContentSize` only contributes to the initial preferred size and cannot make the window exceed the UI screen bounds.
+- `SupportsCompactLayout` indicates that the provider has an explicit compact layout below its normal minimum size.
+- `MinimumWidth` is the smallest useful sidebar width; `CanCollapse` allows the host to collapse the sidebar when space is constrained.
+- The host may still provide a smaller valid Rect. Providers must always keep output inside the `inRect` supplied to `Draw(Rect inRect)`.
+- `LayoutHints` and other draw-path getters must return cached values without collection traversal, text measurement, or allocation.
+- `ResponsiveSplitLayout`, `ResponsiveToolbarLayout`, `ResponsiveFormLayout`, and `VirtualListLayout` are pure geometry calculations without internal caches. Callers own the result cache and explicitly invalidate it when available size, language, content version, or relevant settings change.
+- Providers compiled against older abstractions automatically use conservative defaults and continue to load and render.
+
+### 7.4 Adding a Badge
 
 Implement `IBadgeProvider` (defined in [IBadgeProvider.cs](Client/ClientExtensionAbstractions/UI/IBadgeProvider.cs)):
 
@@ -571,7 +606,7 @@ public interface IBadgeProvider
 
 Registration same as above: `builder.RegisterApi<IBadgeProvider>(this)`.
 
-### 7.4 Adding a Settings Panel
+### 7.5 Adding a Settings Panel
 
 Implement `IClientSettingsPanelProvider` (defined at [IClientExtensionAbstractions.cs:182-195](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L182-L195)):
 
@@ -589,7 +624,7 @@ Registration: `builder.RegisterApi<IClientSettingsPanelProvider>(this)`.
 
 For complete examples, see Chat's implementation: [ChatSettingsPanelProvider.cs](Extensions/Chat/Client/ChatSettingsPanelProvider.cs) and Trade's implementation: [TradeSettingsPanelProvider.cs](Extensions/Trade/Client/TradeSettingsPanelProvider.cs).
 
-### 7.5 Settings Migration (Legacy Settings)
+### 7.6 Settings Migration (Legacy Settings)
 
 If your submod needs to migrate settings from old Phinix flat keys to new namespaced keys, also implement `IClientLegacySettingsMigrator` (defined at [IClientExtensionAbstractions.cs:132-135](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L132-L135)):
 
@@ -605,7 +640,7 @@ Registration: `builder.RegisterApi<IClientLegacySettingsMigrator>(this)`.
 
 The host calls all registered migrators when the settings window is first opened. Reference: [ChatSettingsPanelProvider.cs:53-67](Extensions/Chat/Client/ChatSettingsPanelProvider.cs#L53-L67).
 
-### 7.6 Pushing Display Messages
+### 7.7 Pushing Display Messages
 
 If your submod needs to inject notifications into the message queue (not messages coming from the server via the Message pipeline, but locally generated notifications), use `IDisplayMessageSink` (defined at [IClientExtensionAbstractions.cs:171-175](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L171-L175)):
 
