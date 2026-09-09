@@ -861,7 +861,11 @@ namespace PhinixClient.Framework
             {
                 if (displayMessages.Count >= MaxDisplayMessages)
                 {
-                    displayMessages.RemoveRange(0, displayMessages.Count - MaxDisplayMessages + 1);
+                    int removedCount = displayMessages.Count - MaxDisplayMessages + 1;
+                    displayMessages.RemoveRange(0, removedCount);
+                    // The read cursor is an index in the retained buffer, so it must
+                    // move with the buffer when old messages are evicted.
+                    displayMessageCountAtLastCheck = Math.Max(0, displayMessageCountAtLastCheck - removedCount);
                 }
                 displayMessages.Add(message);
             }
