@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using PhinixClient;
 using PhinixClient.Framework;
@@ -32,13 +31,17 @@ namespace Phinix.ChatExtension.Client
         private readonly List<ImmutableUser> filteredOnlineUsers = new List<ImmutableUser>();
         private readonly List<ImmutableUser> filteredBlockedUsers = new List<ImmutableUser>();
         private readonly object userListsLock = new object();
-        private readonly Dictionary<ImmutableUser, (float Normal, float Scrollbar)> userRectHeights = new Dictionary<ImmutableUser, (float Normal, float Scrollbar)>();
-        private readonly Dictionary<ImmutableUser, (float Normal, float Scrollbar)> blockedUserRectHeights = new Dictionary<ImmutableUser, (float Normal, float Scrollbar)>();
+        private readonly Dictionary<ImmutableUser, string> formattedDisplayNames = new Dictionary<ImmutableUser, string>();
 
         private bool onlineUsersChanged;
         private bool blockedUsersChanged;
-        private (float Normal, float Scrollbar) userRectHeightsSum = (0f, 0f);
-        private (float Normal, float Scrollbar) blockedUserRectHeightsSum = (0f, 0f);
+        private float[] onlineNormalOffsets = new float[1];
+        private float[] onlineScrollbarOffsets = new float[1];
+        private float[] blockedNormalOffsets = new float[1];
+        private float[] blockedScrollbarOffsets = new float[1];
+        private float cachedWidth = -1f;
+        private object cachedLanguage;
+        private string cachedBlockedUsersLabel;
         private string searchText = string.Empty;
         private Vector2 scrollPos;
 
@@ -68,94 +71,78 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
-            if (onlineUsersChanged || blockedUsersChanged)
+            if (inRect.width <= 0f || inRect.height <= 0f)
             {
-                if (onlineUsersChanged && Monitor.TryEnter(userListsLock))
-                {
-                    filteredOnlineUsers.Clear();
-                    filteredOnlineUsers.AddRange(onlineUsers.Where(u => u.DisplayName.StripTags().IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1));
-                    onlineUsersChanged = false;
-                    Monitor.Exit(userListsLock);
-                }
+                return;
+            }
 
-                if (blockedUsersChanged && Monitor.TryEnter(userListsLock))
+            object language = LanguageDatabase.activeLanguage;
+            if (onlineUsersChanged || blockedUsersChanged || !Mathf.Approximately(cachedWidth, inRect.width) || !ReferenceEquals(language, cachedLanguage))
+            {
+                if (Monitor.TryEnter(userListsLock))
                 {
-                    filteredBlockedUsers.Clear();
-                    filteredBlockedUsers.AddRange(blockedUsers.Where(u => u.DisplayName.StripTags().IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1));
-                    blockedUsersChanged = false;
-                    Monitor.Exit(userListsLock);
-                }
-
-                userRectHeights.Clear();
-                userRectHeightsSum = (0f, 0f);
-                foreach (ImmutableUser user in filteredOnlineUsers)
-                {
-                    float normalHeight = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width) + (UserButtonPaddingVertical * 2);
-                    float heightWithScrollbar = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width - ScrollbarWidth) + (UserButtonPaddingVertical * 2);
-                    userRectHeights.Add(user, (normalHeight, heightWithScrollbar));
-                    userRectHeightsSum.Normal += normalHeight;
-                    userRectHeightsSum.Scrollbar += heightWithScrollbar;
-                }
-
-                blockedUserRectHeights.Clear();
-                blockedUserRectHeightsSum = (0f, 0f);
-                foreach (ImmutableUser user in filteredBlockedUsers)
-                {
-                    float normalHeight = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width) + (UserButtonPaddingVertical * 2);
-                    float heightWithScrollbar = Text.CalcHeight(formatDisplayName(user.DisplayName, user), inRect.width - ScrollbarWidth) + (UserButtonPaddingVertical * 2);
-                    blockedUserRectHeights.Add(user, (normalHeight, heightWithScrollbar));
-                    blockedUserRectHeightsSum.Normal += normalHeight;
-                    blockedUserRectHeightsSum.Scrollbar += heightWithScrollbar;
+                    try
+                    {
+                        RebuildLayout(inRect.width, language);
+                    }
+                    finally
+                    {
+                        Monitor.Exit(userListsLock);
+                    }
                 }
             }
 
-            float totalHeight = userRectHeightsSum.Normal;
-            if (filteredBlockedUsers.Any())
+            bool hasBlockedUsers = filteredBlockedUsers.Count > 0;
+            float totalHeight = onlineNormalOffsets[filteredOnlineUsers.Count];
+            if (hasBlockedUsers)
             {
                 totalHeight += blockedSpacerHeight;
                 if (!settingsContext.CollapseBlockedUsers)
                 {
-                    totalHeight += blockedUserRectHeightsSum.Normal;
+                    totalHeight += blockedNormalOffsets[filteredBlockedUsers.Count];
                 }
             }
 
             Rect contentRect = new Rect(inRect.xMin, inRect.yMin, inRect.width, totalHeight);
             if (contentRect.height > inRect.height)
             {
-                totalHeight = userRectHeightsSum.Scrollbar;
-                if (filteredBlockedUsers.Any())
+                totalHeight = onlineScrollbarOffsets[filteredOnlineUsers.Count];
+                if (hasBlockedUsers)
                 {
                     totalHeight += blockedSpacerHeight;
                     if (!settingsContext.CollapseBlockedUsers)
                     {
-                        totalHeight += blockedUserRectHeightsSum.Scrollbar;
+                        totalHeight += blockedScrollbarOffsets[filteredBlockedUsers.Count];
                     }
                 }
 
-                contentRect.width = inRect.width - ScrollbarWidth;
+                contentRect.width = Mathf.Max(0f, inRect.width - ScrollbarWidth);
                 contentRect.height = totalHeight;
             }
 
             Widgets.BeginScrollView(inRect, ref scrollPos, contentRect);
 
-            float currentY = contentRect.yMin;
-            foreach (ImmutableUser user in filteredOnlineUsers)
+            bool useScrollbarLayout = contentRect.height > inRect.height;
+            float[] onlineOffsets = useScrollbarLayout ? onlineScrollbarOffsets : onlineNormalOffsets;
+            float[] blockedOffsets = useScrollbarLayout ? blockedScrollbarOffsets : blockedNormalOffsets;
+            VirtualListRange onlineRange = VirtualListLayout.GetDynamicRange(onlineOffsets, filteredOnlineUsers.Count, scrollPos.y, inRect.height, 1);
+            for (int index = onlineRange.FirstIndex; index < onlineRange.EndIndexExclusive; index++)
             {
-                float height = contentRect.height > inRect.height ? userRectHeights[user].Scrollbar : userRectHeights[user].Normal;
-                drawUser(new Rect(contentRect.xMin, currentY, contentRect.width, height), user, false);
-                currentY += height;
+                float height = onlineOffsets[index + 1] - onlineOffsets[index];
+                drawUser(new Rect(contentRect.xMin, contentRect.yMin + onlineOffsets[index], contentRect.width, height), filteredOnlineUsers[index], false);
             }
 
-            if (filteredBlockedUsers.Any())
+            float blockedHeaderY = contentRect.yMin + onlineOffsets[filteredOnlineUsers.Count];
+            if (hasBlockedUsers)
             {
                 Rect paddedRect = new Rect(
                     contentRect.xMin,
-                    currentY + BlockedSpacerPaddingTop,
+                    blockedHeaderY + BlockedSpacerPaddingTop,
                     contentRect.width,
                     blockedSpacerHeight - BlockedSpacerPaddingTop - BlockedSpacerPaddingBottom);
                 TextAnchor oldTextAnchor = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(paddedRect, "Phinix_chat_blockedUsers".Translate());
+                Widgets.Label(paddedRect, cachedBlockedUsersLabel);
                 Text.Anchor = oldTextAnchor;
 
                 if (Widgets.ButtonInvisible(paddedRect, false))
@@ -186,20 +173,82 @@ namespace Phinix.ChatExtension.Client
                     Text.Anchor = oldCollapseAnchor;
                 }
 
-                currentY += blockedSpacerHeight;
-
                 if (!settingsContext.CollapseBlockedUsers)
                 {
-                    foreach (ImmutableUser user in filteredBlockedUsers)
+                    float blockedStartY = blockedHeaderY + blockedSpacerHeight;
+                    float blockedOffset = blockedStartY - contentRect.yMin;
+                    if (scrollPos.y + inRect.height >= blockedOffset)
                     {
-                        float height = contentRect.height > inRect.height ? blockedUserRectHeights[user].Scrollbar : blockedUserRectHeights[user].Normal;
-                        drawUser(new Rect(contentRect.xMin, currentY, contentRect.width, height), user, true);
-                        currentY += height;
+                        float blockedScrollY = Mathf.Max(0f, scrollPos.y - blockedOffset);
+                        VirtualListRange blockedRange = VirtualListLayout.GetDynamicRange(blockedOffsets, filteredBlockedUsers.Count, blockedScrollY, inRect.height, 1);
+                        for (int index = blockedRange.FirstIndex; index < blockedRange.EndIndexExclusive; index++)
+                        {
+                            float height = blockedOffsets[index + 1] - blockedOffsets[index];
+                            drawUser(new Rect(contentRect.xMin, blockedStartY + blockedOffsets[index], contentRect.width, height), filteredBlockedUsers[index], true);
+                        }
                     }
                 }
             }
 
             Widgets.EndScrollView();
+        }
+
+        private void RebuildLayout(float width, object language)
+        {
+            filteredOnlineUsers.Clear();
+            for (int i = 0; i < onlineUsers.Count; i++)
+            {
+                ImmutableUser user = onlineUsers[i];
+                if (user.DisplayName.StripTags().IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                {
+                    filteredOnlineUsers.Add(user);
+                }
+            }
+
+            filteredBlockedUsers.Clear();
+            for (int i = 0; i < blockedUsers.Count; i++)
+            {
+                ImmutableUser user = blockedUsers[i];
+                if (user.DisplayName.StripTags().IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                {
+                    filteredBlockedUsers.Add(user);
+                }
+            }
+
+            onlineNormalOffsets = EnsureCapacity(onlineNormalOffsets, filteredOnlineUsers.Count + 1);
+            onlineScrollbarOffsets = EnsureCapacity(onlineScrollbarOffsets, filteredOnlineUsers.Count + 1);
+            blockedNormalOffsets = EnsureCapacity(blockedNormalOffsets, filteredBlockedUsers.Count + 1);
+            blockedScrollbarOffsets = EnsureCapacity(blockedScrollbarOffsets, filteredBlockedUsers.Count + 1);
+            formattedDisplayNames.Clear();
+            BuildOffsets(filteredOnlineUsers, onlineNormalOffsets, onlineScrollbarOffsets, width);
+            BuildOffsets(filteredBlockedUsers, blockedNormalOffsets, blockedScrollbarOffsets, width);
+
+            onlineUsersChanged = false;
+            blockedUsersChanged = false;
+            cachedWidth = width;
+            cachedLanguage = language;
+            cachedBlockedUsersLabel = "Phinix_chat_blockedUsers".Translate();
+        }
+
+        private void BuildOffsets(List<ImmutableUser> users, float[] normalOffsets, float[] scrollbarOffsets, float width)
+        {
+            normalOffsets[0] = 0f;
+            scrollbarOffsets[0] = 0f;
+            for (int i = 0; i < users.Count; i++)
+            {
+                ImmutableUser user = users[i];
+                string formatted = formatDisplayName(user.DisplayName, user);
+                formattedDisplayNames[user] = formatted;
+                float normalHeight = Text.CalcHeight(formatted, Mathf.Max(1f, width)) + UserButtonPaddingVertical * 2f;
+                float scrollbarHeight = Text.CalcHeight(formatted, Mathf.Max(1f, width - ScrollbarWidth)) + UserButtonPaddingVertical * 2f;
+                normalOffsets[i + 1] = normalOffsets[i] + normalHeight;
+                scrollbarOffsets[i + 1] = scrollbarOffsets[i] + scrollbarHeight;
+            }
+        }
+
+        private static float[] EnsureCapacity(float[] values, int required)
+        {
+            return values.Length >= required ? values : new float[required];
         }
 
         public void Filter(string searchText)
@@ -225,7 +274,14 @@ namespace Phinix.ChatExtension.Client
             lock (userListsLock)
             {
                 onlineUsers.Clear();
-                onlineUsers.AddRange(userDirectory.GetUsers(true).Where(u => !blockedUsers.Contains(u)));
+                ImmutableUser[] users = userDirectory.GetUsers(true);
+                for (int i = 0; i < users.Length; i++)
+                {
+                    if (!blockedUsers.Contains(users[i]))
+                    {
+                        onlineUsers.Add(users[i]);
+                    }
+                }
             }
 
             onlineUsersChanged = true;
@@ -262,7 +318,11 @@ namespace Phinix.ChatExtension.Client
 
         private void drawUser(Rect inRect, ImmutableUser user, bool blocked)
         {
-            string formattedDisplayName = formatDisplayName(user.DisplayName, user);
+            string formattedDisplayName;
+            if (!formattedDisplayNames.TryGetValue(user, out formattedDisplayName))
+            {
+                formattedDisplayName = formatDisplayName(user.DisplayName, user);
+            }
             if (blocked)
             {
                 Widgets.DrawRectFast(inRect, ChatTheme.BlockedBg);

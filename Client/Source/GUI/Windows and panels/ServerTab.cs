@@ -52,6 +52,8 @@ namespace PhinixClient
         private float cachedSidebarTabWidth = -1f;
         private float cachedSidebarTabHeight;
         private object cachedTabLanguage;
+        private bool sidebarCollapsedBySpace;
+        private bool sidebarDrawerOpen;
 
         public ServerTab()
         {
@@ -181,7 +183,9 @@ namespace PhinixClient
             float sidebarWidth;
             ComputeColumnWidths(inRect.width, out mainColumnWidth, out sidebarWidth);
 
-            float mainTabHeight = Mathf.Min(GetMainTabHeight(mainColumnWidth, inRect), Mathf.Max(0f, inRect.height));
+            float collapsedSidebarButtonWidth = sidebarCollapsedBySpace ? 40f : 0f;
+            float mainTabNavigationWidth = Mathf.Max(0f, mainColumnWidth - (sidebarCollapsedBySpace ? collapsedSidebarButtonWidth + 4f : 0f));
+            float mainTabHeight = Mathf.Min(GetMainTabHeight(mainTabNavigationWidth, inRect), Mathf.Max(0f, inRect.height));
             float maxBannerHeight = Mathf.Max(0f, inRect.height - mainTabHeight);
             float bannerHeight = ComputeBannerHeight(maxBannerHeight);
             DrawBanners(inRect, bannerHeight);
@@ -192,7 +196,7 @@ namespace PhinixClient
             Rect mainTabRect = new Rect(
                 inRect.xMin,
                 inRect.yMin + bannerHeight,
-                mainColumnWidth,
+                mainTabNavigationWidth,
                 Mathf.Max(0f, inRect.height - bannerHeight));
             Rect rightColumnRect = default;
             if (sidebarWidth > 0f)
@@ -205,7 +209,7 @@ namespace PhinixClient
                 TabDrawer.DrawTabsOverflow(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
             }
 
-            if (activeTab >= 0 && activeTab < tabProviders.Count)
+            if ((!sidebarCollapsedBySpace || !sidebarDrawerOpen) && activeTab >= 0 && activeTab < tabProviders.Count)
             {
                 tabProviders[activeTab].Draw(mainRect);
             }
@@ -214,11 +218,11 @@ namespace PhinixClient
                 Widgets.DrawMenuSection(mainRect);
             }
 
-            if (sidebarProviders.Count == 1)
+            if (sidebarWidth > 0f && sidebarProviders.Count == 1)
             {
                 sidebarProviders[0].Draw(rightColumnRect);
             }
-            else if (sidebarProviders.Count > 1)
+            else if (sidebarWidth > 0f && sidebarProviders.Count > 1)
             {
                 float sidebarTabHeight = Mathf.Min(
                     GetSidebarTabHeight(rightColumnRect.width, rightColumnRect),
@@ -237,6 +241,11 @@ namespace PhinixClient
                 {
                     sidebarProviders[activeSidebarTab].Draw(sidebarContentRect);
                 }
+            }
+
+            if (sidebarCollapsedBySpace)
+            {
+                DrawCollapsedSidebar(inRect, contentRect, bannerHeight, collapsedSidebarButtonWidth);
             }
 
             RefreshAcceptKeyHandler();
@@ -294,6 +303,7 @@ namespace PhinixClient
         {
             mainWidth = Mathf.Max(0f, availableWidth);
             sidebarWidth = 0f;
+            sidebarCollapsedBySpace = false;
             if (sidebarProviders.Count == 0 || availableWidth <= DEFAULT_SPACING)
             {
                 return;
@@ -301,6 +311,7 @@ namespace PhinixClient
 
             float desiredWidth = 0f;
             float declaredMinimumWidth = 0f;
+            bool allCanCollapse = true;
             for (int i = 0; i < sidebarProviders.Count; i++)
             {
                 desiredWidth = Mathf.Max(desiredWidth, sidebarProviders[i].PreferredWidth);
@@ -309,6 +320,10 @@ namespace PhinixClient
                     ? responsive.MinimumWidth
                     : SIDEBAR_MIN_WIDTH;
                 declaredMinimumWidth = Mathf.Max(declaredMinimumWidth, Mathf.Max(0f, minimumWidth));
+                if (responsive == null || !responsive.CanCollapse)
+                {
+                    allCanCollapse = false;
+                }
             }
 
             float maxByRatio = Mathf.Max(0f, availableWidth * SIDEBAR_MAX_RATIO);
@@ -316,12 +331,81 @@ namespace PhinixClient
             float maxSidebar = Mathf.Min(maxByRatio, maxByMain);
             if (maxSidebar <= 0f)
             {
+                sidebarCollapsedBySpace = allCanCollapse;
+                return;
+            }
+
+            if (allCanCollapse && maxSidebar < declaredMinimumWidth)
+            {
+                sidebarCollapsedBySpace = true;
                 return;
             }
 
             float minSidebar = Mathf.Min(declaredMinimumWidth, maxSidebar);
             sidebarWidth = Mathf.Clamp(desiredWidth, minSidebar, maxSidebar);
             mainWidth = Mathf.Max(0f, availableWidth - sidebarWidth - DEFAULT_SPACING);
+            sidebarDrawerOpen = false;
+        }
+
+        private void DrawCollapsedSidebar(Rect windowRect, Rect contentRect, float bannerHeight, float buttonWidth)
+        {
+            if (sidebarProviders.Count == 0 || buttonWidth <= 0f)
+            {
+                return;
+            }
+
+            int sidebarIndex = Mathf.Clamp(activeSidebarTab, 0, sidebarProviders.Count - 1);
+            IServerSidebarProvider activeProvider = sidebarProviders[sidebarIndex];
+            Rect toggleRect = new Rect(
+                windowRect.xMax - buttonWidth,
+                windowRect.yMin + bannerHeight,
+                buttonWidth,
+                Mathf.Min(TabDrawer.TabHeight, Mathf.Max(0f, windowRect.height - bannerHeight)));
+            if (toggleRect.height > 0f && Widgets.ButtonText(toggleRect, "☰"))
+            {
+                sidebarDrawerOpen = !sidebarDrawerOpen;
+            }
+            TooltipHandler.TipRegion(toggleRect, activeProvider.TabLabel);
+
+            if (!sidebarDrawerOpen || contentRect.width <= 0f || contentRect.height <= 0f)
+            {
+                return;
+            }
+
+            float preferredWidth = Mathf.Max(SIDEBAR_MIN_WIDTH, activeProvider.PreferredWidth);
+            float drawerWidth = Mathf.Min(contentRect.width, Mathf.Max(preferredWidth, 280f));
+            Rect drawerRect = new Rect(contentRect.xMax - drawerWidth, contentRect.yMin, drawerWidth, contentRect.height);
+            Widgets.DrawMenuSection(drawerRect);
+
+            const float drawerPadding = 6f;
+            const float drawerHeaderHeight = 30f;
+            Rect innerRect = drawerRect.ContractedBy(drawerPadding);
+            Rect closeRect = new Rect(innerRect.xMax - 30f, innerRect.yMin, 30f, Mathf.Min(drawerHeaderHeight, innerRect.height));
+            Rect titleRect = new Rect(innerRect.xMin, innerRect.yMin, Mathf.Max(0f, closeRect.xMin - innerRect.xMin - 4f), closeRect.height);
+            Widgets.Label(titleRect, activeProvider.TabLabel);
+            if (closeRect.height > 0f && Widgets.ButtonText(closeRect, "×"))
+            {
+                sidebarDrawerOpen = false;
+                return;
+            }
+
+            float cursorY = Mathf.Min(innerRect.yMax, innerRect.yMin + drawerHeaderHeight + 4f);
+            if (sidebarProviders.Count > 1)
+            {
+                Rect tabBaseRect = new Rect(innerRect.xMin, cursorY, innerRect.width, Mathf.Max(0f, innerRect.yMax - cursorY));
+                float tabHeight = Mathf.Min(GetSidebarTabHeight(innerRect.width, tabBaseRect), tabBaseRect.height);
+                if (tabHeight > 0f)
+                {
+                    TabDrawer.DrawTabsOverflow(tabBaseRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                    cursorY += tabHeight;
+                }
+            }
+
+            Rect providerRect = new Rect(innerRect.xMin, cursorY, innerRect.width, Mathf.Max(0f, innerRect.yMax - cursorY));
+            if (providerRect.width > 0f && providerRect.height > 0f)
+            {
+                sidebarProviders[Mathf.Clamp(activeSidebarTab, 0, sidebarProviders.Count - 1)].Draw(providerRect);
+            }
         }
 
         private Vector2 GetInitialProviderPreferredSize()

@@ -4,6 +4,8 @@ using UnityEngine;
 
 internal static class Program
 {
+    private static readonly float[] StableDynamicOffsets = { 0f, 20f, 50f, 90f };
+
     private static int Main()
     {
         try
@@ -96,6 +98,14 @@ internal static class Program
         float[] offsets = { 0f, 10f, 30f, 60f, 100f };
         VirtualListRange dynamicRange = VirtualListLayout.GetDynamicRange(offsets, 4, 10f, 50f, 0);
         Assert(dynamicRange.FirstIndex == 1 && dynamicRange.EndIndexExclusive == 3, "Dynamic-height visible range is incorrect.");
+
+        float[] thousandOffsets = new float[1001];
+        for (int i = 0; i < 1000; i++)
+        {
+            thousandOffsets[i + 1] = thousandOffsets[i] + 18f + i % 5;
+        }
+        VirtualListRange thousandRange = VirtualListLayout.GetDynamicRange(thousandOffsets, 1000, 10000f, 600f, 2);
+        Assert(thousandRange.Count > 0 && thousandRange.Count < 40, "A 1000-row dynamic list should expose only the visible rows plus overscan.");
     }
 
     private static void TestZeroSizeInputs()
@@ -136,6 +146,7 @@ internal static class Program
             ResponsiveFormLayout.Calculate(new Rect(0f, 0f, 600f, 200f), 120f, 200f, 80f, 30f, 10f, 20f);
             ResponsiveToolbarLayout.Calculate(new Rect(0f, 0f, 220f, 80f), widths, 3, 2, 30f, 10f, 2, 40f, rects);
             VirtualListLayout.GetFixedRange(1000, 20f, 200f, 100f, 1);
+            VirtualListLayout.GetDynamicRange(StableDynamicOffsets, 3, 20f, 50f, 1);
         }
     }
 
