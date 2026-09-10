@@ -39,7 +39,6 @@ namespace Phinix.ChatExtension.Client
         private const int VIRTUAL_LIST_OVERSCAN = 2;
 
         private static readonly Regex UrlRegex = new Regex(@"https?:\/\/\S+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex MentionRegex = new Regex(@"@(\S+)", RegexOptions.Compiled);
         private static readonly string[] ImageFileExtensions = { "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff" };
         private static readonly char[] UrlTrailingPunctuation = { '.', ',', ';', ':', '!', '?', ')', ']', '}', '，', '。', '、', '；', '：', '！', '？', '）', '》', '"', '\'' };
         private static readonly Dictionary<string, Texture2D> imageTextureCache = new Dictionary<string, Texture2D>();
@@ -1020,11 +1019,7 @@ namespace Phinix.ChatExtension.Client
 
         private static string HighlightMentions(string messageText)
         {
-            if (string.IsNullOrEmpty(messageText)) return messageText;
-            return MentionRegex.Replace(messageText, match =>
-            {
-                return "<color=" + ColorUtility.ToHtmlStringRGB(ChatTheme.MentionText) + ">@" + match.Groups[1].Value + "</color>";
-            });
+            return ChatMentionUtility.Highlight(messageText, ColorUtility.ToHtmlStringRGB(ChatTheme.MentionText));
         }
 
         private void drawChatMessageFallback(Rect inRect, UIChatMessage chatMessage)

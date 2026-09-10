@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using PhinixClient;
 using PhinixClient.Framework;
 using UserManagement;
@@ -24,7 +23,6 @@ namespace Phinix.ChatExtension.Client
         private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
         private const int REFOCUS_ATTEMPTS = 2;
 
-        private static readonly Regex AtPartialRegex = new Regex(@"@([^\s]*)$", RegexOptions.Compiled);
         private static readonly UiLayoutHints CachedLayoutHints = new UiLayoutHints(
             new Vector2(360f, 260f),
             new Vector2(800f, 560f),
@@ -35,6 +33,7 @@ namespace Phinix.ChatExtension.Client
         private readonly IClientUserDirectory userDirectory;
 
         private string message = "";
+        private string lastAutocompleteText = "";
         private bool chatInputOwned;
         private int refocusAttemptsRemaining;
         private UIChatMessage cachedReplyTarget;
@@ -152,7 +151,7 @@ namespace Phinix.ChatExtension.Client
                 sendChatMessage();
             }
 
-            HandleAtAutocomplete(messageBoxRect);
+            HandleAtAutocomplete();
         }
 
         private float GetReplyBarHeight(UIChatMessage replyTarget, float availableWidth)
@@ -260,16 +259,17 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
-        private void HandleAtAutocomplete(Rect textFieldRect)
+        private void HandleAtAutocomplete()
         {
             if (Event.current == null || Event.current.type != EventType.Repaint) return;
-            if (string.IsNullOrEmpty(message)) return;
+            string previousText = lastAutocompleteText;
+            lastAutocompleteText = message;
 
-            Match match = AtPartialRegex.Match(message);
-            if (!match.Success) return;
-
-            string partial = match.Groups[1].Value;
-            if (string.IsNullOrEmpty(partial) || partial.Length < 1) return;
+            Window currentWindow = Find.WindowStack.currentlyDrawnWindow;
+            bool canOpen = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL &&
+                currentWindow != null && Find.WindowStack.GetsInput(currentWindow) &&
+                Find.WindowStack.FloatMenu == null;
+            if (!ChatMentionUtility.TryGetAutocompletePartial(message, previousText, canOpen, out string partial)) return;
 
             if (userDirectory == null) return;
             ImmutableUser[] onlineUsers = userDirectory.GetUsers(loggedIn: true);
@@ -286,9 +286,12 @@ namespace Phinix.ChatExtension.Client
                 if (displayName.IndexOf(partial, StringComparison.InvariantCultureIgnoreCase) < 0) continue;
 
                 string capturedName = displayName;
+                string capturedMessage = message;
                 options.Add(new FloatMenuOption("@" + capturedName, () =>
                 {
-                    message = ReplaceAtPartial(message, capturedName);
+                    if (message != capturedMessage) return;
+                    message = ChatMentionUtility.ReplaceAtPartial(message, capturedName);
+                    refocusAttemptsRemaining = REFOCUS_ATTEMPTS;
                 }));
             }
 
@@ -296,15 +299,6 @@ namespace Phinix.ChatExtension.Client
             {
                 Find.WindowStack.Add(new FloatMenu(options));
             }
-        }
-
-        private static string ReplaceAtPartial(string text, string fullName)
-        {
-            Match match = AtPartialRegex.Match(text);
-            if (!match.Success) return text;
-
-            int atIndex = match.Index;
-            return text.Substring(0, atIndex + 1) + fullName + " " + text.Substring(atIndex + 1 + match.Groups[1].Value.Length);
         }
 
         private void sendChatMessage()

@@ -151,8 +151,13 @@ namespace Phinix.ChatExtension.Client
 
         public bool TryGetUiMessage(IEnumerable<FrameworkDisplayMessage> messages, string messageId, IClientUserDirectory userDirectory, out UIChatMessage message)
         {
+            message = null;
+            if (string.IsNullOrEmpty(messageId)) return false;
+
+            // Alternate stores can still contain replayed messages. A quote must
+            // remain drawable even when its original appears more than once.
             FrameworkDisplayMessage frameworkMessage = (messages ?? Enumerable.Empty<FrameworkDisplayMessage>())
-                .SingleOrDefault(candidate => candidate.MessageId == messageId);
+                .FirstOrDefault(candidate => candidate != null && candidate.MessageId == messageId);
 
             if (frameworkMessage == null)
             {

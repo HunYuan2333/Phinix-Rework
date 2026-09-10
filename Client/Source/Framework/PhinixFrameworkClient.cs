@@ -859,6 +859,14 @@ namespace PhinixClient.Framework
 
             lock (displayMessagesLock)
             {
+                // History replay and live delivery can overlap. Identity belongs to
+                // the originating extension; unrelated sources may reuse an ID.
+                if (!string.IsNullOrEmpty(message.MessageId) && displayMessages.Any(existing =>
+                    existing.MessageId == message.MessageId && existing.Source == message.Source))
+                {
+                    return;
+                }
+
                 if (displayMessages.Count >= MaxDisplayMessages)
                 {
                     int removedCount = displayMessages.Count - MaxDisplayMessages + 1;
