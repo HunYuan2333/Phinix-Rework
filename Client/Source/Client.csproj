@@ -268,7 +268,7 @@
     <Copy SourceFiles="@(DefsResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Defs\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(LanguagesResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Languages\%(RecursiveDir)" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TexturesResource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Textures\%(RecursiveDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(SolutionDir)\Client\versions.txt" DestinationFolder="$(SolutionDir)\Output\phinix-rework\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(SolutionDir)\Client\versions.txt" DestinationFiles="$(SolutionDir)\Output\phinix-rework\LoadFolders.xml" SkipUnchangedFiles="true" />
 
     <!-- Copy client source code to output for reference -->
     <ItemGroup>

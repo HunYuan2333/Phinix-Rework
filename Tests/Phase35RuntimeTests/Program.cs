@@ -63,7 +63,7 @@ internal static class Program
             Assert(Convert.FromBase64String(initialStore.ClientKey).Length == 64, "Generated client key should decode to 64 random bytes.");
 
             ClientAuthenticator secondAuthenticator = new ClientAuthenticator(
-                netClient,
+                new NetClient(),
                 (sessionId, serverName, serverDescription, authType, callback) => { },
                 credentialStorePath
             );
@@ -333,7 +333,17 @@ internal static class Program
 
     private static string GetRepositoryRoot()
     {
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        for (DirectoryInfo directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory != null;
+             directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Phinix.sln")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        throw new DirectoryNotFoundException("Could not locate Phinix.sln above the test output directory.");
     }
 
     private static void Assert(bool condition, string message)

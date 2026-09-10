@@ -6,6 +6,16 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
+  <!-- Client endpoint projects target net472. Compile the same game-independent
+       sources here so their existing regression tests can run on .NET 10. -->
+  <ItemGroup>
+    <Compile Include="..\..\Common\Connections\NetClient.cs" Link="NetClient.cs" />
+    <Compile Include="..\..\Common\Authentication\ClientAuthenticator.cs" Link="ClientAuthenticator.cs" />
+    <Reference Include="LiteNetLib">
+      <HintPath>..\..\libs\netstandard2.0\LiteNetLib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\Common\Authentication\Authentication.csproj" />
     <ProjectReference Include="..\..\Common\Connections\Connections.csproj" />
