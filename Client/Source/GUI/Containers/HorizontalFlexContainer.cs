@@ -5,6 +5,7 @@ using Verse;
 
 namespace PhinixClient.GUI
 {
+    [System.Obsolete("Use responsive geometry helpers and direct RimWorld widgets instead.")]
     public class HorizontalFlexContainer : Displayable
     {
         /// <inheritdoc />

@@ -1,42 +1,43 @@
-﻿using System;
+using System;
 using System.Text.RegularExpressions;
 using System.Threading;
-using PhinixClient.GUI;
 using UnityEngine;
 using Verse;
 
 namespace PhinixClient
 {
-    class SettingsWindow : Window
+    internal sealed class SettingsWindow : Window
     {
-        private static readonly Regex serverPortRegex = new Regex("(^[0-9]{0,5}$)", RegexOptions.Compiled);
-        private const float DEFAULT_SPACING = 10f;
-
-        private const float ROW_HEIGHT = 30f;
-
-        private const float SERVER_ADDRESS_LABEL_WIDTH = 60f;
-
-        private const float SERVER_PORT_LABEL_WIDTH = 30f;
-
-        private const float SERVER_PORT_BOX_WIDTH = 50f;
-
-        private const float CONNECT_BUTTON_WIDTH = 120f;
-
-        private const float DISPLAY_NAME_SET_BUTTON_WIDTH = 120f;
-
-        public override Vector2 InitialSize => new Vector2(600f, 156f); // (30f * rows) + (10f * (rows - 1)) + 36f
-
+        private static readonly Regex ServerPortRegex = new Regex("^[0-9]{0,5}$", RegexOptions.Compiled);
+        private const float Spacing = 8f;
+        private const float RowHeight = 30f;
         private static string serverAddress = Client.Instance.Settings.ServerAddress;
         private static string serverPortString = Client.Instance.Settings.ServerPort.ToString();
+        private Vector2 scrollPosition;
+        private float cachedWidth = -1f;
+        private object cachedLanguage;
+        private string cachedConnectedAddress;
+        private string connectedText;
+        private string cachedPreviewName;
+        private string previewText;
+        private float connectedHeight;
+        private float connectionHeight;
+        private float displayNameHeight;
+        private string addressLabel;
+        private string portLabel;
+        private string connectLabel;
+        private string disconnectLabel;
+        private string setNameLabel;
+        private string displayNameLabel;
 
-        /// <summary>
-        /// The pre-generated window contents.
-        /// </summary>
-        private VerticalFlexContainer contents;
-        /// <summary>
-        /// Whether an update call to <see cref="contents"/> has been requested by <see cref="updateOnEventHandler"/>.
-        /// </summary>
-        private bool needsUpdate = false;
+        public override Vector2 InitialSize
+        {
+            get
+            {
+                Rect safe = UiScreenSafeArea.Current;
+                return new Vector2(Mathf.Min(600f, safe.width), Mathf.Min(260f, safe.height));
+            }
+        }
 
         public SettingsWindow()
         {
@@ -44,259 +45,154 @@ namespace PhinixClient
             doCloseButton = false;
             doWindowBackground = true;
             draggable = true;
+            resizeable = true;
+        }
 
-            // Create a flex container to hold our settings
-            contents = new VerticalFlexContainer(DEFAULT_SPACING);
+        public override void PreOpen()
+        {
+            base.PreOpen();
+            serverAddress = Client.Instance.Settings.ServerAddress;
+            serverPortString = Client.Instance.Settings.ServerPort.ToString();
+            cachedWidth = -1f;
+        }
 
-            // Server details (address and [dis]connect button) container
-            contents.Add(
-                new ConditionalContainer(
-                    childIfTrue: GenerateConnectedServerDetails(),
-                    childIfFalse: GenerateDisconnectedServerDetails(),
-                    condition: () => Client.Instance.Connected
-                )
-            );
+        protected override void SetInitialSizeAndPosition()
+        {
+            base.SetInitialSizeAndPosition();
+            ClampToScreen();
+        }
 
-            // Display name and preview
-            contents.Add(
-                new ConditionalContainer(
-                    childIfTrue: GenerateEditableDisplayName(),
-                    childIfFalse: new BlankWidget(),
-                    condition: () => Client.Instance.Online
-                )
-            );
+        public override void WindowUpdate()
+        {
+            base.WindowUpdate();
+            ClampToScreen();
         }
 
         public override void DoWindowContents(Rect inRect)
         {
-            if (needsUpdate)
+            if (inRect.width <= 0f || inRect.height <= 0f) return;
+            RebuildLayoutIfNeeded(Mathf.Max(1f, inRect.width - 16f));
+            bool connected = Client.Instance.Connected;
+            bool online = Client.Instance.Online;
+            float contentHeight = (connected ? connectedHeight : connectionHeight) +
+                (online ? Spacing + displayNameHeight : 0f);
+            float contentWidth = contentHeight > inRect.height ? Mathf.Max(0f, inRect.width - 16f) : inRect.width;
+            scrollPosition.y = Mathf.Clamp(scrollPosition.y, 0f, Mathf.Max(0f, contentHeight - inRect.height));
+            Rect viewRect = new Rect(0f, 0f, contentWidth, Mathf.Max(contentHeight, inRect.height));
+            Widgets.BeginScrollView(inRect, ref scrollPosition, viewRect);
+            try
             {
-                // Update contents and reset the flag
-                contents.Update();
-                needsUpdate = false;
+                float y = 0f;
+                if (connected) y += DrawConnected(new Rect(0f, y, contentWidth, connectedHeight));
+                else y += DrawConnectionForm(new Rect(0f, y, contentWidth, connectionHeight));
+                if (online) DrawDisplayName(new Rect(0f, y + Spacing, contentWidth, displayNameHeight));
             }
+            finally { Widgets.EndScrollView(); }
+        }
 
-            // Calculate height and constrain the container so we have even row heights with fluid contents
-            float contentHeight = 0f;
-            foreach (Displayable item in contents.Contents)
+        private float DrawConnected(Rect rect)
+        {
+            float buttonWidth = Mathf.Min(rect.width, Mathf.Max(100f, Text.CalcSize(disconnectLabel).x + 24f));
+            bool stacked = rect.width < 280f;
+            Rect labelRect = stacked
+                ? new Rect(rect.x, rect.y, rect.width, RowHeight)
+                : new Rect(rect.x, rect.y, Mathf.Max(0f, rect.width - buttonWidth - Spacing), RowHeight);
+            Rect buttonRect = stacked
+                ? new Rect(rect.x, rect.y + RowHeight + Spacing, rect.width, RowHeight)
+                : new Rect(rect.xMax - buttonWidth, rect.y, buttonWidth, RowHeight);
+            if (!string.Equals(cachedConnectedAddress, serverAddress, StringComparison.Ordinal))
             {
-                contentHeight += item.IsFluidHeight ? ROW_HEIGHT : item.CalcHeight(inRect.width);
+                cachedConnectedAddress = serverAddress;
+                connectedText = "Phinix_settings_connectedToLabel".Translate(serverAddress);
             }
-            contentHeight += (contents.Contents.Count - 1) * DEFAULT_SPACING;
-            HeightContainer heightContainer = new HeightContainer(contents, contentHeight);
-
-            // Draw the container with 5f padding at the top to avoid clipping with the close button
-            heightContainer.Draw(inRect.BottomPartPixels(inRect.height - 5f));
+            Widgets.Label(labelRect, connectedText);
+            TooltipHandler.TipRegion(labelRect, connectedText);
+            if (Widgets.ButtonText(buttonRect, disconnectLabel)) Client.Instance.Disconnect();
+            return rect.height;
         }
 
-        /// <inheritdoc />
-        public override void PreOpen()
+        private float DrawConnectionForm(Rect rect)
         {
-            base.PreOpen();
+            float labelWidth = Mathf.Min(120f, rect.width * 0.28f);
+            ResponsiveFormResult address = ResponsiveFormLayout.Calculate(rect, labelWidth, 140f, 0f, RowHeight, Spacing, 0f);
+            Widgets.Label(address.LabelRect, addressLabel);
+            serverAddress = Widgets.TextField(address.InputRect, serverAddress);
 
-            // Bind to events
-            Client.Instance.OnConnecting += updateOnEventHandler;
-            Client.Instance.OnDisconnect += updateOnEventHandler;
-            Client.Instance.OnAuthenticationSuccess += updateOnEventHandler;
-            Client.Instance.OnAuthenticationFailure += updateOnEventHandler;
-            Client.Instance.OnLoginSuccess += updateOnEventHandler;
-            Client.Instance.OnLoginFailure += updateOnEventHandler;
-
-            // Invalidate content to compensate for any missed events
-            needsUpdate = true;
+            Rect portBase = new Rect(rect.x, rect.y + address.Height + Spacing, rect.width,
+                Mathf.Max(0f, rect.height - address.Height - Spacing));
+            float connectWidth = Mathf.Min(portBase.width, Mathf.Max(100f, Text.CalcSize(connectLabel).x + 24f));
+            ResponsiveFormResult port = ResponsiveFormLayout.Calculate(portBase, labelWidth, 70f, connectWidth, RowHeight, Spacing, 0f);
+            Widgets.Label(port.LabelRect, portLabel);
+            string candidate = Widgets.TextField(port.InputRect, serverPortString);
+            if (ServerPortRegex.IsMatch(candidate)) serverPortString = candidate;
+            bool valid = int.TryParse(serverPortString, out int portValue) && portValue > 0 &&
+                portValue <= 65535 && !string.IsNullOrWhiteSpace(serverAddress);
+            if (Widgets.ButtonText(port.ActionRect, connectLabel, active: valid) && valid)
+            {
+                string addressValue = serverAddress;
+                Client.Instance.Settings.ServerAddress = addressValue;
+                Client.Instance.Settings.ServerPort = portValue;
+                Client.Instance.Settings.AcceptChanges();
+                ThreadPool.QueueUserWorkItem(_ => Client.Instance.Connect(addressValue, portValue));
+            }
+            return rect.height;
         }
 
-        /// <inheritdoc />
-        public override void PostClose()
+        private void DrawDisplayName(Rect rect)
         {
-            base.PostClose();
-
-            // Unbind from events
-            Client.Instance.OnConnecting -= updateOnEventHandler;
-            Client.Instance.OnDisconnect -= updateOnEventHandler;
-            Client.Instance.OnAuthenticationSuccess -= updateOnEventHandler;
-            Client.Instance.OnAuthenticationFailure -= updateOnEventHandler;
-            Client.Instance.OnLoginSuccess -= updateOnEventHandler;
-            Client.Instance.OnLoginFailure -= updateOnEventHandler;
+            float buttonWidth = Mathf.Min(rect.width, Mathf.Max(100f, Text.CalcSize(setNameLabel).x + 24f));
+            ResponsiveFormResult form = ResponsiveFormLayout.Calculate(rect, Mathf.Min(160f, rect.width * 0.35f),
+                140f, buttonWidth, RowHeight, Spacing, 0f);
+            Widgets.Label(form.LabelRect, displayNameLabel);
+            string value = Widgets.TextField(form.InputRect, Client.Instance.Settings.DisplayName);
+            if (value != Client.Instance.Settings.DisplayName)
+            {
+                Client.Instance.Settings.DisplayName = value;
+                Client.Instance.Settings.AcceptChanges();
+            }
+            if (Widgets.ButtonText(form.ActionRect, setNameLabel)) Client.Instance.UpdateDisplayName(value);
+            if (!string.Equals(cachedPreviewName, value, StringComparison.Ordinal))
+            {
+                cachedPreviewName = value;
+                previewText = "Phinix_settings_displayNamePreview".Translate(value).Resolve();
+            }
+            Rect previewRect = new Rect(rect.x, rect.y + form.Height + Spacing, rect.width,
+                Mathf.Max(0f, rect.height - form.Height - Spacing));
+            Widgets.Label(previewRect, previewText);
+            TooltipHandler.TipRegion(previewRect, previewText);
         }
 
-        /// <summary>
-        /// Refreshes the GUI content.
-        /// </summary>
-        /// <param name="sender">Event sender</param>
-        /// <param name="args">Event arguments</param>
-        private void updateOnEventHandler(object sender, EventArgs args)
+        private void RebuildLayoutIfNeeded(float width)
         {
-            needsUpdate = true;
+            object language = LanguageDatabase.activeLanguage;
+            if (Mathf.Approximately(cachedWidth, width) && ReferenceEquals(cachedLanguage, language)) return;
+            cachedWidth = width;
+            cachedLanguage = language;
+            cachedConnectedAddress = null;
+            cachedPreviewName = null;
+            addressLabel = "Phinix_settings_addressLabel".Translate();
+            portLabel = "Phinix_settings_portLabel".Translate();
+            connectLabel = "Phinix_settings_connectButton".Translate();
+            disconnectLabel = "Phinix_settings_disconnectButton".Translate();
+            setNameLabel = "Phinix_settings_setDisplayNameButton".Translate();
+            displayNameLabel = "Phinix_modSettings_displayNameTitle".Translate();
+            connectedHeight = width < 280f ? RowHeight * 2f + Spacing : RowHeight;
+            Rect probe = new Rect(0f, 0f, width, 500f);
+            float labelWidth = Mathf.Min(120f, width * 0.28f);
+            ResponsiveFormResult address = ResponsiveFormLayout.Calculate(probe, labelWidth, 140f, 0f, RowHeight, Spacing, 0f);
+            probe.y = address.Height + Spacing;
+            ResponsiveFormResult port = ResponsiveFormLayout.Calculate(probe, labelWidth, 70f,
+                Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(connectLabel).x + 24f)), RowHeight, Spacing, 0f);
+            connectionHeight = address.Height + Spacing + port.Height;
+            ResponsiveFormResult name = ResponsiveFormLayout.Calculate(new Rect(0f, 0f, width, 500f),
+                Mathf.Min(160f, width * 0.35f), 140f,
+                Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(setNameLabel).x + 24f)), RowHeight, Spacing, 0f);
+            displayNameHeight = name.Height + Spacing + RowHeight;
         }
 
-        /// <summary>
-        /// Generates a non-editable server address and disconnect button.
-        /// </summary>
-        /// <returns><see cref="HorizontalFlexContainer"/> containing connected server details</returns>
-        private HorizontalFlexContainer GenerateConnectedServerDetails()
+        private void ClampToScreen()
         {
-            // Create a flex container as our 'row' to store elements in
-            HorizontalFlexContainer row = new HorizontalFlexContainer();
-
-            // Server address label
-            row.Add(
-                new DynamicTextWidget(
-                    textCallback: () => "Phinix_settings_connectedToLabel".Translate(serverAddress),
-                    anchor: TextAnchor.MiddleLeft
-                )
-            );
-
-            // Disconnect button
-            row.Add(
-                new Container(
-                    new ButtonWidget(
-                        label: "Phinix_settings_disconnectButton".Translate(),
-                        clickAction: () => Client.Instance.Disconnect()
-                    ),
-                    width: CONNECT_BUTTON_WIDTH
-                )
-            );
-
-            // Return the generated row
-            return row;
-        }
-
-        /// <summary>
-        /// Generates an editable server address, editable server port, and connect button.
-        /// </summary>
-        /// <returns><see cref="HorizontalFlexContainer"/> containing an editable server address, editable server port, and connect button</returns>
-        private HorizontalFlexContainer GenerateDisconnectedServerDetails()
-        {
-            // Create a flex container as our 'row' to store elements in
-            HorizontalFlexContainer row = new HorizontalFlexContainer();
-
-            // Address label
-            row.Add(
-                new Container(
-                    new TextWidget(
-                        text: "Phinix_settings_addressLabel".Translate(),
-                        anchor: TextAnchor.MiddleLeft
-                    ),
-                    width: SERVER_ADDRESS_LABEL_WIDTH
-                )
-            );
-
-            // Server address box
-            row.Add(
-                new TextFieldWidget(
-                    initialText: serverAddress,
-                    onChange: newAddress => serverAddress = newAddress
-                )
-            );
-
-            // Port label
-            row.Add(
-                new Container(
-                    new TextWidget(
-                        text: "Phinix_settings_portLabel".Translate(),
-                        anchor: TextAnchor.MiddleLeft
-                    ),
-                    width: SERVER_PORT_LABEL_WIDTH
-                )
-            );
-
-            // Server port box
-            row.Add(
-                new Container(
-                    new TextFieldWidget(
-                        initialText: serverPortString,
-                        onChange: newPortString => serverPortString = newPortString,
-                        validator: serverPortRegex
-                    ),
-                    width: SERVER_PORT_BOX_WIDTH
-                )
-            );
-
-            // Connect button
-            row.Add(
-                new Container(
-                    new ButtonWidget(
-                        label: "Phinix_settings_connectButton".Translate(),
-                        clickAction: () =>
-                        {
-                            int port = int.Parse(serverPortString);
-
-                            // Save the connection details to the client settings
-                            Client.Instance.Settings.ServerAddress = serverAddress;
-                            Client.Instance.Settings.ServerPort = port;
-                            Client.Instance.Settings.AcceptChanges();
-
-                            // Run this on another thread otherwise the UI will lock up.
-                            ThreadPool.QueueUserWorkItem(_ =>
-                            {
-                                Client.Instance.Connect(serverAddress, port); // Assume the port was safely validated by the regex
-                            });
-                        }
-                    ),
-                    width: CONNECT_BUTTON_WIDTH
-                )
-            );
-
-            // Return the generated row
-            return row;
-        }
-
-        /// <summary>
-        /// Generates an editable display name field, a button to apply the changes, and a preview.
-        /// </summary>
-        /// <returns><see cref="Displayable"/> containing an editable display name field, a button to apply the changes, and a preview</returns>
-        private Displayable GenerateEditableDisplayName()
-        {
-            // Make the name preview early so we can bind to it's update method
-            DynamicTextWidget namePreview = new DynamicTextWidget(
-                textCallback: () => "Phinix_settings_displayNamePreview".Translate(Client.Instance.Settings.DisplayName).Resolve(),
-                wrap: false
-            );
-
-            // Create a column to store the editable portion and preview in
-            VerticalFlexContainer column = new VerticalFlexContainer();
-
-            // Create a flex container as our 'row' to store the editable name field in
-            HorizontalFlexContainer editableRow = new HorizontalFlexContainer();
-
-            // Editable display name text box
-            editableRow.Add(
-                new TextFieldWidget(
-                    initialText: Client.Instance.Settings.DisplayName,
-                    onChange: newDisplayName =>
-                    {
-                        Client.Instance.Settings.DisplayName = newDisplayName;
-                        Client.Instance.Settings.AcceptChanges();
-                        namePreview.Update();
-                    }
-                )
-            );
-
-            // Set display name button
-            editableRow.Add(
-                new Container(
-                    new ButtonWidget(
-                        label: "Phinix_settings_setDisplayNameButton".Translate(),
-                        clickAction: () => Client.Instance.UpdateDisplayName(Client.Instance.Settings.DisplayName)
-                    ),
-                    width: DISPLAY_NAME_SET_BUTTON_WIDTH
-                )
-            );
-
-            // Wrap the editable portion in a container to enforce height and add it to the column
-            column.Add(
-                new HeightContainer(
-                    child: editableRow,
-                    height: ROW_HEIGHT
-                )
-            );
-
-            // Display name preview
-            column.Add(new HorizontalScrollContainer(namePreview));
-
-            // Return the generated column
-            return column;
+            windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(320f, 180f));
         }
     }
 }

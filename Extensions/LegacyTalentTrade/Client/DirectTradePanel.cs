@@ -1,4 +1,7 @@
 using System;
+using PhinixClient;
+using PhinixClient.Framework;
+using System.Threading;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -17,6 +20,35 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         private const float TOOLBAR_HEIGHT = 36f;
         private const float SPACING = 6f;
 
+        private readonly TalentTabs tabs = new TalentTabs("Phinix_legacyTalentTrade_tradeOnlineUsers", "Phinix_legacyTalentTrade_tradeActiveTrades");
+        private readonly List<string> others = new List<string>();
+        private readonly Dictionary<string, string> names = new Dictionary<string, string>();
+        private IClientUserEventStream userEvents;
+        private int usersVersion;
+        private int cachedUsersVersion = -1;
+
+        internal void BindUserEvents(IClientUserEventStream events)
+        {
+            if (userEvents != null)
+            {
+                userEvents.UsersChanged -= OnUsersChanged;
+                userEvents.UserDisplayNameChanged -= OnUsersChanged;
+                userEvents.Disconnected -= OnUsersChanged;
+            }
+            userEvents = events;
+            if (userEvents != null)
+            {
+                userEvents.UsersChanged += OnUsersChanged;
+                userEvents.UserDisplayNameChanged += OnUsersChanged;
+                userEvents.Disconnected += OnUsersChanged;
+            }
+            Interlocked.Increment(ref usersVersion);
+        }
+
+        private void OnUsersChanged(object sender, EventArgs args)
+        {
+            Interlocked.Increment(ref usersVersion);
+        }
         private Vector2 usersScrollPos;
         private Vector2 tradesScrollPos;
         // §8.3：Draw 路径不每帧取快照——按状态版本缓存
@@ -28,134 +60,103 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         public void Draw(Rect rect)
         {
-            // Left: online users (40%)
-            float leftWidth = Mathf.Floor(rect.width * 0.4f) - SPACING;
-            Rect leftRect = new Rect(rect.x, rect.y, leftWidth, rect.height);
-            DrawOnlineUsers(leftRect);
-
-            // Right: active trades (60%)
-            Rect rightRect = new Rect(rect.x + leftWidth + SPACING, rect.y, rect.width - leftWidth - SPACING, rect.height);
-            DrawActiveTrades(rightRect);
+            if (rect.width <= 0f || rect.height <= 0f) return;
+            var split = ResponsiveSplitLayout.Calculate(rect, new Vector2(240f, rect.height),
+                new Vector2(320f, rect.height), new Vector2(rect.width * 0.4f, rect.height), SPACING, tabs.Selected == 0);
+            if (split.Mode == ResponsiveSplitMode.Horizontal)
+            {
+                DrawOnlineUsers(split.FirstRect);
+                DrawActiveTrades(split.SecondRect);
+            }
+            else
+            {
+                Rect content = tabs.Draw(rect);
+                if (tabs.Selected == 0) DrawOnlineUsers(content);
+                else DrawActiveTrades(content);
+            }
         }
 
         private void DrawOnlineUsers(Rect rect)
         {
-            // Header
-            Rect headerRect = new Rect(rect.x, rect.y, rect.width, TOOLBAR_HEIGHT);
-            Text.Font = GameFont.Small;
-            Widgets.Label(headerRect, "Phinix_legacyTalentTrade_tradeOnlineUsers".Translate());
-
-            Rect listRect = new Rect(rect.x, rect.y + TOOLBAR_HEIGHT, rect.width, rect.height - TOOLBAR_HEIGHT);
-            Widgets.DrawMenuSection(listRect);
-
-            string localUuid = TalentTradeManager.GetLocalUuid();
-            string[] userUuids = TalentTradeManager.GetOnlineUserUuids();
-
-            // Filter out self
-            List<string> others = new List<string>();
-            for (int i = 0; i < userUuids.Length; i++)
+            if (rect.height <= TOOLBAR_HEIGHT || rect.width <= 0f) return;
+            TalentTradeUi.Label(new Rect(rect.x, rect.y, rect.width, TOOLBAR_HEIGHT), "Phinix_legacyTalentTrade_tradeOnlineUsers".Translate());
+            Rect listRect = TalentTradeUi.Below(rect, TOOLBAR_HEIGHT);
+            // Network callbacks only invalidate; UI snapshots are rebuilt on the draw thread.
+            int version = Volatile.Read(ref usersVersion);
+            if (cachedUsersVersion != version)
             {
-                if (userUuids[i] != localUuid)
-                    others.Add(userUuids[i]);
+                cachedUsersVersion = version;
+                string localUuid = TalentTradeManager.GetLocalUuid();
+                string[] users = TalentTradeManager.GetOnlineUserUuids();
+                others.Clear();
+                names.Clear();
+                for (int i = 0; i < users.Length; i++)
+                {
+                    if (users[i] == localUuid) continue;
+                    others.Add(users[i]);
+                    string name;
+                    names[users[i]] = LegacyTalentTradeRuntime.TryGetDisplayName(users[i], out name) ? name : users[i];
+                }
             }
-
-            if (others.Count == 0)
+            float width = Mathf.Max(0f, listRect.width - 16f);
+            float stride = (width < 240f ? 66f : ROW_HEIGHT) + SPACING;
+            usersScrollPos.y = Mathf.Clamp(usersScrollPos.y, 0f, Mathf.Max(0f, others.Count * stride - listRect.height));
+            Widgets.BeginScrollView(listRect, ref usersScrollPos, new Rect(0f, 0f, width, others.Count * stride));
+            try
             {
-                Widgets.NoneLabelCenteredVertically(listRect, "---");
-                return;
+                var range = VirtualListLayout.GetFixedRange(others.Count, stride, usersScrollPos.y, listRect.height, 1);
+                for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+                    DrawUserRow(new Rect(0f, i * stride, width, stride - SPACING), others[i]);
             }
-
-            Rect viewRect = new Rect(0f, 0f, listRect.width - 16f, others.Count * (ROW_HEIGHT + SPACING));
-            Widgets.BeginScrollView(listRect, ref usersScrollPos, viewRect);
-
-            float y = 0f;
-            for (int i = 0; i < others.Count; i++)
-            {
-                Rect rowRect = new Rect(0f, y, viewRect.width, ROW_HEIGHT);
-                DrawUserRow(rowRect, others[i]);
-                y += ROW_HEIGHT + SPACING;
-            }
-
-            Widgets.EndScrollView();
+            finally { Widgets.EndScrollView(); }
         }
 
         private void DrawUserRow(Rect rect, string uuid)
         {
-            if (Mouse.IsOver(rect))
-            {
-                Widgets.DrawHighlight(rect);
-            }
-
-            Rect inner = rect.ContractedBy(4f);
-
-            // Display name
-            string displayName = uuid;
-            try
-            {
-                string name;
-                if (LegacyTalentTradeRuntime.TryGetDisplayName(uuid, out name))
-                {
-                    displayName = name;
-                }
-            }
-            catch (Exception)
-            {
-                // 防御性：显示名查询异常时保持默认显示名
-            }
-
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width - BUTTON_WIDTH - SPACING, inner.height), displayName);
-
-            // Trade button
-            Rect btnRect = new Rect(inner.xMax - BUTTON_WIDTH, inner.y, BUTTON_WIDTH, BUTTON_HEIGHT);
-            if (Widgets.ButtonText(btnRect, "Phinix_legacyTalentTrade_tradeWith".Translate()))
+            if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
+            Rect inner = TalentTradeUi.Inset(rect, 4f);
+            bool compact = rect.width < 240f;
+            float buttonWidth = Mathf.Min(BUTTON_WIDTH, inner.width);
+            Rect button = new Rect(compact ? inner.x : inner.xMax - buttonWidth,
+                compact ? inner.yMax - BUTTON_HEIGHT : inner.y, compact ? inner.width : buttonWidth, BUTTON_HEIGHT);
+            string name;
+            TalentTradeUi.Label(new Rect(inner.x, inner.y, compact ? inner.width : Mathf.Max(0f, inner.width - buttonWidth - SPACING), 24f),
+                names.TryGetValue(uuid, out name) ? name : uuid);
+            if (TalentTradeUi.Button(button, "Phinix_legacyTalentTrade_tradeWith".Translate()))
             {
                 string tradeId = TalentTradeManager.InitiateDirectTrade(uuid);
-                if (tradeId != null)
-                {
-                    OpenTradeWindow(tradeId);
-                }
+                if (tradeId != null) OpenTradeWindow(tradeId);
             }
         }
 
         private void DrawActiveTrades(Rect rect)
         {
-            // §8.3：Draw 路径不每帧取快照——按状态版本缓存
+            if (rect.height <= TOOLBAR_HEIGHT || rect.width <= 0f) return;
             if (cachedStateVersion != TalentTradeManager.StateVersion)
             {
                 cachedStateVersion = TalentTradeManager.StateVersion;
                 cachedTrades = TalentTradeManager.GetActiveTradesSnapshot();
             }
-            DirectTrade[] trades = cachedTrades;
-
-            // Header
-            Rect headerRect = new Rect(rect.x, rect.y, rect.width, TOOLBAR_HEIGHT);
-            Text.Font = GameFont.Small;
-            Widgets.Label(headerRect, "Phinix_legacyTalentTrade_tradeActiveTrades".Translate());
-
-            Rect listRect = new Rect(rect.x, rect.y + TOOLBAR_HEIGHT, rect.width, rect.height - TOOLBAR_HEIGHT);
-            Widgets.DrawMenuSection(listRect);
-
-            if (trades.Length == 0)
+            TalentTradeUi.Label(new Rect(rect.x, rect.y, rect.width, TOOLBAR_HEIGHT), "Phinix_legacyTalentTrade_tradeActiveTrades".Translate());
+            Rect listRect = TalentTradeUi.Below(rect, TOOLBAR_HEIGHT);
+            if (cachedTrades.Length == 0)
             {
                 Widgets.NoneLabelCenteredVertically(listRect, "Phinix_legacyTalentTrade_tradeNoActive".Translate());
                 return;
             }
-
-            Rect viewRect = new Rect(0f, 0f, listRect.width - 16f, trades.Length * (ROW_HEIGHT + SPACING));
-            Widgets.BeginScrollView(listRect, ref tradesScrollPos, viewRect);
-
-            float y = 0f;
-            string localUuid = TalentTradeManager.GetLocalUuid();
-            for (int i = 0; i < trades.Length; i++)
+            float width = Mathf.Max(0f, listRect.width - 16f);
+            float stride = (width < 440f ? 66f : ROW_HEIGHT) + SPACING;
+            tradesScrollPos.y = Mathf.Clamp(tradesScrollPos.y, 0f, Mathf.Max(0f, cachedTrades.Length * stride - listRect.height));
+            Widgets.BeginScrollView(listRect, ref tradesScrollPos, new Rect(0f, 0f, width, cachedTrades.Length * stride));
+            try
             {
-                if (trades[i] == null) continue;
-                Rect rowRect = new Rect(0f, y, viewRect.width, ROW_HEIGHT);
-                DrawTradeRow(rowRect, trades[i], localUuid);
-                y += ROW_HEIGHT + SPACING;
+                string uuid = TalentTradeManager.GetLocalUuid();
+                var range = VirtualListLayout.GetFixedRange(cachedTrades.Length, stride, tradesScrollPos.y, listRect.height, 1);
+                for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+                    if (cachedTrades[i] != null)
+                        DrawTradeRow(new Rect(0f, i * stride, width, stride - SPACING), cachedTrades[i], uuid);
             }
-
-            Widgets.EndScrollView();
+            finally { Widgets.EndScrollView(); }
         }
 
         private void DrawTradeRow(Rect rect, DirectTrade trade, string localUuid)
@@ -165,7 +166,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
                 Widgets.DrawHighlight(rect);
             }
 
-            Rect inner = rect.ContractedBy(4f);
+            Rect inner = TalentTradeUi.Inset(rect, 4f);
 
             // Other party name
             bool isInitiator = trade.InitiatorUuid == localUuid;
@@ -173,25 +174,28 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             if (string.IsNullOrEmpty(otherName)) otherName = isInitiator ? trade.TargetUuid : trade.InitiatorUuid;
 
             Text.Font = GameFont.Small;
-            float labelWidth = inner.width - BUTTON_WIDTH * 2 - SPACING * 2;
-            Widgets.Label(new Rect(inner.x, inner.y, labelWidth, inner.height),
+            bool compact = rect.width < 440f;
+            float actionWidth = Mathf.Min(BUTTON_WIDTH, Mathf.Max(0f, (inner.width - SPACING) / 2f));
+            float labelWidth = compact ? inner.width : Mathf.Max(0f, inner.width - actionWidth * 2 - SPACING * 2);
+            TalentTradeUi.Label(new Rect(inner.x, inner.y, labelWidth, 24f),
                 otherName + " | " + "Phinix_legacyTalentTrade_tradeStatus".Translate(trade.State.ToString()));
 
-            float btnX = inner.xMax - BUTTON_WIDTH * 2 - SPACING;
+            float btnX = compact ? inner.x : inner.xMax - actionWidth * 2 - SPACING;
+            float buttonY = compact ? inner.yMax - BUTTON_HEIGHT : inner.y;
 
             // Pending trades from others: Accept/Reject
             if (trade.State == DirectTradeState.Pending && trade.TargetUuid == localUuid)
             {
-                Rect acceptBtn = new Rect(btnX, inner.y, BUTTON_WIDTH, BUTTON_HEIGHT);
-                if (Widgets.ButtonText(acceptBtn, "Phinix_legacyTalentTrade_tradeAcceptRequest".Translate()))
+                Rect acceptBtn = new Rect(btnX, buttonY, actionWidth, BUTTON_HEIGHT);
+                if (TalentTradeUi.Button(acceptBtn, "Phinix_legacyTalentTrade_tradeAcceptRequest".Translate()))
                 {
                     TalentTradeManager.AcceptTrade(trade.Id);
                     OpenTradeWindow(trade.Id);
                 }
-                btnX += BUTTON_WIDTH + SPACING;
+                btnX += actionWidth + SPACING;
 
-                Rect rejectBtn = new Rect(btnX, inner.y, BUTTON_WIDTH, BUTTON_HEIGHT);
-                if (Widgets.ButtonText(rejectBtn, "Phinix_legacyTalentTrade_tradeRejectRequest".Translate()))
+                Rect rejectBtn = new Rect(btnX, buttonY, actionWidth, BUTTON_HEIGHT);
+                if (TalentTradeUi.Button(rejectBtn, "Phinix_legacyTalentTrade_tradeRejectRequest".Translate()))
                 {
                     TalentTradeManager.RejectTrade(trade.Id);
                 }
@@ -199,16 +203,16 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             else
             {
                 // Open button
-                Rect openBtn = new Rect(btnX, inner.y, BUTTON_WIDTH, BUTTON_HEIGHT);
-                if (Widgets.ButtonText(openBtn, "Phinix_legacyTalentTrade_tradeOpen".Translate()))
+                Rect openBtn = new Rect(btnX, buttonY, actionWidth, BUTTON_HEIGHT);
+                if (TalentTradeUi.Button(openBtn, "Phinix_legacyTalentTrade_tradeOpen".Translate()))
                 {
                     OpenTradeWindow(trade.Id);
                 }
-                btnX += BUTTON_WIDTH + SPACING;
+                btnX += actionWidth + SPACING;
 
                 // Cancel button
-                Rect cancelBtn = new Rect(btnX, inner.y, BUTTON_WIDTH, BUTTON_HEIGHT);
-                if (Widgets.ButtonText(cancelBtn, "Phinix_legacyTalentTrade_cancel".Translate()))
+                Rect cancelBtn = new Rect(btnX, buttonY, actionWidth, BUTTON_HEIGHT);
+                if (TalentTradeUi.Button(cancelBtn, "Phinix_legacyTalentTrade_cancel".Translate()))
                 {
                     TalentTradeManager.CancelTrade(trade.Id);
                 }

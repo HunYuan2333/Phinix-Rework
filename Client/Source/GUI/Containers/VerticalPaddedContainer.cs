@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace PhinixClient.GUI
 {
+    [System.Obsolete("Use a scroll view with responsive content width instead.")]
     public class VerticalPaddedContainer : Displayable
     {
         /// <inheritdoc />

@@ -16,6 +16,7 @@ internal static class Program
             TestFormModes();
             TestToolbarWrapAndOverflow();
             TestVirtualRanges();
+            TestTalentOfferReachability();
             TestZeroSizeInputs();
             TestStableGeometryDoesNotAllocate();
             Console.WriteLine("All responsive UI geometry tests passed.");
@@ -106,6 +107,40 @@ internal static class Program
         }
         VirtualListRange thousandRange = VirtualListLayout.GetDynamicRange(thousandOffsets, 1000, 10000f, 600f, 2);
         Assert(thousandRange.Count > 0 && thousandRange.Count < 40, "A 1000-row dynamic list should expose only the visible rows plus overscan.");
+    }
+
+    private static void TestTalentOfferReachability()
+    {
+        int[] counts = { 0, 1, 100, 1000 };
+        float[] heights = { 0f, 50f, 120f, 200f, 500f };
+        foreach (int count in counts)
+        foreach (float height in heights)
+        foreach (bool mine in new[] { true, false })
+        {
+            Rect parent = new Rect(10f, 20f, 280f, height);
+            var layout = Phinix.LegacyTalentTradeExtension.Client.TalentOfferLayout.Calculate(parent, count, mine);
+            AssertContained(layout.Header, parent);
+            AssertContained(layout.Viewport, parent);
+            if (layout.ControlsScroll)
+            {
+                AssertContained(layout.Controls, layout.ScrollContent);
+                // Scrolling to the bottom must expose the final control when the viewport has height.
+                float bottomScroll = Math.Max(0f, layout.ScrollContent.height - layout.Viewport.height);
+                Assert(layout.Controls.yMax <= bottomScroll + layout.Viewport.height,
+                    "The silver input must be reachable at the scroll bottom.");
+            }
+            else
+            {
+                AssertContained(layout.Controls, parent);
+                var empty = Phinix.LegacyTalentTradeExtension.Client.TalentOfferLayout.Calculate(parent, 0, mine);
+                Assert(layout.Controls.y == empty.Controls.y, "Adding units must not move fixed offer controls.");
+            }
+            if (count == 1000)
+            {
+                var range = VirtualListLayout.GetFixedRange(count, 56f, 5000f, layout.Viewport.height, 1);
+                Assert(range.Count < 15, "Large talent offers must only draw visible units.");
+            }
+        }
     }
 
     private static void TestZeroSizeInputs()

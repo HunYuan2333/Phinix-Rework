@@ -23,8 +23,12 @@ namespace PhinixClient.Framework
         private List<ExtensionDiscoveryResult> cachedSortedResults;
         private string[] cachedLabels;
         private string[] cachedHints;
+        private float[] cachedLabelHeights;
+        private float[] cachedHintHeights;
         private int cachedResultsCount = -1;
         private int cachedSettingsVersion = -1;
+        private int cachedWidthBucket = -1;
+        private object cachedLanguage;
 
         public string SectionId => "Phinix_modSettings_extensionsSectionTitle";
 
@@ -48,13 +52,20 @@ namespace PhinixClient.Framework
             Settings hostSettings = Client.Instance?.Settings;
             int resultsCount = results?.Count ?? 0;
             int settingsVersion = hostSettings?.SettingsVersion ?? 0;
+            float availableWidth = Mathf.Max(1f, listing.ColumnWidth);
+            int widthBucket = (int)(availableWidth / 16f);
+            object language = LanguageDatabase.activeLanguage;
             if (cachedSortedResults == null ||
                 cachedResultsCount != resultsCount ||
-                cachedSettingsVersion != settingsVersion)
+                cachedSettingsVersion != settingsVersion ||
+                cachedWidthBucket != widthBucket ||
+                !ReferenceEquals(cachedLanguage, language))
             {
-                RebuildCache(results, dependencyGraph, hostSettings);
+                RebuildCache(results, dependencyGraph, hostSettings, availableWidth);
                 cachedResultsCount = resultsCount;
                 cachedSettingsVersion = settingsVersion;
+                cachedWidthBucket = widthBucket;
+                cachedLanguage = language;
             }
 
             if (cachedSortedResults == null)
@@ -74,7 +85,8 @@ namespace PhinixClient.Framework
 
                 if (canToggle)
                 {
-                    listing.CheckboxLabeled(cachedLabels[i], ref newEnabled);
+                    Rect rowRect = listing.GetRect(cachedLabelHeights[i]);
+                    Widgets.CheckboxLabeled(rowRect, cachedLabels[i], ref newEnabled);
                     if (newEnabled != isEnabled && hostSettings != null)
                     {
                         hostSettings.SetExtensionDisabled(extensionId, !newEnabled);
@@ -83,13 +95,15 @@ namespace PhinixClient.Framework
                 }
                 else
                 {
-                    // 依赖被禁用：不可单独启用，不渲染可交互复选框
-                    listing.Label(cachedLabels[i]);
+                    Rect rowRect = listing.GetRect(cachedLabelHeights[i]);
+                    Widgets.Label(rowRect, cachedLabels[i]);
                 }
 
                 if (cachedHints[i] != null)
                 {
-                    listing.Label(cachedHints[i]);
+                    Rect hintRect = listing.GetRect(cachedHintHeights[i]);
+                    Widgets.Label(hintRect, cachedHints[i]);
+                    TooltipHandler.TipRegion(hintRect, cachedHints[i]);
                 }
             }
 
@@ -104,7 +118,8 @@ namespace PhinixClient.Framework
         private void RebuildCache(
             IReadOnlyList<ExtensionDiscoveryResult> results,
             ExtensionDependencyGraph dependencyGraph,
-            Settings hostSettings)
+            Settings hostSettings,
+            float availableWidth)
         {
             IReadOnlyCollection<string> disabledIds = hostSettings?.DisabledExtensions;
 
@@ -114,6 +129,8 @@ namespace PhinixClient.Framework
             int count = cachedSortedResults.Count;
             cachedLabels = new string[count];
             cachedHints = new string[count];
+            cachedLabelHeights = new float[count];
+            cachedHintHeights = new float[count];
 
             for (int i = 0; i < count; i++)
             {
@@ -151,6 +168,11 @@ namespace PhinixClient.Framework
                         ? undeclaredHint
                         : cachedHints[i] + "\n" + undeclaredHint;
                 }
+
+                cachedLabelHeights[i] = Mathf.Max(30f,
+                    Text.CalcHeight(cachedLabels[i], Mathf.Max(1f, availableWidth - 30f)));
+                cachedHintHeights[i] = cachedHints[i] == null ? 0f : Mathf.Max(18f,
+                    Text.CalcHeight(cachedHints[i], Mathf.Max(1f, availableWidth)));
             }
         }
     }

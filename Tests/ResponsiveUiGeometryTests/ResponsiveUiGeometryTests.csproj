@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\..\Extensions\LegacyTalentTrade\Client\TalentOfferLayout.cs" Link="Production\TalentOfferLayout.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveFormLayout.cs" Link="Production\ResponsiveFormLayout.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveSplitLayout.cs" Link="Production\ResponsiveSplitLayout.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveToolbarLayout.cs" Link="Production\ResponsiveToolbarLayout.cs" />

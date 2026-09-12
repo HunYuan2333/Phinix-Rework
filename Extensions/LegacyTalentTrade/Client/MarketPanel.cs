@@ -1,4 +1,5 @@
 using System;
+using PhinixClient;
 using System.Collections.Generic;
 using System.Reflection;
 using RimWorld;
@@ -18,6 +19,24 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         private const float TOOLBAR_HEIGHT = 36f;
         private const float SPACING = 6f;
 
+        private readonly TalentToolbar toolbar;
+        private readonly TalentForm form = new TalentForm("Phinix_legacyTalentTrade_selectTradeablePawn", "Phinix_legacyTalentTrade_marketPrice");
+        private readonly List<MarketListing> visibleListings = new List<MarketListing>();
+        private readonly List<TalentCard> cards = new List<TalentCard>();
+        private float[] offsets = Array.Empty<float>();
+        private int layoutVersion = -1;
+        private bool layoutMine;
+        private string layoutUuid;
+        private object layoutLanguage;
+        private float layoutWidth = -1f;
+
+        public MarketPanel()
+        {
+            toolbar = new TalentToolbar(ActivateToolbar,
+                "Phinix_legacyTalentTrade_marketSell", "Phinix_legacyTalentTrade_marketMyListings",
+                "Phinix_legacyTalentTrade_forceCleanup", "Phinix_legacyTalentTrade_refresh");
+        }
+
         private Vector2 listScrollPos;
         private bool showMyListings;
 
@@ -29,66 +48,29 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         public void Draw(Rect rect)
         {
-            // Toolbar
-            Rect toolbarRect = new Rect(rect.x, rect.y, rect.width, TOOLBAR_HEIGHT);
-            DrawToolbar(toolbarRect);
-
-            // Content
-            Rect contentRect = new Rect(rect.x, rect.y + TOOLBAR_HEIGHT + SPACING, rect.width, rect.height - TOOLBAR_HEIGHT - SPACING);
-
-            if (sellMode)
-            {
-                DrawSellPanel(contentRect);
-            }
-            else
-            {
-                DrawListings(contentRect);
-            }
+            if (rect.width <= 0f || rect.height <= 0f) return;
+            float height = toolbar.Draw(rect, sellMode ? 1 : 4, sellMode ? 1 : 0,
+                sellMode ? "Phinix_legacyTalentTrade_cancel" : "Phinix_legacyTalentTrade_marketSell");
+            Rect content = TalentTradeUi.Below(rect, height + SPACING);
+            if (content.height <= 0f) return;
+            if (sellMode) DrawSellPanel(content);
+            else DrawListings(content);
         }
 
-        private void DrawToolbar(Rect rect)
+        private void ActivateToolbar(int action)
         {
-            float x = rect.x;
-
-            // List for Sale button
-            Rect sellBtnRect = new Rect(x, rect.y, 120f, rect.height);
-            if (Widgets.ButtonText(sellBtnRect, sellMode ? "Phinix_legacyTalentTrade_cancel".Translate() : "Phinix_legacyTalentTrade_marketSell".Translate()))
+            switch (action)
             {
-                sellMode = !sellMode;
-                if (!sellMode) ResetSellState();
-            }
-            x += 120f + SPACING + 20f;
-
-            // My Listings toggle
-            if (!sellMode)
-            {
-                Rect myBtnRect = new Rect(x, rect.y, 120f, rect.height);
-                if (Widgets.ButtonText(myBtnRect, "Phinix_legacyTalentTrade_marketMyListings".Translate()))
-                {
-                    showMyListings = !showMyListings;
-                }
-                x += 120f + SPACING;
-            }
-
-            // Refresh
-            if (!sellMode)
-            {
-                // Force cleanup button (left of refresh)
-                Rect cleanupRect = new Rect(rect.xMax - 80f - 20f - 80f - SPACING, rect.y, 80f, rect.height);
-                if (Widgets.ButtonText(cleanupRect, "Phinix_legacyTalentTrade_forceCleanup".Translate()))
-                {
-                    ForceCleanupAllMyListings();
-                }
-
-                Rect refreshRect = new Rect(rect.xMax - 80f - 20f, rect.y, 80f, rect.height);
-                if (Widgets.ButtonText(refreshRect, "Phinix_legacyTalentTrade_refresh".Translate()))
-                {
+                case 0:
+                    sellMode = !sellMode;
+                    if (!sellMode) ResetSellState();
+                    break;
+                case 1: showMyListings = !showMyListings; break;
+                case 2: ForceCleanupAllMyListings(); break;
+                case 3:
                     string uuid = TalentTradeManager.GetLocalUuid();
-                    if (!string.IsNullOrEmpty(uuid))
-                    {
-                        TalentTradeManager.SendProtocol(TalentTradeProtocol.BuildMarketSync(uuid));
-                    }
-                }
+                    if (!string.IsNullOrEmpty(uuid)) TalentTradeManager.SendProtocol(TalentTradeProtocol.BuildMarketSync(uuid));
+                    break;
             }
         }
 
@@ -112,171 +94,66 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         {
             MarketListing[] listings = GetCachedListings();
             string localUuid = TalentTradeManager.GetLocalUuid();
-
-            // Filter - create a copy to avoid modification during iteration
-            List<MarketListing> filtered = new List<MarketListing>();
-            for (int i = 0; i < listings.Length; i++)
+            float width = Mathf.Max(1f, rect.width - 16f);
+            if (layoutVersion != cachedStateVersion || layoutMine != showMyListings ||
+                layoutUuid != localUuid || layoutWidth != width || !ReferenceEquals(layoutLanguage, LanguageDatabase.activeLanguage))
             {
-                if (listings[i] == null) continue;
-                if (listings[i].State != MarketListingState.Active) continue;
-                if (showMyListings)
+                layoutVersion = cachedStateVersion;
+                layoutMine = showMyListings;
+                layoutUuid = localUuid;
+                layoutWidth = width;
+                layoutLanguage = LanguageDatabase.activeLanguage;
+                visibleListings.Clear();
+                cards.Clear();
+                for (int i = 0; i < listings.Length; i++)
                 {
-                    if (listings[i].SellerUuid == localUuid)
-                        filtered.Add(listings[i]);
+                    MarketListing listing = listings[i];
+                    if (listing == null || listing.State != MarketListingState.Active ||
+                        (showMyListings && listing.SellerUuid != localUuid)) continue;
+                    visibleListings.Add(listing);
+                    string text = TalentCard.Description(listing.Summary) + "\n" +
+                        "Phinix_legacyTalentTrade_marketSeller".Translate(listing.SellerName ?? "???") + "\n" +
+                        "Phinix_legacyTalentTrade_marketPriceFormat".Translate(listing.PriceSilver.ToString());
+                    cards.Add(new TalentCard(text, TalentCard.Details(listing.Summary),
+                        listing.SellerUuid == localUuid ? "Phinix_legacyTalentTrade_marketDelist" : "Phinix_legacyTalentTrade_marketBuy", width));
                 }
-                else
-                {
-                    filtered.Add(listings[i]);
-                }
+                offsets = new float[cards.Count + 1];
+                for (int i = 0; i < cards.Count; i++) offsets[i + 1] = offsets[i] + cards[i].Height + SPACING;
             }
-
-            if (filtered.Count == 0)
+            if (cards.Count == 0)
             {
-                Widgets.DrawMenuSection(rect);
                 Widgets.NoneLabelCenteredVertically(rect, "Phinix_legacyTalentTrade_marketNoListings".Translate());
                 return;
             }
-
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, filtered.Count * (ROW_HEIGHT + SPACING));
-            Widgets.BeginScrollView(rect, ref listScrollPos, viewRect);
-
-            float y = 0f;
-            for (int i = 0; i < filtered.Count; i++)
+            listScrollPos.y = Mathf.Clamp(listScrollPos.y, 0f, Mathf.Max(0f, offsets[cards.Count] - rect.height));
+            Widgets.BeginScrollView(rect, ref listScrollPos, new Rect(0f, 0f, width, offsets[cards.Count]));
+            try
             {
-                Rect rowRect = new Rect(0f, y, viewRect.width, ROW_HEIGHT);
-                DrawListingRow(rowRect, filtered[i], localUuid);
-                y += ROW_HEIGHT + SPACING;
+                var range = VirtualListLayout.GetDynamicRange(offsets, cards.Count, listScrollPos.y, rect.height, 1);
+                for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+                    if (cards[i].Draw(new Rect(0f, offsets[i], width, cards[i].Height)))
+                    {
+                        if (visibleListings[i].SellerUuid == localUuid) DelistListing(visibleListings[i]);
+                        else ConfirmBuy(visibleListings[i]);
+                    }
             }
-
-            Widgets.EndScrollView();
+            finally { Widgets.EndScrollView(); }
         }
 
-        private void DrawListingRow(Rect rect, MarketListing listing, string localUuid)
-        {
-            // Background
-            Widgets.DrawMenuSection(rect);
-            if (Mouse.IsOver(rect))
-            {
-                Widgets.DrawHighlight(rect);
-            }
 
-            Rect inner = rect.ContractedBy(6f);
-
-            // Left: pawn info
-            float infoWidth = inner.width - BUTTON_WIDTH - SPACING;
-            Rect infoRect = new Rect(inner.x, inner.y, infoWidth, inner.height);
-
-            // Name line
-            string displayLabel = listing.Summary != null ? listing.Summary.GetDisplayLabel() : "???";
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(infoRect.x, infoRect.y, infoRect.width, 22f), displayLabel);
-
-            // Race + Age line
-            Text.Font = GameFont.Tiny;
-            string raceAge = "";
-            if (listing.Summary != null)
-            {
-                string raceName = listing.Summary.RaceDefName ?? "Human";
-                bool hasRace = DefDatabase<ThingDef>.GetNamedSilentFail(raceName) != null;
-                string raceStatus = hasRace ? "✓" : "✗";
-                raceAge = $"{raceStatus} {raceName} | {listing.Summary.BiologicalAge} {"Phinix_legacyTalentTrade_ageUnit".Translate()}";
-            }
-            Widgets.Label(new Rect(infoRect.x, infoRect.y + 22f, infoRect.width, 18f), raceAge);
-
-            // Seller line
-            string sellerText = "Phinix_legacyTalentTrade_marketSeller".Translate(listing.SellerName ?? "???");
-            Widgets.Label(new Rect(infoRect.x, infoRect.y + 40f, infoRect.width, 18f), sellerText);
-
-            // Price line
-            string priceText = "Phinix_legacyTalentTrade_marketPriceFormat".Translate(listing.PriceSilver.ToString());
-            Widgets.Label(new Rect(infoRect.x, infoRect.y + 58f, infoRect.width, 18f), priceText);
-
-            Text.Font = GameFont.Small;
-
-            // Right: action button
-            Rect btnRect = new Rect(inner.xMax - BUTTON_WIDTH, inner.y + (inner.height - BUTTON_HEIGHT) / 2f, BUTTON_WIDTH, BUTTON_HEIGHT);
-
-            bool isMine = listing.SellerUuid == localUuid;
-            if (isMine)
-            {
-                if (Widgets.ButtonText(btnRect, "Phinix_legacyTalentTrade_marketDelist".Translate()))
-                {
-                    DelistListing(listing);
-                }
-            }
-            else
-            {
-                if (Widgets.ButtonText(btnRect, "Phinix_legacyTalentTrade_marketBuy".Translate()))
-                {
-                    ConfirmBuy(listing);
-                }
-            }
-
-            // Skills tooltip
-            if (listing.Summary != null && Mouse.IsOver(infoRect))
-            {
-                string tip = listing.Summary.SkillsSummary;
-                if (!string.IsNullOrEmpty(listing.Summary.TraitsSummary))
-                    tip += "\n" + listing.Summary.TraitsSummary;
-                if (!string.IsNullOrEmpty(listing.Summary.HealthSummary))
-                    tip += "\n" + listing.Summary.HealthSummary;
-                TooltipHandler.TipRegion(infoRect, tip);
-            }
-        }
 
         // --- Sell flow ---
 
         private void DrawSellPanel(Rect rect)
         {
-            Widgets.DrawMenuSection(rect);
-            Rect inner = rect.ContractedBy(12f);
-
-            float y = inner.y;
-
-            // Title
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inner.x, y, inner.width, 30f), "Phinix_legacyTalentTrade_marketSell".Translate());
-            Text.Font = GameFont.Small;
-            y += 36f;
-
-            // Pawn selector
-            Widgets.Label(new Rect(inner.x, y, 120f, 28f), "Phinix_legacyTalentTrade_selectTradeablePawn".Translate());
-            Rect pawnBtnRect = new Rect(inner.x + 130f, y, 200f, 28f);
-            string pawnLabel = selectedPawn != null ? TradeablePawnUtility.GetLabel(selectedPawn) : (string)"Phinix_legacyTalentTrade_select".Translate();
-            if (Widgets.ButtonText(pawnBtnRect, pawnLabel))
+            form.Begin(rect, selectedPawn);
+            try
             {
-                ShowPawnPicker();
+                if (form.PawnButton()) ShowPawnPicker();
+                form.Number(1, ref priceBuffer, ref priceValue, 0);
+                if (form.Confirm(selectedPawn != null && priceValue > 0)) DoListForSale();
             }
-            y += 36f;
-
-            // Pawn summary preview
-            if (selectedPawn != null)
-            {
-                PawnSummary preview = PawnSummary.FromPawn(selectedPawn);
-                Text.Font = GameFont.Tiny;
-                string previewText = preview.GetDisplayLabel() + "\n" + preview.SkillsSummary + "\n" + preview.TraitsSummary;
-                float previewHeight = Text.CalcHeight(previewText, inner.width);
-                Widgets.Label(new Rect(inner.x, y, inner.width, previewHeight), previewText);
-                y += previewHeight + SPACING;
-                Text.Font = GameFont.Small;
-            }
-
-            // Price input
-            Widgets.Label(new Rect(inner.x, y, 120f, 28f), "Phinix_legacyTalentTrade_marketPrice".Translate());
-            Rect priceFieldRect = new Rect(inner.x + 130f, y, 120f, 28f);
-            priceBuffer = Widgets.TextField(priceFieldRect, priceBuffer);
-            int.TryParse(priceBuffer, out priceValue);
-            if (priceValue < 0) priceValue = 0;
-            Widgets.Label(new Rect(inner.x + 260f, y, 60f, 28f), "Phinix_legacyTalentTrade_silver".Translate());
-            y += 36f;
-
-            // Confirm button
-            Rect confirmRect = new Rect(inner.x, y, 160f, 36f);
-            bool canConfirm = selectedPawn != null && priceValue > 0;
-            if (canConfirm && Widgets.ButtonText(confirmRect, "Phinix_legacyTalentTrade_confirm".Translate()))
-            {
-                DoListForSale();
-            }
+            finally { form.End(); }
         }
 
         private void ShowPawnPicker()

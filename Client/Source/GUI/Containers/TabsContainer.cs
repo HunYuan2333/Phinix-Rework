@@ -8,6 +8,7 @@ using Verse;
 
 namespace PhinixClient.GUI
 {
+    [System.Obsolete("Use TabDrawer overflow navigation and direct content drawing instead.")]
     public class TabsContainer : Displayable
     {
         /// <inheritdoc />

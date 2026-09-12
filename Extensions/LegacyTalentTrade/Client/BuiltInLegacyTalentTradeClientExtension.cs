@@ -50,6 +50,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             LegacyTalentTradeRuntime.IsActive = true;
 
             TalentTradeManager.Initialize(hostContext.GetRequiredService<IClientUserEventStream>());
+            TalentTradeTab.Instance.BindUserEvents(hostContext.GetRequiredService<IClientUserEventStream>());
 
             // 游戏级补丁（GenScene 退出下架 / PawnTextureAtlasGC 修复）——禁用时不会执行 Activate，补丁零挂载
             harmony = new Harmony(HarmonyId);
@@ -104,6 +105,7 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             }
 
             TalentTradeManager.Shutdown();
+            TalentTradeTab.Instance.BindUserEvents(null);
             harmony?.UnpatchAll(HarmonyId);
             harmony = null;
 

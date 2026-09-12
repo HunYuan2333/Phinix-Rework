@@ -6,7 +6,7 @@
 >
 > **Document scope**: This document and [design-philosophy.md](./design-philosophy.md) are cross-branch shared baseline documents. The former explains "why this design"; this document tells you "how to use it in practice."
 >
-> **Last updated**: 2026-06-01, written against actual code on the `dev` branch. The framework is still under active evolution — this document explicitly marks the current status of each capability: ✅ fully available, ⚠️ half-finished/transitional, 🔮 planned.
+> **Last updated**: 2026-09-13, written against current codebase on the `dev` branch. The framework is still under active evolution — this document explicitly marks the current status of each capability: ✅ fully available, ⚠️ half-finished/transitional, 🔮 planned.
 
 ---
 
@@ -19,10 +19,35 @@
 5. [API Exposure and Resolution](#5-api-exposure-and-resolution)
 6. [The Three Communication Pipelines](#6-the-three-communication-pipelines)
 7. [Integrating with UI](#7-integrating-with-ui)
+    - [7.1 Adding a Tab](#71-adding-a-tab)
+    - [7.2 Adding a Sidebar](#72-adding-a-sidebar)
+    - [7.3 Responsive Layout and Adaptation (ClientExtensionAbstractions 1.1)](#73-responsive-layout-and-adaptation-clientextensionabstractions-11)
+        - [7.3.1 Responsive Layout Hints and Fallback Mechanisms](#731-responsive-layout-hints-and-fallback-mechanisms)
+        - [7.3.2 Host Sidebar Drawer Collapse Mechanism](#732-host-sidebar-drawer-collapse-mechanism)
+        - [7.3.3 Screen Safe Area and Custom Dialogs (UiScreenSafeArea)](#733-screen-safe-area-and-custom-dialogs-uiscreensafearea)
+        - [7.3.4 Allocation-Conscious Shared Layout Primitives (ClientExtensionAbstractions.UI)](#734-allocation-conscious-shared-layout-primitives-clientextensionabstractionsui)
+        - [7.3.5 Geometry Calculation and Cache Invalidation Principles](#735-geometry-calculation-and-cache-invalidation-principles)
+    - [7.4 Adding Badges](#74-adding-badges)
+    - [7.5 Adding Settings Panels](#75-adding-settings-panels)
+    - [7.6 Settings Migration (Legacy Settings)](#76-settings-migration-legacy-settings)
+    - [7.7 Pushing Display Messages](#77-pushing-display-messages)
+    - [7.8 Adding Notice Banners (INoticeBannerProvider)](#78-adding-notice-banners-inoticebannerprovider)
+    - [7.9 Enter Key Handling (IUiAcceptKeyHandler)](#79-enter-key-handling-iuiacceptkeyhandler)
+    - [7.10 UI Theme and Palette (IUiTheme)](#710-ui-theme-and-palette-iuitheme)
 8. [Common Services Provided by the Host](#8-common-services-provided-by-the-host)
 9. [Inter-Plugin Collaboration](#9-inter-plugin-collaboration)
 10. [Compatibility Mode and Legacy](#10-compatibility-mode-and-legacy)
 11. [Common Anti-Patterns and Pitfalls](#11-common-anti-patterns-and-pitfalls)
+    - [11.1 Bypassing the Pipeline to Directly Access the Transport Layer](#111-bypassing-the-pipeline-to-directly-access-the-transport-layer)
+    - [11.2 Calling hostContext.GetRequiredService in Register()](#112-calling-hostcontextgetrequiredservice-in-register)
+    - [11.3 Forgetting to Unsubscribe from Events in Shutdown()](#113-forgetting-to-unsubscribe-from-events-in-shutdown)
+    - [11.4 Object Allocation on Draw Paths](#114-object-allocation-on-draw-paths)
+    - [11.5 Operating on UI from Network Callback Threads](#115-operating-on-ui-from-network-callback-threads)
+    - [11.6 Silently Swallowing Exceptions](#116-silently-swallowing-exceptions)
+    - [11.7 Failing to Implement IDisposable](#117-failing-to-implement-idisposable)
+    - [11.8 Dependent DLL Load Order](#118-dependent-dll-load-order)
+    - [11.9 Using Deprecated Legacy GUI Containers (Displayable Series)](#119-using-deprecated-legacy-gui-containers-displayable-series)
+    - [11.10 Hardcoded Absolute Coordinates and Ignoring Screen Safe Area](#1110-hardcoded-absolute-coordinates-and-ignoring-screen-safe-area)
 12. [Minimal Viable Example](#12-minimal-viable-example)
     - [12.1 Environment Preparation and Prerequisites](#121-environment-preparation-and-prerequisites)
     - [12.2 Directory Structure](#122-directory-structure)
@@ -123,18 +148,32 @@ If your submod needs to call Chat or Trade capabilities:
 
 ### 2.4 Physical Deployment: Where to Place DLLs
 
-When the host starts, it calls `ExtensionAssemblyLoader.LoadAssemblies()` to scan `.dll` files under the following directories (see the `GetExtensionProbeDirectories` method at [Client.cs:400-429](Client/Source/Client.cs#L400-L429) for details):
+When the host starts, it calls `ExtensionAssemblyLoader.LoadAssemblies()` to scan `.dll` files under probe directories (see the `GetExtensionProbeDirectories` method at [Client.cs:543-582](Client/Source/Client.cs#L543-L582) for details).
+
+The physical publishing layout of the framework and official plugins has completed its separation (refer to [Design Philosophy §5.1 and §5.2](design-philosophy.md#51-naming-and-ordering)):
 
 ```
-YourMod/
+PhinixMod/
+  1.6/
+    Assemblies/           ← Client-specific host (13-PhinixClient.dll)
   Common/
-    Assemblies/           ← Framework base DLLs (01-07) + current official plugin DLLs (08-11)
-    Extensions/           ← Dedicated plugin directory (currently also scanned; target state will be independent)
+    Assemblies/           ← Framework base DLLs (01-10, including LiteNetLib, Protobuf, Utils, Connections, Auth, UserManagement, ClientExtensionAbstractions)
+    Extensions/           ← Official built-in plugin DLLs (08-16, including Chat, Trade, LegacyAdapter, RedPacket, TalentTrade, and their Client implementations)
 ```
 
-Numeric prefixes (e.g., `08-`) cannot be omitted — RimWorld's `ModAssemblyHandler` loads DLLs in filename string order, and dependencies must be loaded before dependents (see [§12.7](#127-load-order-number-explanation) for details). ExtensionAssemblyLoader code location: [Common/Utils/Framework/ExtensionAssemblyLoader.cs](Common/Utils/Framework/ExtensionAssemblyLoader.cs).
+#### Two Distribution and Deployment Methods for Third-Party Submods
 
-The future target state ([Design Philosophy §5.2](design-philosophy.md#52-publishing-boundary-target-state)) will move plugin DLLs to `Extensions/` and separate them from `Assemblies/`.
+1. **Recommended Method: Independent Mod Distribution (Steam Workshop / Standalone Mod folder)**
+   - Package and distribute as a standard RimWorld mod; do not modify the Phinix mod installation directory.
+   - In your mod's `About/About.xml`, declare Phinix as a prerequisite dependency (configure `<modDependencies>` and `<loadAfter><li>hunyuan.phinixrework</li></loadAfter>`).
+   - Place your compiled output DLL directly in your own mod root's `Assemblies/` directory.
+   - **How it works**: `GetExtensionProbeDirectories` in `Client.cs` automatically iterates through `ModLister.AllInstalledMods` to scan the `Assemblies/` directories of all active third-party mods loaded after Phinix. When the host boots, it automatically probes your DLL and discovers your `[PhinixExtension]` module classes!
+
+2. **Integrated / Built-in Method (Directly placed inside Phinix directory)**
+   - Copy your compiled DLL directly into the Phinix mod's `Common/Extensions/` directory.
+   - **Important**: Official built-in plugins occupy prefixes `08-` through `16-`. Any third-party DLL placed directly into `Common/Extensions/` **must use a prefix of `17-` or higher** (e.g., `17-MySubmod.dll`), otherwise RimWorld's `ModAssemblyHandler` may attempt to load your DLL before its dependencies, resulting in class loading exceptions (see [§12.7](#127-load-order-number-explanation) for details).
+
+ExtensionAssemblyLoader code location: [Common/Utils/Framework/ExtensionAssemblyLoader.cs](Common/Utils/Framework/ExtensionAssemblyLoader.cs).
 
 ---
 
@@ -172,38 +211,62 @@ public interface IActivatablePhinixExtensionModule : IPhinixExtension
 
 > **Note**: `IPhinixExtensionModule` and `IActivatablePhinixExtensionModule` are **independent interfaces** — neither inherits from the other. Your module must implement both to get the full lifecycle. See the official Chat extension: [BuiltInChatClientExtension.cs:14](Extensions/Chat/Client/BuiltInChatClientExtension.cs#L14) implements both interfaces.
 
-### 3.3 The `[PhinixExtension]` Attribute
+### 3.3 The `[PhinixExtension]` Attribute and Dependency Declaration
 
 Your module class must be marked with `[PhinixExtension("your.id")]`, otherwise the framework's reflection scan will not find you (unless your class implements `IPhinixExtension` and is also marked non-abstract, in which case the old legacy auto-discovery path will still pick it up, but the framework will emit a warning advising you to migrate to `IPhinixExtensionModule`).
 
+The attribute is defined in [FrameworkTypes.cs:495-509](Common/Utils/Framework/FrameworkTypes.cs#L495-L509), and supports explicitly declaring inter-extension dependencies:
+
 ```csharp
-[PhinixExtension("myname.myfeature")]
+[PhinixExtension("mymod.myfeature", DependsOn = new[] { "phinix.chat", "phinix.trade" })]
 public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
 {
-    public string ExtensionId => "myname.myfeature";
+    public string ExtensionId => "mymod.myfeature";
     // ...
 }
 ```
 
-### 3.4 Full Lifecycle
+- `ExtensionId`: Globally unique module identifier (e.g., `"mymod.myfeature"`).
+- `DependsOn`: Optional array of strings declaring other extension IDs this module depends on. The framework constructs a Directed Acyclic Graph (DAG, see [ExtensionDependencyGraph.cs](Common/Utils/Framework/ExtensionDependencyGraph.cs)) for topological sorting, strictly ensuring dependencies complete `Register` and `Activate` before dependents, and are executed in reverse order during `Shutdown`.
+- **Circular Dependency Protection**: If circular or mutually recursive dependencies are detected, DAG topological resolution fails with an error, marking involved modules as `Failed` and skipping activation to avoid deadlocks.
 
-The framework manages extensions in four phases (see the `DiscoverExtensions` and `ActivateExtensions` methods in [PhinixExtensionRegistry.cs](Common/Utils/Framework/PhinixExtensionRegistry.cs)):
+### 3.4 Full Lifecycle and Activation Policy
+
+The framework manages extensions across four phases (see the `DiscoverExtensions`, `ActivateExtensions`, and `ShutdownExtensions` methods in [PhinixExtensionRegistry.cs](Common/Utils/Framework/PhinixExtensionRegistry.cs)):
 
 ```
-1. Discover  ── Reflection scans assemblies, finds all IPhinixExtensionModule
+1. Discover  ── Reflection scans candidate assemblies to locate [PhinixExtension] classes
                  ↓
-2. Register  ── Calls each module's Register(builder)
-                Modules register handlers, APIs, capabilities
-                After completion, status becomes Registered
+                 Consults IExtensionActivationPolicy to determine enablement
+                 ├─ User explicitly disabled ──→ Status set to Disabled (skips subsequent phases)
+                 └─ Dependency disabled     ──→ Status set to DependencyDisabled (skips subsequent phases)
                  ↓
-3. Activate  ── Calls each module's Activate(hostContext)
-                Modules obtain host services, subscribe to events
-                After completion, status becomes Active
+2. Register  ── Calls Register(builder) for enabled modules in DAG topological order
+                 Modules register handlers, APIs, codecs, capabilities
+                 After completion, status becomes Registered
                  ↓
-4. Shutdown  ── Calls each module's Shutdown(hostContext)
-                Modules unsubscribe, release resources
-                After completion, status becomes Shutdown
+3. Activate  ── Once host subsystems are ready, calls Activate(hostContext) in topological order
+                 Modules obtain host services, resolve APIs, subscribe to events
+                 After completion, status becomes Active
+                 ↓
+4. Shutdown  ── When host shuts down or resets, calls Shutdown(hostContext) in reverse order
+                 Modules unsubscribe from events and release resources/handles
+                 After completion, status becomes Shutdown
 ```
+
+- **Full Lifecycle State Model** (defined in [FrameworkTypes.cs:51-61](Common/Utils/Framework/FrameworkTypes.cs#L51-L61) `ExtensionModuleState` enum):
+  - `Discovered`: Reflection discovered module class, awaiting instantiation and policy check.
+  - `Registered`: Successfully instantiated and executed `Register(builder)`.
+  - `Active`: Successfully executed `Activate(hostContext)`, running normally.
+  - `Failed`: Uncaught exception occurred during instantiation, `Register`, `Activate`, or `Shutdown`, or failed due to dependency cycles/missing dependencies.
+  - `Shutdown`: Safely unregistered and released resources.
+  - `Disabled`: Explicitly disabled by the user in settings, skipping `Register`.
+  - `DependencyDisabled`: Enabled itself, but a parent extension it depends on was disabled, cascading to skip.
+
+- **Host Built-in Management and Observability**:
+  - The client host provides a built-in `ExtensionManagerTab` (and an "Extension Management" settings panel, Order=50).
+  - Players and developers can inspect the live status, version, originating assembly path, and RimWorld Mod package ID of all extensions, and toggle individual extensions on/off.
+  - The host maintains a 300-entry in-memory circular log buffer (with `ExtensionLogVersion` cache invalidation), allowing diagnostic logs to be reviewed directly in this UI.
 
 ### 3.5 Error Isolation
 
@@ -219,28 +282,44 @@ This means **your submod will not bring down the entire framework** — but conv
 
 ## 4. Registry: What IExtensionBuilder Can Do
 
-`Register(IExtensionBuilder builder)` is your core entry point for interacting with the framework. `builder` provides the following capabilities (full interface definition at [FrameworkTypes.cs:105-148](Common/Utils/Framework/FrameworkTypes.cs#L105-L148)):
+`Register(IExtensionBuilder builder)` is your core entry point for interacting with the framework. `builder` provides the following capabilities (full interface definition at [FrameworkTypes.cs:129-186](Common/Utils/Framework/FrameworkTypes.cs#L129-L186)):
 
 ### 4.1 Registering Handlers (Hooking into Communication Pipelines)
 
 ```csharp
-// Message pipeline
-builder.AddClientMessageHandler(this);           // IClientMessageHandler
+// 1. Message pipeline (display messages)
+builder.AddClientMessageHandler(this);                  // IClientMessageHandler (inbound + outbound handling)
+builder.AddMessageInterceptor(this);                    // IMessageInterceptor (pre-display intercept/modify)
+builder.AddMessageRenderer(this);                       // IMessageRenderer (custom message rendering/conversion)
 
-// Command pipeline
-builder.AddClientCommandHandler(this);           // IClientCommandHandler (inbound)
-// If your class implements both IClientCommandHandler and IClientOutgoingCommandHandler,
-// AddClientCommandHandler(this) covers both in one registration — the framework runtime
-// filters for IClientOutgoingCommandHandler for outbound.
-// If you only implement IClientOutgoingCommandHandler (no inbound), you need to register
-// separately on the builder — currently AddClientCommandHandler's parameter type is IClientCommandHandler.
+// 2. Command pipeline (control instructions)
+builder.AddClientCommandHandler(this);                  // IClientCommandHandler (inbound handling)
+// If implementing both IClientCommandHandler and IClientOutgoingCommandHandler,
+// AddClientCommandHandler(this) registers both; see §6.2 for outbound details.
 
-// Other pipeline roles
-builder.AddMessageInterceptor(this);             // IMessageInterceptor
-builder.AddMessageRenderer(this);                // IMessageRenderer
-builder.AddCapabilityProvider(this);             // ICapabilityProvider
-builder.AddServerMessageHandler(this);           // IServerMessageHandler (server-side extensions)
-builder.AddItemCodec(this);                      // IItemCodec (✅ fully available — see §6.3)
+// 3. Item pipeline (binary/item payloads, ✅ fully available)
+builder.AddItemCodec(this);                             // IItemCodec (codec consumed by Item pipeline)
+builder.AddClientItemHandler(this);                     // IClientIncomingItemHandler (client inbound handling)
+builder.AddClientOutgoingItemHandler(this);             // IClientOutgoingItemHandler (client outbound handling)
+
+// 4. Other general capability declarations
+builder.AddCapabilityProvider(this);                    // ICapabilityProvider (declares supported capabilities)
+
+// 5. Server-side extension roles (for server-side submods)
+builder.AddServerMessageHandler(this);                  // IServerMessageHandler
+builder.AddServerInboundMessageInterceptor(this);       // IServerInboundMessageInterceptor
+builder.AddServerDefaultMessageHandler(this);           // IServerDefaultMessageHandler
+builder.AddServerMessageObserver(this);                 // IServerMessageObserver
+builder.AddServerCommandHandler(this);                  // IServerCommandHandler
+builder.AddServerInboundCommandInterceptor(this);       // IServerInboundCommandInterceptor
+builder.AddServerDefaultCommandHandler(this);           // IServerDefaultCommandHandler
+builder.AddServerCommandObserver(this);                 // IServerCommandObserver
+builder.AddServerItemHandler(this);                     // IServerItemHandler
+builder.AddServerInboundItemInterceptor(this);          // IServerInboundItemInterceptor
+builder.AddServerDefaultItemHandler(this);              // IServerDefaultItemHandler
+builder.AddServerItemObserver(this);                    // IServerItemObserver
+builder.AddServerOutboundPacketInterceptor(this);       // IServerOutboundPacketInterceptor
+builder.AddConsoleCommandProvider(this);                // IServerConsoleCommandProvider (server console commands)
 ```
 
 ### 4.2 Registering APIs (Exposing Your Own Capabilities)
@@ -451,9 +530,9 @@ The Item pipeline is **now fully independent and usable**. Here are the facts:
 - ✅ The server-side three-phase chain is in place: `IServerItemInterceptor` → `IServerDefaultItemHandler` → `IServerItemObserver`
 - ✅ The client-side `packetHandler` has a `KindItem` branch — Item data routes independently
 - ✅ `IClientIncomingItemHandler` / `IClientOutgoingItemHandler` interfaces exist ([FrameworkTypes.cs](Common/Utils/Framework/FrameworkTypes.cs))
-- ✅ The `IItemCodec` interface is defined ([FrameworkTypes.cs:530-541](Common/Utils/Framework/FrameworkTypes.cs#L530-L541))
-- ✅ The `builder.AddItemCodec()` registration method exists and codecs are consumed by the pipeline
-- ✅ `TryHandleOutgoingItem()` exists for outbound Item packets
+- ✅ The `IItemCodec` interface is defined ([FrameworkTypes.cs](Common/Utils/Framework/FrameworkTypes.cs))
+- ✅ The `builder.AddItemCodec()` registration method is fully available and codecs are directly consumed by the pipeline
+- ✅ `IFrameworkClientTransport.TryHandleOutgoingItem()` exists for unified outbound Item packet routing
 - ✅ The current Command-nesting path (used by Trade) remains fully compatible
 
 **Inbound routing** (Server → Client):
@@ -467,7 +546,7 @@ NetClient → packetHandler(KindItem) → handleItem(packet)
 **Outbound routing** (Client → Server):
 
 ```
-Submod → TryHandleOutgoingItem(itemPayload, context)
+Submod → IFrameworkClientTransport.TryHandleOutgoingItem(itemPayload)
   → IClientOutgoingItemHandler chain (sorted by Priority)
   → HandleOutgoingItem() → FrameworkPacket
   → sendPacket(Flow=Item, Kind=item, PayloadBytes=protobuf)
@@ -512,7 +591,7 @@ For detailed analysis, see `docs/branch-local/dev/三条Pipeline职责辨析与I
 |------|---------|---------|------|
 | Server → Client (inbound) | `IClientMessageHandler` → `IMessageRenderer` → UI | `IClientCommandHandler` → internal state | `IClientIncomingItemHandler` → internal state |
 | Client → Server (outbound) | `TryHandleOutgoingMessage()` → `IClientMessageHandler` chain | `TryHandleOutgoingCommand()` → `IClientOutgoingCommandHandler` chain | `TryHandleOutgoingItem()` → `IClientOutgoingItemHandler` chain |
-| Outbound pipeline entry | `IFrameworkClientTransport` | `IFrameworkClientCommandTransport` | `IFrameworkClientItemTransport` |
+| Outbound pipeline entry | `IFrameworkClientTransport` | `IFrameworkClientCommandTransport` | `IFrameworkClientTransport` |
 | Outbound must go through pipeline | ✅ Yes ([Design Philosophy §3.7]) | ✅ Yes | ✅ Yes |
 
 ---
@@ -555,13 +634,18 @@ public interface IServerSidebarProvider
 
 Registration same as above: `builder.RegisterApi<IServerSidebarProvider>(this)`.
 
-### 7.3 Optional Responsive Layout Hints (ClientExtensionAbstractions 1.1)
+### 7.3 Responsive Layout and Adaptation (ClientExtensionAbstractions 1.1)
 
-The signatures of the legacy `IMainTabProvider` and `IServerSidebarProvider` interfaces remain unchanged. New implementations that want to declare content-size preferences can implement an additional optional interface on the same provider instance. Do not register the optional interface separately:
+Full UI adaptability (Phase 9) enables Phinix to run smoothly and stably across a wide spectrum of screen resolutions (from 1024×768 up to 4K), different RimWorld UI scale factors, and multi-language long-text scenarios. The framework maintains complete binary and source backward compatibility with legacy `IMainTabProvider` and `IServerSidebarProvider` implementations while providing full adaptive layout support via optional interfaces and low-allocation geometric primitives.
+
+#### 7.3.1 Responsive Layout Hints and Fallback Mechanisms
+
+Implementations that want to declare content-size preferences can have the same provider instance implement `IResponsiveMainTabProvider` or `IResponsiveSidebarProvider` (defined in the [UI abstraction layer](Client/ClientExtensionAbstractions/UI/)). Do not register the optional interface separately:
 
 ```csharp
 public sealed class MyTab : IMainTabProvider, IResponsiveMainTabProvider
 {
+    // Cache Hints in a static field to avoid repeated allocations in Draw or property getters
     private static readonly UiLayoutHints Hints = new UiLayoutHints(
         minimumContentSize: new Vector2(480f, 320f),
         preferredContentSize: new Vector2(760f, 560f),
@@ -581,14 +665,179 @@ public sealed class MySidebar : IServerSidebarProvider, IResponsiveSidebarProvid
 }
 ```
 
-- `MinimumContentSize` is the recommended minimum for the normal layout, not a mandatory window minimum.
-- `PreferredContentSize` only contributes to the initial preferred size and cannot make the window exceed the UI screen bounds.
-- `SupportsCompactLayout` indicates that the provider has an explicit compact layout below its normal minimum size.
-- `MinimumWidth` is the smallest useful sidebar width; `CanCollapse` allows the host to collapse the sidebar when space is constrained.
-- The host may still provide a smaller valid Rect. Providers must always keep output inside the `inRect` supplied to `Draw(Rect inRect)`.
-- `LayoutHints` and other draw-path getters must return cached values without collection traversal, text measurement, or allocation.
-- `ResponsiveSplitLayout`, `ResponsiveToolbarLayout`, `ResponsiveFormLayout`, and `VirtualListLayout` are pure geometry calculations without internal caches. Callers own the result cache and explicitly invalidate it when available size, language, content version, or relevant settings change.
-- Providers compiled against older abstractions automatically use conservative defaults and continue to load and render.
+- **`MinimumContentSize`**: The lowest suggested content size under normal layout. This is not a mandatory window minimum—when the player runs at very low resolution or shrinks the window, the `inRect` provided by the Host may still be smaller.
+- **`PreferredContentSize`**: The recommended size used only for initial window sizing upon first opening or resetting; it never forces the window beyond the screen safe area.
+- **`SupportsCompactLayout`**: Indicates whether this Tab provides an explicit compact layout branch (such as collapsing two columns into a single column with sub-tabs) when space falls below `MinimumContentSize`.
+- **`MinimumWidth`**: The minimum practical width threshold for the sidebar.
+- **`CanCollapse`**: Indicates whether this sidebar allows the Host to collapse it when window space is constrained.
+- **Default Fallback Behavior**: Legacy third-party provider classes that do not implement the optional interfaces automatically receive conservative defaults (`UiLayoutHints.Default` with 480×320 min, 700×560 pref, compact = false; sidebars use `PreferredWidth` and `CanCollapse = false`). Old submods continue to load and render safely without requiring code changes.
+
+#### 7.3.2 Host Sidebar Drawer Collapse Mechanism
+
+In the host's main window `ServerTab`, the main content area has a protected minimum width `MAIN_MIN_WIDTH = 480f`.
+- When the user drags and shrinks the window such that available width cannot simultaneously accommodate the main content area and the sidebar:
+  - If all active sidebar providers implement `IResponsiveSidebarProvider` with `CanCollapse == true`, the Host automatically collapses the sidebar and enters collapsed mode.
+  - In collapsed mode, a hamburger drawer button (`☰`) automatically appears in the upper-right corner of the main content area.
+  - Clicking `☰` displays a floating drawer overlay covering the sidebar area, allowing players to view the online user directory or notifications. Clicking `☰` again or clicking outside the drawer dismisses it.
+- Submod developers **do not need** to build custom collapse buttons or drawer toggle logic; simply implementing `IResponsiveSidebarProvider` with `CanCollapse = true` provides this feature automatically.
+
+#### 7.3.3 Screen Safe Area and Custom Dialogs (UiScreenSafeArea)
+
+If your Submod creates a custom standalone dialog window (inheriting from RimWorld's `Window`, such as a trade window, pawn details window, or red packet popup), **never hardcode absolute screen coordinates or fixed full-screen dimensions**.
+
+Always use `UiScreenSafeArea.ClampWindow` to constrain the window Rect to the current screen safe area:
+
+```csharp
+public class MyCustomDialog : Window
+{
+    private static readonly Vector2 MinimumDialogSize = new Vector2(400f, 300f);
+
+    public override Vector2 InitialSize => new Vector2(600f, 450f);
+
+    public override void PreOpen()
+    {
+        base.PreOpen();
+        // Clamp window size and position to screen safe area, preventing off-screen overflow at low resolutions or high UI scale
+        windowRect = UiScreenSafeArea.ClampWindow(windowRect, MinimumDialogSize);
+    }
+
+    public override void DoWindowContents(Rect inRect)
+    {
+        // Draw window contents...
+    }
+}
+```
+
+- `UiScreenSafeArea.Current`: Returns `(0, 0, UI.screenWidth, UI.screenHeight)`, strictly observing RimWorld's UI coordinate space.
+- `UiScreenSafeArea.Normalize(Rect rect)`: Normalizes inverted or negative width/height Rects into standard positive bounding boxes, preventing Unity IMGUI clipping crashes.
+
+#### 7.3.4 Allocation-Conscious Shared Layout Primitives (ClientExtensionAbstractions.UI)
+
+To prevent submods from writing fragile layout logic, `ClientExtensionAbstractions` provides 4 high-efficiency, zero-allocation pure geometry helper classes:
+
+##### 1. `ResponsiveSplitLayout` (Two-Pane Splitter)
+Automatically toggles between horizontal two-pane (`Horizontal`), vertical two-pane (`Vertical`), and single-pane (`SinglePane`) modes based on container bounds:
+
+```csharp
+ResponsiveSplitResult split = ResponsiveSplitLayout.Calculate(
+    container: inRect,
+    firstMinimum: new Vector2(300f, 200f),
+    secondMinimum: new Vector2(240f, 200f),
+    firstPreferred: new Vector2(400f, 300f),
+    spacing: 10f,
+    showFirstInSinglePane: _activeSubTab == 0);
+
+if (split.Mode == ResponsiveSplitMode.SinglePane)
+{
+    // Space is heavily constrained; render sub-tab toggle buttons to switch between Pane 1 and Pane 2
+}
+
+// Result contains FirstRect, SecondRect, and DividerRect
+DrawLeftPane(split.FirstRect);
+DrawRightPane(split.SecondRect);
+```
+
+##### 2. `ResponsiveToolbarLayout` (Toolbar with FloatMenu Overflow)
+Arranges action buttons in priority order. When row limits (`maximumRows`) are reached, remaining lower-priority actions automatically overflow into a trailing `⋯` button that opens a `FloatMenu`:
+
+```csharp
+// Pre-allocate desiredWidths and actionRects arrays as fields to avoid per-frame allocations in Draw
+private static readonly float[] ActionWidths = new float[] { 100f, 90f, 80f, 80f };
+private readonly Rect[] _actionRects = new Rect[4];
+
+// In Draw method:
+ResponsiveToolbarResult toolbar = ResponsiveToolbarLayout.Calculate(
+    container: toolbarRect,
+    desiredWidths: ActionWidths,
+    actionCount: 4,
+    primaryActionCount: 1,      // Ensure at least 1 primary core action remains visible
+    rowHeight: 30f,
+    spacing: 6f,
+    maximumRows: 1,             // Maximum rows allowed
+    overflowButtonWidth: 32f,   // Overflow button width
+    actionRects: _actionRects);
+
+for (int i = 0; i < toolbar.VisibleActionCount; i++)
+{
+    if (Widgets.ButtonText(_actionRects[i], _actions[i].Label))
+    {
+        _actions[i].Execute();
+    }
+}
+
+if (toolbar.HasOverflow && Widgets.ButtonText(toolbar.OverflowButtonRect, "⋯"))
+{
+    var options = new List<FloatMenuOption>();
+    for (int i = toolbar.VisibleActionCount; i < 4; i++)
+    {
+        int actionIndex = i;
+        options.Add(new FloatMenuOption(_actions[actionIndex].Label, () => _actions[actionIndex].Execute()));
+    }
+    Find.WindowStack.Add(new FloatMenu(options));
+}
+```
+
+##### 3. `ResponsiveFormLayout` (Responsive Form Row)
+Handles form rows consisting of "Label + Input field + Optional Action button + Optional Error message". Automatically operates in `Inline` mode when width permits, or stacks vertically into `Stacked` mode (label on top, input and action on the second line, error message below) when space is narrow:
+
+```csharp
+ResponsiveFormResult form = ResponsiveFormLayout.Calculate(
+    container: formRowRect,
+    labelWidth: 100f,
+    minimumInputWidth: 140f,
+    actionWidth: 80f,
+    rowHeight: 30f,
+    spacing: 8f,
+    errorHeight: string.IsNullOrEmpty(_errorText) ? 0f : 22f);
+
+Widgets.Label(form.LabelRect, "Server Address");
+_serverAddress = Widgets.TextField(form.InputRect, _serverAddress);
+if (Widgets.ButtonText(form.ActionRect, "Connect"))
+{
+    Connect();
+}
+if (!string.IsNullOrEmpty(_errorText))
+{
+    GUI.color = Color.red;
+    Widgets.Label(form.ErrorRect, _errorText);
+    GUI.color = Color.white;
+}
+```
+
+##### 4. `VirtualListLayout` (Large List Virtual Scrolling)
+When a list contains hundreds or thousands of elements (chat logs, market shelves, player rosters, debug logs), rendering all rows every frame will crash performance. `VirtualListLayout` uses binary search to compute visible row indices:
+
+- **Fixed-Height Lists**:
+  ```csharp
+  Widgets.BeginScrollView(outRect, ref _scrollPosition, viewRect);
+  // overscan: buffer 1-2 extra rows above and below for smooth scrolling
+  VirtualListRange range = VirtualListLayout.GetFixedRange(
+      itemCount: items.Count,
+      rowHeight: 32f,
+      scrollY: _scrollPosition.y,
+      viewportHeight: outRect.height,
+      overscan: 1);
+
+  for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+  {
+      Rect rowRect = new Rect(0f, i * 32f, viewRect.width, 30f);
+      DrawItemRow(rowRect, items[i]);
+  }
+  Widgets.EndScrollView();
+  ```
+
+- **Dynamic-Height Lists (Cached Row Heights)**:
+  For lists with variable line heights (such as multi-line chat messages), maintain a cumulative prefix offset array `prefixOffsets` (length `itemCount + 1`, where `prefixOffsets[0] = 0` and `prefixOffsets[i]` is the cumulative height of the first `i` rows). Use `VirtualListLayout.GetDynamicRange(prefixOffsets, itemCount, _scrollPosition.y, outRect.height, overscan: 1)` to achieve identical zero-allocation, instantaneous visible rendering.
+
+#### 7.3.5 Geometry Calculation and Cache Invalidation Principles
+
+- `ResponsiveSplitLayout`, `ResponsiveToolbarLayout`, `ResponsiveFormLayout`, and `VirtualListLayout` are **stateless pure mathematical functions** with no internal caches.
+- Callers must store computed Rects or layout results and **only** invalidate/recompute them when:
+  - Host container Rect dimensions change (`inRect.size` changes)
+  - Data item count changes or items are modified
+  - Active language changes (`LanguageDatabase.activeLanguage`)
+  - Relevant configuration settings change
+- **Never** allocate temporary arrays (such as `new float[]`) or call `Text.CalcHeight` / LINQ on every frame in the `Draw` path! See [§11.4](#114-object-allocation-on-draw-paths) for details.
 
 ### 7.4 Adding a Badge
 
@@ -642,7 +891,7 @@ The host calls all registered migrators when the settings window is first opened
 
 ### 7.7 Pushing Display Messages
 
-If your submod needs to inject notifications into the message queue (not messages coming from the server via the Message pipeline, but locally generated notifications), use `IDisplayMessageSink` (defined at [IClientExtensionAbstractions.cs:171-175](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L171-L175)):
+If your submod needs to inject notifications into the message queue (not messages coming from the server via the Message pipeline, but locally generated notifications), use `IDisplayMessageSink` (defined at [IClientExtensionAbstractions.cs:178-182](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L178-L182)):
 
 ```csharp
 public interface IDisplayMessageSink
@@ -652,6 +901,72 @@ public interface IDisplayMessageSink
 ```
 
 This service is obtained in `Activate()` via `hostContext.GetRequiredService<IDisplayMessageSink>()`.
+
+### 7.8 Adding Notice Banners (INoticeBannerProvider)
+
+The host reserves a notice banner area at the top of the main window (`ServerTab`). Implement `INoticeBannerProvider` (defined in [INoticeBannerProvider.cs](Client/ClientExtensionAbstractions/UI/INoticeBannerProvider.cs)):
+
+```csharp
+public interface INoticeBannerProvider
+{
+    float CurrentHeight { get; }  // Desired banner height (0 means not shown)
+    void Draw(Rect inRect);       // Draw banner contents
+}
+```
+
+Registration:
+
+```csharp
+builder.RegisterApi<INoticeBannerProvider>(this);
+```
+
+- When `CurrentHeight > 0`, `ServerTab` dynamically partitions a rectangle of corresponding height at the top of the window and calls `Draw(inRect)`.
+- Ideal for global disconnection alerts, update notifications, pending urgent user actions, or critical missing configuration warnings.
+
+### 7.9 Enter Key Handling (IUiAcceptKeyHandler)
+
+In RimWorld, pressing the Enter / KeypadEnter key often triggers window acceptance or closes the active window. If your tab or sidebar contains text inputs, search fields, or multi-line chat editors, and you want pressing Enter to send a message or confirm a search rather than closing the window, have your `IMainTabProvider` or `IServerSidebarProvider` implementation additionally implement `IUiAcceptKeyHandler` (defined in [IUiAcceptKeyHandler.cs](Client/ClientExtensionAbstractions/UI/IUiAcceptKeyHandler.cs)):
+
+```csharp
+public interface IUiAcceptKeyHandler
+{
+    bool WantsAcceptKey { get; }   // Whether the active control wants to intercept and consume Enter
+    bool TryHandleAcceptKey();     // Executes accept logic; returns true if consumed
+}
+```
+
+- No separate registration needed: as long as the currently active tab or sidebar instance implements this interface, `ServerTab` queries `WantsAcceptKey` when detecting Return key events; if `true`, it delegates to `TryHandleAcceptKey()` and blocks RimWorld's underlying window closure logic.
+
+### 7.10 UI Theme and Palette (IUiTheme)
+
+Phinix provides a centralized UI theme and color service `IUiTheme` (defined in [IUiTheme.cs](Client/ClientExtensionAbstractions/UI/IUiTheme.cs)), eliminating visual inconsistency and hardcoded color clashes:
+
+```csharp
+public interface IUiTheme
+{
+    Color PrimaryText { get; }      // Primary text color
+    Color SecondaryText { get; }    // Secondary / subtle text color
+    Color Background { get; }       // Container background color
+    Color Surface { get; }          // Card / panel surface color
+    Color Separator { get; }        // Divider line color
+    Color HoverHighlight { get; }   // Hover highlight color
+    Color Pending { get; }          // Pending state color
+    Color Error { get; }            // Error / failure accent color
+    Color Success { get; }          // Success / connected accent color
+    Color Warning { get; }          // Warning accent color
+
+    void RegisterColor(string key, Color defaultColor);
+    Color GetColor(string key);
+    bool TryGetColor(string key, out Color color);
+    void RegisterFloat(string key, float defaultValue);
+    float GetFloat(string key, float defaultValue = 0f);
+    void Reload();
+}
+```
+
+- **Obtaining**: Call `hostContext.GetRequiredService<IUiTheme>()` in `Activate()`, or resolve via `builder.TryResolveApi<IUiTheme>(out var theme)`.
+- **Extending themes**: Submods can register extension-specific themeable colors by calling `theme.RegisterColor("mymod.accent", defaultColor)`.
+- **Custom theme providers**: Third-party mods can also implement `IUiTheme` and expose it to the framework via `builder.RegisterApi<IUiTheme>(customTheme)`.
 
 ---
 
@@ -767,18 +1082,19 @@ Uses a queue pattern — this is not immediate playback; playback happens on the
 
 ### 8.8 IFrameworkClientTransport
 
-Entry point for the Message pipeline (outbound). See [§6.1](#61-message-pipeline-fully-available):
+Entry point for Message and Item pipelines (outbound). See [§6.1](#61-message-pipeline-fully-available) and [§6.3](#63-item-pipeline-fully-available-p0-complete):
 
 ```csharp
 public interface IFrameworkClientTransport
 {
     bool HasRemoteCapability(string capability);
     void SendFrameworkPacket(FrameworkPacket packet);          // ⚠️ Restricted: orthodox communication should use TryHandle
-    bool TryHandleOutgoingMessage(string rawMessage);         // ✅ Recommended outbound entry
+    bool TryHandleOutgoingMessage(string rawMessage);         // ✅ Recommended message outbound entry (routes via IClientMessageHandler chain)
+    bool TryHandleOutgoingItem(FrameworkItemPayload itemPayload); // ✅ Recommended item outbound entry (routes via IClientOutgoingItemHandler chain)
 }
 ```
 
-> **About `SendFrameworkPacket`**: This method sends a FrameworkPacket directly without going through the handler pipeline. According to Design Philosophy §3.7, plugins should not bypass the pipeline — for orthodox communication, use `TryHandleOutgoingMessage` / `TryHandleOutgoingCommand`.
+> **About `SendFrameworkPacket`**: This method sends a FrameworkPacket directly without going through the handler pipeline. According to Design Philosophy §3.7, plugins should not bypass the pipeline — for orthodox communication, use `TryHandleOutgoingMessage` / `TryHandleOutgoingCommand` / `TryHandleOutgoingItem`.
 
 ### 8.9 IFrameworkClientCommandTransport
 
@@ -860,7 +1176,51 @@ Log via the `hostContext.Log` callback:
 hostContext.Log?.Invoke("Something happened", LogLevel.INFO);
 ```
 
-> **Current convention**: Official extensions (Chat/Trade) use `hostContext.Log` (`Action<string, LogLevel>`) to report logs. The `ILoggable` interface is currently a log-producer contract used by host internal components (`NetClient`, `PhinixFrameworkClient`, etc.) and is not yet directly exposed to plugins. Migration to extension-level `ILoggable` support is planned.
+- **Log Levels and Filtering Rules**:
+  - Supported log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
+  - **Release build filtering**: In Release builds, the client automatically filters out `DEBUG` level log entries (only forwarding `INFO`, `WARNING`, and `ERROR` to the RimWorld console and log files) to avoid performance degradation and disk flooding from high-frequency heartbeat or tracing logs; Debug builds output all levels. Submods should mark high-frequency diagnostic logs as `DEBUG`, and important lifecycle milestones as `INFO`.
+  - **In-memory circular log buffer**: The host captures the last 300 log entries reported by all extensions in an in-memory ring buffer (tracked with `ExtensionLogVersion`), allowing players and developers to review and filter logs directly in `ExtensionManagerTab`.
+
+> **Current convention**: Official extensions (Chat/Trade) use `hostContext.Log` (`Action<string, LogLevel>`) to report logs. The `ILoggable` interface is currently a log-producer contract used by host internal components (`NetClient`, `PhinixFrameworkClient`, etc.) and is not yet directly exposed to plugins.
+
+### 8.15 IUiTheme
+
+Unified UI theme and color palette service. Defined in [IUiTheme.cs](Client/ClientExtensionAbstractions/UI/IUiTheme.cs):
+
+```csharp
+IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
+Color primaryColor = theme.PrimaryText;
+```
+
+See [§7.10 UI Theme and Palette](#710-ui-theme-and-palette-iuitheme) for details. The host registers it during startup as both a Host Service (`GetRequiredService<IUiTheme>()`) and a general API (`TryResolveApi<IUiTheme>()`).
+
+### 8.16 IItemCodecProvider
+
+Query service for all discovered and registered item codecs in the framework. Defined in [FrameworkTypes.cs:607-610](Common/Utils/Framework/FrameworkTypes.cs#L607-L610):
+
+```csharp
+public interface IItemCodecProvider
+{
+    IReadOnlyList<IItemCodec> ItemCodecs { get; }
+}
+```
+
+- Used by plugins when processing composite payloads or resolving unknown `FrameworkItemPayload` entries by `CodecId` against registered codecs.
+- The official Trade plugin uses this service to dynamically query and invoke item codecs registered by third-party extensions.
+
+### 8.17 IExtensionActivationPolicy
+
+Extension activation policy and disabled status query service. Defined in [FrameworkTypes.cs:517-532](Common/Utils/Framework/FrameworkTypes.cs#L517-L532):
+
+```csharp
+public interface IExtensionActivationPolicy
+{
+    bool ShouldActivate(string extensionId, out string reason);
+    IReadOnlyCollection<string> DisabledExtensions { get; }
+}
+```
+
+- Allows extensions at runtime to inspect whether specific peer extensions have been disabled by the user (`DisabledExtensions` collection), in order to trigger graceful degradation or adjust UI options.
 
 ---
 
@@ -1109,6 +1469,56 @@ RimWorld's `ModAssemblyHandler` loads DLLs in filename string order. If your `13
 
 **Rule**: Your numeric prefix must be larger than all your dependencies' numeric prefixes. See §12.7 for details.
 
+### 11.9 Using Deprecated Legacy GUI Containers (Displayable Series)
+
+The legacy `Displayable` flex container classes in the `PhinixClient.GUI` namespace (`HorizontalFlexContainer`, `VerticalFlexContainer`, `TabsContainer`, `ConditionalContainer`, `MinimumContainer`, `VerticalPaddedContainer`) **are all marked `[System.Obsolete]`**:
+
+```csharp
+// ❌ WRONG: Using deprecated containers in new UI
+var flex = new HorizontalFlexContainer();
+flex.Add(new TextWidget("Title"), 100f);
+flex.Add(new TextFieldWidget(), Displayable.FLUID);
+flex.Draw(inRect);
+```
+
+**Why this is wrong**:
+1. **Excessive Allocations and Deep Trees**: Legacy containers allocate deep nested object trees during layout and drawing, impeding JIT optimization and introducing GC pauses.
+2. **Lack of Overflow Safeguards**: When total fixed child widths exceed available container width and no fluid items exist, legacy flex containers degenerate and generate negative width `Rect`s, causing Unity IMGUI clipping exceptions.
+3. **No Support for Modern Responsive Reflow**: Legacy containers cannot handle dynamic form wrapping (`Inline` ↔ `Stacked`), toolbar overflow `FloatMenu`s, sidebar drawer collapse, or virtual list scrolling.
+
+```csharp
+// ✅ CORRECT: Use native RimWorld IMGUI + ClientExtensionAbstractions geometry primitives
+ResponsiveFormResult form = ResponsiveFormLayout.Calculate(inRect, 100f, 140f, 80f, 30f, 8f, 0f);
+Widgets.Label(form.LabelRect, "Title");
+_text = Widgets.TextField(form.InputRect, _text);
+```
+
+### 11.10 Hardcoded Absolute Coordinates and Ignoring Screen Safe Area
+
+RimWorld runs across a huge variety of player display configurations: from Steam Deck / laptops at 1280×720 up to 4K desktop displays, alongside 1.25×, 1.5×, and 2.0× UI scale factors.
+
+```csharp
+// ❌ WRONG: Hardcoding dialog window Rects or expanding past the screen
+public override void PreOpen()
+{
+    base.PreOpen();
+    windowRect = new Rect(200f, 200f, 900f, 700f); // Off-screen at 720p or high UI scale!
+}
+
+// ❌ WRONG: Fixed pixel widths on buttons ignoring long localized text
+Widgets.ButtonText(new Rect(x, y, 60f, 30f), "MyButtonText".Translate()); // Text overlaps in German/French!
+
+// ❌ WRONG: Fixed-height row rendering unwrapped multi-line text without tooltips
+Widgets.Label(new Rect(0f, y, width, 24f), longDescription); // Text overflows into the next row!
+```
+
+**Correct practices**:
+1. **Clamp Dialogs to Safe Area**: All standalone dialog windows must call `windowRect = UiScreenSafeArea.ClampWindow(windowRect, minSize);`.
+2. **The Three Text Containment Rules**:
+   - Fixed-height cards/rows: Truncate single-line text (`Text.WordWrap = false`) and attach `TooltipHandler.TipRegion` to ensure complete content is accessible.
+   - Dynamic long text: Measure height dynamically based on current width caches and enclose within an outer `Widgets.BeginScrollView`.
+   - Toolbars & action groups: Use `ResponsiveToolbarLayout` to automatically wrap actions and overflow secondary items into a `⋯` floating menu when width is constrained.
+
 ---
 
 ## 12. Minimal Viable Example
@@ -1216,11 +1626,11 @@ Minimal `.csproj` skeleton (client-side, .NET Framework 4.7.2):
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 
-  <!-- Post-build copy to Extensions directory -->
+  <!-- Post-build copy to Extensions directory (for integrated Phinix directory deployment) -->
   <Target Name="AfterBuild">
     <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll"
-          DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\12-$(AssemblyName).dll" />
+          DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\17-$(AssemblyName).dll" />
   </Target>
 </Project>
 ```
@@ -1409,10 +1819,30 @@ Other submods can then safely reference `MySubmod/Contracts/MySubmod.csproj` wit
 
 ### 12.6 Build and Deployment
 
-1. Compile in Visual Studio or with `dotnet build`
-2. Place the DLL file in the `Output/phinix-rework/Common/Extensions/` directory
-3. Ensure the filename has the correct numeric prefix (see §12.7)
-4. Launch RimWorld with Phinix enabled — your submod should be automatically discovered
+Third-party submods are recommended to be released and deployed as **standalone RimWorld mods**:
+
+#### Option A: As an Independent Mod (Recommended)
+1. Compile your submod project in Visual Studio or using `dotnet build`;
+2. Copy the resulting DLL (e.g. `MySubmod.dll`) into the `Assemblies/` directory under your own mod's root folder;
+3. In your mod's `About/About.xml`, declare dependencies ensuring your mod loads after Phinix:
+   ```xml
+   <modDependencies>
+     <li>
+       <packageId>hunyuan.phinixrework</packageId>
+       <displayName>Phinix Rework</displayName>
+     </li>
+   </modDependencies>
+   <loadAfter>
+     <li>hunyuan.phinixrework</li>
+   </loadAfter>
+   ```
+4. Start RimWorld and activate both Phinix and your submod in the mod manager; the host will automatically probe your mod's `Assemblies/` directory at startup and load your extension classes!
+
+#### Option B: Integrated into Phinix Extensions Directory
+1. Compile to generate your DLL;
+2. Copy the DLL into the Phinix mod's `Common/Extensions/` directory;
+3. **Ensure the filename prefix is >= 17-** (e.g., `17-MySubmod.dll`, ensuring it loads after official 08-16 plugins, see §12.7);
+4. Start RimWorld and enable Phinix.
 
 Log output at host startup can help confirm loading status:
 ```
@@ -1422,32 +1852,36 @@ Log output at host startup can help confirm loading status:
 
 ### 12.7 Load Order Number Explanation
 
-The filename prefix (e.g., `08-`, `11-`) on DLLs in the `Extensions/` directory determines RimWorld's loading order. The current framework base DLL number assignments are as follows (see [Design Philosophy §5.1](design-philosophy.md#51-naming-and-ordering)):
+RimWorld's `ModAssemblyHandler` loads assemblies in filename string order. Current framework base assembly and official plugin number allocations are as follows (see [Design Philosophy §5.1](design-philosophy.md#51-naming-and-ordering)):
 
-| Prefix | Assembly | Content |
-|------|--------|------|
-| 01-02 | LiteNetLib, Protobuf | Third-party libraries |
-| 03 | Utils | `IPhinixExtensionModule`, Framework base |
-| 04 | Connections | Network layer |
-| 05 | Authentication | Authentication |
-| 06 | UserManagement | User management |
-| 07 | ClientExtensionAbstractions | UI interfaces, host service interfaces |
-| 08 | ChatExtension | Chat domain Contracts |
-| 09 | TradeExtension | Trade domain Contracts |
-| 10 | ChatExtension.Client | Chat plugin (depends on 03,07,08) |
-| 11 | TradeExtension.Client | Trade plugin (depends on 03,07,09) |
+| Prefix | Assembly | Physical Directory | Description |
+|------|--------|----------|------|
+| 01-02 | LiteNetLib, Protobuf | `Common/Assemblies/` | Low-level third-party networking and serialization libraries |
+| 03 | Utils | `Common/Assemblies/` | `IPhinixExtensionModule`, Framework protocol core |
+| 04-05 | Connections, Connections.Client | `Common/Assemblies/` | Connection abstractions and client implementation |
+| 06-07 | Authentication, Authentication.Client | `Common/Assemblies/` | Auth contracts and client implementation |
+| 08 | ChatExtension | `Common/Extensions/` | Official Chat domain Contracts |
+| 09 | TradeExtension | `Common/Extensions/` | Official Trade domain Contracts |
+| 10 | LegacyAdapter.Client | `Common/Extensions/` | Protocol adapter client for legacy servers |
+| 11 | ChatExtension.Client | `Common/Extensions/` | Official Chat client extension implementation |
+| 12 | TradeExtension.Client | `Common/Extensions/` | Official Trade client extension implementation |
+| 13 | LegacyRedPacketExtension | `Common/Extensions/` | Official Red Packet extension contracts |
+| 14 | LegacyRedPacketExtension.Client | `Common/Extensions/` | Official Red Packet client extension implementation |
+| 15 | LegacyTalentTradeExtension | `Common/Extensions/` | Official Talent/Ability Trade extension contracts |
+| 16 | LegacyTalentTradeExtension.Client | `Common/Extensions/` | Official Talent/Ability Trade client extension implementation |
+| 13 | PhinixClient | `1.6/Assemblies/` | Client host (version-isolated) |
+| 17+ | Third-party Submods (when placed in Extensions) | `Common/Extensions/` | Must use 17 or higher prefix, loaded after all official plugins |
 
-Your submod DLL prefix should be **greater than all assemblies it depends on**. For example:
-- Only depends on 03 + 07 → prefix >= 12
-- Depends on 08 (Chat Contracts) → prefix >= 12 (because 08 already exists, your DLL must come after Chat Contracts, but whether Chat.Client(10) comes before or after your DLL does not affect your reference to Chat Contracts)
+> **Tip**: If distributing via **Option A (Independent Mod)**, your DLL resides in an independent mod's `Assemblies/`. RimWorld loads all Phinix assemblies before loading your mod's assemblies, so numeric prefixes are generally unnecessary; however, if your mod contains multiple interdependent DLLs, alphabetical ordering rules still apply among them.
 
 ### 12.8 Debugging Tips
 
 - **Loading issues**: Check the RimWorld console log, search for the `[Phinix]` keyword, and observe diagnostic output for extension discovery/registration/activation.
 - **DLL not discovered**: Check whether the DLL is in an `ExtensionAssemblyLoader` probe directory and whether the filename ends with `.dll`.
-- **Type load exception** (`ReflectionTypeLoadException`): Usually a dependent DLL is missing or has a version mismatch — check that all ProjectReferences have been placed in the Extensions directory.
+- **Type load exception** (`ReflectionTypeLoadException`): Usually a dependent DLL is missing or has a version mismatch — check that all ProjectReferences have been placed in the corresponding probe directory.
 - **Activate not called**: Confirm that the module implements both `IPhinixExtensionModule` and `IActivatablePhinixExtensionModule`.
 - **UI not showing**: Confirm that `RegisterApi<IMainTabProvider>` is called in `Register()`; check whether `TabOrder` conflicts with another Tab.
+- **Extension disabled**: Check the in-game Extension Management tab (`ExtensionManagerTab`) or settings panel to ensure the extension was not manually disabled or placed in `DependencyDisabled` due to missing parent dependencies.
 
 ---
 
@@ -1460,16 +1894,23 @@ Your submod DLL prefix should be **greater than all assemblies it depends on**. 
 | `AddMessageRenderer` | `IMessageRenderer` | Message renderer | ✅ |
 | `AddClientMessageHandler` | `IClientMessageHandler` | Client-side message handling (inbound+outbound) | ✅ |
 | `AddClientCommandHandler` | `IClientCommandHandler` | Client-side command handling (inbound) | ✅ |
+| `AddItemCodec` | `IItemCodec` | Register item codec (consumed by Item pipeline and default handler) | ✅ |
+| `AddClientItemHandler` | `IClientIncomingItemHandler` | Client-side inbound item handling | ✅ |
+| `AddClientOutgoingItemHandler` | `IClientOutgoingItemHandler` | Client-side outbound item handling | ✅ |
 | `AddServerMessageHandler` | `IServerMessageHandler` | Server-side message handling | ✅ (server only) |
 | `AddServerInboundMessageInterceptor` | `IServerInboundMessageInterceptor` | Server-side message interception | ✅ (server only) |
 | `AddServerDefaultMessageHandler` | `IServerDefaultMessageHandler` | Server-side default message handling | ✅ (server only) |
 | `AddServerMessageObserver` | `IServerMessageObserver` | Server-side message observation | ✅ (server only) |
-| `AddItemCodec` | `IItemCodec` | Register item codec | ⚠️ Interface defined, registration valid but pipeline does not consume |
 | `AddServerCommandHandler` | `IServerCommandHandler` | Server-side command handling | ✅ (server only) |
 | `AddServerInboundCommandInterceptor` | `IServerInboundCommandInterceptor` | Server-side command interception | ✅ (server only) |
 | `AddServerDefaultCommandHandler` | `IServerDefaultCommandHandler` | Server-side default command handling | ✅ (server only) |
 | `AddServerCommandObserver` | `IServerCommandObserver` | Server-side command observation | ✅ (server only) |
+| `AddServerItemHandler` | `IServerItemHandler` | Server-side item handling | ✅ (server only) |
+| `AddServerInboundItemInterceptor` | `IServerInboundItemInterceptor` | Server-side item interception | ✅ (server only) |
+| `AddServerDefaultItemHandler` | `IServerDefaultItemHandler` | Server-side default item handling | ✅ (server only) |
+| `AddServerItemObserver` | `IServerItemObserver` | Server-side item observation | ✅ (server only) |
 | `AddServerOutboundPacketInterceptor` | `IServerOutboundPacketInterceptor` | Server-side outbound interception | ✅ (server only) |
+| `AddConsoleCommandProvider` | `IServerConsoleCommandProvider` | Server console command extension | ✅ (server only) |
 | `RegisterApi<T>` | `T` implementation | Expose API | ✅ |
 | `TryResolveApi<T>` | out `T` | Resolve single API | ✅ |
 | `ResolveApis<T>` | — | Resolve all APIs | ✅ |
@@ -1482,22 +1923,25 @@ The following services are obtained in `Activate()` via `hostContext.GetRequired
 
 | Service Interface | Purpose | Definition Location |
 |----------|------|----------|
-| `IFrameworkClientTransport` | Message pipeline outbound entry | [IClientExtensionAbstractions.cs:9-21](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L9-L21) |
-| `IFrameworkClientCommandTransport` | Command pipeline outbound entry | [IClientExtensionAbstractions.cs:23-31](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L23-L31) |
-| `IClientDisplayMessageStore` | Message persistent storage | [IClientExtensionAbstractions.cs:34-43](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L34-L43) |
-| `IClientDisplayMessageFeed` | Message stream event subscription | [IClientExtensionAbstractions.cs:45-48](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L45-L48) |
-| `IFrameworkClientLifecycle` | Compatibility mode and negotiation | [IClientExtensionAbstractions.cs:60-65](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L60-L65) |
-| `IClientSessionContext` | Current session state | [IClientExtensionAbstractions.cs:67-75](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L67-L75) |
-| `IClientSettingsContext` | Read/write settings | [IClientExtensionAbstractions.cs:78-93](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L78-L93) |
-| `IClientUserDirectory` | User info query | [IClientExtensionAbstractions.cs:95-103](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L95-L103) |
-| `IClientUserEventStream` | User event subscription | [IClientExtensionAbstractions.cs:105-113](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L105-L113) |
-| `IClientMainThreadDispatcher` | Main thread marshaling | [IClientExtensionAbstractions.cs:115-118](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L115-L118) |
-| `IClientWindowService` | Open windows | [IClientExtensionAbstractions.cs:120-125](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L120-L125) |
-| `IClientSoundService` | Play sound effects | [IClientExtensionAbstractions.cs:127-130](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L127-L130) |
-| `ILegacyModuleTransport` | Raw module communication | [IClientExtensionAbstractions.cs:155-165](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L155-L165) |
-| `IDisplayMessageSink` | Inject display messages | [IClientExtensionAbstractions.cs:171-175](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L171-L175) |
+| `IFrameworkClientTransport` | Message & Item pipeline outbound entry (`TryHandleOutgoingMessage` / `TryHandleOutgoingItem`) | [IClientExtensionAbstractions.cs:9-28](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L9-L28) |
+| `IFrameworkClientCommandTransport` | Command pipeline outbound entry (`TryHandleOutgoingCommand`) | [IClientExtensionAbstractions.cs:30-39](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L30-L39) |
+| `IClientDisplayMessageStore` | Message persistent storage | [IClientExtensionAbstractions.cs:41-50](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L41-L50) |
+| `IClientDisplayMessageFeed` | Message stream event subscription | [IClientExtensionAbstractions.cs:52-55](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L52-L55) |
+| `IFrameworkClientLifecycle` | Compatibility mode and negotiation | [IClientExtensionAbstractions.cs:67-72](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L67-L72) |
+| `IClientSessionContext` | Current session state | [IClientExtensionAbstractions.cs:74-83](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L74-L83) |
+| `IClientSettingsContext` | Read/write settings | [IClientExtensionAbstractions.cs:85-100](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L85-L100) |
+| `IClientUserDirectory` | User info query | [IClientExtensionAbstractions.cs:102-109](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L102-L109) |
+| `IClientUserEventStream` | User event subscription | [IClientExtensionAbstractions.cs:111-120](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L111-L120) |
+| `IClientMainThreadDispatcher` | Main thread marshaling | [IClientExtensionAbstractions.cs:122-125](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L122-L125) |
+| `IClientWindowService` | Open windows | [IClientExtensionAbstractions.cs:127-132](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L127-L132) |
+| `IClientSoundService` | Play sound effects | [IClientExtensionAbstractions.cs:134-137](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L134-L137) |
+| `ILegacyModuleTransport` | Raw module communication | [IClientExtensionAbstractions.cs:162-173](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L162-L173) |
+| `IDisplayMessageSink` | Inject display messages | [IClientExtensionAbstractions.cs:178-182](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L178-L182) |
+| `IUiTheme` | Unified UI theme and palette tokens | [IUiTheme.cs](Client/ClientExtensionAbstractions/UI/IUiTheme.cs) |
+| `IItemCodecProvider` | Item codec query and resolution | [FrameworkTypes.cs:607-610](Common/Utils/Framework/FrameworkTypes.cs#L607-L610) |
+| `IExtensionActivationPolicy` | Extension activation policy and disabled list | [FrameworkTypes.cs:517-532](Common/Utils/Framework/FrameworkTypes.cs#L517-L532) |
 | `UserManager` | Low-level user management (injected via `AddService`) | [Client/Source/Client.cs](Client/Source/Client.cs) |
-| `Action` | Open settings window (same as `IClientWindowService.OpenSettingsWindow`) | [Client/Source/Client.cs:121](Client/Source/Client.cs#L121) |
-| `Action<bool>` | Sync acceptingTrades state | [Client/Source/Client.cs:122](Client/Source/Client.cs#L122) |
+| `Action` | Open settings window (same as `IClientWindowService.OpenSettingsWindow`) | [Client/Source/Client.cs](Client/Source/Client.cs) |
+| `Action<bool>` | Sync acceptingTrades state | [Client/Source/Client.cs](Client/Source/Client.cs) |
 
-> **Additionally**: `hostContext` itself also provides `Log`, `StorageProvider`, `ApiRegistry` (`TryResolveApi` / `ResolveApis`), `GetStoragePath()` and other methods — see [FrameworkTypes.cs:320-439](Common/Utils/Framework/FrameworkTypes.cs#L320-L439).
+> **Tip**: UI extension contracts (`IMainTabProvider`, `IServerSidebarProvider`, `IResponsiveMainTabProvider`, `IResponsiveSidebarProvider`, `IBadgeProvider`, `IClientSettingsPanelProvider`, `IClientLegacySettingsMigrator`, `INoticeBannerProvider`, `IUiAcceptKeyHandler`, `IUiTheme`) are registered declaratively via `builder.RegisterApi<T>()`; `hostContext` itself also provides `Log`, `StorageProvider`, `ApiRegistry` (`TryResolveApi` / `ResolveApis`), `GetStoragePath()` and other methods — see [FrameworkTypes.cs](Common/Utils/Framework/FrameworkTypes.cs).
