@@ -18,7 +18,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
     /// 红包 Tab（Rework UI 新流程：IMainTabProvider）。
     /// 布局/交互逻辑与原 submod RedPacketTab 保持一致；依赖全部改为框架服务与插件实例。
     /// </summary>
-    internal sealed class RedPacketTab : IMainTabProvider
+    internal sealed class RedPacketTab : IMainTabProvider, IResponsiveMainTabProvider
     {
         private const float DEFAULT_SPACING = 10f;
         private const float SCROLLBAR_WIDTH = 16f;
@@ -30,7 +30,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private const float REFRESH_BUTTON_WIDTH = 80f;
         private const float ROW_HEIGHT_MIN = 30f;
         private const float PACKET_BUTTON_WIDTH = 90f;
-        private const float PACKET_BUTTON_LEFT_SHIFT = 8f;
         private const float PACKET_ROW_HEIGHT = 70f;
         private const float PACKET_ICON_SIZE = 30f;
         private const float PACKET_LINE_SPACING = 2f;
@@ -38,7 +37,22 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private const float COUNT_FIELD_WIDTH = 70f;
         private const float AVAILABLE_COUNT_WIDTH = 70f;
         private const float RIGHT_PADDING = 5f;
+        private const float MINIMUM_PANE_WIDTH = 320f;
+        private const float COMPACT_TAB_HEIGHT = 30f;
+        private const float COMPACT_PACKET_ROW_BREAKPOINT = 380f;
+        private const int VIRTUAL_LIST_OVERSCAN = 1;
         private const int SEND_COOLDOWN_SECONDS = 60;
+
+        private static readonly UiLayoutHints CachedLayoutHints = new UiLayoutHints(
+            new Vector2(320f, 300f),
+            new Vector2(900f, 600f),
+            true);
+
+        private enum CompactPane
+        {
+            Send,
+            PacketList
+        }
 
         private static readonly Regex ItemCountInputRegex = new Regex("^\\d*$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -62,6 +76,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private string packetCountText = "1";
         private StackedThings selectedStack;
         private RedPacketType selectedType = RedPacketType.Normal;
+        private CompactPane compactPane;
         private DateTime nextSendAllowedUtc = DateTime.MinValue;
 
         public RedPacketTab(
@@ -86,12 +101,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public float TabOrder => 1100f;
 
+        public UiLayoutHints LayoutHints => CachedLayoutHints;
+
         private bool IsOnline => session != null && session.Authenticated && session.LoggedIn;
 
         private string LocalUuid => session?.Uuid ?? string.Empty;
 
         public void Draw(Rect inRect)
         {
+            inRect.width = Mathf.Max(0f, inRect.width);
+            inRect.height = Mathf.Max(0f, inRect.height);
             if (!IsOnline)
             {
                 Widgets.DrawMenuSection(inRect);
@@ -101,19 +120,42 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             EnsureItemsFresh();
 
-            float leftWidth = Mathf.Min(LEFT_COLUMN_WIDTH, inRect.width * 0.48f);
-            float rightWidth = inRect.width - leftWidth - DEFAULT_SPACING;
-            if (rightWidth < 200f)
+            ResponsiveSplitResult split = ResponsiveSplitLayout.Calculate(
+                inRect,
+                new Vector2(MINIMUM_PANE_WIDTH, 260f),
+                new Vector2(MINIMUM_PANE_WIDTH, 260f),
+                new Vector2(LEFT_COLUMN_WIDTH, inRect.height),
+                DEFAULT_SPACING,
+                true);
+            if (split.Mode == ResponsiveSplitMode.Horizontal)
             {
-                leftWidth = inRect.width * 0.45f;
-                rightWidth = inRect.width - leftWidth - DEFAULT_SPACING;
+                DrawSendPanel(split.FirstRect);
+                DrawPacketList(split.SecondRect);
+                return;
             }
 
-            Rect leftRect = new Rect(inRect.xMin, inRect.yMin, leftWidth, inRect.height);
-            Rect rightRect = new Rect(leftRect.xMax + DEFAULT_SPACING, inRect.yMin, rightWidth, inRect.height);
+            float tabWidth = inRect.width * 0.5f;
+            Rect sendTabRect = new Rect(inRect.xMin, inRect.yMin, tabWidth, Mathf.Min(COMPACT_TAB_HEIGHT, inRect.height));
+            Rect listTabRect = new Rect(sendTabRect.xMax, inRect.yMin, Mathf.Max(0f, inRect.width - tabWidth), sendTabRect.height);
+            DrawCompactTab(sendTabRect, "Phinix_legacyRedpacket_sendTitle".Translate(), compactPane == CompactPane.Send, CompactPane.Send);
+            DrawCompactTab(listTabRect, "Phinix_legacyRedpacket_listTitle".Translate(), compactPane == CompactPane.PacketList, CompactPane.PacketList);
 
-            DrawSendPanel(leftRect);
-            DrawPacketList(rightRect);
+            Rect paneRect = new Rect(inRect.xMin, sendTabRect.yMax + DEFAULT_SPACING, inRect.width,
+                Mathf.Max(0f, inRect.yMax - sendTabRect.yMax - DEFAULT_SPACING));
+            if (compactPane == CompactPane.Send)
+                DrawSendPanel(paneRect);
+            else
+                DrawPacketList(paneRect);
+        }
+
+        private void DrawCompactTab(Rect rect, string label, bool selected, CompactPane pane)
+        {
+            Widgets.DrawOptionBackground(rect, selected);
+            TextAnchor previousAnchor = Text.Anchor;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.LabelFit(rect.ContractedBy(4f, 0f), label);
+            Text.Anchor = previousAnchor;
+            if (Widgets.ButtonInvisible(rect)) compactPane = pane;
         }
 
         private void EnsureItemsFresh()
@@ -163,17 +205,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Rect titleRect = new Rect(contentRect.x, y, contentRect.width, TITLE_HEIGHT);
             y += TITLE_HEIGHT + DEFAULT_SPACING;
 
-            Rect searchLabelRect = new Rect(contentRect.x, y, SEARCH_LABEL_WIDTH, CONTROL_HEIGHT);
-            Rect refreshRect = new Rect(contentRect.xMax - REFRESH_BUTTON_WIDTH, y, REFRESH_BUTTON_WIDTH, CONTROL_HEIGHT);
-            Rect searchFieldRect = new Rect(
-                searchLabelRect.xMax + DEFAULT_SPACING,
-                y,
-                refreshRect.xMin - (searchLabelRect.xMax + DEFAULT_SPACING) - DEFAULT_SPACING,
-                CONTROL_HEIGHT
-            );
-            y += CONTROL_HEIGHT + DEFAULT_SPACING;
+            ResponsiveFormResult searchLayout = ResponsiveFormLayout.Calculate(
+                new Rect(contentRect.x, y, contentRect.width, contentRect.yMax - y),
+                SEARCH_LABEL_WIDTH, 90f, REFRESH_BUTTON_WIDTH, CONTROL_HEIGHT, DEFAULT_SPACING, 0f);
+            y += searchLayout.Height + DEFAULT_SPACING;
 
-            float controlsHeight = CONTROL_HEIGHT * 2 + BUTTON_HEIGHT + DEFAULT_SPACING * 2;
+            ResponsiveFormResult packetLayout = ResponsiveFormLayout.Calculate(
+                new Rect(contentRect.x, 0f, contentRect.width, 200f),
+                SEARCH_LABEL_WIDTH, 90f, 0f, CONTROL_HEIGHT, DEFAULT_SPACING, 0f);
+            float typeHeight = GetTypeControlsHeight(contentRect.width);
+            float controlsHeight = packetLayout.Height + typeHeight + BUTTON_HEIGHT + DEFAULT_SPACING * 2;
             Rect controlsRect = new Rect(contentRect.x, contentRect.yMax - controlsHeight, contentRect.width, controlsHeight);
             Rect listRect = new Rect(contentRect.x, y, contentRect.width, Math.Max(0f, controlsRect.yMin - y - DEFAULT_SPACING));
 
@@ -182,34 +223,34 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Widgets.LabelFit(titleRect, "Phinix_legacyRedpacket_sendTitle".Translate());
             Text.Font = previousFont;
 
-            Widgets.Label(searchLabelRect, "Phinix_legacyRedpacket_searchLabel".Translate());
+            Widgets.Label(searchLayout.LabelRect, "Phinix_legacyRedpacket_searchLabel".Translate());
             string oldSearch = searchText;
-            searchText = Widgets.TextField(searchFieldRect, searchText);
+            searchText = Widgets.TextField(searchLayout.InputRect, searchText);
             if (!searchText.Equals(oldSearch, StringComparison.Ordinal))
             {
                 UpdateFilteredItems();
             }
 
-            if (Widgets.ButtonText(refreshRect, "Phinix_legacyRedpacket_refreshButton".Translate()))
+            if (Widgets.ButtonText(searchLayout.ActionRect, "Phinix_legacyRedpacket_refreshButton".Translate()))
             {
                 RefreshAvailableItems();
             }
 
             DrawAvailableItems(listRect);
 
-            Rect packetRowRect = new Rect(controlsRect.x, controlsRect.y, controlsRect.width, CONTROL_HEIGHT);
-            Rect typeRowRect = new Rect(controlsRect.x, packetRowRect.yMax + DEFAULT_SPACING, controlsRect.width, CONTROL_HEIGHT);
+            packetLayout = ResponsiveFormLayout.Calculate(
+                new Rect(controlsRect.x, controlsRect.y, controlsRect.width, packetLayout.Height),
+                SEARCH_LABEL_WIDTH, 90f, 0f, CONTROL_HEIGHT, DEFAULT_SPACING, 0f);
+            Rect typeRowRect = new Rect(controlsRect.x, controlsRect.y + packetLayout.Height + DEFAULT_SPACING, controlsRect.width, typeHeight);
             Rect sendButtonRect = new Rect(controlsRect.x, typeRowRect.yMax + DEFAULT_SPACING, controlsRect.width, BUTTON_HEIGHT);
 
-            Rect packetLabelRect = new Rect(packetRowRect.x, packetRowRect.y, SEARCH_LABEL_WIDTH, CONTROL_HEIGHT);
-            Rect packetFieldRect = new Rect(packetLabelRect.xMax + DEFAULT_SPACING, packetRowRect.y, packetRowRect.width - packetLabelRect.width - DEFAULT_SPACING, CONTROL_HEIGHT);
-            Widgets.Label(packetLabelRect, "Phinix_legacyRedpacket_packetCountLabel".Translate());
-            packetCountText = Widgets.TextField(packetFieldRect, packetCountText);
+            Widgets.Label(packetLayout.LabelRect, "Phinix_legacyRedpacket_packetCountLabel".Translate());
+            packetCountText = Widgets.TextField(packetLayout.InputRect, packetCountText);
 
-            Rect typeLabelRect = new Rect(typeRowRect.x, typeRowRect.y, SEARCH_LABEL_WIDTH, CONTROL_HEIGHT);
-            float typeButtonWidth = (typeRowRect.width - typeLabelRect.width - DEFAULT_SPACING * 3) / 2f;
-            Rect normalRect = new Rect(typeLabelRect.xMax + DEFAULT_SPACING, typeRowRect.y, typeButtonWidth, CONTROL_HEIGHT);
-            Rect luckyRect = new Rect(normalRect.xMax + DEFAULT_SPACING, typeRowRect.y, typeButtonWidth, CONTROL_HEIGHT);
+            Rect typeLabelRect;
+            Rect normalRect;
+            Rect luckyRect;
+            CalculateTypeRects(typeRowRect, out typeLabelRect, out normalRect, out luckyRect);
 
             Widgets.Label(typeLabelRect, "Phinix_legacyRedpacket_typeLabel".Translate());
             DrawTypeButton(normalRect, "Phinix_legacyRedpacket_typeNormal".Translate(), selectedType == RedPacketType.Normal);
@@ -239,6 +280,25 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 TrySendPacket();
             }
             GUI.enabled = previousEnabled;
+        }
+
+        private static float GetTypeControlsHeight(float width)
+        {
+            return width >= SEARCH_LABEL_WIDTH + DEFAULT_SPACING * 3f + 180f
+                ? CONTROL_HEIGHT
+                : CONTROL_HEIGHT * 2f + DEFAULT_SPACING;
+        }
+
+        private static void CalculateTypeRects(Rect row, out Rect label, out Rect normal, out Rect lucky)
+        {
+            bool stacked = GetTypeControlsHeight(row.width) > CONTROL_HEIGHT;
+            label = new Rect(row.xMin, row.yMin, stacked ? row.width : SEARCH_LABEL_WIDTH, CONTROL_HEIGHT);
+            float buttonsY = stacked ? label.yMax + DEFAULT_SPACING : row.yMin;
+            float buttonsX = stacked ? row.xMin : label.xMax + DEFAULT_SPACING;
+            float buttonsWidth = Mathf.Max(0f, row.xMax - buttonsX);
+            float buttonWidth = Mathf.Max(0f, (buttonsWidth - DEFAULT_SPACING) * 0.5f);
+            normal = new Rect(buttonsX, buttonsY, buttonWidth, CONTROL_HEIGHT);
+            lucky = new Rect(normal.xMax + DEFAULT_SPACING, buttonsY, buttonWidth, CONTROL_HEIGHT);
         }
 
         private void DrawAvailableItems(Rect inRect)
@@ -271,59 +331,48 @@ namespace Phinix.LegacyRedPacketExtension.Client
             bool scrollRequired = contentRect.height > inRect.height;
             if (scrollRequired) Widgets.BeginScrollView(inRect, ref availableItemsScroll, contentRect);
 
-            // RP-09: 只绘制可见行
-            int firstVisible = Mathf.Max(0, Mathf.FloorToInt((scrollRequired ? availableItemsScroll.y : 0f) / rowHeight) - 1);
-            int lastVisible = Mathf.Min(drawCount - 1,
-                Mathf.CeilToInt(((scrollRequired ? availableItemsScroll.y : 0f) + inRect.height) / rowHeight) + 1);
-
-            int drawIndex = 0;
-            for (int i = 0; i < filteredItems.Count; i++)
+            VirtualListRange visibleRange = VirtualListLayout.GetFixedRange(
+                drawCount, rowHeight, scrollRequired ? availableItemsScroll.y : 0f, inRect.height, VIRTUAL_LIST_OVERSCAN);
+            for (int i = visibleRange.FirstIndex; i < visibleRange.EndIndexExclusive; i++)
             {
                 StackedThings stack = filteredItems[i];
+                float currentY = contentRect.yMin + i * rowHeight;
+                Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
+                if ((i % 2 != 0) || selectedStack == stack) Widgets.DrawHighlight(rowRect);
 
-                if (drawIndex > lastVisible) break;
+                Rect iconRect = rowRect.LeftPartPixels(ITEM_ICON_WIDTH);
+                Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
 
-                if (drawIndex >= firstVisible)
+                float inputAreaWidth = COUNT_FIELD_WIDTH + AVAILABLE_COUNT_WIDTH + DEFAULT_SPACING;
+                Rect inputAreaRect = new Rect(rowRect.xMax - (RIGHT_PADDING + inputAreaWidth), rowRect.yMin, inputAreaWidth, rowRect.height);
+                Rect quantityFieldRect = new Rect(inputAreaRect.xMin, inputAreaRect.yMin, COUNT_FIELD_WIDTH, inputAreaRect.height);
+                Rect availableCountRect = new Rect(quantityFieldRect.xMax + DEFAULT_SPACING, inputAreaRect.yMin, AVAILABLE_COUNT_WIDTH, inputAreaRect.height);
+
+                Rect itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin, inputAreaRect.xMin - iconRect.xMax - (DEFAULT_SPACING * 2), rowRect.height);
+                if (itemNameRect.width < 0f) itemNameRect.width = 0f;
+
+                int oldSelected = stack.Selected;
+
+                string buf = stack.Selected == 0 ? string.Empty : stack.Selected.ToString();
+                buf = Widgets.TextField(quantityFieldRect, buf, 100, ItemCountInputRegex);
+                stack.Selected = string.IsNullOrEmpty(buf) ? 0
+                    : int.TryParse(buf, out int parsedCount) ? Mathf.Clamp(parsedCount, 0, stack.Count)
+                    : stack.Selected;
+
+                TextAnchor previousAnchor = Text.Anchor;
+                GameFont previousFont = Text.Font;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.Font = GameFont.Small;
+                Widgets.Label(availableCountRect, "/ " + stack.Count);
+                Widgets.LabelFit(itemNameRect, stack.Label);
+                TooltipHandler.TipRegion(itemNameRect, stack.Label);
+                Text.Anchor = previousAnchor;
+                Text.Font = previousFont;
+
+                if (stack.Selected != oldSelected)
                 {
-                    float currentY = contentRect.yMin + drawIndex * rowHeight;
-                    Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
-                    if ((drawIndex % 2 != 0) || selectedStack == stack) Widgets.DrawHighlight(rowRect);
-
-                    Rect iconRect = rowRect.LeftPartPixels(ITEM_ICON_WIDTH);
-                    Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
-
-                    float inputAreaWidth = COUNT_FIELD_WIDTH + AVAILABLE_COUNT_WIDTH + DEFAULT_SPACING;
-                    Rect inputAreaRect = new Rect(rowRect.xMax - (RIGHT_PADDING + inputAreaWidth), rowRect.yMin, inputAreaWidth, rowRect.height);
-                    Rect quantityFieldRect = new Rect(inputAreaRect.xMin, inputAreaRect.yMin, COUNT_FIELD_WIDTH, inputAreaRect.height);
-                    Rect availableCountRect = new Rect(quantityFieldRect.xMax + DEFAULT_SPACING, inputAreaRect.yMin, AVAILABLE_COUNT_WIDTH, inputAreaRect.height);
-
-                    Rect itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin, inputAreaRect.xMin - iconRect.xMax - (DEFAULT_SPACING * 2), rowRect.height);
-                    if (itemNameRect.width < 0f) itemNameRect.width = 0f;
-
-                    int oldSelected = stack.Selected;
-
-                    string buf = stack.Selected == 0 ? string.Empty : stack.Selected.ToString();
-                    buf = Widgets.TextField(quantityFieldRect, buf, 100, ItemCountInputRegex);
-                    stack.Selected = string.IsNullOrEmpty(buf) ? 0
-                        : int.TryParse(buf, out int parsedCount) ? Mathf.Clamp(parsedCount, 0, stack.Count)
-                        : stack.Selected;
-
-                    TextAnchor previousAnchor = Text.Anchor;
-                    GameFont previousFont = Text.Font;
-                    Text.Anchor = TextAnchor.MiddleLeft;
-                    Text.Font = GameFont.Small;
-                    Widgets.Label(availableCountRect, "/ " + stack.Count);
-                    Widgets.LabelFit(itemNameRect, stack.Label);
-                    Text.Anchor = previousAnchor;
-                    Text.Font = previousFont;
-
-                    if (stack.Selected != oldSelected)
-                    {
-                        OnSelectedChanged(stack, stack.Selected);
-                    }
+                    OnSelectedChanged(stack, stack.Selected);
                 }
-
-                drawIndex++;
             }
 
             if (scrollRequired) Widgets.EndScrollView();
@@ -390,19 +439,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
             GameFont previousListFont = Text.Font;
             Text.Font = GameFont.Small;
             float lineHeight = Text.LineHeight;
-            float rowHeight = Mathf.Max(PACKET_ROW_HEIGHT, (lineHeight * 4f) - (PACKET_LINE_SPACING * 3f) + 4f);
+            bool compactRows = listBodyRect.width < COMPACT_PACKET_ROW_BREAKPOINT;
+            int lineCount = compactRows ? 3 : 4;
+            float rowHeight = Mathf.Max(PACKET_ROW_HEIGHT, (lineHeight * lineCount) - (PACKET_LINE_SPACING * (lineCount - 1)) + 4f);
             Text.Font = previousListFont;
 
             Rect viewRect = new Rect(0f, 0f, viewWidth, rowHeight * packets.Length);
 
             Widgets.BeginScrollView(listBodyRect, ref packetListScroll, viewRect);
 
-            // RP-09: 只绘制可见行及少量 overscan，避免大列表每帧遍历全部行
-            int firstVisible = Mathf.Max(0, Mathf.FloorToInt(packetListScroll.y / rowHeight) - 1);
-            int lastVisible = Mathf.Min(packets.Length - 1,
-                Mathf.CeilToInt((packetListScroll.y + listBodyRect.height) / rowHeight) + 1);
-
-            for (int i = firstVisible; i <= lastVisible; i++)
+            VirtualListRange visibleRange = VirtualListLayout.GetFixedRange(
+                packets.Length, rowHeight, packetListScroll.y, listBodyRect.height, VIRTUAL_LIST_OVERSCAN);
+            for (int i = visibleRange.FirstIndex; i < visibleRange.EndIndexExclusive; i++)
             {
                 RedPacket packet = packets[i];
                 float currentY = i * rowHeight;
@@ -411,15 +459,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (i % 2 != 0) Widgets.DrawHighlight(rowRect);
                 Widgets.DrawBoxSolidWithOutline(rowRect, Color.clear, new Color(1f, 1f, 1f, 0.15f), 1);
 
-                Rect textRect = new Rect(rowRect.xMin, rowRect.yMin, rowRect.width - (PACKET_BUTTON_WIDTH + DEFAULT_SPACING), rowRect.height);
-                Rect buttonRect = new Rect(
-                    textRect.xMax + DEFAULT_SPACING - PACKET_BUTTON_LEFT_SHIFT,
-                    rowRect.yMin + (rowRect.height - BUTTON_HEIGHT) / 2f,
-                    PACKET_BUTTON_WIDTH,
-                    BUTTON_HEIGHT
-                );
+                float actionWidth = Mathf.Min(PACKET_BUTTON_WIDTH, Mathf.Max(64f, rowRect.width * 0.3f));
+                Rect buttonRect = new Rect(rowRect.xMax - actionWidth, rowRect.yMin + (rowRect.height - BUTTON_HEIGHT) / 2f, actionWidth, BUTTON_HEIGHT);
+                Rect textRect = new Rect(rowRect.xMin, rowRect.yMin, Mathf.Max(0f, buttonRect.xMin - rowRect.xMin - DEFAULT_SPACING), rowRect.height);
 
-                DrawPacketRowText(textRect, packet);
+                DrawPacketRowText(textRect, packet, compactRows);
                 DrawPacketRowAction(buttonRect, packet);
             }
             Widgets.EndScrollView();
@@ -440,7 +484,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             return cachedDisplayedPackets;
         }
 
-        private void DrawPacketRowText(Rect inRect, RedPacket packet)
+        private void DrawPacketRowText(Rect inRect, RedPacket packet, bool compact)
         {
             string itemLabel = packet.Template != null ? packet.Template.DefName : "???";
             ThingDef def = packet.Template != null ? DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName) : null;
@@ -486,7 +530,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Text.WordWrap = false;
 
             float lineHeight = Text.LineHeight;
-            float totalHeight = (lineHeight * 4f) - (PACKET_LINE_SPACING * 3f);
+            int lineCount = compact ? 3 : 4;
+            float totalHeight = (lineHeight * lineCount) - (PACKET_LINE_SPACING * (lineCount - 1));
             float startY = inRect.yMin + Mathf.Max(0f, (inRect.height - totalHeight) / 2f);
             float textOffset = iconDef != null ? PACKET_ICON_SIZE + DEFAULT_SPACING : 0f;
 
@@ -497,14 +542,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             Rect line1Rect = new Rect(inRect.xMin + textOffset, startY, inRect.width - textOffset, lineHeight);
-            Rect line2Rect = new Rect(inRect.xMin + textOffset, line1Rect.yMax - PACKET_LINE_SPACING, inRect.width - textOffset, lineHeight);
-            Rect line3Rect = new Rect(inRect.xMin + textOffset, line2Rect.yMax - PACKET_LINE_SPACING, inRect.width - textOffset, lineHeight);
-            Rect line4Rect = new Rect(inRect.xMin + textOffset, line3Rect.yMax - PACKET_LINE_SPACING, inRect.width - textOffset, lineHeight);
+            Rect line2Rect = new Rect(inRect.xMin + textOffset, line1Rect.yMax - PACKET_LINE_SPACING, Mathf.Max(0f, inRect.width - textOffset), lineHeight);
+            Rect line3Rect = new Rect(inRect.xMin + textOffset, line2Rect.yMax - PACKET_LINE_SPACING, Mathf.Max(0f, inRect.width - textOffset), lineHeight);
+            Rect line4Rect = new Rect(inRect.xMin + textOffset, line3Rect.yMax - PACKET_LINE_SPACING, Mathf.Max(0f, inRect.width - textOffset), lineHeight);
 
-            Widgets.Label(line1Rect, line1);
-            Widgets.Label(line2Rect, line2);
-            Widgets.LabelEllipses(line3Rect, line3);
-            Widgets.Label(line4Rect, line4);
+            Widgets.LabelEllipses(line1Rect, line1);
+            if (compact)
+            {
+                Widgets.LabelEllipses(line2Rect, line3);
+                Widgets.LabelEllipses(line3Rect, line4);
+            }
+            else
+            {
+                Widgets.LabelEllipses(line2Rect, line2);
+                Widgets.LabelEllipses(line3Rect, line3);
+                Widgets.LabelEllipses(line4Rect, line4);
+            }
+            TooltipHandler.TipRegion(inRect, line1 + "\n" + line2 + "\n" + line3 + "\n" + line4);
 
             Text.Font = previousFont;
             Text.Anchor = previousAnchor;

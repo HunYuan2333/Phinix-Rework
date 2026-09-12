@@ -37,7 +37,7 @@ foreach ($path in $required) {
 if ($IncludeClient) {
     [xml]$loadFolders = Get-Content "$client/LoadFolders.xml" -Raw
     $folders = @($loadFolders.loadFolders.'v1.6'.li)
-    if (($folders -join ',') -ne 'Common,1.6') { throw 'Unexpected RimWorld 1.6 load folders' }
+    if (($folders -join ',') -ne '/,Common,1.6') { throw 'Unexpected RimWorld 1.6 load folders' }
 }
 # Game reference assemblies are compiler inputs, never part of a distributable mod/server.
 $gameDlls = Get-ChildItem $artifactRoots -Recurse -File | Where-Object {

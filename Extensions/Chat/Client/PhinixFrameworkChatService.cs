@@ -155,9 +155,12 @@ namespace Phinix.ChatExtension.Client
             if (string.IsNullOrEmpty(messageId)) return false;
 
             // Alternate stores can still contain replayed messages. A quote must
-            // remain drawable even when its original appears more than once.
+            // remain drawable even when its original appears more than once. IDs
+            // are source-scoped, so another extension's row is not a chat target.
             FrameworkDisplayMessage frameworkMessage = (messages ?? Enumerable.Empty<FrameworkDisplayMessage>())
-                .FirstOrDefault(candidate => candidate != null && candidate.MessageId == messageId);
+                .FirstOrDefault(candidate => candidate != null &&
+                    candidate.MessageId == messageId &&
+                    CanFormat(candidate));
 
             if (frameworkMessage == null)
             {

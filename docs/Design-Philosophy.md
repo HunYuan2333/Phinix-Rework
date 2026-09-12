@@ -98,6 +98,44 @@ Anything that may change with business requirements should be abstracted through
 
 **Judgment criterion**: When adding a new business capability (such as mail, announcements, quests), is the host code change count zero?
 
+### 2.4 Defensive Programming and Boundary Checking
+
+All external inputs (network packets, UI inputs, external configs, third-party mod data) are treated as untrusted sources:
+
+- **Centralized boundary validation**: Perform format, length, and range validation at system boundaries (UI controls, deserialization entry points, config loaders)
+- **Numerical boundaries and overflow prevention**: Parse numbers using defensive parsing (e.g., `int.TryParse` with `Mathf.Clamp`), preventing integer overflow (such as extremely large values or negative values) from corrupting calculations
+- **Internal invariants**: Domain logic should defensively guard against null references, collection index out-of-bounds, and division by zero, without assuming callers or remote peers are well-behaved
+- **Fast handling of invalid inputs**: Reject, clamp, or fallback to safe defaults at boundaries; unhandled exceptions must never crash the main game loop or pipeline
+
+**Anti-pattern**: Directly using unchecked casts or `Parse`; assuming remote peers send valid values; letting input exceptions crash the UI or pipeline.
+
+**Judgment criterion**: When receiving extreme values (e.g., `int.MaxValue`) or malformed strings, does the system silently clamp or report errors gracefully without throwing unhandled exceptions?
+
+### 2.5 Lifecycle Symmetry and Re-entrancy Safety
+
+Component lifecycles must correctly respond to game host sessions (loading save, switching save, returning to main menu, reconnecting):
+
+- **Paired cleanup**: Any event subscriptions (`+=`), timers, background threads, or file handles acquired during a session must be symmetrically cleaned up (`-=`, `Dispose`) on session end or module shutdown
+- **Stateless across sessions**: Returning to the main menu must thoroughly release static references and caches of game world entities, preventing old world objects from leaking memory
+- **Idempotent re-initialization**: Components must support repeated "load game → main menu → reload game" re-entry; singleton setup and event listeners must prevent duplicate bindings
+
+**Anti-pattern**: Retaining game world entities in static dictionaries; failing to unsubscribe from events when exiting to the main menu, causing duplicated event handlers on subsequent loads; relying on game process restart to reset state.
+
+**Judgment criterion**: After 5 consecutive rounds of "load save → return to main menu → load new save", is memory usage stable and are event handlers triggered only once?
+
+### 2.6 Principle of Least Intrusion and Ecosystem Isolation
+
+As a plugin running in a complex environment alongside hundreds of other mods, actively minimize disruption to the host environment:
+
+- **Prefer mount points**: Use framework-provided extension points (Tabs, sidebars, handlers, settings) instead of invasive patches (Harmony)
+- **Minimal patching**: When patching is unavoidable, adhere to minimal slicing (prefer Prefix/Postfix over IL Transpiler); only hook low-level atomic methods, never high-frequency top-level loops
+- **Namespace isolation**: Public DefNames, config keys, and network tags must have unique namespace prefixes (e.g., `Phinix_`) to avoid collisions
+- **Do not pollute global state**: Avoid mutating or consuming shared host global state (such as the global RNG stream `Verse.Rand` or global context)
+
+**Anti-pattern**: Carelessly using Transpilers on core game loops; using generic DefNames without prefixes that collide with other mods.
+
+**Judgment criterion**: When loaded in an environment with hundreds of other mods, are there no naming collisions or unexpected mutations of native game behaviors?
+
 ---
 
 ## 3. Key Design Decisions
@@ -228,6 +266,42 @@ No code may bypass the framework logging mechanism to write directly to the cons
 - Debug-level logs are not output to the RimWorld console by default, to avoid overwhelming the user
 
 **Anti-pattern**: Plugins bypassing the logging mechanism to directly `Console.WriteLine`; exception logs only writing `ex.Message` and discarding the stack trace; production log level set to DEBUG.
+
+### 3.9 Explicit State Machines and Timeout Self-Healing
+
+Multi-step asynchronous interactions and network communication workflows must be managed using Finite State Machines (FSM):
+
+- **Formal transitions**: The state space and permitted transition paths must be centrally and explicitly defined; do not combine ad-hoc boolean variables into implicit states
+- **Timeout self-healing mechanism**: Any intermediate state waiting for remote confirmation or asynchronous callbacks (such as `Pending`) must have a strictly bounded lifetime; deterministic timeout detection must automatically degrade or mark failure, preventing workflows from deadlocking due to dropped network packets
+- **State-driven presentation**: State machines maintain domain state while the UI acts only as an observer reading and rendering that state; UI code must never bypass state machines to mutate internal state directly
+
+**Anti-pattern**: Vibe-coding ad-hoc `isWaiting` or `isProcessing` boolean flags; asynchronous requests without timeout handling, causing permanent UI spinners when the remote side does not respond.
+
+**Judgment criterion**: Can the system's workflows be completely described by a clear state transition diagram? When simulating total network packet loss, can the system automatically recover after a specified timeout?
+
+### 3.10 Data Buffering and On-Demand Consumption
+
+Receiving external data and creating expensive in-game objects (UI elements, game entities) must be strictly decoupled:
+
+- **Buffer first**: Unexpected bursts of large-scale or batched data should first be stored in lightweight local buffers or simple data structures; never instantiate massive numbers of game objects in a single frame (e.g., dropping hundreds or thousands of physical items at once)
+- **On-demand and batched processing**: Large UI lists must use virtual scrolling (viewport clipping); game entity instantiation should be on-demand or time-sliced across frames to smooth main thread CPU overhead
+- **Bounded queues**: All receiving queues and action dispatch queues must have maximum capacity limits and overflow strategies (drop, coalesce, or alert) to prevent unbounded memory growth
+
+**Anti-pattern**: Instantiating all received items onto the game map in a single frame, freezing physics, pathfinding, and rendering; unbounded queues exhausting memory during high-throughput network bursts.
+
+**Judgment criterion**: When receiving large batches of data or resources at once, does the game framerate remain steady without noticeable freezing or collapse?
+
+### 3.11 Savegame Resilience and Forward Fault Tolerance
+
+Mod data persistence (such as `ExposeData` / serialization) must follow the "savegame safety first" principle:
+
+- **Forward compatibility and default fallbacks**: When adding or removing fields, older saves missing those fields must gracefully fall back to safe default values without corrupting save files
+- **Local failure isolation**: When deserialization of a single item (e.g., a single trade record or item cache) fails, skip it and log a warning; never allow unhandled exceptions to crash the main game save loading process
+- **Clean uninstallation**: When a player disables or removes the mod, persisted data must not leave behind ghost entities that cause the game engine to throw fatal exceptions
+
+**Anti-pattern**: Missing serialization fields throwing unhandled exceptions that abort the entire save loading process (bricking saves); disabled mods causing save load errors that prevent playing.
+
+**Judgment criterion**: When manually deleting or corrupting a field of this mod in a save file, can the game load the save normally with a graceful degradation warning in the log?
 
 ---
 
@@ -381,6 +455,13 @@ When adding or modifying code, check the following:
 - [ ] Are log calls reported through the `ILoggable` interface, rather than bypassing the framework to write directly to the console/file? Do exception logs include the complete `Exception` object?
 - [ ] Has a new public API been added? If so, does the version number need upgrading to `MINOR`? If modified/removed, has it been marked `[Obsolete]` and the alternative indicated in documentation?
 - [ ] Are Protobuf field changes compatible — no reuse of deleted field numbers, no modification of enum values, and have breaking changes created new message types?
+- [ ] Do external inputs and numerical parsing have range and boundary checks (e.g., `TryParse` + `Clamp`)? Can they prevent extreme integer overflows?
+- [ ] Do asynchronous network workflows have explicit state machine definitions? Is there a timeout fallback mechanism to prevent permanent deadlocks if the peer does not reply?
+- [ ] When exiting to the main menu or switching saves, are event subscriptions completely unsubscribed? Are static references to map entities cleared?
+- [ ] Has an invasive Harmony patch been added? Could it use existing general mount points instead?
+- [ ] Do newly added Defs and config keys carry a unified namespace prefix?
+- [ ] Does receiving external large payloads have a buffering/staging mechanism, rather than instantiating massive game world entities in a single frame?
+- [ ] Does savegame and config serialization provide default fallbacks? Would individual item corruption block main save loading?
 
 ---
 
@@ -455,3 +536,12 @@ Before each milestone release, review item by item against the following categor
 | Threading | Network callbacks marshalled to main thread | HIGH |
 | Threading | Unbounded queues have capacity limits | HIGH |
 | Threading | `TrySend` / TOCTOU protection | MEDIUM |
+| Boundary Defense | External input and numerical parsing have boundary constraints and overflow prevention | CRITICAL |
+| State Machine | Asynchronous intermediate states have timeout self-healing mechanisms (deadlock prevention) | HIGH |
+| Lifecycle | Exiting to main menu / switching saves unsubscribes events and clears entity caches | CRITICAL |
+| Lifecycle | Session re-entry and singleton initialization are idempotent | HIGH |
+| Compatibility | Business features prefer mount points; Harmony uses minimal slicing | HIGH |
+| Compatibility | DefNames and config keys carry unique namespace prefixes | HIGH |
+| Performance | Large payloads use buffering and on-demand / batched instantiation | HIGH |
+| Savegame Safety | Serialization has default fallbacks; single item corruption does not block save loading | CRITICAL |
+
