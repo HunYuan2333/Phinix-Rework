@@ -63,6 +63,20 @@ namespace PhinixClient.Framework
             this.authenticator = authenticator;
             this.userManager = userManager;
             this.extensionHostContext = extensionHostContext ?? ExtensionHostContext.Empty;
+            Action<string, LogLevel> originalLog = this.extensionHostContext.Log;
+            Action<HostLogEntry> originalStructuredLog = this.extensionHostContext.StructuredLog;
+            this.extensionHostContext.Log = (message, level) =>
+            {
+                appendExtensionLog(message, level);
+                originalLog?.Invoke(message, level);
+            };
+            this.extensionHostContext.StructuredLog = entry =>
+            {
+                if (entry == null) return;
+                appendExtensionLog(entry.ToDisplayMessage(), entry.Level);
+                originalStructuredLog?.Invoke(entry);
+                originalLog?.Invoke(entry.ToDisplayMessage(), entry.Level);
+            };
             this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
             this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
             this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
@@ -71,8 +85,8 @@ namespace PhinixClient.Framework
             this.extensionHostContext.AddService<IDisplayMessageSink>(this);
             this.extensionHostContext.AddService<IItemCodecProvider>(this);
             this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
-            this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
             PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
+            this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
             this.negotiationTimer = new Timer
             {
                 AutoReset = false,
@@ -86,11 +100,7 @@ namespace PhinixClient.Framework
             disconnectHandler = (_, __) => reset();
             netClient.OnDisconnect += disconnectHandler;
 
-            // Log discovery summary through both channels: RaiseLogEntry for
-            // subscribers (wired up after construction) and hostContext.Log so
-            // the diagnostics are visible even if no one has hooked OnLogEntry yet.
             string summary = $"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities.";
-            RaiseLogEntry(new LogEventArgs(summary));
             this.extensionHostContext.Log?.Invoke(summary, LogLevel.INFO);
 
             if (discoveredExtensions.Modules.Count > 0)
@@ -99,7 +109,6 @@ namespace PhinixClient.Framework
                     $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
                     $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}, " +
                     $"client item handlers={discoveredExtensions.ClientIncomingItemHandlers.Count}, client outgoing item handlers={discoveredExtensions.ClientOutgoingItemHandlers.Count}.";
-                RaiseLogEntry(new LogEventArgs(moduleSummary));
                 this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
             }
 
@@ -109,22 +118,18 @@ namespace PhinixClient.Framework
             {
                 string panelSummary = "SettingsPanels=" + string.Join(",", settingsPanels.OrderBy(p => p.Order).Select(p =>
                     $"{{SectionId:{p.SectionId},Order:{p.Order}}}"));
-                RaiseLogEntry(new LogEventArgs(panelSummary, LogLevel.DEBUG));
                 this.extensionHostContext.Log?.Invoke(panelSummary, LogLevel.DEBUG);
                 // Also emit a human-readable version
                 string humanSummary = $"Settings panels ({settingsPanels.Count}): {string.Join(" | ", settingsPanels.OrderBy(p => p.Order).Select(p => p.SectionId))}";
-                RaiseLogEntry(new LogEventArgs(humanSummary, LogLevel.INFO));
                 this.extensionHostContext.Log?.Invoke(humanSummary, LogLevel.INFO);
             }
 
             foreach (string diagnostic in discoveredExtensions.Diagnostics)
             {
-                RaiseLogEntry(new LogEventArgs(diagnostic, LogLevel.DEBUG));
                 this.extensionHostContext.Log?.Invoke(diagnostic, LogLevel.DEBUG);
             }
             foreach (string warning in discoveredExtensions.Warnings)
             {
-                RaiseLogEntry(new LogEventArgs(warning, LogLevel.WARNING));
                 this.extensionHostContext.Log?.Invoke(warning, LogLevel.WARNING);
             }
         }
@@ -566,14 +571,6 @@ namespace PhinixClient.Framework
 
         private void appendExtensionLog(string message, LogLevel level)
         {
-#if !DEBUG
-            // Release 构建不捕获 DEBUG 级日志，扩展面板日志与输出保持一致的分类
-            if (level == LogLevel.DEBUG)
-            {
-                return;
-            }
-#endif
-
             lock (extensionLogLock)
             {
                 extensionLog.Add(new FrameworkLogEntry(message, level, DateTime.UtcNow.Ticks));

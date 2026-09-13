@@ -270,11 +270,12 @@ The framework manages extensions across four phases (see the `DiscoverExtensions
 
 ### 3.5 Error Isolation
 
-Failure of a single module's `Register()`, `Activate()`, or `Shutdown()` does **not** affect other modules:
+Failure of a single module's `Register()`, `Activate()`, or `Shutdown()` does not stop unrelated modules. Dependents of a failed module are deliberately blocked:
 
-- `Register()` exceptions are caught, status marked as `Failed`, warning logged
-- `Activate()` exceptions are caught, status marked as `Failed`, warning logged
+- `Register()` exceptions are caught, status marked as `Failed`, warning logged, and registrations made by that owner are revoked
+- `Activate()` exceptions are caught, status marked as `Failed`, warning logged, and registered APIs/handlers/persistents are revoked
 - `Shutdown()` exceptions are likewise isolated
+- Required dependents do not register or activate after their dependency fails
 
 This means **your submod will not bring down the entire framework** — but conversely, the framework will not automatically retry your failed module.
 
@@ -1163,10 +1164,12 @@ Plugins can obtain a dedicated file storage path:
 
 ```csharp
 hostContext.GetStoragePath("my.extension.id", "settings.json");
-// Returns something like "framework-extensions/client/my.extension.id/settings.json"
+// Returns an absolute path under framework-extensions/client/my.extension.id/
 ```
 
 Implementation code at [FrameworkTypes.cs:288-318](Common/Utils/Framework/FrameworkTypes.cs#L288-L318) (`FileSystemExtensionStorageProvider`).
+
+The provider normalizes both identifiers and verifies that the final absolute path stays under its configured root. It allocates a safe path only; atomic writes, migration, backup and save-specific scoping remain the plugin's responsibility.
 
 ### 8.14 Logging
 
@@ -1178,10 +1181,10 @@ hostContext.Log?.Invoke("Something happened", LogLevel.INFO);
 
 - **Log Levels and Filtering Rules**:
   - Supported log levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`.
-  - **Release build filtering**: In Release builds, the client automatically filters out `DEBUG` level log entries (only forwarding `INFO`, `WARNING`, and `ERROR` to the RimWorld console and log files) to avoid performance degradation and disk flooding from high-frequency heartbeat or tracing logs; Debug builds output all levels. Submods should mark high-frequency diagnostic logs as `DEBUG`, and important lifecycle milestones as `INFO`.
+  - **Release sink filtering**: The client keeps `DEBUG` entries in the bounded manager buffer, while its RimWorld log sink hides them in Release builds. Debug builds can forward them when developer mode is enabled.
   - **In-memory circular log buffer**: The host captures the last 300 log entries reported by all extensions in an in-memory ring buffer (tracked with `ExtensionLogVersion`), allowing players and developers to review and filter logs directly in `ExtensionManagerTab`.
 
-> **Current convention**: Official extensions (Chat/Trade) use `hostContext.Log` (`Action<string, LogLevel>`) to report logs. The `ILoggable` interface is currently a log-producer contract used by host internal components (`NetClient`, `PhinixFrameworkClient`, etc.) and is not yet directly exposed to plugins.
+For source-aware diagnostics, use the optional logger returned by `hostContext.GetExtensionLogger(ExtensionId)`. It binds the extension ID and accepts the original `Exception` plus an optional correlation ID. The legacy `hostContext.Log` callback remains supported and enters the same client buffer.
 
 ### 8.15 IUiTheme
 

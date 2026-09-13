@@ -98,6 +98,7 @@ namespace PhinixClient
         #endregion
 
         private PhinixFrameworkClient frameworkClient;
+        private EventHandler processExitHandler;
         public PhinixFrameworkClient FrameworkClient => frameworkClient;
         private ClientUserEventStream userEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
@@ -115,6 +116,8 @@ namespace PhinixClient
         /// Necessary because sounds are only played on the main Unity thread.
         /// </summary>
         private List<SoundDef> soundQueue = new List<SoundDef>();
+        private const int MaxPendingSounds = 128;
+        private long droppedSoundCount;
         /// <summary>
         /// Lock object to prevent race conditions when accessing soundQueue.
         /// </summary>
@@ -138,7 +141,7 @@ namespace PhinixClient
             settingsContext = new ClientSettingsContextAdapter(this);
             windowService = new ClientWindowService();
             userEventStream = new ClientUserEventStream();
-            mainThreadDispatcher = new ClientMainThreadDispatcher();
+            mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)));
             IClientSoundService soundService = new ClientSoundService(this);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
             {
@@ -152,7 +155,9 @@ namespace PhinixClient
             extensionHostContext.AddService(settingsContext);
             extensionHostContext.AddService<IClientUserEventStream>(userEventStream);
             extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
+            extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientWindowService>(windowService);
+            extensionHostContext.AddService<IClientSettingsWindowService>((IClientSettingsWindowService)windowService);
             extensionHostContext.AddService<IClientSoundService>(soundService);
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
             extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
@@ -202,6 +207,8 @@ namespace PhinixClient
 
             Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
             frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
+            processExitHandler = (_, __) => frameworkClient?.Shutdown();
+            AppDomain.CurrentDomain.ProcessExit += processExitHandler;
             Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
             if (!Settings.Migrated)
             {
@@ -675,6 +682,12 @@ namespace PhinixClient
 
             lock (soundQueueLock)
             {
+                if (soundQueue.Count >= MaxPendingSounds)
+                {
+                    soundQueue.RemoveAt(0);
+                    droppedSoundCount++;
+                    Log(new LogEventArgs($"[Phinix] Sound queue overflow ({MaxPendingSounds}); dropped oldest sound. Total dropped={droppedSoundCount}.", LogLevel.WARNING));
+                }
                 soundQueue.Add(soundDef);
             }
         }

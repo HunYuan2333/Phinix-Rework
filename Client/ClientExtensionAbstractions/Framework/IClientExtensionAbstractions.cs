@@ -124,10 +124,22 @@ namespace PhinixClient.Framework
         void Enqueue(Action action);
     }
 
+    public interface IClientDispatcherDiagnostics
+    {
+        int PendingCount { get; }
+
+        long DroppedCount { get; }
+    }
+
     public interface IClientWindowService
     {
         void Open(Window window);
 
+        void OpenSettingsWindow();
+    }
+
+    public interface IClientSettingsWindowService
+    {
         void OpenSettingsWindow();
     }
 

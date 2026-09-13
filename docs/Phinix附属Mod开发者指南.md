@@ -268,11 +268,12 @@ public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionMo
 
 ### 3.5 错误隔离
 
-单个模块的 `Register()`、`Activate()`、`Shutdown()` 失败**不会**影响其他模块：
+单个模块的 `Register()`、`Activate()`、`Shutdown()` 失败不会阻断无关模块；依赖失败模块的下游会被主动阻断：
 
-- `Register()` 异常被 catch，状态标记为 `Failed`，记录 warning
-- `Activate()` 异常被 catch，状态标记为 `Failed`，记录 warning
+- `Register()` 异常被 catch，状态标记为 `Failed`，记录 warning，并撤销该 owner 已写入的注册项
+- `Activate()` 异常被 catch，状态标记为 `Failed`，记录 warning，并撤销已注册的 API、handler 和 persistent
 - `Shutdown()` 异常同样被隔离
+- 必需依赖失败后，下游不会继续注册或激活
 
 这意味着**你的 Submod 不会拖垮整个框架**——但反过来说，框架也不会自动重试你的失败模块。
 
@@ -1162,10 +1163,12 @@ public interface IClientDisplayMessageStore
 
 ```csharp
 hostContext.GetStoragePath("my.extension.id", "settings.json");
-// 返回类似 "framework-extensions/client/my.extension.id/settings.json"
+// 返回 framework-extensions/client/my.extension.id/ 下的绝对路径
 ```
 
 实现代码见 [FrameworkTypes.cs:288-318](Common/Utils/Framework/FrameworkTypes.cs#L288-L318)（`FileSystemExtensionStorageProvider`）。
+
+Provider 会规范化两个标识并校验最终绝对路径仍位于配置根目录内。它只分配安全路径；原子写、迁移、备份和按存档划分仍由插件负责。
 
 ### 8.14 日志
 
@@ -1177,10 +1180,10 @@ hostContext.Log?.Invoke("Something happened", LogLevel.INFO);
 
 - **日志级别与过滤规则**：
   - 支持的日志级别：`DEBUG`, `INFO`, `WARNING`, `ERROR`。
-  - **Release 构建过滤**：客户端在 Release 构建下会自动过滤掉 `DEBUG` 级别的日志（仅向 RimWorld 游戏控制台和本地日志输出 `INFO`、`WARNING`、`ERROR`），避免高频心跳或跟踪日志造成性能损耗或日志文件膨胀；而在 Debug 构建下会全量输出。Submod 开发时应将高频调试日志标记为 `DEBUG`，关键业务生命周期标记为 `INFO`。
+  - **Release sink 过滤**：客户端会在有界管理器缓冲中保留 `DEBUG` 条目；Release 构建的 RimWorld 日志 sink 不转发这些条目，Debug 构建可在开发者模式下转发。
   - **日志环形缓冲区**：宿主会将所有扩展上报的最近 300 条日志缓存在内存环形缓冲区中（带 `ExtensionLogVersion` 版本戳），玩家与开发者可在客户端内置的 `ExtensionManagerTab` 中翻阅、搜索与排查问题。
 
-> **当前约定**：官方扩展（Chat/Trade）使用 `hostContext.Log`（`Action<string, LogLevel>`）上报日志。`ILoggable` 接口目前是 host 内部组件（`NetClient`、`PhinixFrameworkClient` 等）使用的日志产生端契约，尚未对插件直接暴露。
+需要携带来源的诊断时，可使用 `hostContext.GetExtensionLogger(ExtensionId)` 返回的可选 logger。它会绑定扩展 ID，并接受原始 `Exception` 与可选 correlation ID。旧的 `hostContext.Log` 回调继续兼容，并进入同一个客户端缓冲。
 
 ### 8.15 IUiTheme
 

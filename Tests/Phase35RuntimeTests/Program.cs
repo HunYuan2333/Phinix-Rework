@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Authentication;
 using Connections;
 using Google.Protobuf;
+using Utils;
 using Utils.Framework;
 using ServerRuntime;
 
@@ -16,6 +17,10 @@ internal static class Program
         {
             AssertLegacyApisRemoved();
             AssertClientKeyGenerationStillWorks();
+            AssertExtensionDependencyValidationAndLifecycle();
+            AssertExtensionStorageCannotEscapeRoot();
+            AssertApiOwnerRevocationAndProviderPolicy();
+            AssertStructuredExtensionLoggerPreservesContext();
             AssertPreHandleInterceptorCanRewriteMessageBeforeDefaultHandler();
             AssertPreHandleInterceptorCanBlockDefaultHandler();
             AssertPreHandleCommandInterceptorCanBlockDefaultHandler();
@@ -78,6 +83,79 @@ internal static class Program
                 Directory.Delete(testDirectory, true);
             }
         }
+    }
+
+    private static void AssertExtensionDependencyValidationAndLifecycle()
+    {
+        LifecycleEvents.Clear();
+        ExtensionHostContext host = new ExtensionHostContext { HostKind = "runtime-test" };
+        DiscoveredPhinixExtensions discovered = PhinixExtensionRegistry.DiscoverExtensions(host);
+
+        AssertState(discovered, "tests.missing", ExtensionModuleState.Failed);
+        AssertState(discovered, "tests.cycle-a", ExtensionModuleState.Failed);
+        AssertState(discovered, "tests.cycle-b", ExtensionModuleState.Failed);
+        AssertState(discovered, "tests.register-failure", ExtensionModuleState.Failed);
+        AssertState(discovered, "tests.register-dependent", ExtensionModuleState.Failed);
+        Assert(!RegisterFailureModule.ActivateCalled, "A module whose Register failed must never activate.");
+        Assert(!host.TryResolveApi<IRegisterFailureApi>(out _), "Register failure must revoke APIs published before the exception.");
+
+        PhinixExtensionRegistry.ActivateExtensions(discovered, host);
+        AssertState(discovered, "tests.base", ExtensionModuleState.Active);
+        AssertState(discovered, "tests.dependent", ExtensionModuleState.Active);
+        AssertState(discovered, "tests.activate-failure", ExtensionModuleState.Failed);
+        AssertState(discovered, "tests.activate-dependent", ExtensionModuleState.Failed);
+        Assert(!host.TryResolveApi<IActivateFailureApi>(out _), "Activation failure must revoke registered APIs.");
+        Assert(LifecycleEvents.IndexOf("register:base") < LifecycleEvents.IndexOf("register:dependent"), "Dependencies must register first.");
+        Assert(LifecycleEvents.IndexOf("activate:base") < LifecycleEvents.IndexOf("activate:dependent"), "Dependencies must activate first.");
+
+        PhinixExtensionRegistry.ShutdownExtensions(discovered, host);
+        Assert(LifecycleEvents.IndexOf("shutdown:dependent") < LifecycleEvents.IndexOf("shutdown:base"), "Active modules must shut down in reverse dependency order.");
+        AssertState(discovered, "tests.base", ExtensionModuleState.Shutdown);
+        AssertState(discovered, "tests.dependent", ExtensionModuleState.Shutdown);
+        Assert(!host.TryResolveApi<IBaseApi>(out _), "Shutdown must revoke APIs owned by the stopped extension.");
+    }
+
+    private static void AssertExtensionStorageCannotEscapeRoot()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "PhinixStorageTests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            FileSystemExtensionStorageProvider storage = new FileSystemExtensionStorageProvider(root);
+            string path = storage.GetStoragePath("..", "..\\outside.dat");
+            string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert(path.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase), "Sanitized extension storage must remain inside its configured root.");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    private static void AssertApiOwnerRevocationAndProviderPolicy()
+    {
+        ExtensionApiRegistry registry = new ExtensionApiRegistry();
+        registry.RegisterApi<ISingleProviderApi>("owner-a", new SingleProviderApi());
+        registry.RegisterApi<ISingleProviderApi>("owner-b", new SingleProviderApi());
+        Assert(registry.ResolveAll<ISingleProviderApi>().Count == 1, "Single-provider API contracts must reject additional providers.");
+        Assert(registry.UnregisterOwner("owner-a") == 1, "Owner revocation should report the removed API count.");
+        Assert(!registry.TryResolve<ISingleProviderApi>(out _), "Owner revocation must remove the provider from resolution.");
+    }
+
+    private static void AssertStructuredExtensionLoggerPreservesContext()
+    {
+        HostLogEntry captured = null;
+        ExtensionHostContext host = new ExtensionHostContext { StructuredLog = entry => captured = entry };
+        Exception failure = new InvalidOperationException("test failure");
+        host.GetExtensionLogger("tests.logger").Log("operation failed", LogLevel.ERROR, failure, "correlation-1");
+        Assert(captured != null && captured.ExtensionId == "tests.logger", "Structured logger must bind the extension ID.");
+        Assert(ReferenceEquals(captured.Exception, failure), "Structured logger must preserve the original exception.");
+        Assert(captured.CorrelationId == "correlation-1", "Structured logger must preserve the correlation ID.");
+    }
+
+    private static void AssertState(DiscoveredPhinixExtensions discovered, string extensionId, ExtensionModuleState expected)
+    {
+        ExtensionDiscoveryResult result = discovered.ExtensionResults.FirstOrDefault(candidate => candidate.ExtensionId == extensionId);
+        Assert(result != null && result.State == expected, $"Expected extension '{extensionId}' to be {expected}, got {result?.State.ToString() ?? "missing"}.");
     }
 
     private static void AssertPreHandleInterceptorCanRewriteMessageBeforeDefaultHandler()
@@ -484,6 +562,93 @@ internal static class Program
 
         public void ObserveIncomingCommand(FrameworkPacket command, ServerFrameworkContext context, MessageHandlingResultAction terminalAction)
             => observe(command, context, terminalAction);
+    }
+
+    private static readonly List<string> LifecycleEvents = new List<string>();
+
+    private interface IBaseApi { }
+    private interface IRegisterFailureApi { }
+    private interface IActivateFailureApi { }
+
+    [ExtensionApiContract(AllowMultipleProviders = false)]
+    private interface ISingleProviderApi { }
+
+    private sealed class SingleProviderApi : ISingleProviderApi { }
+
+    [PhinixExtension("tests.base")]
+    public sealed class BaseModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule, IBaseApi
+    {
+        public string ExtensionId => "tests.base";
+        public void Register(IExtensionBuilder builder) { LifecycleEvents.Add("register:base"); builder.RegisterApi<IBaseApi>(this); }
+        public void Activate(ExtensionHostContext hostContext) { LifecycleEvents.Add("activate:base"); }
+        public void Shutdown(ExtensionHostContext hostContext) { LifecycleEvents.Add("shutdown:base"); }
+    }
+
+    [PhinixExtension("tests.dependent", DependsOn = new[] { "tests.base" })]
+    public sealed class DependentModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    {
+        public string ExtensionId => "tests.dependent";
+        public void Register(IExtensionBuilder builder) { LifecycleEvents.Add("register:dependent"); }
+        public void Activate(ExtensionHostContext hostContext) { LifecycleEvents.Add("activate:dependent"); }
+        public void Shutdown(ExtensionHostContext hostContext) { LifecycleEvents.Add("shutdown:dependent"); }
+    }
+
+    [PhinixExtension("tests.register-failure")]
+    public sealed class RegisterFailureModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule, IRegisterFailureApi
+    {
+        public static bool ActivateCalled;
+        public string ExtensionId => "tests.register-failure";
+        public void Register(IExtensionBuilder builder) { builder.RegisterApi<IRegisterFailureApi>(this); throw new InvalidOperationException("register failure"); }
+        public void Activate(ExtensionHostContext hostContext) { ActivateCalled = true; }
+        public void Shutdown(ExtensionHostContext hostContext) { }
+    }
+
+    [PhinixExtension("tests.register-dependent", DependsOn = new[] { "tests.register-failure" })]
+    public sealed class RegisterDependentModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    {
+        public string ExtensionId => "tests.register-dependent";
+        public void Register(IExtensionBuilder builder) { throw new InvalidOperationException("must be skipped"); }
+        public void Activate(ExtensionHostContext hostContext) { throw new InvalidOperationException("must be skipped"); }
+        public void Shutdown(ExtensionHostContext hostContext) { }
+    }
+
+    [PhinixExtension("tests.activate-failure")]
+    public sealed class ActivateFailureModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule, IActivateFailureApi
+    {
+        public string ExtensionId => "tests.activate-failure";
+        public void Register(IExtensionBuilder builder) { builder.RegisterApi<IActivateFailureApi>(this); }
+        public void Activate(ExtensionHostContext hostContext) { throw new InvalidOperationException("activate failure"); }
+        public void Shutdown(ExtensionHostContext hostContext) { }
+    }
+
+    [PhinixExtension("tests.activate-dependent", DependsOn = new[] { "tests.activate-failure" })]
+    public sealed class ActivateDependentModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    {
+        public string ExtensionId => "tests.activate-dependent";
+        public void Register(IExtensionBuilder builder) { }
+        public void Activate(ExtensionHostContext hostContext) { throw new InvalidOperationException("must be skipped"); }
+        public void Shutdown(ExtensionHostContext hostContext) { }
+    }
+
+    [PhinixExtension("tests.missing", DependsOn = new[] { "tests.absent" })]
+    public sealed class MissingDependencyModule : IPhinixExtensionModule
+    {
+        public string ExtensionId => "tests.missing";
+        public void Register(IExtensionBuilder builder) { throw new InvalidOperationException("must be skipped"); }
+    }
+
+    [PhinixExtension("tests.cycle-a", DependsOn = new[] { "tests.cycle-b" })]
+    public sealed class CycleAModule : IPhinixExtensionModule
+    {
+        public string ExtensionId => "tests.cycle-a";
+        public void Register(IExtensionBuilder builder) { throw new InvalidOperationException("must be skipped"); }
+    }
+
+    [PhinixExtension("tests.cycle-b", DependsOn = new[] { "tests.cycle-a" })]
+    public sealed class CycleBModule : IPhinixExtensionModule
+    {
+        public string ExtensionId => "tests.cycle-b";
+        public void Register(IExtensionBuilder builder) { throw new InvalidOperationException("must be skipped"); }
     }
 
     private sealed class PipelineTestHarness

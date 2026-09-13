@@ -74,7 +74,7 @@ namespace Phinix.LegacyAdapter.Client
 
                 var packed = ProtobufPacketHelper.Pack(chatPacket);
                 byte[] data = packed.ToByteArray();
-                Verse.Log.Message($"[LegacyAdapter] SendChatMessage: sending {data.Length} bytes to module '{ChatModuleName}', sessionId={sessionContext.SessionId}, uuid={sessionContext.Uuid}");
+                Verse.Log.Message($"[LegacyAdapter] SendChatMessage: sending {data.Length} bytes to module '{ChatModuleName}'.");
                 legacyTransport.Send(ChatModuleName, data);
                 return true;
             }

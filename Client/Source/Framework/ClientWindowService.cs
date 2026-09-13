@@ -2,7 +2,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    internal sealed class ClientWindowService : IClientWindowService
+    internal sealed class ClientWindowService : IClientWindowService, IClientSettingsWindowService
     {
         public void Open(Window window)
         {

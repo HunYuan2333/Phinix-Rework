@@ -18,7 +18,7 @@ namespace Phinix.ChatExtension.Client
 
         private readonly IChatUiHostContext hostContext;
         private IClientSessionContext sessionContext;
-        private Action openSettingsWindow;
+        private IClientSettingsWindowService settingsWindowService;
         private UserList userList;
         private string userSearch = string.Empty;
         private bool wasOnline;
@@ -37,10 +37,10 @@ namespace Phinix.ChatExtension.Client
             IClientSessionContext sessionContext,
             IClientUserDirectory userDirectory,
             IClientSettingsContext settingsContext,
-            Action openSettingsWindow)
+            IClientSettingsWindowService settingsWindowService)
         {
             this.sessionContext = sessionContext;
-            this.openSettingsWindow = openSettingsWindow;
+            this.settingsWindowService = settingsWindowService;
             userList = userList ?? new UserList(hostContext, userDirectory, settingsContext);
         }
 
@@ -98,7 +98,7 @@ namespace Phinix.ChatExtension.Client
 
             if (settingsButtonRect.height > 0f && Widgets.ButtonText(settingsButtonRect, cachedSettingsLabel))
             {
-                openSettingsWindow?.Invoke();
+                settingsWindowService?.OpenSettingsWindow();
             }
 
             string userSearchOld = userSearch;

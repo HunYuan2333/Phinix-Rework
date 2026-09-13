@@ -291,7 +291,7 @@ namespace Phinix.ChatExtension.Client
                 sessionContext,
                 userDirectory,
                 settingsContext,
-                hostContext.GetRequiredService<Action>());
+                hostContext.GetRequiredService<IClientSettingsWindowService>());
             (chatMainTabProvider as ChatMainTabProvider)?.InitializeUserDirectory(userDirectory);
         }
 
