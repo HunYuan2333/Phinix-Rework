@@ -32,13 +32,6 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         public void Register(IExtensionBuilder builder)
         {
-            LegacyTalentTradeRuntime.Session = builder.HostContext.GetRequiredService<IClientSessionContext>();
-            LegacyTalentTradeRuntime.Users = builder.HostContext.GetRequiredService<IClientUserDirectory>();
-            LegacyTalentTradeRuntime.Dispatcher = builder.HostContext.GetRequiredService<IClientMainThreadDispatcher>();
-            LegacyTalentTradeRuntime.SettingsContext = builder.HostContext.GetRequiredService<IClientSettingsContext>();
-            LegacyTalentTradeRuntime.Settings.Load(LegacyTalentTradeRuntime.SettingsContext);
-            LegacyTalentTradeRuntime.Log = builder.HostContext.Log;
-
             builder.RegisterApi<IMainTabProvider>(TalentTradeTab.Instance);
             builder.RegisterApi<IClientSettingsPanelProvider>(new LegacyTalentTradeSettingsPanel());
         }
@@ -46,11 +39,20 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         public void Activate(ExtensionHostContext hostContext)
         {
             if (activated) return;
+
+            LegacyTalentTradeRuntime.Session = hostContext.GetRequiredService<IClientSessionContext>();
+            LegacyTalentTradeRuntime.Users = hostContext.GetRequiredService<IClientUserDirectory>();
+            LegacyTalentTradeRuntime.Dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
+            LegacyTalentTradeRuntime.SettingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
+            LegacyTalentTradeRuntime.Settings.Load(LegacyTalentTradeRuntime.SettingsContext);
+            LegacyTalentTradeRuntime.Log = hostContext.Log;
+
+            IClientUserEventStream userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
+            TalentTradeManager.Initialize(userEvents);
+            TalentTradeTab.Instance.BindUserEvents(userEvents);
+
             activated = true;
             LegacyTalentTradeRuntime.IsActive = true;
-
-            TalentTradeManager.Initialize(hostContext.GetRequiredService<IClientUserEventStream>());
-            TalentTradeTab.Instance.BindUserEvents(hostContext.GetRequiredService<IClientUserEventStream>());
 
             // 游戏级补丁（GenScene 退出下架 / PawnTextureAtlasGC 修复）——禁用时不会执行 Activate，补丁零挂载
             harmony = new Harmony(HarmonyId);
@@ -108,6 +110,12 @@ namespace Phinix.LegacyTalentTradeExtension.Client
             TalentTradeTab.Instance.BindUserEvents(null);
             harmony?.UnpatchAll(HarmonyId);
             harmony = null;
+
+            LegacyTalentTradeRuntime.Session = null;
+            LegacyTalentTradeRuntime.Users = null;
+            LegacyTalentTradeRuntime.Dispatcher = null;
+            LegacyTalentTradeRuntime.SettingsContext = null;
+            LegacyTalentTradeRuntime.Log = null;
 
             hostContext.Log?.Invoke("[TalentTrade] Legacy talent trade extension shut down.", LogLevel.INFO);
         }

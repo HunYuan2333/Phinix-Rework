@@ -73,6 +73,7 @@ namespace Phinix.ChatExtension.Client
         private string hoveredReplyTargetId;
         private string flashHighlightId;
         private float flashHighlightUntil;
+        private bool started;
 
         private struct CachedMessageDisplay
         {
@@ -113,13 +114,27 @@ namespace Phinix.ChatExtension.Client
         public ChatMessageList(IChatUiHostContext hostContext)
         {
             this.hostContext = hostContext;
+        }
 
+        internal void Start()
+        {
+            if (started) return;
             hostContext.ChatService.OnChatMessageReceived += ChatMessageReceivedEventHandler;
             hostContext.OnUserDisplayNameChanged += UserChangedEventHandler;
-            hostContext.OnBlockedUsersChanged += (s, e) => ReplaceWithBuffer();
-            hostContext.OnDisconnect += (s, e) => Clear();
-
+            hostContext.OnBlockedUsersChanged += BlockedUsersChangedEventHandler;
+            hostContext.OnDisconnect += DisconnectEventHandler;
             ReplaceWithBuffer();
+            started = true;
+        }
+
+        internal void Stop()
+        {
+            if (!started) return;
+            hostContext.ChatService.OnChatMessageReceived -= ChatMessageReceivedEventHandler;
+            hostContext.OnUserDisplayNameChanged -= UserChangedEventHandler;
+            hostContext.OnBlockedUsersChanged -= BlockedUsersChangedEventHandler;
+            hostContext.OnDisconnect -= DisconnectEventHandler;
+            started = false;
         }
 
         public void Draw(Rect inRect)
@@ -318,6 +333,10 @@ namespace Phinix.ChatExtension.Client
                 messagesChanged = true;
             }
         }
+
+        private void BlockedUsersChangedEventHandler(object sender, UserBlockStateChangedEventArgs args) => ReplaceWithBuffer();
+
+        private void DisconnectEventHandler(object sender, EventArgs args) => Clear();
 
         private void recalculateMessageRects(Rect inRect)
         {

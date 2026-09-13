@@ -119,23 +119,33 @@ namespace Phinix.ChatExtension.Client
         }
 
         private readonly IClientChatService chatService;
-        private readonly IClientSessionContext session;
-        private readonly IClientSettingsContext settings;
-        private readonly IClientUserEventStream userEvents;
+        private IClientSessionContext session;
+        private IClientSettingsContext settings;
+        private IClientUserEventStream userEvents;
         private readonly HashSet<string> blockedUsers = new HashSet<string>();
         private readonly object blockedUsersLock = new object();
         private readonly ISet<string> blockedUsersView;
-        private readonly Action<string> createTrade;
-        private readonly Action<LogEventArgs> log;
-        private readonly IFrameworkChatClientApi chatApi;
-        private readonly IFrameworkClientTransport transport;
-        private readonly IClientUserDirectory userDirectory;
+        private Action<string> createTrade;
+        private Action<LogEventArgs> log;
+        private IFrameworkChatClientApi chatApi;
+        private IFrameworkClientTransport transport;
+        private IClientUserDirectory userDirectory;
+        private bool started;
+        private event EventHandler disconnected;
+        private event EventHandler usersChanged;
+        private event EventHandler<UserDisplayNameChangedEventArgs> userDisplayNameChanged;
+        private event EventHandler<UserBlockStateChangedEventArgs> blockedUsersChanged;
 
         public UIChatMessage ReplyTarget { get; private set; }
         public event EventHandler ReplyTargetChanged;
 
-        public ChatUiHostContext(
-            IClientChatService chatService,
+        public ChatUiHostContext(IClientChatService chatService)
+        {
+            this.chatService = chatService;
+            this.blockedUsersView = new ReadOnlyBlockedUserSet(this);
+        }
+
+        internal void Initialize(
             IClientSessionContext session,
             IClientSettingsContext settings,
             IClientUserEventStream userEvents,
@@ -145,7 +155,6 @@ namespace Phinix.ChatExtension.Client
             IFrameworkClientTransport transport = null,
             IClientUserDirectory userDirectory = null)
         {
-            this.chatService = chatService;
             this.session = session;
             this.settings = settings;
             this.userEvents = userEvents;
@@ -154,9 +163,27 @@ namespace Phinix.ChatExtension.Client
             this.chatApi = chatApi;
             this.transport = transport;
             this.userDirectory = userDirectory;
-            this.blockedUsersView = new ReadOnlyBlockedUserSet(this);
             refreshBlockedUsers();
-            this.userEvents.BlockedUsersChanged += (_, __) => refreshBlockedUsers();
+        }
+
+        internal void Start()
+        {
+            if (started) return;
+            userEvents.Disconnected += onDisconnected;
+            userEvents.UsersChanged += onUsersChanged;
+            userEvents.UserDisplayNameChanged += onUserDisplayNameChanged;
+            userEvents.BlockedUsersChanged += onBlockedUsersChanged;
+            started = true;
+        }
+
+        internal void Stop()
+        {
+            if (!started) return;
+            userEvents.Disconnected -= onDisconnected;
+            userEvents.UsersChanged -= onUsersChanged;
+            userEvents.UserDisplayNameChanged -= onUserDisplayNameChanged;
+            userEvents.BlockedUsersChanged -= onBlockedUsersChanged;
+            started = false;
         }
 
         public IClientChatService ChatService => chatService;
@@ -185,26 +212,26 @@ namespace Phinix.ChatExtension.Client
 
         public event EventHandler OnDisconnect
         {
-            add => userEvents.Disconnected += value;
-            remove => userEvents.Disconnected -= value;
+            add => disconnected += value;
+            remove => disconnected -= value;
         }
 
         public event EventHandler OnUsersChanged
         {
-            add => userEvents.UsersChanged += value;
-            remove => userEvents.UsersChanged -= value;
+            add => usersChanged += value;
+            remove => usersChanged -= value;
         }
 
         public event EventHandler<UserDisplayNameChangedEventArgs> OnUserDisplayNameChanged
         {
-            add => userEvents.UserDisplayNameChanged += value;
-            remove => userEvents.UserDisplayNameChanged -= value;
+            add => userDisplayNameChanged += value;
+            remove => userDisplayNameChanged -= value;
         }
 
         public event EventHandler<UserBlockStateChangedEventArgs> OnBlockedUsersChanged
         {
-            add => userEvents.BlockedUsersChanged += value;
-            remove => userEvents.BlockedUsersChanged -= value;
+            add => blockedUsersChanged += value;
+            remove => blockedUsersChanged -= value;
         }
 
         public void CreateTrade(string uuid) => createTrade?.Invoke(uuid);
@@ -288,6 +315,19 @@ namespace Phinix.ChatExtension.Client
                     blockedUsers.Add(uuid);
                 }
             }
+        }
+
+        private void onDisconnected(object sender, EventArgs args) => disconnected?.Invoke(sender, args);
+
+        private void onUsersChanged(object sender, EventArgs args) => usersChanged?.Invoke(sender, args);
+
+        private void onUserDisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args) =>
+            userDisplayNameChanged?.Invoke(sender, args);
+
+        private void onBlockedUsersChanged(object sender, UserBlockStateChangedEventArgs args)
+        {
+            refreshBlockedUsers();
+            blockedUsersChanged?.Invoke(sender, args);
         }
     }
 }

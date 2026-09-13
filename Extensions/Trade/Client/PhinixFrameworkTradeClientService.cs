@@ -13,7 +13,7 @@ namespace Phinix.TradeExtension.Client
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private readonly ITradeItemPayloadEncoder itemPipeline;
-        private readonly IClientUserDirectory userDirectory;
+        private IClientUserDirectory userDirectory;
         private readonly Action<LogEventArgs> log;
         private readonly Dictionary<string, string> pendingTradeCreationByTradeId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<string>> pendingTradeUpdateTokensByTradeId = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -35,6 +35,11 @@ namespace Phinix.TradeExtension.Client
             this.itemPipeline = itemPipeline;
             this.userDirectory = userDirectory;
             this.log = log;
+        }
+
+        internal void InitializeUserDirectory(IClientUserDirectory value)
+        {
+            userDirectory = value;
         }
 
         public FrameworkTradeStateSnapshot[] GetRepositoryTrades() => repository.GetAll();

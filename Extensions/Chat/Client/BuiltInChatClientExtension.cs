@@ -39,6 +39,7 @@ namespace Phinix.ChatExtension.Client
         private EventHandler disconnectHandler;
         private float connectionEstablishedTime = -100f;
         private Action<string, LogLevel> hostLog;
+        private ChatSettingsPanelProvider settingsPanelProvider;
 
         public string ExtensionId => "builtin.chat";
 
@@ -46,70 +47,24 @@ namespace Phinix.ChatExtension.Client
 
         public void Register(IExtensionBuilder builder)
         {
-            IUiTheme theme = builder.HostContext.GetRequiredService<IUiTheme>();
-            theme.RegisterColor("chat.mentionText", new Color(0.45f, 0.75f, 1.0f, 1.0f));
-            theme.RegisterColor("chat.mentionSelfBg", new Color(0.35f, 0.35f, 0.15f, 0.12f));
-            theme.RegisterColor("chat.selfName", new Color(0.55f, 0.75f, 1.0f, 1.0f));
-            theme.RegisterColor("chat.selfMessageBg", new Color(0.15f, 0.25f, 0.4f, 0.1f));
-            theme.RegisterColor("chat.rowHoverBg", new Color(1f, 1f, 1f, 0.04f));
-            theme.RegisterColor("chat.groupIndentLine", new Color(1f, 1f, 1f, 0.08f));
-            theme.RegisterColor("chat.replyQuoteBorder", new Color(0.3f, 0.5f, 0.75f, 0.6f));
-            theme.RegisterColor("chat.replyQuoteBg", new Color(1f, 1f, 1f, 0.03f));
-            theme.RegisterColor("chat.replyQuoteText", new Color(0.55f, 0.52f, 0.48f, 0.7f));
-            theme.RegisterColor("chat.noticeAccent", new Color(0.9f, 0.72f, 0.25f, 0.9f));
-            theme.RegisterColor("chat.noticeBg", new Color(0.25f, 0.2f, 0.08f, 0.12f));
-            theme.RegisterColor("chat.noticeBannerBg", new Color(0.12f, 0.1f, 0.06f, 0.9f));
-            theme.RegisterColor("chat.noticeProgress", new Color(0.9f, 0.72f, 0.25f, 0.7f));
-            theme.RegisterColor("chat.inputReplyBorder", new Color(0.3f, 0.5f, 0.9f, 0.7f));
-            theme.RegisterColor("chat.inputReplyBg", new Color(0.15f, 0.25f, 0.45f, 0.08f));
-            theme.RegisterColor("chat.blockedBg", new Color(0f, 0f, 0f, 0.35f));
-            theme.RegisterColor("chat.blockedName", new Color(0.6f, 0.6f, 0.6f));
-            theme.RegisterColor("chat.pendingMessage", new Color(1f, 1f, 1f, 0.6f));
-            theme.RegisterColor("chat.deniedMessage", new Color(0.94f, 0.28f, 0.28f));
-            theme.RegisterColor("chat.imagePlaceholderBg", new Color(1f, 1f, 1f, 0.05f));
-            theme.RegisterColor("chat.imageFailedText", new Color(0.7f, 0.4f, 0.4f, 0.8f));
-
             PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService ?? new PhinixFrameworkChatService();
-            if (chatModule.Log == null)
-            {
-                chatModule.Log = (message, level) => builder.HostContext.Log?.Invoke(message, level);
-            }
             chatApi = chatModule;
-            chatService = chatService ?? new FrameworkClientChatServiceAdapter(
-                chatApi,
-                builder.HostContext.GetRequiredService<IClientDisplayMessageFeed>(),
-                builder.HostContext.GetRequiredService<IClientDisplayMessageStore>(),
-                builder.HostContext.GetRequiredService<IClientUserDirectory>(),
-                builder.HostContext.GetRequiredService<IClientSettingsContext>());
-            chatUiHostContext = chatUiHostContext ?? new ChatUiHostContext(
-                chatService,
-                builder.HostContext.GetRequiredService<IClientSessionContext>(),
-                builder.HostContext.GetRequiredService<IClientSettingsContext>(),
-                builder.HostContext.GetRequiredService<IClientUserEventStream>(),
-                uuid =>
-                {
-                    if (builder.HostContext.ApiRegistry.TryResolve<ITradeRequestApi>(out var tradeRequestApi))
-                    {
-                        tradeRequestApi.CreateTrade(uuid);
-                    }
-                },
-                args => builder.HostContext.Log?.Invoke(args.Message, args.LogLevel),
-                chatApi,
-                builder.HostContext.GetRequiredService<IFrameworkClientTransport>(),
-                builder.HostContext.GetRequiredService<IClientUserDirectory>());
-            chatTabContent = chatTabContent ?? new ChatMessageList(
-                chatUiHostContext);
+            chatService = chatService ?? new FrameworkClientChatServiceAdapter(chatApi);
+            chatUiHostContext = chatUiHostContext ?? new ChatUiHostContext(chatService);
+            chatTabContent = chatTabContent ?? new ChatMessageList(chatUiHostContext);
+            chatSidebarProvider = chatSidebarProvider ?? new ChatSidebarProvider(chatUiHostContext);
+            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(chatUiHostContext, chatTabContent);
+            noticeBannerProvider = noticeBannerProvider ?? new NoticeBannerProvider();
+            noticeSidebarProvider = noticeSidebarProvider ?? new NoticeSidebarProvider(chatUiHostContext);
+
             builder.RegisterApi(chatApi);
             builder.RegisterApi(chatService);
             builder.RegisterApi<IChatUiHostContext>(chatUiHostContext);
             builder.RegisterApi(chatTabContent);
-            chatSidebarProvider = chatSidebarProvider ?? new ChatSidebarProvider(
-                chatUiHostContext,
-                builder.HostContext.GetRequiredService<IClientSessionContext>(),
-                builder.HostContext.GetRequiredService<IClientUserDirectory>(),
-                builder.HostContext.GetRequiredService<IClientSettingsContext>(),
-                builder.HostContext.GetRequiredService<Action>());
+            builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
             builder.RegisterApi<IServerSidebarProvider>(chatSidebarProvider);
+            builder.RegisterApi<INoticeBannerProvider>(noticeBannerProvider);
+            builder.RegisterApi<IServerSidebarProvider>(noticeSidebarProvider);
             builder.AddCapabilityProvider(this);
             messageHandler = messageHandler ?? new ChatMessageHandler(chatApi);
             commandHandler = commandHandler ?? new ChatCommandHandler(chatApi);
@@ -118,19 +73,9 @@ namespace Phinix.ChatExtension.Client
             builder.AddClientCommandHandler(commandHandler);
             builder.AddMessageRenderer(messageRenderer);
 
-            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(
-                chatUiHostContext,
-                chatTabContent,
-                builder.HostContext.GetRequiredService<IClientUserDirectory>());
-            builder.RegisterApi<IMainTabProvider>(chatMainTabProvider);
-            var settingsPanelProvider = new ChatSettingsPanelProvider(theme);
+            settingsPanelProvider = settingsPanelProvider ?? new ChatSettingsPanelProvider();
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
             builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
-            noticeBannerProvider = noticeBannerProvider ?? new NoticeBannerProvider();
-            builder.RegisterApi<INoticeBannerProvider>(noticeBannerProvider);
-
-            noticeSidebarProvider = noticeSidebarProvider ?? new NoticeSidebarProvider(chatUiHostContext);
-            builder.RegisterApi<IServerSidebarProvider>(noticeSidebarProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -143,8 +88,10 @@ namespace Phinix.ChatExtension.Client
             hostLog = hostContext?.Log;
 
             IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
+            RegisterThemeDefaults(theme);
             theme.Reload();
             ChatTheme.Refresh(theme);
+            settingsPanelProvider?.InitializeTheme(theme);
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
             commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
@@ -154,6 +101,11 @@ namespace Phinix.ChatExtension.Client
             soundService = hostContext.GetRequiredService<IClientSoundService>();
             dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
             userDirectory = hostContext.GetRequiredService<IClientUserDirectory>();
+
+            EnsureActivationServices(hostContext);
+            (chatService as FrameworkClientChatServiceAdapter)?.Start();
+            chatUiHostContext?.Start();
+            (chatTabContent as ChatMessageList)?.Start();
 
             if (chatNotificationHandler == null)
             {
@@ -300,6 +252,72 @@ namespace Phinix.ChatExtension.Client
             {
                 noticeSidebarProvider.Shutdown();
             }
+
+            (chatTabContent as ChatMessageList)?.Stop();
+            chatUiHostContext?.Stop();
+            (chatService as FrameworkClientChatServiceAdapter)?.Stop();
+        }
+
+        private void EnsureActivationServices(ExtensionHostContext hostContext)
+        {
+            PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService;
+            if (chatModule != null && chatModule.Log == null)
+            {
+                chatModule.Log = (message, level) => hostContext.Log?.Invoke(message, level);
+            }
+
+            FrameworkClientChatServiceAdapter chatServiceAdapter = chatService as FrameworkClientChatServiceAdapter;
+            chatServiceAdapter?.Initialize(
+                hostContext.GetRequiredService<IClientDisplayMessageFeed>(),
+                hostContext.GetRequiredService<IClientDisplayMessageStore>(),
+                userDirectory,
+                settingsContext);
+            chatUiHostContext?.Initialize(
+                sessionContext,
+                settingsContext,
+                hostContext.GetRequiredService<IClientUserEventStream>(),
+                uuid =>
+                {
+                    if (hostContext.TryResolveApi<ITradeRequestApi>(out var tradeRequestApi))
+                    {
+                        tradeRequestApi.CreateTrade(uuid);
+                    }
+                },
+                args => hostContext.Log?.Invoke(args.Message, args.LogLevel),
+                chatApi,
+                frameworkClient,
+                userDirectory);
+            (chatSidebarProvider as ChatSidebarProvider)?.Initialize(
+                sessionContext,
+                userDirectory,
+                settingsContext,
+                hostContext.GetRequiredService<Action>());
+            (chatMainTabProvider as ChatMainTabProvider)?.InitializeUserDirectory(userDirectory);
+        }
+
+        private static void RegisterThemeDefaults(IUiTheme theme)
+        {
+            theme.RegisterColor("chat.mentionText", new Color(0.45f, 0.75f, 1.0f, 1.0f));
+            theme.RegisterColor("chat.mentionSelfBg", new Color(0.35f, 0.35f, 0.15f, 0.12f));
+            theme.RegisterColor("chat.selfName", new Color(0.55f, 0.75f, 1.0f, 1.0f));
+            theme.RegisterColor("chat.selfMessageBg", new Color(0.15f, 0.25f, 0.4f, 0.1f));
+            theme.RegisterColor("chat.rowHoverBg", new Color(1f, 1f, 1f, 0.04f));
+            theme.RegisterColor("chat.groupIndentLine", new Color(1f, 1f, 1f, 0.08f));
+            theme.RegisterColor("chat.replyQuoteBorder", new Color(0.3f, 0.5f, 0.75f, 0.6f));
+            theme.RegisterColor("chat.replyQuoteBg", new Color(1f, 1f, 1f, 0.03f));
+            theme.RegisterColor("chat.replyQuoteText", new Color(0.55f, 0.52f, 0.48f, 0.7f));
+            theme.RegisterColor("chat.noticeAccent", new Color(0.9f, 0.72f, 0.25f, 0.9f));
+            theme.RegisterColor("chat.noticeBg", new Color(0.25f, 0.2f, 0.08f, 0.12f));
+            theme.RegisterColor("chat.noticeBannerBg", new Color(0.12f, 0.1f, 0.06f, 0.9f));
+            theme.RegisterColor("chat.noticeProgress", new Color(0.9f, 0.72f, 0.25f, 0.7f));
+            theme.RegisterColor("chat.inputReplyBorder", new Color(0.3f, 0.5f, 0.9f, 0.7f));
+            theme.RegisterColor("chat.inputReplyBg", new Color(0.15f, 0.25f, 0.45f, 0.08f));
+            theme.RegisterColor("chat.blockedBg", new Color(0f, 0f, 0f, 0.35f));
+            theme.RegisterColor("chat.blockedName", new Color(0.6f, 0.6f, 0.6f));
+            theme.RegisterColor("chat.pendingMessage", new Color(1f, 1f, 1f, 0.6f));
+            theme.RegisterColor("chat.deniedMessage", new Color(0.94f, 0.28f, 0.28f));
+            theme.RegisterColor("chat.imagePlaceholderBg", new Color(1f, 1f, 1f, 0.05f));
+            theme.RegisterColor("chat.imageFailedText", new Color(0.7f, 0.4f, 0.4f, 0.8f));
         }
 
         public IEnumerable<string> GetCapabilities()

@@ -18,6 +18,7 @@ internal static class Program
     {
         try
         {
+            AssertRegistrationDoesNotRequireHostServices();
             AssertReplayDoesNotRepeatNotifications();
             AssertMessageIdentityIsSourceScoped();
             AssertEvictionKeepsReadCursorAndAllowsReplay();
@@ -26,7 +27,7 @@ internal static class Program
             AssertHighlightPreservesMarkup();
             AssertAutocompleteRequiresNewOwnedInput();
             AssertCompletionPreservesMessagePrefix();
-            Console.WriteLine("All 8 chat regression scenarios passed.");
+            Console.WriteLine("All 9 chat regression scenarios passed.");
             return 0;
         }
         catch (Exception exception)
@@ -34,6 +35,25 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void AssertRegistrationDoesNotRequireHostServices()
+    {
+        var discovered = new DiscoveredPhinixExtensions();
+        var apiRegistry = new ExtensionApiRegistry();
+        Type builderType = typeof(PhinixExtensionRegistry).GetNestedType("ExtensionBuilder", BindingFlags.NonPublic);
+        var builder = (IExtensionBuilder)Activator.CreateInstance(
+            builderType,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            null,
+            new object[] { "builtin.chat", new ExtensionHostContext { HostKind = "client-test" }, discovered, apiRegistry, null },
+            null);
+
+        new BuiltInChatClientExtension().Register(builder);
+        Assert(apiRegistry.ResolveAll<IMainTabProvider>().Count == 1,
+            "Chat registration must expose its main tab before Activate.");
+        Assert(discovered.ClientMessageHandlers.Count == 1 && discovered.MessageRenderers.Count == 1,
+            "Chat registration must expose its handlers before Activate.");
     }
 
     private static void AssertReplayDoesNotRepeatNotifications()

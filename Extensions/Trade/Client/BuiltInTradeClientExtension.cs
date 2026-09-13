@@ -30,6 +30,7 @@ namespace Phinix.TradeExtension.Client
         private EventHandler usersChangedHandler;
         private EventHandler disconnectedHandler;
         private Action<string, object> settingChangedHandler;
+        private Action<string, LogLevel> hostLog;
 
         public string ExtensionId => FrameworkTradeProtocol.Capability;
 
@@ -37,58 +38,23 @@ namespace Phinix.TradeExtension.Client
 
         public void Register(IExtensionBuilder builder)
         {
-            IUiTheme theme = builder.HostContext.GetRequiredService<IUiTheme>();
-            theme.RegisterColor("trade.ourOfferAccent", new Color(0.30f, 0.65f, 0.35f, 0.70f));
-            theme.RegisterColor("trade.theirOfferAccent", new Color(0.45f, 0.75f, 1.00f, 0.70f));
-            theme.RegisterColor("trade.ourOfferBg", new Color(0.30f, 0.65f, 0.35f, 0.04f));
-            theme.RegisterColor("trade.theirOfferBg", new Color(0.45f, 0.75f, 1.00f, 0.04f));
-            theme.RegisterColor("trade.cancelButton", new Color(0.85f, 0.30f, 0.25f, 1.00f));
-            theme.RegisterColor("trade.acceptedBadge", new Color(0.30f, 0.65f, 0.35f, 1.00f));
-            theme.RegisterColor("trade.pendingBadge", new Color(0.55f, 0.52f, 0.48f, 0.80f));
-            theme.RegisterColor("trade.rowHoverBg", new Color(1.00f, 1.00f, 1.00f, 0.04f));
-            theme.RegisterColor("trade.panelBg", new Color(1.00f, 1.00f, 1.00f, 0.03f));
-            theme.RegisterColor("trade.searchPlaceholder", new Color(0.55f, 0.52f, 0.48f, 0.50f));
-
-            var log = new Action<Utils.LogEventArgs>(args => builder.HostContext.Log?.Invoke(args.Message, args.LogLevel));
-            itemPipeline = itemPipeline ?? new TradeClientItemPipeline(log, builder.HostContext.GetRequiredService<IFrameworkClientLifecycle>().CompatibilityMode);
-            tradeApi = tradeApi ?? new PhinixFrameworkTradeClientService(
-                itemPipeline,
-                builder.HostContext.GetRequiredService<IClientUserDirectory>(),
-                logEvent => builder.HostContext.Log?.Invoke(logEvent.Message, logEvent.LogLevel));
+            Action<LogEventArgs> log = args => hostLog?.Invoke(args.Message, args.LogLevel);
+            itemPipeline = itemPipeline ?? new TradeClientItemPipeline(log, FrameworkCompatibilityMode.Unknown);
+            tradeApi = tradeApi ?? new PhinixFrameworkTradeClientService(itemPipeline, null, log);
             legacyTradeAdapter = legacyTradeAdapter ?? new FrameworkLegacyTradeClientAdapter((PhinixFrameworkTradeClientService)tradeApi);
-            tradeFacade = tradeFacade ?? new FrameworkClientTradeServiceAdapter(
-                tradeApi,
-                builder.HostContext.GetRequiredService<IFrameworkClientTransport>(),
-                builder.HostContext.GetRequiredService<IFrameworkClientCommandTransport>(),
-                builder.HostContext.GetRequiredService<IFrameworkClientLifecycle>(),
-                builder.HostContext.GetRequiredService<IClientSessionContext>(),
-                builder.HostContext.Log);
+            tradeFacade = tradeFacade ?? new FrameworkClientTradeServiceAdapter(tradeApi);
+            tradeUiHostContext = tradeUiHostContext ?? new ClientTradeUiHostContext(tradeFacade);
+
             builder.RegisterApi(tradeApi);
             builder.RegisterApi<IFrameworkTradeUpdateResultApi>((IFrameworkTradeUpdateResultApi)tradeApi);
             builder.RegisterApi<IFrameworkLegacyTradeRepositoryApi>(legacyTradeAdapter);
             builder.RegisterApi<IFrameworkLegacyTradeCompletionApi>(legacyTradeAdapter);
             builder.RegisterApi(tradeFacade);
             builder.RegisterApi<ITradeRequestApi>((ITradeRequestApi)tradeFacade);
-            builder.AddCapabilityProvider(this);
-            builder.AddClientCommandHandler(this);
-
-            tradeUiHostContext = tradeUiHostContext ?? new ClientTradeUiHostContext(
-                tradeFacade,
-                builder.HostContext.GetRequiredService<IClientSettingsContext>(),
-                builder.HostContext.GetRequiredService<IClientUserEventStream>(),
-                builder.HostContext.GetRequiredService<IClientMainThreadDispatcher>(),
-                builder.HostContext.GetRequiredService<IClientWindowService>(),
-                log);
-            defaultTradeBehaviour = defaultTradeBehaviour ?? new PhinixDefaultTradeBehaviour(
-                tradeFacade,
-                builder.HostContext.GetRequiredService<IClientUserDirectory>(),
-                builder.HostContext.GetRequiredService<IClientSettingsContext>(),
-                builder.HostContext.GetRequiredService<IClientMainThreadDispatcher>(),
-                builder.HostContext.GetRequiredService<IClientWindowService>(),
-                tradeUiHostContext,
-                log);
             builder.RegisterApi(tradeUiHostContext);
             builder.RegisterApi<IMainTabProvider>(new TradeMainTabProvider(tradeUiHostContext));
+            builder.AddCapabilityProvider(this);
+            builder.AddClientCommandHandler(this);
             var settingsPanelProvider = new TradeSettingsPanelProvider();
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
             builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
@@ -96,12 +62,16 @@ namespace Phinix.TradeExtension.Client
 
         public void Activate(ExtensionHostContext hostContext)
         {
-            if (tradeApi == null || hostContext == null)
+            if (hostContext == null)
             {
                 return;
             }
 
+            hostLog = hostContext.Log;
+
             IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
+            RegisterThemeDefaults(theme);
+            theme.Reload();
             TradeTheme.Refresh(theme);
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
@@ -111,6 +81,9 @@ namespace Phinix.TradeExtension.Client
             settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
             userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
             updateAcceptingTrades = hostContext.GetRequiredService<Action<bool>>();
+
+            EnsureActivationServices(hostContext);
+            tradeUiHostContext.Start();
 
             // 注入框架 registry 收集的所有 Item codec，让 Trade 能消费 Submod 注册的 codec。
             // 在 Activate 阶段执行，确保所有扩展的 Register() 已完成、codec 列表完整。
@@ -201,6 +174,53 @@ namespace Phinix.TradeExtension.Client
             }
 
             defaultTradeBehaviour?.Stop();
+            tradeUiHostContext?.Stop();
+        }
+
+        private void EnsureActivationServices(ExtensionHostContext hostContext)
+        {
+            Action<LogEventArgs> log = args => hostLog?.Invoke(args.Message, args.LogLevel);
+            IClientUserDirectory userDirectory = hostContext.GetRequiredService<IClientUserDirectory>();
+            IClientMainThreadDispatcher dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
+            IClientWindowService windowService = hostContext.GetRequiredService<IClientWindowService>();
+
+            itemPipeline.SetCompatibilityMode(lifecycle.CompatibilityMode);
+            (tradeApi as PhinixFrameworkTradeClientService)?.InitializeUserDirectory(userDirectory);
+            (tradeFacade as FrameworkClientTradeServiceAdapter)?.Initialize(
+                frameworkClient,
+                commandTransport,
+                lifecycle,
+                sessionContext,
+                hostContext.Log);
+            tradeUiHostContext.Initialize(
+                settingsContext,
+                userEvents,
+                dispatcher,
+                windowService,
+                log);
+            defaultTradeBehaviour = defaultTradeBehaviour ?? new PhinixDefaultTradeBehaviour(
+                tradeFacade,
+                userDirectory,
+                settingsContext,
+                dispatcher,
+                windowService,
+                tradeUiHostContext,
+                log);
+
+        }
+
+        private static void RegisterThemeDefaults(IUiTheme theme)
+        {
+            theme.RegisterColor("trade.ourOfferAccent", new Color(0.30f, 0.65f, 0.35f, 0.70f));
+            theme.RegisterColor("trade.theirOfferAccent", new Color(0.45f, 0.75f, 1.00f, 0.70f));
+            theme.RegisterColor("trade.ourOfferBg", new Color(0.30f, 0.65f, 0.35f, 0.04f));
+            theme.RegisterColor("trade.theirOfferBg", new Color(0.45f, 0.75f, 1.00f, 0.04f));
+            theme.RegisterColor("trade.cancelButton", new Color(0.85f, 0.30f, 0.25f, 1.00f));
+            theme.RegisterColor("trade.acceptedBadge", new Color(0.30f, 0.65f, 0.35f, 1.00f));
+            theme.RegisterColor("trade.pendingBadge", new Color(0.55f, 0.52f, 0.48f, 0.80f));
+            theme.RegisterColor("trade.rowHoverBg", new Color(1.00f, 1.00f, 1.00f, 0.04f));
+            theme.RegisterColor("trade.panelBg", new Color(1.00f, 1.00f, 1.00f, 0.03f));
+            theme.RegisterColor("trade.searchPlaceholder", new Color(0.55f, 0.52f, 0.48f, 0.50f));
         }
 
         public IEnumerable<string> GetCapabilities()

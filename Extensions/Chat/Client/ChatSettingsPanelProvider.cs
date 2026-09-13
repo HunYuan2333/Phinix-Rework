@@ -7,7 +7,7 @@ namespace Phinix.ChatExtension.Client
 {
     internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
-        private readonly IUiTheme theme;
+        private IUiTheme theme;
         private readonly string[] labels = new string[12];
         private readonly float[] labelHeights = new float[12];
         private float cachedWidth = -1f;
@@ -16,6 +16,11 @@ namespace Phinix.ChatExtension.Client
         public ChatSettingsPanelProvider(IUiTheme theme = null)
         {
             this.theme = theme;
+        }
+
+        internal void InitializeTheme(IUiTheme value)
+        {
+            theme = value;
         }
 
         public string SectionId => "chat.display";

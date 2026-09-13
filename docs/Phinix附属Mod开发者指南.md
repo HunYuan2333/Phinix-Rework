@@ -517,7 +517,7 @@ public interface IClientOutgoingCommandHandler : ICommandHandler
 builder.AddClientCommandHandler(this); // 覆盖入站和出站（如果类实现了两个接口）
 ```
 
-参考实现：[BuiltInTradeClientExtension.cs:60](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L60) 同时实现了 `IClientCommandHandler` 和 `IClientOutgoingCommandHandler`。
+参考实现：[BuiltInTradeClientExtension.cs:13](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L13) 同时实现了 `IClientCommandHandler` 和 `IClientOutgoingCommandHandler`。
 
 ### 6.3 Item 管线 ✅ 完整可用（P0 已完成）
 
@@ -973,7 +973,7 @@ public interface IUiTheme
 
 以下服务在 `Activate(ExtensionHostContext hostContext)` 中通过 `hostContext.GetRequiredService<T>()` 获取。
 
-> **关于 Register 阶段使用服务的说明**：当前 host（Client.cs）在构建 `ExtensionHostContext` 时将全部服务注入完成后才调用 `DisoverExtensions` → `Register`，因此 `Register()` 阶段服务实际上已就绪。**当前官方扩展（Chat/Trade）在 `Register()` 中大量使用 `builder.HostContext.GetRequiredService<T>()`。** 推荐做法仍是把需要 host 服务的初始化移到 `Activate()` 中——仅注册 handler/API 留在 `Register()`。后续版本将约束此边界。
+> **关于 Register 阶段使用服务的说明**：即使当前 host 在调用 `DiscoverExtensions` → `Register` 前已经构建了 `ExtensionHostContext`，扩展也不能依赖这一实现细节。官方 Chat/Trade 客户端扩展会在 `Register()` 中注册稳定对象，再在 `Activate()` 中向这些对象注入宿主服务；第三方扩展也应采用同一边界。
 
 ### 8.1 IClientSessionContext
 
@@ -1008,7 +1008,7 @@ public interface IClientSettingsContext
 
 **约定**：key 使用 `"plugin.category.settingName"` 格式（如 `"chat.display.showNameFormatting"`），避免与 host 或其他插件冲突。
 
-`OnSettingChanged` 事件可用于实时响应设置变化。参考 [BuiltInTradeClientExtension.cs:129-136](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L129-L136)。
+`OnSettingChanged` 事件可用于实时响应设置变化。参考 [BuiltInTradeClientExtension.cs:133](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L133)。
 
 ### 8.3 IClientUserDirectory
 
@@ -1154,7 +1154,7 @@ public interface IClientDisplayMessageStore
 }
 ```
 
-如果你需要在新消息到达时触发通知（如播放音效），订阅 `DisplayMessageReceived`。Chat 扩展对此的使用见 [BuiltInChatClientExtension.cs:110-126](Extensions/Chat/Client/BuiltInChatClientExtension.cs#L110-L126)。
+如果你需要在新消息到达时触发通知（如播放音效），订阅 `DisplayMessageReceived`。Chat 扩展对此的使用见 [FrameworkClientChatServiceAdapter.cs:43](Extensions/Chat/Client/FrameworkClientChatServiceAdapter.cs#L43)。
 
 ### 8.13 IExtensionStorageProvider
 
@@ -1391,7 +1391,7 @@ public void Shutdown(ExtensionHostContext hostContext)
 }
 ```
 
-**规则**：`Activate()` 中每一个 `+=` 必须在 `Shutdown()` 中有对应的 `-=`。参考 [BuiltInTradeClientExtension.cs:157-180](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L157-L180) 的标准写法。
+**规则**：`Activate()` 中每一个 `+=` 必须在 `Shutdown()` 中有对应的 `-=`。参考 [BuiltInTradeClientExtension.cs:133](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L133) 与 [BuiltInTradeClientExtension.cs:154](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L154) 的标准写法。
 
 ### 11.4 Draw 路径上的对象分配
 

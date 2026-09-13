@@ -11,21 +11,25 @@ namespace Phinix.TradeExtension.Client
     internal sealed class FrameworkClientTradeServiceAdapter : IClientTradeService, ITradeRequestApi
     {
         private readonly IFrameworkTradeClientApi tradeService;
-        private readonly IFrameworkClientTransport frameworkClient;
-        private readonly IFrameworkClientCommandTransport commandTransport;
-        private readonly IFrameworkClientLifecycle lifecycle;
-        private readonly IClientSessionContext sessionContext;
-        private readonly Action<string, LogLevel> log;
+        private IFrameworkClientTransport frameworkClient;
+        private IFrameworkClientCommandTransport commandTransport;
+        private IFrameworkClientLifecycle lifecycle;
+        private IClientSessionContext sessionContext;
+        private Action<string, LogLevel> log;
 
         public FrameworkClientTradeServiceAdapter(
-            IFrameworkTradeClientApi tradeService,
+            IFrameworkTradeClientApi tradeService)
+        {
+            this.tradeService = tradeService;
+        }
+
+        internal void Initialize(
             IFrameworkClientTransport frameworkClient,
             IFrameworkClientCommandTransport commandTransport,
             IFrameworkClientLifecycle lifecycle,
             IClientSessionContext sessionContext,
             Action<string, LogLevel> log)
         {
-            this.tradeService = tradeService;
             this.frameworkClient = frameworkClient;
             this.commandTransport = commandTransport;
             this.lifecycle = lifecycle;

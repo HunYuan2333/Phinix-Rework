@@ -7,33 +7,48 @@ namespace Phinix.ChatExtension.Client
     internal sealed class FrameworkClientChatServiceAdapter : IClientChatService
     {
         private readonly IFrameworkChatClientApi chatApi;
-        private readonly IClientDisplayMessageFeed messageFeed;
-        private readonly IClientDisplayMessageStore messageStore;
-        private readonly IClientUserDirectory userDirectory;
-        private readonly IClientSettingsContext settingsContext;
+        private IClientDisplayMessageFeed messageFeed;
+        private IClientDisplayMessageStore messageStore;
+        private IClientUserDirectory userDirectory;
+        private IClientSettingsContext settingsContext;
         private readonly object unreadCacheLock = new object();
         private readonly HashSet<string> cachedBlockedUsers = new HashSet<string>();
         private int messageVersion;
         private int cachedMessageVersion = -1;
         private int cachedRawUnread = -1;
         private int cachedFilteredUnread;
+        private bool started;
 
         public FrameworkClientChatServiceAdapter(
-            IFrameworkChatClientApi chatApi,
+            IFrameworkChatClientApi chatApi)
+        {
+            this.chatApi = chatApi;
+        }
+
+        public void Initialize(
             IClientDisplayMessageFeed messageFeed,
             IClientDisplayMessageStore messageStore,
             IClientUserDirectory userDirectory,
             IClientSettingsContext settingsContext)
         {
-            this.chatApi = chatApi;
             this.messageFeed = messageFeed;
             this.messageStore = messageStore;
             this.userDirectory = userDirectory;
             this.settingsContext = settingsContext;
-            if (this.messageFeed != null)
-            {
-                this.messageFeed.DisplayMessageReceived += onDisplayMessageReceived;
-            }
+        }
+
+        public void Start()
+        {
+            if (started || messageFeed == null) return;
+            messageFeed.DisplayMessageReceived += onDisplayMessageReceived;
+            started = true;
+        }
+
+        public void Stop()
+        {
+            if (!started || messageFeed == null) return;
+            messageFeed.DisplayMessageReceived -= onDisplayMessageReceived;
+            started = false;
         }
 
         public event System.EventHandler<UIChatMessageEventArgs> OnChatMessageReceived;

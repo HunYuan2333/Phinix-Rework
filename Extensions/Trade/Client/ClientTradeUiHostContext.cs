@@ -13,21 +13,27 @@ namespace Phinix.TradeExtension.Client
     internal sealed class ClientTradeUiHostContext : ITradeUiHostContext
     {
         private readonly IClientTradeService tradeService;
-        private readonly IClientSettingsContext settingsContext;
-        private readonly IClientUserEventStream userEvents;
-        private readonly IClientMainThreadDispatcher dispatcher;
-        private readonly IClientWindowService windowService;
-        private readonly Action<LogEventArgs> log;
+        private IClientSettingsContext settingsContext;
+        private IClientUserEventStream userEvents;
+        private IClientMainThreadDispatcher dispatcher;
+        private IClientWindowService windowService;
+        private Action<LogEventArgs> log;
+        private bool started;
+        private event EventHandler disconnected;
+        private event EventHandler<UserDisplayNameChangedEventArgs> userDisplayNameChanged;
 
-        public ClientTradeUiHostContext(
-            IClientTradeService tradeService,
+        public ClientTradeUiHostContext(IClientTradeService tradeService)
+        {
+            this.tradeService = tradeService;
+        }
+
+        internal void Initialize(
             IClientSettingsContext settingsContext,
             IClientUserEventStream userEvents,
             IClientMainThreadDispatcher dispatcher,
             IClientWindowService windowService,
             Action<LogEventArgs> log)
         {
-            this.tradeService = tradeService;
             this.settingsContext = settingsContext;
             this.userEvents = userEvents;
             this.dispatcher = dispatcher;
@@ -37,18 +43,34 @@ namespace Phinix.TradeExtension.Client
 
         public IClientTradeService TradeService => tradeService;
 
+        internal void Start()
+        {
+            if (started) return;
+            userEvents.Disconnected += onDisconnected;
+            userEvents.UserDisplayNameChanged += onUserDisplayNameChanged;
+            started = true;
+        }
+
+        internal void Stop()
+        {
+            if (!started) return;
+            userEvents.Disconnected -= onDisconnected;
+            userEvents.UserDisplayNameChanged -= onUserDisplayNameChanged;
+            started = false;
+        }
+
         public bool AllItemsTradable => settingsContext.Get<bool>("trade.allItemsTradable", false);
 
         public event EventHandler OnDisconnect
         {
-            add => userEvents.Disconnected += value;
-            remove => userEvents.Disconnected -= value;
+            add => disconnected += value;
+            remove => disconnected -= value;
         }
 
         public event EventHandler<UserDisplayNameChangedEventArgs> OnUserDisplayNameChanged
         {
-            add => userEvents.UserDisplayNameChanged += value;
-            remove => userEvents.UserDisplayNameChanged -= value;
+            add => userDisplayNameChanged += value;
+            remove => userDisplayNameChanged -= value;
         }
 
         public LookTargets DropPods(IEnumerable<Thing> verseThings)
@@ -79,5 +101,10 @@ namespace Phinix.TradeExtension.Client
         }
 
         public void Log(LogEventArgs args) => log?.Invoke(args);
+
+        private void onDisconnected(object sender, EventArgs args) => disconnected?.Invoke(sender, args);
+
+        private void onUserDisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args) =>
+            userDisplayNameChanged?.Invoke(sender, args);
     }
 }

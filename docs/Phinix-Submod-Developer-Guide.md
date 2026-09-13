@@ -519,7 +519,7 @@ public interface IClientOutgoingCommandHandler : ICommandHandler
 builder.AddClientCommandHandler(this); // Covers both inbound and outbound (if the class implements both interfaces)
 ```
 
-Reference implementation: [BuiltInTradeClientExtension.cs:60](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L60) implements both `IClientCommandHandler` and `IClientOutgoingCommandHandler`.
+Reference implementation: [BuiltInTradeClientExtension.cs:13](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L13) implements both `IClientCommandHandler` and `IClientOutgoingCommandHandler`.
 
 ### 6.3 Item Pipeline ✅ Fully Available (P0 Complete)
 
@@ -974,7 +974,7 @@ public interface IUiTheme
 
 The following services are obtained in `Activate(ExtensionHostContext hostContext)` via `hostContext.GetRequiredService<T>()`.
 
-> **Note on using services during the Register phase**: Currently, the host (Client.cs) injects all services into `ExtensionHostContext` and completes the injection before calling `DiscoverExtensions` → `Register`, so services are actually ready during the `Register()` phase. **Current official extensions (Chat/Trade) heavily use `builder.HostContext.GetRequiredService<T>()` in `Register()`.** The recommended practice is still to move host-service-dependent initialization to `Activate()` — only handler/API registration stays in `Register()`. Future versions will enforce this boundary.
+> **Note on using services during the Register phase**: Even though the current host builds `ExtensionHostContext` before calling `DiscoverExtensions` → `Register`, extensions must not depend on that implementation detail. The official Chat/Trade client extensions register stable objects in `Register()`, then inject host services into those objects in `Activate()`; third-party extensions should follow the same boundary.
 
 ### 8.1 IClientSessionContext
 
@@ -1009,7 +1009,7 @@ public interface IClientSettingsContext
 
 **Convention**: Use the `"plugin.category.settingName"` key format (e.g., `"chat.display.showNameFormatting"`) to avoid conflicts with the host or other plugins.
 
-The `OnSettingChanged` event can be used to respond to setting changes in real time. Reference: [BuiltInTradeClientExtension.cs:129-136](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L129-L136).
+The `OnSettingChanged` event can be used to respond to setting changes in real time. Reference: [BuiltInTradeClientExtension.cs:133](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L133).
 
 ### 8.3 IClientUserDirectory
 
@@ -1155,7 +1155,7 @@ public interface IClientDisplayMessageStore
 }
 ```
 
-If you need to trigger notifications when new messages arrive (e.g., playing a sound), subscribe to `DisplayMessageReceived`. See the Chat extension's usage at [BuiltInChatClientExtension.cs:110-126](Extensions/Chat/Client/BuiltInChatClientExtension.cs#L110-L126).
+If you need to trigger notifications when new messages arrive (e.g., playing a sound), subscribe to `DisplayMessageReceived`. See the Chat extension's usage at [FrameworkClientChatServiceAdapter.cs:43](Extensions/Chat/Client/FrameworkClientChatServiceAdapter.cs#L43).
 
 ### 8.13 IExtensionStorageProvider
 
@@ -1392,7 +1392,7 @@ public void Shutdown(ExtensionHostContext hostContext)
 }
 ```
 
-**Rule**: Every `+=` in `Activate()` must have a corresponding `-=` in `Shutdown()`. See the standard pattern at [BuiltInTradeClientExtension.cs:157-180](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L157-L180).
+**Rule**: Every `+=` in `Activate()` must have a corresponding `-=` in `Shutdown()`. See the standard pattern at [BuiltInTradeClientExtension.cs:133](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L133) and [BuiltInTradeClientExtension.cs:154](Extensions/Trade/Client/BuiltInTradeClientExtension.cs#L154).
 
 ### 11.4 Object Allocation on Draw Paths
 
