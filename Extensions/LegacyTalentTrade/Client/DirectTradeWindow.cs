@@ -1,4 +1,5 @@
 using System;
+using PhinixClient;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -16,18 +17,32 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         private const float PAWN_ROW_HEIGHT = 50f;
         private const float BUTTON_HEIGHT = 30f;
 
+        private readonly TalentTabs offerTabs = new TalentTabs("Phinix_legacyTalentTrade_tradeMyOffer", "Phinix_legacyTalentTrade_tradeTheirOffer");
+        private readonly TalentToolbar toolbar;
+        private Vector2 myScroll;
+        private Vector2 theirScroll;
+        private readonly Dictionary<PawnSummary, string> pawnLabels = new Dictionary<PawnSummary, string>();
+        private object pawnLanguage;
+        private int pawnStateVersion = -1;
         private DirectTrade trade;
         private string silverBuffer = "0";
         private int silverValue;
 
         public override Vector2 InitialSize
         {
-            get { return new Vector2(800f, 550f); }
+            get
+            {
+                Rect safe = UiScreenSafeArea.Current;
+                return new Vector2(Mathf.Min(800f, safe.width), Mathf.Min(550f, safe.height));
+            }
         }
 
         public DirectTradeWindow(DirectTrade trade)
         {
             this.trade = trade;
+            toolbar = new TalentToolbar(ActivateBottomAction, "Phinix_legacyTalentTrade_tradeConfirmSend",
+                "Phinix_legacyTalentTrade_tradeLock", "Phinix_legacyTalentTrade_cancel");
+            resizeable = true;
             this.doCloseButton = false;
             this.doCloseX = true;
             this.absorbInputAroundWindow = true;
@@ -46,210 +61,171 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         public override void DoWindowContents(Rect inRect)
         {
-            // Refresh trade state
             DirectTrade current = TalentTradeManager.GetTrade(trade.Id);
-            if (current == null)
+            if (current == null || current.State == DirectTradeState.Completed || current.State == DirectTradeState.Cancelled)
             {
                 Close();
                 return;
             }
             trade = current;
-
-            if (trade.State == DirectTradeState.Completed || trade.State == DirectTradeState.Cancelled)
+            if (inRect.width <= 0f || inRect.height <= 0f) return;
+            bool isInitiator = trade.InitiatorUuid == TalentTradeManager.GetLocalUuid();
+            string other = isInitiator ? trade.TargetName : trade.InitiatorName;
+            if (string.IsNullOrEmpty(other)) other = isInitiator ? trade.TargetUuid : trade.InitiatorUuid;
+            TalentTradeUi.Label(new Rect(inRect.x, inRect.y, inRect.width, Mathf.Min(30f, inRect.height)),
+                "Phinix_legacyTalentTrade_tradeWith".Translate() + " " + other);
+            float footerHeight = Mathf.Min(62f, Mathf.Max(0f, inRect.height - 36f));
+            Rect footer = new Rect(inRect.x, inRect.yMax - footerHeight, inRect.width, footerHeight);
+            Rect content = new Rect(inRect.x, inRect.y + Mathf.Min(36f, inRect.height), inRect.width,
+                Mathf.Max(0f, inRect.height - 36f - footerHeight - SPACING));
+            if (content.height > 0f)
             {
-                Close();
-                return;
+                var split = ResponsiveSplitLayout.Calculate(content, new Vector2(300f, content.height),
+                    new Vector2(300f, content.height), new Vector2(content.width / 2f, content.height), SPACING, offerTabs.Selected == 0);
+                if (split.Mode == ResponsiveSplitMode.Horizontal)
+                {
+                    DrawMyOffer(split.FirstRect, isInitiator);
+                    DrawTheirOffer(split.SecondRect, isInitiator);
+                }
+                else
+                {
+                    content = offerTabs.Draw(content);
+                    if (offerTabs.Selected == 0) DrawMyOffer(content, isInitiator);
+                    else DrawTheirOffer(content, isInitiator);
+                }
             }
+            DrawBottomButtons(footer, isInitiator);
+        }
 
-            string localUuid = TalentTradeManager.GetLocalUuid();
-            bool isInitiator = trade.InitiatorUuid == localUuid;
+        protected override void SetInitialSizeAndPosition()
+        {
+            base.SetInitialSizeAndPosition();
+            ClampToScreen();
+        }
 
-            // Title
-            Text.Font = GameFont.Medium;
-            string otherName = isInitiator ? trade.TargetName : trade.InitiatorName;
-            if (string.IsNullOrEmpty(otherName)) otherName = isInitiator ? trade.TargetUuid : trade.InitiatorUuid;
-            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 30f), "Phinix_legacyTalentTrade_tradeWith".Translate() + " " + otherName);
-            Text.Font = GameFont.Small;
+        public override void WindowUpdate()
+        {
+            base.WindowUpdate();
+            ClampToScreen();
+        }
 
-            float topY = inRect.y + 36f;
-            float contentHeight = inRect.height - 36f - BUTTON_HEIGHT - SPACING * 2;
-            float halfWidth = (inRect.width - SPACING * 2) / 2f;
-
-            // Left: my offer
-            Rect leftRect = new Rect(inRect.x, topY, halfWidth, contentHeight);
-            DrawMyOffer(leftRect, isInitiator);
-
-            // Divider
-            Widgets.DrawLineVertical(inRect.x + halfWidth + SPACING / 2f, topY, contentHeight);
-
-            // Right: their offer
-            Rect rightRect = new Rect(inRect.x + halfWidth + SPACING * 2, topY, halfWidth, contentHeight);
-            DrawTheirOffer(rightRect, isInitiator);
-
-            // Bottom buttons
-            float btnY = topY + contentHeight + SPACING;
-            DrawBottomButtons(new Rect(inRect.x, btnY, inRect.width, BUTTON_HEIGHT), isInitiator);
+        private void ClampToScreen()
+        {
+            windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(360f, 300f));
         }
 
         private void DrawMyOffer(Rect rect, bool isInitiator)
         {
-            Widgets.DrawMenuSection(rect);
-            Rect inner = rect.ContractedBy(8f);
-            float y = inner.y;
-
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(inner.x, y, inner.width, 22f), "Phinix_legacyTalentTrade_tradeMyOffer".Translate());
-            y += 26f;
-
-            TradeOffer myOffer = isInitiator ? trade.InitiatorOffer : trade.TargetOffer;
-            if (myOffer == null) myOffer = new TradeOffer();
-
-            // Pawns list
-            for (int i = 0; i < myOffer.Pawns.Count; i++)
-            {
-                Rect pawnRow = new Rect(inner.x, y, inner.width, PAWN_ROW_HEIGHT);
-                DrawPawnSummaryRow(pawnRow, myOffer.Pawns[i], true, i);
-                y += PAWN_ROW_HEIGHT + SPACING;
-            }
-
-            // Add pawn button
-            Rect addBtn = new Rect(inner.x, y, 160f, ROW_HEIGHT);
-            if (Widgets.ButtonText(addBtn, "Phinix_legacyTalentTrade_tradeAddUnit".Translate()))
-            {
-                ShowPawnPicker(isInitiator);
-            }
-            y += ROW_HEIGHT + SPACING;
-
-            // Silver
-            Widgets.Label(new Rect(inner.x, y, 100f, ROW_HEIGHT), "Phinix_legacyTalentTrade_tradeSilverAmount".Translate());
-            Rect silverField = new Rect(inner.x + 110f, y, 100f, ROW_HEIGHT);
-            silverBuffer = Widgets.TextField(silverField, silverBuffer);
-            int.TryParse(silverBuffer, out silverValue);
-            if (silverValue < 0) silverValue = 0;
-            Widgets.Label(new Rect(inner.x + 220f, y, 40f, ROW_HEIGHT), "Phinix_legacyTalentTrade_silver".Translate());
+            DrawOffer(rect, isInitiator ? trade.InitiatorOffer : trade.TargetOffer, true, isInitiator);
         }
 
         private void DrawTheirOffer(Rect rect, bool isInitiator)
         {
+            DrawOffer(rect, isInitiator ? trade.TargetOffer : trade.InitiatorOffer, false, isInitiator);
+        }
+
+        private void DrawOffer(Rect rect, TradeOffer offer, bool mine, bool isInitiator)
+        {
+            if (rect.width <= 0f || rect.height <= 0f) return;
             Widgets.DrawMenuSection(rect);
-            Rect inner = rect.ContractedBy(8f);
-            float y = inner.y;
-
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(inner.x, y, inner.width, 22f), "Phinix_legacyTalentTrade_tradeTheirOffer".Translate());
-            y += 26f;
-
-            TradeOffer theirOffer = isInitiator ? trade.TargetOffer : trade.InitiatorOffer;
-            if (theirOffer == null) return;
-
-            // Pawns
-            for (int i = 0; i < theirOffer.Pawns.Count; i++)
+            Rect inner = TalentTradeUi.Inset(rect, 6f);
+            Vector2 scroll = mine ? myScroll : theirScroll;
+            int count = offer == null ? 0 : offer.Pawns.Count;
+            var layout = TalentOfferLayout.Calculate(inner, count, mine);
+            TalentTradeUi.Label(layout.Header,
+                (mine ? "Phinix_legacyTalentTrade_tradeMyOffer" : "Phinix_legacyTalentTrade_tradeTheirOffer").Translate());
+            scroll.y = Mathf.Clamp(scroll.y, 0f, Mathf.Max(0f, layout.ScrollContent.height - layout.Viewport.height));
+            Widgets.BeginScrollView(layout.Viewport, ref scroll, layout.ScrollContent);
+            try
             {
-                Rect pawnRow = new Rect(inner.x, y, inner.width, PAWN_ROW_HEIGHT);
-                DrawPawnSummaryRow(pawnRow, theirOffer.Pawns[i], false, i);
-                y += PAWN_ROW_HEIGHT + SPACING;
+                var range = VirtualListLayout.GetFixedRange(count, PAWN_ROW_HEIGHT + SPACING, scroll.y, layout.Viewport.height, 1);
+                for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+                {
+                    if (offer == null || i >= offer.Pawns.Count) break;
+                    DrawPawnSummaryRow(new Rect(0f, i * (PAWN_ROW_HEIGHT + SPACING), layout.ScrollContent.width, PAWN_ROW_HEIGHT),
+                        offer.Pawns[i], mine, i);
+                }
+                if (layout.ControlsScroll) DrawOfferControls(layout.Controls, offer, mine, isInitiator);
             }
+            finally { Widgets.EndScrollView(); }
+            if (!layout.ControlsScroll) DrawOfferControls(layout.Controls, offer, mine, isInitiator);
+            if (mine) myScroll = scroll; else theirScroll = scroll;
+        }
 
-            // Silver
-            if (theirOffer.SilverAmount > 0)
+        private void DrawOfferControls(Rect rect, TradeOffer offer, bool mine, bool isInitiator)
+        {
+            if (mine)
             {
-                Widgets.Label(new Rect(inner.x, y, inner.width, ROW_HEIGHT),
-                    "Phinix_legacyTalentTrade_tradeSilverAmount".Translate() + ": " + theirOffer.SilverAmount + " " + "Phinix_legacyTalentTrade_silver".Translate());
+                if (TalentTradeUi.Button(new Rect(rect.x, rect.y, rect.width, 28f), "Phinix_legacyTalentTrade_tradeAddUnit".Translate()))
+                    ShowPawnPicker(isInitiator);
+                TalentTradeUi.Label(new Rect(rect.x, rect.y + 30f, rect.width, 20f),
+                    "Phinix_legacyTalentTrade_tradeSilverAmount".Translate() + " (" + "Phinix_legacyTalentTrade_silver".Translate() + ")");
+                silverBuffer = Widgets.TextField(new Rect(rect.x, rect.y + 50f, rect.width, 28f), silverBuffer);
+                int.TryParse(silverBuffer, out silverValue);
+                silverValue = Mathf.Max(0, silverValue);
+            }
+            else
+            {
+                TalentTradeUi.Label(rect, "Phinix_legacyTalentTrade_tradeSilverAmount".Translate() + ": " +
+                    (offer == null ? 0 : offer.SilverAmount) + " " + "Phinix_legacyTalentTrade_silver".Translate());
             }
         }
 
         private void DrawPawnSummaryRow(Rect rect, PawnSummary summary, bool canRemove, int index)
         {
-            if (Mouse.IsOver(rect))
+            if (summary == null) return;
+            if (pawnStateVersion != TalentTradeManager.StateVersion || !ReferenceEquals(pawnLanguage, LanguageDatabase.activeLanguage))
             {
-                Widgets.DrawHighlight(rect);
+                pawnStateVersion = TalentTradeManager.StateVersion;
+                pawnLanguage = LanguageDatabase.activeLanguage;
+                pawnLabels.Clear();
             }
-
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(rect.x, rect.y, rect.width - 60f, 22f), summary.GetDisplayLabel());
-
-            Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(rect.x, rect.y + 22f, rect.width - 60f, 18f), summary.SkillsSummary);
-
-            Text.Font = GameFont.Small;
-
-            if (canRemove)
+            string label;
+            if (!pawnLabels.TryGetValue(summary, out label))
             {
-                Rect removeBtn = new Rect(rect.xMax - 56f, rect.y + 10f, 50f, 24f);
-                if (Widgets.ButtonText(removeBtn, "Phinix_legacyTalentTrade_tradeRemovePawn".Translate()))
-                {
-                    RemovePawnFromOffer(index);
-                }
+                label = summary.GetDisplayLabel();
+                pawnLabels.Add(summary, label);
             }
-
-            // Tooltip
-            if (Mouse.IsOver(rect))
-            {
-                string tip = summary.SkillsSummary;
-                if (!string.IsNullOrEmpty(summary.TraitsSummary))
-                    tip += "\n" + summary.TraitsSummary;
-                if (!string.IsNullOrEmpty(summary.HealthSummary))
-                    tip += "\n" + summary.HealthSummary;
-                TooltipHandler.TipRegion(rect, tip);
-            }
+            if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
+            float buttonWidth = canRemove ? Mathf.Min(60f, rect.width) : 0f;
+            float textWidth = Mathf.Max(0f, rect.width - buttonWidth - (canRemove ? SPACING : 0f));
+            TalentTradeUi.Label(new Rect(rect.x, rect.y, textWidth, 24f), label);
+            TalentTradeUi.Label(new Rect(rect.x, rect.y + 24f, textWidth, 22f), summary.SkillsSummary);
+            if (canRemove && TalentTradeUi.Button(new Rect(rect.xMax - buttonWidth, rect.y + 10f, buttonWidth, 28f),
+                "Phinix_legacyTalentTrade_tradeRemovePawn".Translate())) RemovePawnFromOffer(index);
+            if (Mouse.IsOver(rect)) TooltipHandler.TipRegion(rect, label + "\n" + TalentCard.Details(summary));
         }
 
         private void DrawBottomButtons(Rect rect, bool isInitiator)
         {
-            float x = rect.x;
+            bool mine = isInitiator ? trade.InitiatorConfirmed : trade.TargetConfirmed;
+            toolbar.Draw(rect, 3, disabledIndex: mine ? 1 : -1);
+            bool theirs = isInitiator ? trade.TargetConfirmed : trade.InitiatorConfirmed;
+            if (mine)
+                TalentTradeUi.Label(TalentTradeUi.Below(rect, 32f),
+                    (theirs ? "Phinix_legacyTalentTrade_tradeBothLocked" : "Phinix_legacyTalentTrade_tradeWaitingLock").Translate());
+        }
 
-            bool myConfirmed = isInitiator ? trade.InitiatorConfirmed : trade.TargetConfirmed;
-            bool theirConfirmed = isInitiator ? trade.TargetConfirmed : trade.InitiatorConfirmed;
-
-            // Send offer update
-            Rect sendBtn = new Rect(x, rect.y, 120f, rect.height);
-            if (Widgets.ButtonText(sendBtn, "Phinix_legacyTalentTrade_tradeConfirmSend".Translate()))
+        private void ActivateBottomAction(int action)
+        {
+            bool isInitiator = trade.InitiatorUuid == TalentTradeManager.GetLocalUuid();
+            switch (action)
             {
-                SendCurrentOffer(isInitiator);
-            }
-            x += 120f + SPACING;
-
-            // Lock / Unlock
-            if (!myConfirmed)
-            {
-                Rect lockBtn = new Rect(x, rect.y, 120f, rect.height);
-                if (Widgets.ButtonText(lockBtn, "Phinix_legacyTalentTrade_tradeLock".Translate()))
-                {
+                case 0: SendCurrentOffer(isInitiator); break;
+                case 1:
+                    if (isInitiator ? trade.InitiatorConfirmed : trade.TargetConfirmed) return;
                     SendCurrentOffer(isInitiator);
                     TradeOffer theirOffer = isInitiator ? trade.TargetOffer : trade.InitiatorOffer;
                     if (theirOffer == null || theirOffer.PawnData == null || theirOffer.PawnData.Count == 0)
-                    {
                         TalentTradeManager.LockTrade(trade.Id);
-                    }
                     else
-                    {
                         TransferCompatibilityUi.ConfirmMany(
                             "Phinix_legacyTalentTrade_tradeLockConfirm".Translate(),
                             "Phinix_legacyTalentTrade_tradeTheirOffer".Translate(),
                             theirOffer.PawnManifestData,
                             delegate { TalentTradeManager.LockTrade(trade.Id); });
-                    }
-                }
-            }
-            else
-            {
-                Rect waitLabel = new Rect(x, rect.y, 200f, rect.height);
-                if (theirConfirmed)
-                {
-                    Widgets.Label(waitLabel, "Phinix_legacyTalentTrade_tradeBothLocked".Translate());
-                }
-                else
-                {
-                    Widgets.Label(waitLabel, "Phinix_legacyTalentTrade_tradeWaitingLock".Translate());
-                }
-            }
-
-            // Cancel (right side)
-            Rect cancelBtn = new Rect(rect.xMax - 100f, rect.y, 100f, rect.height);
-            if (Widgets.ButtonText(cancelBtn, "Phinix_legacyTalentTrade_cancel".Translate()))
-            {
-                TalentTradeManager.CancelTrade(trade.Id);
-                Close();
+                    break;
+                case 2: TalentTradeManager.CancelTrade(trade.Id); Close(); break;
             }
         }
 

@@ -76,10 +76,18 @@
     <Compile Include="UnknownItem.cs" />
     <Compile Include="UI\IBadgeProvider.cs" />
     <Compile Include="UI\IMainTabProvider.cs" />
+    <Compile Include="UI\IResponsiveMainTabProvider.cs" />
+    <Compile Include="UI\IResponsiveSidebarProvider.cs" />
     <Compile Include="UI\IUiAcceptKeyHandler.cs" />
     <Compile Include="UI\IServerSidebarProvider.cs" />
     <Compile Include="UI\INoticeBannerProvider.cs" />
     <Compile Include="UI\IUiTheme.cs" />
+    <Compile Include="UI\ResponsiveFormLayout.cs" />
+    <Compile Include="UI\ResponsiveSplitLayout.cs" />
+    <Compile Include="UI\ResponsiveToolbarLayout.cs" />
+    <Compile Include="UI\UiLayoutHints.cs" />
+    <Compile Include="UI\UiScreenSafeArea.cs" />
+    <Compile Include="UI\VirtualListLayout.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj">

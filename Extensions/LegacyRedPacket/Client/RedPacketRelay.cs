@@ -36,6 +36,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private static DateTime nextSendUtc = DateTime.MinValue;
         private static int pollInFlight;
         private static int sendInFlight;
+        private static int pollWorkerSequence;
+        private static int sendWorkerSequence;
+        private static int generation;
 
         private const int PollIntervalMs = 700;
         private const int SendIntervalMs = 80;
@@ -53,6 +56,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void Clear()
         {
+            Interlocked.Increment(ref generation);
+
             lock (OutgoingLock)
             {
                 OutgoingQueue.Clear();
@@ -126,9 +131,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (shouldSend && HasOutgoing())
             {
-                if (Interlocked.CompareExchange(ref sendInFlight, 1, 0) == 0)
+                int workerToken = Interlocked.Increment(ref sendWorkerSequence);
+                if (Interlocked.CompareExchange(ref sendInFlight, workerToken, 0) == 0)
                 {
-                    ThreadPool.QueueUserWorkItem(_ => SendOnceWorker());
+                    int capturedGen = generation;
+                    if (Volatile.Read(ref sendInFlight) == workerToken)
+                        ThreadPool.QueueUserWorkItem(_ => SendOnceWorker(capturedGen, workerToken));
                 }
             }
 
@@ -142,9 +150,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
             }
 
-            if (shouldPoll && Interlocked.CompareExchange(ref pollInFlight, 1, 0) == 0)
+            if (shouldPoll)
             {
-                ThreadPool.QueueUserWorkItem(_ => PollWorker());
+                int pollToken = Interlocked.Increment(ref pollWorkerSequence);
+                if (Interlocked.CompareExchange(ref pollInFlight, pollToken, 0) == 0)
+                {
+                    int capturedGen = generation;
+                    if (Volatile.Read(ref pollInFlight) == pollToken)
+                        ThreadPool.QueueUserWorkItem(_ => PollWorker(capturedGen, pollToken));
+                }
             }
         }
 
@@ -156,7 +170,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
-        private void SendOnceWorker()
+        private void SendOnceWorker(int capturedGen, int workerToken)
         {
             OutgoingProtocol outbound = null;
             try
@@ -197,16 +211,19 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     reader.ReadToEnd();
                 }
 
+                if (generation != capturedGen) return;
                 log?.Invoke("[RedPacket] Relay send ok (event " + outbound.EventId + ").", LogLevel.DEBUG);
             }
             catch (Exception ex)
             {
+                if (generation != capturedGen) return;
                 log?.Invoke("[RedPacket] Relay send failed, will retry: " + ex, LogLevel.WARNING);
                 if (outbound != null)
                 {
                     lock (OutgoingLock)
                     {
-                        OutgoingQueue.Enqueue(outbound);
+                        if (OutgoingQueue.Count < MaxOutgoingQueue)
+                            OutgoingQueue.Enqueue(outbound);
                     }
                 }
 
@@ -217,11 +234,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             finally
             {
-                Interlocked.Exchange(ref sendInFlight, 0);
+                // Only the worker that acquired this exact slot may release it.
+                Interlocked.CompareExchange(ref sendInFlight, 0, workerToken);
             }
         }
 
-        private void PollWorker()
+        private void PollWorker(int capturedGen, int workerToken)
         {
             try
             {
@@ -258,17 +276,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 request.Proxy = null;
                 request.Headers["X-Api-Key"] = RelayApiKey;
 
-                string responseText;
                 using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
                 {
-                    responseText = reader.ReadToEnd();
-                }
+                    if (response.ContentLength > RedPacketLimits.MaxResponseBytes)
+                    {
+                        log?.Invoke("[RedPacket] Relay response too large (" + response.ContentLength + " bytes), skipping.", LogLevel.WARNING);
+                        return;
+                    }
 
-                ParseRawResponse(responseText);
+                    using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                    {
+                        ParseRawResponseStreaming(reader, capturedGen);
+                    }
+                }
             }
             catch (Exception ex)
             {
+                if (generation != capturedGen) return;
                 log?.Invoke("[RedPacket] Relay poll failed, will retry: " + ex, LogLevel.WARNING);
                 lock (StateLock)
                 {
@@ -277,16 +301,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             finally
             {
-                Interlocked.Exchange(ref pollInFlight, 0);
+                Interlocked.CompareExchange(ref pollInFlight, 0, workerToken);
             }
         }
 
-        private static void ParseRawResponse(string responseText)
+        private void ParseRawResponseStreaming(StreamReader reader, int capturedGen)
         {
-            if (string.IsNullOrEmpty(responseText)) return;
+            if (reader == null) return;
 
-            string[] lines = responseText.Split(new[] { '\n' }, StringSplitOptions.None);
-            if (lines.Length == 0) return;
+            string firstLine = reader.ReadLine();
+            if (string.IsNullOrEmpty(firstLine)) return;
 
             long currentLastSeen;
             lock (StateLock)
@@ -295,16 +319,25 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             long maxId = currentLastSeen;
-
-            string firstLine = lines[0].Trim();
+            firstLine = firstLine.Trim();
             if (long.TryParse(firstLine, out long reportedLastId))
             {
                 maxId = Math.Max(maxId, reportedLastId);
             }
 
-            for (int i = 1; i < lines.Length; i++)
+            int lineCount = 0;
+            int totalBytes = firstLine.Length;
+            int droppedIncoming = 0;
+            string line;
+            while ((line = reader.ReadLine()) != null)
             {
-                string line = lines[i];
+                lineCount++;
+                totalBytes += line.Length;
+
+                // RP-06: 响应行数和累计字节限制
+                if (lineCount > FetchLimit || totalBytes > RedPacketLimits.MaxResponseBytes)
+                    break;
+
                 if (string.IsNullOrEmpty(line)) continue;
 
                 int tabIndex = line.IndexOf('\t');
@@ -314,8 +347,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (!long.TryParse(idPart, out long idValue)) continue;
                 if (idValue <= currentLastSeen) continue;
 
+                // A syntactically valid relay id has been consumed even when its payload
+                // is malformed. Advancing here prevents one bad row from being fetched
+                // and decoded forever.
+                if (idValue > maxId) maxId = idValue;
+
                 string b64 = line.Substring(tabIndex + 1).Trim();
                 if (string.IsNullOrEmpty(b64)) continue;
+
+                // RP-06: Base64 编码长度预检查（解码后约为 3/4）
+                if (b64.Length > RedPacketProtocol.MaxWireMessageChars) continue;
 
                 string message;
                 try
@@ -328,17 +369,28 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     continue;
                 }
 
+                // RP-06: 解码后消息长度检查
+                if (message.Length > RedPacketProtocol.MaxWireMessageChars) continue;
+
+                // RP-16: generation 检查，防止旧 worker 回灌
+                if (generation != capturedGen) return;
+
                 lock (IncomingLock)
                 {
                     if (IncomingQueue.Count >= MaxIncomingQueue)
                     {
                         IncomingQueue.Dequeue();
+                        droppedIncoming++;
                     }
                     IncomingQueue.Enqueue(message);
                 }
-
-                if (idValue > maxId) maxId = idValue;
             }
+
+            if (droppedIncoming > 0)
+                log?.Invoke("[RedPacket] Relay incoming queue overflow, dropped " + droppedIncoming + " oldest message(s).", LogLevel.WARNING);
+
+            // RP-16: 写回 lastSeenId 前再次检查 generation
+            if (generation != capturedGen) return;
 
             lock (StateLock)
             {

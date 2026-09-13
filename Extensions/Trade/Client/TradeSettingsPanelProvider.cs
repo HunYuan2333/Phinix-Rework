@@ -1,5 +1,6 @@
 using System;
 using PhinixClient.Framework;
+using UnityEngine;
 using Verse;
 
 namespace Phinix.TradeExtension.Client
@@ -11,6 +12,10 @@ namespace Phinix.TradeExtension.Client
     /// </summary>
     internal sealed class TradeSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
+        private readonly string[] labels = new string[4];
+        private readonly float[] heights = new float[4];
+        private float cachedWidth = -1f;
+        private object cachedLanguage;
         public string SectionId => "trade.general";
 
         public float Order => 120f;
@@ -19,21 +24,37 @@ namespace Phinix.TradeExtension.Client
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         {
-            bool acceptingTrades = settings.Get("trade.acceptingTrades", true);
-            listing.CheckboxLabeled("Phinix_modSettings_acceptingTradesTitle".Translate(), ref acceptingTrades);
-            settings.Set("trade.acceptingTrades", acceptingTrades);
+            RebuildLabels(listing.ColumnWidth);
+            DrawCheckbox(listing, settings, 0, "trade.acceptingTrades", true);
+            DrawCheckbox(listing, settings, 1, "trade.allItemsTradable", false);
+            DrawCheckbox(listing, settings, 2, "trade.showBlockedTrades", false);
+            DrawCheckbox(listing, settings, 3, "trade.dropCurrentMap", false);
+        }
 
-            bool allItemsTradable = settings.Get("trade.allItemsTradable", false);
-            listing.CheckboxLabeled("Phinix_modSettings_allItemsTradable".Translate(), ref allItemsTradable);
-            settings.Set("trade.allItemsTradable", allItemsTradable);
+        private void RebuildLabels(float width)
+        {
+            width = Mathf.Max(1f, width);
+            object language = LanguageDatabase.activeLanguage;
+            if (Mathf.Approximately(cachedWidth, width) && ReferenceEquals(cachedLanguage, language)) return;
+            cachedWidth = width;
+            cachedLanguage = language;
+            string[] keys = { "Phinix_modSettings_acceptingTradesTitle", "Phinix_modSettings_allItemsTradable",
+                "Phinix_modSettings_showBlockedTrades", "Phinix_modSettings_dropCurrentMap" };
+            for (int i = 0; i < keys.Length; i++)
+            {
+                labels[i] = keys[i].Translate();
+                heights[i] = Mathf.Max(30f, Text.CalcHeight(labels[i], Mathf.Max(1f, width - 36f)));
+            }
+        }
 
-            bool showBlockedTrades = settings.Get("trade.showBlockedTrades", false);
-            listing.CheckboxLabeled("Phinix_modSettings_showBlockedTrades".Translate(), ref showBlockedTrades);
-            settings.Set("trade.showBlockedTrades", showBlockedTrades);
-
-            bool dropCurrentMap = settings.Get("trade.dropCurrentMap", false);
-            listing.CheckboxLabeled("Phinix_modSettings_dropCurrentMap".Translate(), ref dropCurrentMap);
-            settings.Set("trade.dropCurrentMap", dropCurrentMap);
+        private void DrawCheckbox(Listing_Standard listing, IClientSettingsContext settings,
+            int labelIndex, string key, bool defaultValue)
+        {
+            bool value = settings.Get(key, defaultValue);
+            Rect rect = listing.GetRect(heights[labelIndex]);
+            Widgets.CheckboxLabeled(rect, labels[labelIndex], ref value);
+            TooltipHandler.TipRegion(rect, labels[labelIndex]);
+            settings.Set(key, value);
         }
 
         public bool TryMigrateLegacySettings(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues)

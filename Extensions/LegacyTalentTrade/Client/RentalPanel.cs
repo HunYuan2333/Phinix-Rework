@@ -1,4 +1,5 @@
 using System;
+using PhinixClient;
 using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
@@ -16,6 +17,25 @@ namespace Phinix.LegacyTalentTradeExtension.Client
         private const float BUTTON_HEIGHT = 30f;
         private const float TOOLBAR_HEIGHT = 36f;
         private const float SPACING = 6f;
+
+        private readonly TalentToolbar toolbar;
+        private readonly TalentForm form = new TalentForm("Phinix_legacyTalentTrade_selectRentalPawn",
+            "Phinix_legacyTalentTrade_rentalPricePerDay", "Phinix_legacyTalentTrade_rentalMaxDays", "Phinix_legacyTalentTrade_rentalDeposit");
+        private readonly List<RentalContract> visibleContracts = new List<RentalContract>();
+        private readonly List<TalentCard> cards = new List<TalentCard>();
+        private float[] offsets = Array.Empty<float>();
+        private int layoutVersion = -1;
+        private ViewMode layoutMode;
+        private string layoutUuid;
+        private object layoutLanguage;
+        private float layoutWidth = -1f;
+        private int nextDaysChangeTick = int.MaxValue;
+
+        public RentalPanel()
+        {
+            toolbar = new TalentToolbar(ActivateToolbar, "Phinix_legacyTalentTrade_rentalList",
+                "Phinix_legacyTalentTrade_rentalMyListings", "Phinix_legacyTalentTrade_rentalMyRentals", "Phinix_legacyTalentTrade_refresh");
+        }
 
         private Vector2 listScrollPos;
         // §8.3：Draw 路径不每帧取快照——按状态版本缓存
@@ -36,290 +56,127 @@ namespace Phinix.LegacyTalentTradeExtension.Client
 
         public void Draw(Rect rect)
         {
-            Rect toolbarRect = new Rect(rect.x, rect.y, rect.width, TOOLBAR_HEIGHT);
-            DrawToolbar(toolbarRect);
-
-            Rect contentRect = new Rect(rect.x, rect.y + TOOLBAR_HEIGHT + SPACING, rect.width, rect.height - TOOLBAR_HEIGHT - SPACING);
-
-            switch (viewMode)
-            {
-                case ViewMode.ListForRent:
-                    DrawListForRentPanel(contentRect);
-                    break;
-                default:
-                    DrawListings(contentRect);
-                    break;
-            }
+            if (rect.width <= 0f || rect.height <= 0f) return;
+            bool creating = viewMode == ViewMode.ListForRent;
+            float height = toolbar.Draw(rect, creating ? 1 : 4, creating ? 1 : 0,
+                creating ? "Phinix_legacyTalentTrade_cancel" : "Phinix_legacyTalentTrade_rentalList");
+            Rect content = TalentTradeUi.Below(rect, height + SPACING);
+            if (content.height <= 0f) return;
+            if (viewMode == ViewMode.ListForRent) DrawListForRentPanel(content);
+            else DrawListings(content);
         }
 
-        private void DrawToolbar(Rect rect)
+        private void ActivateToolbar(int action)
         {
-            float x = rect.x;
-
-            // List for Rent button
-            Rect listBtn = new Rect(x, rect.y, 120f, rect.height);
-            string listLabel = viewMode == ViewMode.ListForRent ? "Phinix_legacyTalentTrade_cancel".Translate() : "Phinix_legacyTalentTrade_rentalList".Translate();
-            if (Widgets.ButtonText(listBtn, listLabel))
+            switch (action)
             {
-                if (viewMode == ViewMode.ListForRent)
-                {
-                    viewMode = ViewMode.Browse;
-                    ResetListState();
-                }
-                else
-                {
-                    viewMode = ViewMode.ListForRent;
-                }
-            }
-            x += 120f + SPACING;
-
-            if (viewMode != ViewMode.ListForRent)
-            {
-                // My Listings
-                Rect myListBtn = new Rect(x, rect.y, 100f, rect.height);
-                if (Widgets.ButtonText(myListBtn, "Phinix_legacyTalentTrade_rentalMyListings".Translate()))
-                {
-                    viewMode = viewMode == ViewMode.MyListings ? ViewMode.Browse : ViewMode.MyListings;
-                }
-                x += 100f + SPACING;
-
-                // My Rentals
-                Rect myRentBtn = new Rect(x, rect.y, 100f, rect.height);
-                if (Widgets.ButtonText(myRentBtn, "Phinix_legacyTalentTrade_rentalMyRentals".Translate()))
-                {
-                    viewMode = viewMode == ViewMode.MyRentals ? ViewMode.Browse : ViewMode.MyRentals;
-                }
-
-                // Refresh
-                Rect refreshRect = new Rect(rect.xMax - 80f - 20f, rect.y, 80f, rect.height);
-                if (Widgets.ButtonText(refreshRect, "Phinix_legacyTalentTrade_refresh".Translate()))
-                {
-                    // Request rental sync (reuse market sync pattern)
+                case 0:
+                    if (viewMode == ViewMode.ListForRent) { viewMode = ViewMode.Browse; ResetListState(); }
+                    else viewMode = ViewMode.ListForRent;
+                    break;
+                case 1: viewMode = viewMode == ViewMode.MyListings ? ViewMode.Browse : ViewMode.MyListings; break;
+                case 2: viewMode = viewMode == ViewMode.MyRentals ? ViewMode.Browse : ViewMode.MyRentals; break;
+                case 3:
                     string uuid = TalentTradeManager.GetLocalUuid();
-                    if (!string.IsNullOrEmpty(uuid))
-                    {
-                        TalentTradeManager.SendProtocol(TalentTradeProtocol.BuildMarketSync(uuid));
-                    }
-                }
+                    if (!string.IsNullOrEmpty(uuid)) TalentTradeManager.SendProtocol(TalentTradeProtocol.BuildMarketSync(uuid));
+                    break;
             }
         }
 
         private void DrawListings(Rect rect)
         {
-            // §8.3：Draw 路径不每帧取快照——按状态版本缓存
             if (cachedStateVersion != TalentTradeManager.StateVersion)
             {
                 cachedStateVersion = TalentTradeManager.StateVersion;
                 cachedContracts = TalentTradeManager.GetRentalContractsSnapshot();
             }
-            RentalContract[] contracts = cachedContracts;
             string localUuid = TalentTradeManager.GetLocalUuid();
-
-            List<RentalContract> filtered = new List<RentalContract>();
-            for (int i = 0; i < contracts.Length; i++)
+            float width = Mathf.Max(1f, rect.width - 16f);
+            int ticks = Find.TickManager == null ? 0 : Find.TickManager.TicksGame;
+            bool daysChanged = ticks >= nextDaysChangeTick;
+            if (layoutVersion != cachedStateVersion || layoutMode != viewMode || layoutUuid != localUuid ||
+                layoutWidth != width || daysChanged || !ReferenceEquals(layoutLanguage, LanguageDatabase.activeLanguage))
             {
-                if (contracts[i] == null) continue;
-                if ((contracts[i].State == RentalContractState.Listed || contracts[i].State == RentalContractState.Active)
-                    && !TradeablePawnUtility.CanRentPawn(contracts[i].Summary)) continue;
-
-                switch (viewMode)
+                layoutVersion = cachedStateVersion;
+                layoutMode = viewMode;
+                layoutUuid = localUuid;
+                layoutWidth = width;
+                layoutLanguage = LanguageDatabase.activeLanguage;
+                nextDaysChangeTick = int.MaxValue;
+                visibleContracts.Clear();
+                cards.Clear();
+                for (int i = 0; i < cachedContracts.Length; i++)
                 {
-                    case ViewMode.MyListings:
-                        if (contracts[i].OwnerUuid == localUuid && contracts[i].State == RentalContractState.Listed)
-                            filtered.Add(contracts[i]);
-                        break;
-                    case ViewMode.MyRentals:
-                        if (contracts[i].RenterUuid == localUuid && contracts[i].State == RentalContractState.Active)
-                            filtered.Add(contracts[i]);
-                        break;
-                    default:
-                        if (contracts[i].State == RentalContractState.Listed)
-                            filtered.Add(contracts[i]);
-                        break;
+                    RentalContract contract = cachedContracts[i];
+                    if (contract == null) continue;
+                    if ((contract.State == RentalContractState.Listed || contract.State == RentalContractState.Active) &&
+                        !TradeablePawnUtility.CanRentPawn(contract.Summary)) continue;
+                    bool include = viewMode == ViewMode.MyListings
+                        ? contract.OwnerUuid == localUuid && contract.State == RentalContractState.Listed
+                        : viewMode == ViewMode.MyRentals
+                            ? contract.RenterUuid == localUuid && contract.State == RentalContractState.Active
+                            : contract.State == RentalContractState.Listed;
+                    if (!include) continue;
+                    bool rented = contract.RenterUuid == localUuid && contract.State == RentalContractState.Active;
+                    string text = TalentCard.Description(contract.Summary) + "\n" +
+                        "Phinix_legacyTalentTrade_rentalOwner".Translate(contract.OwnerName ?? "???") + "\n" +
+                        "Phinix_legacyTalentTrade_rentalPriceFormat".Translate(contract.PricePerDay.ToString()) + " | " +
+                        "Phinix_legacyTalentTrade_rentalDepositFormat".Translate(contract.Deposit.ToString()) + "\n" +
+                        "Phinix_legacyTalentTrade_rentalMaxDays".Translate() + ": " + contract.MaxDays;
+                    if (rented && contract.ExpiryTick > 0)
+                    {
+                        int days = Mathf.Max(0, (contract.ExpiryTick - ticks) / GenDate.TicksPerDay);
+                        if (days > 0)
+                            nextDaysChangeTick = Math.Min(nextDaysChangeTick, contract.ExpiryTick - days * GenDate.TicksPerDay + 1);
+                        text += "\n" + "Phinix_legacyTalentTrade_rentalDaysLeft".Translate(
+                            days.ToString());
+                    }
+                    visibleContracts.Add(contract);
+                    cards.Add(new TalentCard(text, TalentCard.Details(contract.Summary),
+                        rented ? "Phinix_legacyTalentTrade_rentalReturn" :
+                        contract.OwnerUuid == localUuid ? "Phinix_legacyTalentTrade_rentalDelist" : "Phinix_legacyTalentTrade_rentalRent", width));
                 }
+                offsets = new float[cards.Count + 1];
+                for (int i = 0; i < cards.Count; i++) offsets[i + 1] = offsets[i] + cards[i].Height + SPACING;
             }
-
-            if (filtered.Count == 0)
+            if (cards.Count == 0)
             {
-                Widgets.DrawMenuSection(rect);
                 Widgets.NoneLabelCenteredVertically(rect, "Phinix_legacyTalentTrade_rentalNoListings".Translate());
                 return;
             }
-
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, filtered.Count * (ROW_HEIGHT + SPACING));
-            Widgets.BeginScrollView(rect, ref listScrollPos, viewRect);
-
-            float y = 0f;
-            for (int i = 0; i < filtered.Count; i++)
+            listScrollPos.y = Mathf.Clamp(listScrollPos.y, 0f, Mathf.Max(0f, offsets[cards.Count] - rect.height));
+            Widgets.BeginScrollView(rect, ref listScrollPos, new Rect(0f, 0f, width, offsets[cards.Count]));
+            try
             {
-                Rect rowRect = new Rect(0f, y, viewRect.width, ROW_HEIGHT);
-                DrawListingRow(rowRect, filtered[i], localUuid);
-                y += ROW_HEIGHT + SPACING;
+                var range = VirtualListLayout.GetDynamicRange(offsets, cards.Count, listScrollPos.y, rect.height, 1);
+                for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+                    if (cards[i].Draw(new Rect(0f, offsets[i], width, cards[i].Height)))
+                    {
+                        var contract = visibleContracts[i];
+                        if (contract.RenterUuid == localUuid && contract.State == RentalContractState.Active) DoReturn(contract);
+                        else if (contract.OwnerUuid == localUuid) DoDelist(contract);
+                        else ConfirmRent(contract);
+                    }
             }
-
-            Widgets.EndScrollView();
+            finally { Widgets.EndScrollView(); }
         }
 
-        private void DrawListingRow(Rect rect, RentalContract contract, string localUuid)
-        {
-            Widgets.DrawMenuSection(rect);
-            if (Mouse.IsOver(rect))
-            {
-                Widgets.DrawHighlight(rect);
-            }
 
-            Rect inner = rect.ContractedBy(6f);
-            float infoWidth = inner.width - BUTTON_WIDTH - SPACING;
-            Rect infoRect = new Rect(inner.x, inner.y, infoWidth, inner.height);
-
-            // Name
-            string displayLabel = contract.Summary != null ? contract.Summary.GetDisplayLabel() : "???";
-            Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(infoRect.x, infoRect.y, infoRect.width, 22f), displayLabel);
-
-            Text.Font = GameFont.Tiny;
-
-            // Race + compatibility
-            if (contract.Summary != null)
-            {
-                string raceName = contract.Summary.RaceDefName ?? "Human";
-                bool hasRace = DefDatabase<ThingDef>.GetNamedSilentFail(raceName) != null;
-                string raceStatus = hasRace ? "✓" : "✗";
-                Widgets.Label(new Rect(infoRect.x, infoRect.y + 22f, infoRect.width, 18f),
-                    $"{raceStatus} {raceName} | {contract.Summary.BiologicalAge} {"Phinix_legacyTalentTrade_ageUnit".Translate()}");
-            }
-
-            // Owner
-            string ownerText = "Phinix_legacyTalentTrade_rentalOwner".Translate(contract.OwnerName ?? "???");
-            Widgets.Label(new Rect(infoRect.x, infoRect.y + 40f, infoRect.width, 18f), ownerText);
-
-            // Price info
-            string priceText = "Phinix_legacyTalentTrade_rentalPriceFormat".Translate(contract.PricePerDay.ToString());
-            string depositText = "Phinix_legacyTalentTrade_rentalDepositFormat".Translate(contract.Deposit.ToString());
-            Widgets.Label(new Rect(infoRect.x, infoRect.y + 58f, infoRect.width, 18f),
-                priceText + " | " + depositText + " | " + "Phinix_legacyTalentTrade_rentalMaxDays".Translate() + ": " + contract.MaxDays);
-
-            Text.Font = GameFont.Small;
-
-            // Action button
-            Rect btnRect = new Rect(inner.xMax - BUTTON_WIDTH, inner.y + (inner.height - BUTTON_HEIGHT) / 2f, BUTTON_WIDTH, BUTTON_HEIGHT);
-
-            bool isMine = contract.OwnerUuid == localUuid;
-            bool isMyRental = contract.RenterUuid == localUuid && contract.State == RentalContractState.Active;
-
-            if (isMyRental)
-            {
-                // Show days remaining
-                if (contract.ExpiryTick > 0 && Find.TickManager != null)
-                {
-                    int ticksLeft = contract.ExpiryTick - Find.TickManager.TicksGame;
-                    int daysLeft = Mathf.Max(0, ticksLeft / GenDate.TicksPerDay);
-                    Rect daysRect = new Rect(btnRect.x, btnRect.y - 20f, BUTTON_WIDTH, 18f);
-                    Text.Font = GameFont.Tiny;
-                    Widgets.Label(daysRect, "Phinix_legacyTalentTrade_rentalDaysLeft".Translate(daysLeft.ToString()));
-                    Text.Font = GameFont.Small;
-                }
-
-                if (Widgets.ButtonText(btnRect, "Phinix_legacyTalentTrade_rentalReturn".Translate()))
-                {
-                    DoReturn(contract);
-                }
-            }
-            else if (isMine && contract.State == RentalContractState.Listed)
-            {
-                if (Widgets.ButtonText(btnRect, "Phinix_legacyTalentTrade_rentalDelist".Translate()))
-                {
-                    DoDelist(contract);
-                }
-            }
-            else if (contract.State == RentalContractState.Listed)
-            {
-                if (Widgets.ButtonText(btnRect, "Phinix_legacyTalentTrade_rentalRent".Translate()))
-                {
-                    ConfirmRent(contract);
-                }
-            }
-
-            // Tooltip
-            if (contract.Summary != null && Mouse.IsOver(infoRect))
-            {
-                string tip = contract.Summary.SkillsSummary;
-                if (!string.IsNullOrEmpty(contract.Summary.TraitsSummary))
-                    tip += "\n" + contract.Summary.TraitsSummary;
-                if (!string.IsNullOrEmpty(contract.Summary.HealthSummary))
-                    tip += "\n" + contract.Summary.HealthSummary;
-                TooltipHandler.TipRegion(infoRect, tip);
-            }
-        }
 
         // --- List for Rent flow ---
 
         private void DrawListForRentPanel(Rect rect)
         {
-            Widgets.DrawMenuSection(rect);
-            Rect inner = rect.ContractedBy(12f);
-            float y = inner.y;
-
-            Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inner.x, y, inner.width, 30f), "Phinix_legacyTalentTrade_rentalList".Translate());
-            Text.Font = GameFont.Small;
-            y += 36f;
-
-            // Pawn selector
-            Widgets.Label(new Rect(inner.x, y, 120f, 28f), "Phinix_legacyTalentTrade_selectRentalPawn".Translate());
-            Rect pawnBtnRect = new Rect(inner.x + 130f, y, 200f, 28f);
-            string pawnLabel = selectedPawn != null ? TradeablePawnUtility.GetLabel(selectedPawn) : (string)"Phinix_legacyTalentTrade_select".Translate();
-            if (Widgets.ButtonText(pawnBtnRect, pawnLabel))
+            form.Begin(rect, selectedPawn);
+            try
             {
-                ShowPawnPicker();
+                if (form.PawnButton()) ShowPawnPicker();
+                form.Number(1, ref pricePerDayBuffer, ref pricePerDayValue, 0);
+                form.Number(2, ref maxDaysBuffer, ref maxDaysValue, 1);
+                form.Number(3, ref depositBuffer, ref depositValue, 0);
+                if (form.Confirm(selectedPawn != null && pricePerDayValue > 0 && maxDaysValue > 0)) DoListForRent();
             }
-            y += 36f;
-
-            // Pawn preview
-            if (selectedPawn != null)
-            {
-                PawnSummary preview = PawnSummary.FromPawn(selectedPawn);
-                Text.Font = GameFont.Tiny;
-                string previewText = preview.GetDisplayLabel() + "\n" + preview.SkillsSummary + "\n" + preview.TraitsSummary;
-                float previewHeight = Text.CalcHeight(previewText, inner.width);
-                Widgets.Label(new Rect(inner.x, y, inner.width, previewHeight), previewText);
-                y += previewHeight + SPACING;
-                Text.Font = GameFont.Small;
-            }
-
-            // Price per day
-            Widgets.Label(new Rect(inner.x, y, 120f, 28f), "Phinix_legacyTalentTrade_rentalPricePerDay".Translate());
-            Rect priceField = new Rect(inner.x + 130f, y, 120f, 28f);
-            pricePerDayBuffer = Widgets.TextField(priceField, pricePerDayBuffer);
-            int.TryParse(pricePerDayBuffer, out pricePerDayValue);
-            if (pricePerDayValue < 0) pricePerDayValue = 0;
-            Widgets.Label(new Rect(inner.x + 260f, y, 60f, 28f), "Phinix_legacyTalentTrade_silver".Translate());
-            y += 36f;
-
-            // Max days
-            Widgets.Label(new Rect(inner.x, y, 120f, 28f), "Phinix_legacyTalentTrade_rentalMaxDays".Translate());
-            Rect daysField = new Rect(inner.x + 130f, y, 120f, 28f);
-            maxDaysBuffer = Widgets.TextField(daysField, maxDaysBuffer);
-            int.TryParse(maxDaysBuffer, out maxDaysValue);
-            if (maxDaysValue < 1) maxDaysValue = 1;
-            y += 36f;
-
-            // Deposit
-            Widgets.Label(new Rect(inner.x, y, 120f, 28f), "Phinix_legacyTalentTrade_rentalDeposit".Translate());
-            Rect depositField = new Rect(inner.x + 130f, y, 120f, 28f);
-            depositBuffer = Widgets.TextField(depositField, depositBuffer);
-            int.TryParse(depositBuffer, out depositValue);
-            if (depositValue < 0) depositValue = 0;
-            Widgets.Label(new Rect(inner.x + 260f, y, 60f, 28f), "Phinix_legacyTalentTrade_silver".Translate());
-            y += 36f;
-
-            // Confirm
-            Rect confirmRect = new Rect(inner.x, y, 160f, 36f);
-            bool canConfirm = selectedPawn != null && pricePerDayValue > 0 && maxDaysValue > 0;
-            if (canConfirm && Widgets.ButtonText(confirmRect, "Phinix_legacyTalentTrade_confirm".Translate()))
-            {
-                DoListForRent();
-            }
+            finally { form.End(); }
         }
 
         private void ShowPawnPicker()

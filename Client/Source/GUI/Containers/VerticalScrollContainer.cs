@@ -36,15 +36,21 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
+            inRect.width = Mathf.Max(0f, inRect.width);
+            inRect.height = Mathf.Max(0f, inRect.height);
+
             // Calculate the overflowed size the children will take
             // Only supports y-overflow at the moment
-            float widthChild = inRect.width - SCROLL_BAR_WIDTH;
-            float heightChild = child.CalcHeight(widthChild);
-            if (heightChild == FLUID)
+            float heightChild = child.CalcHeight(inRect.width);
+            if (heightChild == FLUID || heightChild <= inRect.height)
             {
-                // If the child is height-fluid, we attribute all available space
-                heightChild = inRect.height;
+                ResetVerticalScroll();
+                child.Draw(inRect);
+                return;
             }
+
+            float widthChild = Mathf.Max(0f, inRect.width - SCROLL_BAR_WIDTH);
+            heightChild = Mathf.Max(inRect.height, child.CalcHeight(widthChild));
 
             // Create an inner container that will hold the scrollable content
             Rect viewRect = new Rect(inRect.xMin, inRect.yMin, widthChild, heightChild);
@@ -67,6 +73,13 @@ namespace PhinixClient.GUI
                 // Invoke the scroll callback
                 onScroll?.Invoke(scrollPosition);
             }
+        }
+
+        private void ResetVerticalScroll()
+        {
+            if (scrollPosition.y == 0f) return;
+            scrollPosition.y = 0f;
+            onScroll?.Invoke(scrollPosition);
         }
 
         /// <inheritdoc />

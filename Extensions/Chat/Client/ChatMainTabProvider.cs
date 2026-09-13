@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using PhinixClient;
 using PhinixClient.Framework;
 using UserManagement;
@@ -10,28 +9,46 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    public class ChatMainTabProvider : IMainTabProvider, IBadgeProvider, IUiAcceptKeyHandler
+    public class ChatMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, IBadgeProvider, IUiAcceptKeyHandler
     {
         private const float CHAT_TEXTBOX_HEIGHT = 30f;
         private const float CHAT_SEND_BUTTON_WIDTH = 80f;
         private const float DEFAULT_SPACING = 10f;
-        private const float REPLY_BAR_HEIGHT = 24f;
+        private const float MINIMUM_INPUT_WIDTH = 180f;
+        private const float MINIMUM_REPLY_BAR_HEIGHT = 24f;
+        private const float MAXIMUM_REPLY_BAR_HEIGHT = 84f;
         private const float REPLY_LINE_WIDTH = 3f;
+        private const float REPLY_CLOSE_WIDTH = 24f;
+        private const float REPLY_TEXT_PADDING = 4f;
         private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
         private const int REFOCUS_ATTEMPTS = 2;
 
-        private static readonly Regex AtPartialRegex = new Regex(@"@([^\s]*)$", RegexOptions.Compiled);
+        private static readonly UiLayoutHints CachedLayoutHints = new UiLayoutHints(
+            new Vector2(360f, 260f),
+            new Vector2(800f, 560f),
+            true);
 
         private readonly IChatUiHostContext hostContext;
         private readonly IChatTabContent chatMessageList;
         private readonly IClientUserDirectory userDirectory;
 
         private string message = "";
+        private string lastAutocompleteText = "";
         private bool chatInputOwned;
         private int refocusAttemptsRemaining;
+        private UIChatMessage cachedReplyTarget;
+        private object cachedReplyLanguage;
+        private float cachedReplyWidth = -1f;
+        private float cachedReplyHeight;
+        private string cachedReplyLabel;
+        private string cachedReplyTooltip;
+        private object cachedSendLanguage;
+        private string cachedSendLabel;
+        private float cachedSendWidth;
 
         public string TabLabel => "Phinix_tabs_chat".Translate();
         public float TabOrder => 0;
+        public UiLayoutHints LayoutHints => CachedLayoutHints;
 
         public bool WantsAcceptKey =>
             chatInputOwned &&
@@ -57,40 +74,67 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
-            float replyBarHeight = hostContext.ReplyTarget != null ? REPLY_BAR_HEIGHT : 0f;
+            inRect.width = Mathf.Max(0f, inRect.width);
+            inRect.height = Mathf.Max(0f, inRect.height);
 
-            Rect inputAreaRect = inRect.BottomPartPixels(CHAT_TEXTBOX_HEIGHT);
-            Rect sendButtonRect = inputAreaRect.RightPartPixels(CHAT_SEND_BUTTON_WIDTH);
-            Rect messageBoxRect = inputAreaRect.LeftPartPixels(inRect.width - (CHAT_SEND_BUTTON_WIDTH + DEFAULT_SPACING));
+            UIChatMessage replyTarget = hostContext.ReplyTarget;
+            float replyBarHeight = replyTarget != null ? GetReplyBarHeight(replyTarget, inRect.width) : 0f;
+            EnsureSendLabelCache();
+            float sendButtonWidth = Mathf.Min(inRect.width, cachedSendWidth);
+            bool stackInput = inRect.width < sendButtonWidth + DEFAULT_SPACING + MINIMUM_INPUT_WIDTH;
+            float inputAreaHeight = stackInput
+                ? CHAT_TEXTBOX_HEIGHT * 2f + DEFAULT_SPACING
+                : CHAT_TEXTBOX_HEIGHT;
+
+            Rect inputAreaRect = inRect.BottomPartPixels(Mathf.Min(inputAreaHeight, inRect.height));
+            Rect messageBoxRect;
+            Rect sendButtonRect;
+            if (stackInput)
+            {
+                messageBoxRect = new Rect(inputAreaRect.xMin, inputAreaRect.yMin, inputAreaRect.width, Mathf.Min(CHAT_TEXTBOX_HEIGHT, inputAreaRect.height));
+                float buttonY = messageBoxRect.yMax + DEFAULT_SPACING;
+                sendButtonRect = new Rect(
+                    inputAreaRect.xMax - sendButtonWidth,
+                    buttonY,
+                    sendButtonWidth,
+                    Mathf.Min(CHAT_TEXTBOX_HEIGHT, Mathf.Max(0f, inputAreaRect.yMax - buttonY)));
+            }
+            else
+            {
+                sendButtonRect = inputAreaRect.RightPartPixels(sendButtonWidth);
+                messageBoxRect = new Rect(
+                    inputAreaRect.xMin,
+                    inputAreaRect.yMin,
+                    Mathf.Max(0f, inputAreaRect.width - sendButtonWidth - DEFAULT_SPACING),
+                    inputAreaRect.height);
+            }
 
             Rect replyBarRect = replyBarHeight > 0f
-                ? inRect.BottomPartPixels(CHAT_TEXTBOX_HEIGHT + replyBarHeight).TopPartPixels(replyBarHeight)
+                ? inRect.BottomPartPixels(Mathf.Min(inputAreaHeight + replyBarHeight, inRect.height)).TopPartPixels(Mathf.Min(replyBarHeight, Mathf.Max(0f, inRect.height - inputAreaHeight)))
                 : default;
 
-            Rect chatRect = inRect.TopPartPixels(inRect.height - (CHAT_TEXTBOX_HEIGHT + replyBarHeight + DEFAULT_SPACING));
+            float reservedHeight = inputAreaHeight + replyBarHeight + DEFAULT_SPACING;
+            Rect chatRect = inRect.TopPartPixels(Mathf.Max(0f, inRect.height - reservedHeight));
 
             chatMessageList.Draw(chatRect);
 
-            if (hostContext.ReplyTarget != null)
+            if (replyTarget != null && replyBarRect.height > 0f)
             {
-                string snippet = TextHelper.StripRichText(hostContext.ReplyTarget.Message ?? "");
-                if (snippet.Length > 50) snippet = snippet.Substring(0, 50) + "...";
-                string displayName = TextHelper.StripRichText(hostContext.ReplyTarget.User.DisplayName);
-
                 Rect lineRect = new Rect(replyBarRect.xMin, replyBarRect.yMin, REPLY_LINE_WIDTH, replyBarRect.height);
                 Widgets.DrawBoxSolid(lineRect, ChatTheme.InputReplyBorder);
 
-                Rect bgRect = new Rect(replyBarRect.xMin + REPLY_LINE_WIDTH, replyBarRect.yMin, replyBarRect.width - REPLY_LINE_WIDTH, replyBarRect.height);
+                Rect bgRect = new Rect(replyBarRect.xMin + REPLY_LINE_WIDTH, replyBarRect.yMin, Mathf.Max(0f, replyBarRect.width - REPLY_LINE_WIDTH), replyBarRect.height);
                 Widgets.DrawBoxSolid(bgRect, ChatTheme.InputReplyBg);
 
                 Rect labelRect = new Rect(
                     replyBarRect.xMin + REPLY_LINE_WIDTH + 4f,
                     replyBarRect.yMin,
-                    replyBarRect.width - REPLY_LINE_WIDTH - 28f,
-                    REPLY_BAR_HEIGHT);
-                Widgets.Label(labelRect, ("↩ " + displayName + ": " + snippet).Colorize(ChatTheme.ReplyQuoteText));
+                    Mathf.Max(0f, replyBarRect.width - REPLY_LINE_WIDTH - REPLY_CLOSE_WIDTH - REPLY_TEXT_PADDING * 2f),
+                    replyBarRect.height);
+                Widgets.Label(labelRect, cachedReplyLabel);
+                TooltipHandler.TipRegion(labelRect, cachedReplyTooltip);
 
-                Rect closeRect = replyBarRect.RightPartPixels(24f);
+                Rect closeRect = replyBarRect.RightPartPixels(Mathf.Min(REPLY_CLOSE_WIDTH, replyBarRect.width));
                 if (Widgets.ButtonText(closeRect, "×"))
                 {
                     hostContext.ClearReplyTarget();
@@ -102,12 +146,51 @@ namespace Phinix.ChatExtension.Client
             UpdateInputOwnership(messageBoxRect);
             TryRefocusAfterAccept();
 
-            if (Widgets.ButtonText(sendButtonRect, "Phinix_chat_sendButton".Translate()))
+            if (sendButtonRect.width > 0f && sendButtonRect.height > 0f && Widgets.ButtonText(sendButtonRect, cachedSendLabel))
             {
                 sendChatMessage();
             }
 
-            HandleAtAutocomplete(messageBoxRect);
+            HandleAtAutocomplete();
+        }
+
+        private float GetReplyBarHeight(UIChatMessage replyTarget, float availableWidth)
+        {
+            object language = LanguageDatabase.activeLanguage;
+            if (!ReferenceEquals(replyTarget, cachedReplyTarget) ||
+                !ReferenceEquals(language, cachedReplyLanguage) ||
+                !Mathf.Approximately(availableWidth, cachedReplyWidth))
+            {
+                string snippet = TextHelper.StripRichText(replyTarget.Message ?? string.Empty);
+                if (snippet.Length > 200)
+                {
+                    snippet = snippet.Substring(0, 200) + "...";
+                }
+
+                string displayName = TextHelper.StripRichText(replyTarget.User.DisplayName);
+                cachedReplyTooltip = "↩ " + displayName + ": " + TextHelper.StripRichText(replyTarget.Message ?? string.Empty);
+                cachedReplyLabel = ("↩ " + displayName + ": " + snippet).Colorize(ChatTheme.ReplyQuoteText);
+                float textWidth = Mathf.Max(1f, availableWidth - REPLY_LINE_WIDTH - REPLY_CLOSE_WIDTH - REPLY_TEXT_PADDING * 2f);
+                cachedReplyHeight = Mathf.Clamp(Text.CalcHeight(cachedReplyLabel, textWidth) + 4f, MINIMUM_REPLY_BAR_HEIGHT, MAXIMUM_REPLY_BAR_HEIGHT);
+                cachedReplyTarget = replyTarget;
+                cachedReplyLanguage = language;
+                cachedReplyWidth = availableWidth;
+            }
+
+            return cachedReplyHeight;
+        }
+
+        private void EnsureSendLabelCache()
+        {
+            object language = LanguageDatabase.activeLanguage;
+            if (ReferenceEquals(language, cachedSendLanguage) && cachedSendLabel != null)
+            {
+                return;
+            }
+
+            cachedSendLanguage = language;
+            cachedSendLabel = "Phinix_chat_sendButton".Translate();
+            cachedSendWidth = Mathf.Max(CHAT_SEND_BUTTON_WIDTH, Text.CalcSize(cachedSendLabel).x + 24f);
         }
 
         public bool TryHandleAcceptKey()
@@ -176,16 +259,17 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
-        private void HandleAtAutocomplete(Rect textFieldRect)
+        private void HandleAtAutocomplete()
         {
             if (Event.current == null || Event.current.type != EventType.Repaint) return;
-            if (string.IsNullOrEmpty(message)) return;
+            string previousText = lastAutocompleteText;
+            lastAutocompleteText = message;
 
-            Match match = AtPartialRegex.Match(message);
-            if (!match.Success) return;
-
-            string partial = match.Groups[1].Value;
-            if (string.IsNullOrEmpty(partial) || partial.Length < 1) return;
+            Window currentWindow = Find.WindowStack.currentlyDrawnWindow;
+            bool canOpen = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL &&
+                currentWindow != null && Find.WindowStack.GetsInput(currentWindow) &&
+                Find.WindowStack.FloatMenu == null;
+            if (!ChatMentionUtility.TryGetAutocompletePartial(message, previousText, canOpen, out string partial)) return;
 
             if (userDirectory == null) return;
             ImmutableUser[] onlineUsers = userDirectory.GetUsers(loggedIn: true);
@@ -202,9 +286,12 @@ namespace Phinix.ChatExtension.Client
                 if (displayName.IndexOf(partial, StringComparison.InvariantCultureIgnoreCase) < 0) continue;
 
                 string capturedName = displayName;
+                string capturedMessage = message;
                 options.Add(new FloatMenuOption("@" + capturedName, () =>
                 {
-                    message = ReplaceAtPartial(message, capturedName);
+                    if (message != capturedMessage) return;
+                    message = ChatMentionUtility.ReplaceAtPartial(message, capturedName);
+                    refocusAttemptsRemaining = REFOCUS_ATTEMPTS;
                 }));
             }
 
@@ -212,15 +299,6 @@ namespace Phinix.ChatExtension.Client
             {
                 Find.WindowStack.Add(new FloatMenu(options));
             }
-        }
-
-        private static string ReplaceAtPartial(string text, string fullName)
-        {
-            Match match = AtPartialRegex.Match(text);
-            if (!match.Success) return text;
-
-            int atIndex = match.Index;
-            return text.Substring(0, atIndex + 1) + fullName + " " + text.Substring(atIndex + 1 + match.Groups[1].Value.Length);
         }
 
         private void sendChatMessage()

@@ -80,8 +80,8 @@ namespace PhinixClient
         /// </summary>
         public int SettingsVersion => settingsVersion;
 
-        private float serverTabWidth = 1000f;
-        private float serverTabHeight = 680f;
+        private float serverTabWidth;
+        private float serverTabHeight;
         /// <summary>主窗口（ServerTab）上次使用的尺寸，随窗口关闭持久化。</summary>
         public float ServerTabWidth
         {
@@ -226,8 +226,8 @@ namespace PhinixClient
             Scribe_Collections.Look(ref blockedUsers, "blockedUsers", LookMode.Value);
             Scribe_Values.Look(ref collapseBlockedUsers, "collapseBlockedUsers", true);
             Scribe_Collections.Look(ref disabledExtensions, "disabledExtensions", LookMode.Value);
-            Scribe_Values.Look(ref serverTabWidth, "serverTabWidth", 1000f);
-            Scribe_Values.Look(ref serverTabHeight, "serverTabHeight", 680f);
+            Scribe_Values.Look(ref serverTabWidth, "serverTabWidth", 0f);
+            Scribe_Values.Look(ref serverTabHeight, "serverTabHeight", 0f);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {

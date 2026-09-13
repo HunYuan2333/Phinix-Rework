@@ -6,7 +6,7 @@
 >
 > **Compatibility boundaries and recovery contracts (Chinese)**: [Compatibility-Boundaries.md](./Compatibility-Boundaries.md)
 >
-> **Last updated**: 2026-06-01, compiled based on Phase 5 architecture migration landing point and codebase audit.
+> **Last updated**: 2026-09-13, updated based on latest codebase audit (responsive UI, extension manager with dependency graph, Item pipeline P0 completion, physical assembly separation, and .NET 10 / RimWorld 1.6 CI alignment).
 
 ---
 
@@ -38,11 +38,12 @@ The basic services provided by the host are business-agnostic:
 
 ```
 Network layer (NetClient)
-Extension discovery (PhinixExtensionRegistry)
+Extension discovery & lifecycle (PhinixExtensionRegistry, IExtensionActivationPolicy)
 General services (IClientSessionContext, IClientSettingsContext, IClientUserDirectory,
-           IClientUserEventStream, IClientMainThreadDispatcher, IClientWindowService)
-ServerTab (pure shell, collects IMainTabProvider / IServerSidebarProvider for dynamic rendering)
-Basic UI (SettingsWindow, CredentialsWindow)
+           IClientUserEventStream, IClientMainThreadDispatcher, IClientWindowService,
+           IClientSoundService, IUiTheme, IDisplayMessageSink)
+ServerTab (general shell, collects IMainTabProvider / IServerSidebarProvider / INoticeBannerProvider / IUiAcceptKeyHandler for dynamic rendering)
+Basic UI (SettingsWindow, CredentialsWindow, ExtensionManagerTab, ExtensionControlSettingsPanelProvider)
 ```
 
 Business logic (chat, trade, red packets, etc.) is entirely in plugins. The host does not care what businesses currently exist.
@@ -97,6 +98,44 @@ Anything that may change with business requirements should be abstracted through
 - Event notification → `IClientUserEventStream`, do not provide dedicated event bridges for specific plugins
 
 **Judgment criterion**: When adding a new business capability (such as mail, announcements, quests), is the host code change count zero?
+
+### 2.4 Defensive Programming and Boundary Checking
+
+All external inputs (network packets, UI inputs, external configs, third-party mod data) are treated as untrusted sources:
+
+- **Centralized boundary validation**: Perform format, length, and range validation at system boundaries (UI controls, deserialization entry points, config loaders)
+- **Numerical boundaries and overflow prevention**: Parse numbers using defensive parsing (e.g., `int.TryParse` with `Mathf.Clamp`), preventing integer overflow (such as extremely large values or negative values) from corrupting calculations
+- **Internal invariants**: Domain logic should defensively guard against null references, collection index out-of-bounds, and division by zero, without assuming callers or remote peers are well-behaved
+- **Fast handling of invalid inputs**: Reject, clamp, or fallback to safe defaults at boundaries; unhandled exceptions must never crash the main game loop or pipeline
+
+**Anti-pattern**: Directly using unchecked casts or `Parse`; assuming remote peers send valid values; letting input exceptions crash the UI or pipeline.
+
+**Judgment criterion**: When receiving extreme values (e.g., `int.MaxValue`) or malformed strings, does the system silently clamp or report errors gracefully without throwing unhandled exceptions?
+
+### 2.5 Lifecycle Symmetry and Re-entrancy Safety
+
+Component lifecycles must correctly respond to game host sessions (loading save, switching save, returning to main menu, reconnecting):
+
+- **Paired cleanup**: Any event subscriptions (`+=`), timers, background threads, or file handles acquired during a session must be symmetrically cleaned up (`-=`, `Dispose`) on session end or module shutdown
+- **Stateless across sessions**: Returning to the main menu must thoroughly release static references and caches of game world entities, preventing old world objects from leaking memory
+- **Idempotent re-initialization**: Components must support repeated "load game → main menu → reload game" re-entry; singleton setup and event listeners must prevent duplicate bindings
+
+**Anti-pattern**: Retaining game world entities in static dictionaries; failing to unsubscribe from events when exiting to the main menu, causing duplicated event handlers on subsequent loads; relying on game process restart to reset state.
+
+**Judgment criterion**: After 5 consecutive rounds of "load save → return to main menu → load new save", is memory usage stable and are event handlers triggered only once?
+
+### 2.6 Principle of Least Intrusion and Ecosystem Isolation
+
+As a plugin running in a complex environment alongside hundreds of other mods, actively minimize disruption to the host environment:
+
+- **Prefer mount points**: Use framework-provided extension points (Tabs, sidebars, handlers, settings) instead of invasive patches (Harmony)
+- **Minimal patching**: When patching is unavoidable, adhere to minimal slicing (prefer Prefix/Postfix over IL Transpiler); only hook low-level atomic methods, never high-frequency top-level loops
+- **Namespace isolation**: Public DefNames, config keys, and network tags must have unique namespace prefixes (e.g., `Phinix_`) to avoid collisions
+- **Do not pollute global state**: Avoid mutating or consuming shared host global state (such as the global RNG stream `Verse.Rand` or global context)
+
+**Anti-pattern**: Carelessly using Transpilers on core game loops; using generic DefNames without prefixes that collide with other mods.
+
+**Judgment criterion**: When loaded in an environment with hundreds of other mods, are there no naming collisions or unexpected mutations of native game behaviors?
 
 ---
 
@@ -168,6 +207,7 @@ All unbounded queues must have capacity limits to prevent unbounded memory growt
 
 - Message display queue (`displayMessages`): limit 1000, remove the oldest entry and log a Warning when exceeded
 - Main thread dispatch queue (`pendingActions`): limit 500, discard and log an Error when exceeded
+- Extension manager log buffer (`extensionLog`): limit 300 (`MaxExtensionLogEntries`), read via read-only snapshot on `ExtensionLogVersion` change to avoid per-frame GC allocations
 - Chat history sync: send in batches (50-100 per batch), do not block-send all history within a single poll cycle
 
 Classes holding `IDisposable` resources such as `Timer`, `NetManager`, `Thread`, `FileStream` must implement `IDisposable` and release them in `Shutdown` / `Dispose`. Event subscriptions (`+=`) must be paired with unsubscriptions (`-=`) in the corresponding `Shutdown` or `Dispose`, without relying on process exit as the ultimate cleanup mechanism.
@@ -225,9 +265,46 @@ No code may bypass the framework logging mechanism to write directly to the cons
 **Client-side special conventions:**
 
 - The RimWorld console swallows part of stdout output; client logs should not rely solely on `Console.Write` — they should be bridged to the host's standard log path through the `hostContext.Log` callback (current) or `ILoggable` events (future migration target)
-- Debug-level logs are not output to the RimWorld console by default, to avoid overwhelming the user
+- **Release build level filtering**: In Release builds, client `ILoggableHandler` and extension log buffers filter `DEBUG` level logs (pipeline routing details, command dispatches, trade snapshot broadcasts are routed at DEBUG), avoiding spamming the RimWorld console with chat messages; `INFO`, `WARNING`, and `ERROR` are preserved. DEBUG logs are only displayed in Debug builds or when Developer Mode (DevMode) is explicitly enabled
+- The host extension manager (`ExtensionManagerTab`) contains a bounded 300-entry log viewer, colored by timestamp and log level, facilitating in-game diagnostic inspection
 
 **Anti-pattern**: Plugins bypassing the logging mechanism to directly `Console.WriteLine`; exception logs only writing `ex.Message` and discarding the stack trace; production log level set to DEBUG.
+
+### 3.9 Explicit State Machines and Timeout Self-Healing
+
+Multi-step asynchronous interactions and network communication workflows must be managed using Finite State Machines (FSM):
+
+- **Formal transitions**: The state space and permitted transition paths must be centrally and explicitly defined; do not combine ad-hoc boolean variables into implicit states
+- **Timeout self-healing mechanism**: Any intermediate state waiting for remote confirmation or asynchronous callbacks (such as `Pending`) must have a strictly bounded lifetime; deterministic timeout detection must automatically degrade or mark failure, preventing workflows from deadlocking due to dropped network packets
+- **State-driven presentation**: State machines maintain domain state while the UI acts only as an observer reading and rendering that state; UI code must never bypass state machines to mutate internal state directly
+
+**Anti-pattern**: Vibe-coding ad-hoc `isWaiting` or `isProcessing` boolean flags; asynchronous requests without timeout handling, causing permanent UI spinners when the remote side does not respond.
+
+**Judgment criterion**: Can the system's workflows be completely described by a clear state transition diagram? When simulating total network packet loss, can the system automatically recover after a specified timeout?
+
+### 3.10 Data Buffering and On-Demand Consumption
+
+Receiving external data and creating expensive in-game objects (UI elements, game entities) must be strictly decoupled:
+
+- **Buffer first**: Unexpected bursts of large-scale or batched data should first be stored in lightweight local buffers or simple data structures; never instantiate massive numbers of game objects in a single frame (e.g., dropping hundreds or thousands of physical items at once)
+- **On-demand and batched processing**: Large UI lists must use virtual scrolling (viewport clipping); game entity instantiation should be on-demand or time-sliced across frames to smooth main thread CPU overhead
+- **Bounded queues**: All receiving queues and action dispatch queues must have maximum capacity limits and overflow strategies (drop, coalesce, or alert) to prevent unbounded memory growth
+
+**Anti-pattern**: Instantiating all received items onto the game map in a single frame, freezing physics, pathfinding, and rendering; unbounded queues exhausting memory during high-throughput network bursts.
+
+**Judgment criterion**: When receiving large batches of data or resources at once, does the game framerate remain steady without noticeable freezing or collapse?
+
+### 3.11 Savegame Resilience and Forward Fault Tolerance
+
+Mod data persistence (such as `ExposeData` / serialization) must follow the "savegame safety first" principle:
+
+- **Forward compatibility and default fallbacks**: When adding or removing fields, older saves missing those fields must gracefully fall back to safe default values without corrupting save files
+- **Local failure isolation**: When deserialization of a single item (e.g., a single trade record or item cache) fails, skip it and log a warning; never allow unhandled exceptions to crash the main game save loading process
+- **Clean uninstallation**: When a player disables or removes the mod, persisted data must not leave behind ghost entities that cause the game engine to throw fatal exceptions
+
+**Anti-pattern**: Missing serialization fields throwing unhandled exceptions that abort the entire save loading process (bricking saves); disabled mods causing save load errors that prevent playing.
+
+**Judgment criterion**: When manually deleting or corrupting a field of this mod in a save file, can the game load the save normally with a graceful degradation warning in the log?
 
 ---
 
@@ -279,36 +356,56 @@ This pattern is a transitional state; physical location ≠ compilation attribut
 
 ### 5.1 Naming and Ordering
 
-DLLs in `Client/Common/Assemblies/` use zero-padded numeric prefixes to ensure string order = load order:
-
-```
-01-LiteNetLib.dll         ← Third-party library
-02-Protobuf.dll
-03-Utils.dll               ← IPhinixExtensionModule, framework basics
-04-Connections.dll
-05-Authentication.dll
-06-UserManagement.dll
-07-ClientExtensionAbstractions.dll  ← IMainTabProvider, IServerSidebarProvider, general host services
-08-ChatExtension.dll       ← Chat domain contracts
-09-TradeExtension.dll      ← Trade domain contracts
-10-ChatExtension.Client.dll  ← Chat plugin (depends on 03, 07, 08)
-11-TradeExtension.Client.dll ← Trade plugin (depends on 03, 07, 09)
-```
-
-When adding new DLLs, assign numbers according to dependency relationships. RimWorld's `ModAssemblyHandler` will only avoid throwing `ReflectionTypeLoadException` if and only if the string order guarantees that all dependencies are loaded before their dependents.
-
-### 5.2 Release Boundaries (Target State)
-
-Currently, official plugin DLLs and framework base DLLs are still mixed together in `Assemblies/`. Final target:
+DLL filenames use zero-padded numeric prefixes to ensure string order = load order. The current build output directory structure and number assignments are as follows:
 
 ```
 Client/
   Common/
-    Extensions/          ← Plugin DLLs in independent directory (RimWorld does not touch it)
+    Assemblies/                          ← Framework infrastructure and core abstractions only
+      01-LiteNetLib.dll                  ← Third-party networking library
+      02-Protobuf.dll                    ← Serialization library
+      03-Utils.dll                       ← IPhinixExtensionModule, framework basics
+      04-Connections.dll                 ← Shared network types
+      05-Connections.Client.dll          ← Client network implementation
+      06-Authentication.dll              ← Shared authentication contracts
+      07-Authentication.Client.dll       ← Client authentication implementation
+      08-UserManagement.dll              ← Shared user management contracts
+      09-UserManagement.Client.dll       ← Client user management implementation
+      10-ClientExtensionAbstractions.dll ← UI abstractions and general host contracts
+  1.6/
+    Assemblies/
+      13-PhinixClient.dll                ← Client host main assembly
+  Common/
+    Extensions/                          ← Plugin directory (isolated from Assemblies)
+      08-ChatExtension.dll               ← Chat domain contracts
+      09-TradeExtension.dll              ← Trade domain contracts
+      10-LegacyAdapter.Client.dll        ← Legacy protocol adapter plugin
+      11-ChatExtension.Client.dll        ← Chat plugin
+      12-TradeExtension.Client.dll       ← Trade plugin
+      13-LegacyRedPacketExtension.dll    ← Red packet domain contracts
+      14-LegacyRedPacketExtension.Client.dll ← Red packet client plugin
+      15-LegacyTalentTradeExtension.dll  ← Talent trade domain contracts
+      16-LegacyTalentTradeExtension.Client.dll ← Talent trade client plugin
+```
+
+When adding new DLLs, assign numbers according to dependency relationships. RimWorld's `ModAssemblyHandler` will only avoid throwing `ReflectionTypeLoadException` if and only if the string order guarantees that all dependencies are loaded before their dependents.
+
+### 5.2 Release Boundaries (Implemented State)
+
+Official plugin DLLs and framework base DLLs are physically separated:
+
+```
+Client/
+  Common/
+    Extensions/          ← Plugin DLLs in independent directory (official plugins + submod probe directory)
       ChatExtension.Client.dll
       TradeExtension.Client.dll
-      SomeSubMod.dll
-    Assemblies/          ← Only framework base DLLs (01-07)
+      LegacyAdapter.Client.dll
+      ...
+    Assemblies/          ← Framework base DLLs only (01-10)
+  1.6/
+    Assemblies/
+      13-PhinixClient.dll ← Host assembly
 
 Server/
   Extensions/            ← Server-side plugin DLLs in independent directory
@@ -316,7 +413,7 @@ Server/
     TradeExtension.Server.dll
 ```
 
-The prerequisite for this adjustment is that `ExtensionAssemblyLoader` can load from this directory and `PhinixExtensionRegistry` can discover from it — the mechanism is already in place; only the directory structure and build chain need alignment.
+On startup, `ExtensionAssemblyLoader` scans `Common/Extensions/`, and also natively probes the `Assemblies/` directory of all active RimWorld mods, allowing third-party plugins to be distributed as standalone mods or placed in the Extensions directory (see the "Submod Developer Guide" §2.4 for details).
 
 ### 5.3 Versioning and API Compatibility
 
@@ -381,6 +478,19 @@ When adding or modifying code, check the following:
 - [ ] Are log calls reported through the `ILoggable` interface, rather than bypassing the framework to write directly to the console/file? Do exception logs include the complete `Exception` object?
 - [ ] Has a new public API been added? If so, does the version number need upgrading to `MINOR`? If modified/removed, has it been marked `[Obsolete]` and the alternative indicated in documentation?
 - [ ] Are Protobuf field changes compatible — no reuse of deleted field numbers, no modification of enum values, and have breaking changes created new message types?
+- [ ] Do external inputs and numerical parsing have range and boundary checks (e.g., `TryParse` + `Clamp`)? Can they prevent extreme integer overflows?
+- [ ] Do asynchronous network workflows have explicit state machine definitions? Is there a timeout fallback mechanism to prevent permanent deadlocks if the peer does not reply?
+- [ ] When exiting to the main menu or switching saves, are event subscriptions completely unsubscribed? Are static references to map entities cleared?
+- [ ] Has an invasive Harmony patch been added? Could it use existing general mount points instead?
+- [ ] Do newly added Defs and config keys carry a unified namespace prefix?
+- [ ] Does receiving external large payloads have a buffering/staging mechanism, rather than instantiating massive game world entities in a single frame?
+- [ ] Does savegame and config serialization provide default fallbacks? Would individual item corruption block main save loading?
+- [ ] Are standalone windows (ServerTab, SettingsWindow, CredentialsWindow, TradeWindow, etc.) constrained to the screen safe area using `UiScreenSafeArea.ClampWindow`?
+- [ ] Are output Rects from controls and container layouts normalized to non-negative dimensions (preventing negative width/height rendering anomalies in Unity IMGUI)?
+- [ ] Do two-pane or multi-pane views declare and execute fallback degradation policies when space is constrained (vertical reflow or SinglePane sub-tab switching)?
+- [ ] Do forms and toolbars support dynamic reflow (Inline/Stacked) and overflow menus (FloatMenu), and are long translations and user texts backed by scroll views or truncated tooltips?
+- [ ] Do large or open-ended lists (chat messages, items, logs) render only visible rows via `VirtualListLayout`?
+- [ ] Have deprecated legacy container classes (`[Obsolete]` Flex/TabsContainer) been avoided in new code?
 
 ---
 
@@ -426,7 +536,27 @@ Before each milestone release, review item by item against the following categor
 
 **Inspection method:** RimWorld developer mode → open Performance Profiler → enter server Tab → send 100 chat messages → scroll up and down → check GC.Alloc and frame time. Per-frame GC allocation should be near zero.
 
-### 8.4 Thread Safety
+### 8.4 UI Adaptability and Robustness
+
+Full UI adaptability (Phase 9 acceptance standard) requires the system to maintain stable layouts, accessible controls, zero text clipping/overlap, and excellent performance across arbitrary resolutions, UI scale factors, and extreme content lengths.
+
+**Review points:**
+
+- **Safe Area Clamping**: All standalone primary windows and dialogs (`ServerTab`, `SettingsWindow`, `CredentialsWindow`, `TradeWindow`, `DirectTradeWindow`, red packet details, etc.) must be clamped within `(0, 0, UI.screenWidth, UI.screenHeight)` via `UiScreenSafeArea.ClampWindow`. When switching from high to low resolution, changing UI scale factors, or moving across monitors, windows must never extend off-screen, and title bars, drag handles, and confirm/close buttons must remain reachable.
+- **Dynamic Navigation & Sidebar Drawer**: The main tab bar must use native RimWorld `TabDrawer.DrawTabsOverflow` and `TabDrawer.GetOverflowTabHeight`, wrapping automatically when 10–20 extensions register tabs, with the content area dynamically relinquishing the occupied height. When available window width cannot satisfy `MAIN_MIN_WIDTH` (480px) + sidebar `MinimumWidth`, sidebars declaring `IResponsiveSidebarProvider.CanCollapse` must automatically collapse into a drawer icon button (`☰`), opening a floating drawer overlay when clicked, never squeezing the main content into an unusable state.
+- **Non-negative Geometry & Dynamic Reflow**: All layout Rects must guarantee non-negative width and height (`UiScreenSafeArea.Normalize`). Form rows should use `ResponsiveFormLayout` to switch adaptively between inline and stacked modes based on width, reserving room for error text. Action bars should use `ResponsiveToolbarLayout` to automatically wrap actions and overflow secondary items into a `⋯` FloatMenu when row limits are reached. Two-pane views should use `ResponsiveSplitLayout` to gracefully degrade to vertical stacking or single-pane sub-tabs when width or height is constrained.
+- **Text Truncation & Scroll Containment**: Single-line text in fixed-height cards or rows must be truncated cleanly with a `TooltipHandler.TipRegion`. Multi-line text must measure height dynamically based on width and data version caches and be contained in an outer `Widgets.BeginScrollView`. Long player names, item descriptions, long localized translations, or server descriptions must never overlap or displace action buttons.
+- **List Virtualization**: Large or unbounded lists (chat messages, trading shelves, red packet logs, talent markets, extension manager logs) must use `VirtualListLayout` (fixed-height `GetFixedRange` or dynamic-height `GetDynamicRange`) to perform visible-row clipping, rendering only items in the visible viewport and never running `Draw` across the entire list.
+- **Cache Invalidation Driven**: Text measurement (`Text.CalcHeight` / `CalcSize`), LINQ sorting (`OrderBy`), and complex layout geometry calculations must be driven by language changes, container resize events, or data version invalidations. Re-measuring or re-allocating objects every frame on `Draw` / `DoWindowContents` hot paths is strictly forbidden.
+- **Host Neutrality & Obsolete Containers**: All responsive layout primitives must reside in `ClientExtensionAbstractions`, keeping the Host completely agnostic of specific business extensions. Legacy `Displayable` flex container classes (`HorizontalFlexContainer`, `VerticalFlexContainer`, `TabsContainer`, `ConditionalContainer`, `MinimumContainer`, `VerticalPaddedContainer`) are fully marked `[System.Obsolete]`; existing callers must ensure defensive non-negative clamping, and new code must not use them.
+
+**Inspection method:**
+1. Test fullscreen and window resizing across 1024×768, 1280×720, 1366×768, 1920×1080, 2560×1440, and various UI scale multipliers.
+2. Dynamically register 10–20 tabs and multiple sidebars, verifying tab row wrapping and sidebar drawer collapse interactions.
+3. Inject 64/128-character player names, long item names, and long translation strings to confirm no text collision or clipping.
+4. Stress-test scrolling with 1,000 items, verifying GC.Alloc stays near zero with no stutter or frame drops.
+
+### 8.5 Thread Safety
 
 **Review points:**
 
@@ -436,7 +566,7 @@ Before each milestone release, review item by item against the following categor
 
 **Inspection method:** High-concurrency connection test (10 clients simultaneously connecting + sending messages) → check for no `InvalidOperationException` (collection modified), no crashes.
 
-### 8.5 Review Checklist
+### 8.6 Review Checklist
 
 | Category | Check Item | Severity |
 |------|--------|--------|
@@ -447,11 +577,29 @@ Before each milestone release, review item by item against the following categor
 | Error Handling | Protobuf parsing has try-catch isolation | HIGH |
 | Error Handling | Handshake packet send failure triggers connection disconnect | HIGH |
 | Error Handling | Offline send triggers observable alert (not silent discard) | HIGH |
-| UI | Regex is `static readonly` precompiled | CRITICAL |
-| UI | Draw path has no `new` object allocation | HIGH |
-| UI | Layout calculation is cached (dirty flag), not recomputed every frame | HIGH |
-| UI | Draw path has no LINQ allocations | HIGH |
-| UI | Property getters do not perform real-time queries/allocations | MEDIUM |
+| UI Performance | Regex is `static readonly` precompiled | CRITICAL |
+| UI Performance | Draw path has no `new` object allocation | HIGH |
+| UI Performance | Layout calculation is cached (dirty flag), not recomputed every frame | HIGH |
+| UI Performance | Draw path has no LINQ allocations | HIGH |
+| UI Performance | Property getters do not perform real-time queries/allocations | MEDIUM |
+| UI Adaptability | Window size and position clamped to `UI.screenWidth/screenHeight` safe area | CRITICAL |
+| UI Adaptability | All dynamic tabs/sidebars remain accessible when count increases (TabDrawer wrap / drawer button) | HIGH |
+| UI Adaptability | Sizing down triggers reflow/collapse/scroll without producing negative Rects | CRITICAL |
+| UI Adaptability | Long translations and user texts do not cover actions; truncated text has tooltips | HIGH |
+| UI Adaptability | Two-pane layouts declare and execute vertical/single-pane fallback degradation | HIGH |
+| UI Adaptability | Large lists render visible rows only (VirtualListLayout virtualization) | HIGH |
+| UI Adaptability | Responsive measurement and sorting driven by cache invalidation, not per-frame allocation | HIGH |
+| UI Adaptability | Layout additions maintain host extension neutrality and backward compatibility | CRITICAL |
+| UI Adaptability | Deprecated legacy Flex/TabsContainer classes avoided in new code | MEDIUM |
 | Threading | Network callbacks marshalled to main thread | HIGH |
 | Threading | Unbounded queues have capacity limits | HIGH |
 | Threading | `TrySend` / TOCTOU protection | MEDIUM |
+| Boundary Defense | External input and numerical parsing have boundary constraints and overflow prevention | CRITICAL |
+| State Machine | Asynchronous intermediate states have timeout self-healing mechanisms (deadlock prevention) | HIGH |
+| Lifecycle | Exiting to main menu / switching saves unsubscribes events and clears entity caches | CRITICAL |
+| Lifecycle | Session re-entry and singleton initialization are idempotent | HIGH |
+| Compatibility | Business features prefer mount points; Harmony uses minimal slicing | HIGH |
+| Compatibility | DefNames and config keys carry unique namespace prefixes | HIGH |
+| Performance | Large payloads use buffering and on-demand / batched instantiation | HIGH |
+| Savegame Safety | Serialization has default fallbacks; single item corruption does not block save loading | CRITICAL |
+

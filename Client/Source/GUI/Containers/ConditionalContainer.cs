@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace PhinixClient.GUI
 {
+    [System.Obsolete("Use explicit state-driven responsive drawing instead.")]
     public class ConditionalContainer : Displayable
     {
         /// <inheritdoc />

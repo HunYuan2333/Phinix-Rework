@@ -94,6 +94,8 @@
     <Compile Include="TalentTradeGameComponent.cs" />
     <Compile Include="TalentTradeManager.cs" />
     <Compile Include="TalentTradeTab.cs" />
+    <Compile Include="TalentTradeUi.cs" />
+    <Compile Include="TalentOfferLayout.cs" />
     <Compile Include="TalentTradeTransport.cs" />
     <Compile Include="TradeablePawnUtility.cs" />
     <Compile Include="TradeOfferSerializer.cs" />

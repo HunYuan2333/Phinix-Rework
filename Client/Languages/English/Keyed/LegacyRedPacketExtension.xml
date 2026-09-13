@@ -56,6 +56,7 @@
   <Phinix_legacyRedpacket_specialRaidMessage>Special red packet expired. Remaining {0} x{1} was not returned, and a raid has started.</Phinix_legacyRedpacket_specialRaidMessage>
   <Phinix_legacyRedpacket_specialNoReturnMessage>Special red packet expired. Remaining {0} x{1} was not returned.</Phinix_legacyRedpacket_specialNoReturnMessage>
   <Phinix_legacyRedpacket_newPacketMessage>New red packet from {0}: {1} x{2}.</Phinix_legacyRedpacket_newPacketMessage>
+  <Phinix_legacyRedpacket_newPacketsBatchedMessage>Received {0} new red packets.</Phinix_legacyRedpacket_newPacketsBatchedMessage>
   <Phinix_legacyRedpacket_completeLetterTitle>Red packet claimed</Phinix_legacyRedpacket_completeLetterTitle>
   <Phinix_legacyRedpacket_completeLetterText>{0} x{1}&#10;Claimed in {2}.&#10;Claims:&#10;{3}</Phinix_legacyRedpacket_completeLetterText>
   <Phinix_legacyRedpacket_expiredLetterTitle>Red packet expired</Phinix_legacyRedpacket_expiredLetterTitle>

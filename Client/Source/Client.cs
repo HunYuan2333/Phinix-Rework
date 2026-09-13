@@ -103,6 +103,11 @@ namespace PhinixClient
         private ClientMainThreadDispatcher mainThreadDispatcher;
         private readonly IClientWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
+        private readonly List<IClientSettingsPanelProvider> sortedSettingsPanels = new List<IClientSettingsPanelProvider>();
+        private PhinixFrameworkClient cachedSettingsPanelFramework;
+        private int cachedSettingsExtensionCount = -1;
+        private Vector2 modSettingsScrollPosition;
+        private float modSettingsContentHeight = 1200f;
         public Settings Settings { get; }
 
         /// <summary>
@@ -352,13 +357,23 @@ namespace PhinixClient
         {
             // Host 核心设置：连接、显示名称、音效等通用配置。
             // 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
-            float listingWidth = Math.Min(600f, inRect.width / 2);
+            if (inRect.width <= 0f || inRect.height <= 0f) return;
+            float viewportWidth = Mathf.Max(0f, inRect.width);
+            float contentWidth = Mathf.Max(0f, viewportWidth - 16f);
+            Rect viewRect = new Rect(0f, 0f, contentWidth, Mathf.Max(inRect.height, modSettingsContentHeight));
+            modSettingsScrollPosition.y = Mathf.Clamp(
+                modSettingsScrollPosition.y,
+                0f,
+                Mathf.Max(0f, viewRect.height - inRect.height));
+            Widgets.BeginScrollView(inRect, ref modSettingsScrollPosition, viewRect);
+
+            float listingWidth = Math.Min(600f, contentWidth);
 
             Listing_Standard listing = new Listing_Standard()
             {
                 ColumnWidth = listingWidth
             };
-            listing.Begin(inRect);
+            listing.Begin(viewRect);
 
             listing.Label("Phinix_modSettings_serverAddressTitle".Translate());
             Settings.ServerAddress = listing.TextEntry(Settings.ServerAddress);
@@ -376,10 +391,21 @@ namespace PhinixClient
             // 按 Order 排序后在同一 listing 流内绘制。不再硬编码 Chat/Trade 设置键。
             if (frameworkClient != null)
             {
-                IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
-                bool firstPanel = true;
-                foreach (IClientSettingsPanelProvider panel in panels.OrderBy(p => p.Order))
+                int extensionCount = frameworkClient.ExtensionResults?.Count ?? 0;
+                if (!ReferenceEquals(cachedSettingsPanelFramework, frameworkClient) ||
+                    cachedSettingsExtensionCount != extensionCount)
                 {
+                    IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
+                    sortedSettingsPanels.Clear();
+                    for (int i = 0; i < panels.Count; i++) sortedSettingsPanels.Add(panels[i]);
+                    sortedSettingsPanels.Sort((left, right) => left.Order.CompareTo(right.Order));
+                    cachedSettingsPanelFramework = frameworkClient;
+                    cachedSettingsExtensionCount = extensionCount;
+                }
+                bool firstPanel = true;
+                for (int panelIndex = 0; panelIndex < sortedSettingsPanels.Count; panelIndex++)
+                {
+                    IClientSettingsPanelProvider panel = sortedSettingsPanels[panelIndex];
                     if (!panel.IsVisible(settingsContext))
                     {
                         continue;
@@ -410,7 +436,13 @@ namespace PhinixClient
                 }
             }
 
+            float measuredHeight = listing.CurHeight + 8f;
             listing.End();
+            Widgets.EndScrollView();
+            if (!Mathf.Approximately(modSettingsContentHeight, measuredHeight))
+            {
+                modSettingsContentHeight = Mathf.Max(inRect.height, measuredHeight);
+            }
         }
 
         public override void WriteSettings()

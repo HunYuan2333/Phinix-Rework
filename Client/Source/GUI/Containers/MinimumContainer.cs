@@ -4,6 +4,7 @@ using Verse;
 
 namespace PhinixClient.GUI
 {
+    [System.Obsolete("Use responsive geometry helpers and safe-area clamping instead.")]
     public class MinimumContainer : Displayable
     {
         /// <inheritdoc />

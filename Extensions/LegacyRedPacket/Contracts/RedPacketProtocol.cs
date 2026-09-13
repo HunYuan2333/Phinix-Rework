@@ -17,16 +17,19 @@ namespace Phinix.LegacyRedPacketExtension
     {
         public const string Prefix = "PHXRP";
         public const string Version = "v1";
+        public const int MaxWireMessageChars = 65536;
+        public const int MaxProtocolPayloadChars = 8192;
         private const string ZeroSentinel = "\u2060\u2060\u2060\u2060";
         private const char Zero0 = '\u200C';
         private const char Zero1 = '\u200D';
 
         public static bool IsProtocolMessage(string message)
         {
-            if (string.IsNullOrEmpty(message)) return false;
+            if (string.IsNullOrEmpty(message) || message.Length > MaxWireMessageChars) return false;
             string payload = ExtractPayload(message);
             if (!string.IsNullOrEmpty(payload))
             {
+                if (payload.Length > MaxProtocolPayloadChars) return false;
                 return payload.IndexOf(Prefix + "|", StringComparison.Ordinal) >= 0;
             }
 
@@ -36,6 +39,7 @@ namespace Phinix.LegacyRedPacketExtension
                 payload = ExtractPayload(stripped);
                 if (!string.IsNullOrEmpty(payload))
                 {
+                    if (payload.Length > MaxProtocolPayloadChars) return false;
                     return payload.IndexOf(Prefix + "|", StringComparison.Ordinal) >= 0;
                 }
             }
@@ -135,7 +139,7 @@ namespace Phinix.LegacyRedPacketExtension
             messageType = RedPacketMessageType.None;
             parts = null;
 
-            if (string.IsNullOrEmpty(message)) return false;
+            if (string.IsNullOrEmpty(message) || message.Length > MaxWireMessageChars) return false;
             string payload = ExtractPayload(message);
             if (string.IsNullOrEmpty(payload))
             {
@@ -149,6 +153,8 @@ namespace Phinix.LegacyRedPacketExtension
                 if (prefixIndex < 0) return false;
                 payload = stripped.Substring(prefixIndex).Trim();
             }
+
+            if (string.IsNullOrEmpty(payload) || payload.Length > MaxProtocolPayloadChars) return false;
 
             string[] tokens = payload.Split('|');
             if (tokens.Length < 3) return false;

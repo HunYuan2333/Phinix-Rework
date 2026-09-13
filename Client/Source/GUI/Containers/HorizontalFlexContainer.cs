@@ -5,6 +5,7 @@ using Verse;
 
 namespace PhinixClient.GUI
 {
+    [System.Obsolete("Use responsive geometry helpers and direct RimWorld widgets instead.")]
     public class HorizontalFlexContainer : Displayable
     {
         /// <inheritdoc />
@@ -48,7 +49,11 @@ namespace PhinixClient.GUI
             int count = Contents.Count;
             if (count == 0) return;
 
-            // Get the width taken up by fixed-width elements (manual sum, no LINQ alloc)
+            container.width = Mathf.Max(0f, container.width);
+            container.height = Mathf.Max(0f, container.height);
+            float effectiveSpacing = Mathf.Max(0f, spacing);
+
+            // Fixed content uses a clip fallback when its requested size exceeds the container.
             float fixedWidth = 0f;
             int fluidItems = 0;
             for (int i = 0; i < count; i++)
@@ -57,13 +62,15 @@ namespace PhinixClient.GUI
                 if (item.IsFluidWidth)
                     fluidItems++;
                 else
-                    fixedWidth += item.CalcWidth(container.height);
+                    fixedWidth += Mathf.Max(0f, item.CalcWidth(container.height));
             }
 
             // Divvy out the remaining width to each fluid element
             float remainingWidth = container.width - fixedWidth;
-            remainingWidth -= (count - 1) * spacing; // Remove spacing between each element
-            float widthPerFluid = remainingWidth / fluidItems;
+            remainingWidth -= (count - 1) * effectiveSpacing;
+            float widthPerFluid = fluidItems > 0
+                ? Mathf.Max(0f, remainingWidth) / fluidItems
+                : 0f;
 
             // Draw each item
             float xOffset = 0f;
@@ -89,7 +96,9 @@ namespace PhinixClient.GUI
                     rect = new Rect(
                         x: container.xMin + xOffset,
                         y: container.yMin,
-                        width: item.CalcWidth(container.height),
+                        width: Mathf.Min(
+                            Mathf.Max(0f, item.CalcWidth(container.height)),
+                            Mathf.Max(0f, container.width - xOffset)),
                         height: container.height
                     );
                 }
@@ -98,10 +107,11 @@ namespace PhinixClient.GUI
                 item.Draw(rect);
 
                 // Increment the x offset by the item's width
-                xOffset += rect.width;
+                xOffset = Mathf.Min(container.width, xOffset + rect.width);
 
                 // Add spacing to the x offset if applicable
-                if (i < Contents.Count - 1) xOffset += spacing;
+                if (i < Contents.Count - 1)
+                    xOffset = Mathf.Min(container.width, xOffset + effectiveSpacing);
             }
         }
 
@@ -121,7 +131,7 @@ namespace PhinixClient.GUI
                 if (!item.IsFluidWidth)
                     total += item.CalcWidth(height);
             }
-            return total + (spacing * (Contents.Count - 1));
+            return Mathf.Max(0f, total + (Mathf.Max(0f, spacing) * Mathf.Max(0, Contents.Count - 1)));
         }
 
         /// <inheritdoc />

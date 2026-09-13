@@ -11,6 +11,12 @@ namespace Phinix.ChatExtension.Client
         private readonly IClientDisplayMessageStore messageStore;
         private readonly IClientUserDirectory userDirectory;
         private readonly IClientSettingsContext settingsContext;
+        private readonly object unreadCacheLock = new object();
+        private readonly HashSet<string> cachedBlockedUsers = new HashSet<string>();
+        private int messageVersion;
+        private int cachedMessageVersion = -1;
+        private int cachedRawUnread = -1;
+        private int cachedFilteredUnread;
 
         public FrameworkClientChatServiceAdapter(
             IFrameworkChatClientApi chatApi,
@@ -32,7 +38,39 @@ namespace Phinix.ChatExtension.Client
 
         public event System.EventHandler<UIChatMessageEventArgs> OnChatMessageReceived;
 
-        public int UnreadMessages => messageStore.UnreadMessages;
+        public int UnreadMessages
+        {
+            get
+            {
+                if (!settingsContext.Get("chat.showUnreadMessageCount", true))
+                {
+                    return 0;
+                }
+
+                int unread = messageStore.UnreadMessages;
+                if (unread == 0 || settingsContext.Get("chat.showBlockedUnreadMessageCount", false))
+                {
+                    return unread;
+                }
+
+                lock (unreadCacheLock)
+                {
+                    int version = System.Threading.Volatile.Read(ref messageVersion);
+                    IEnumerable<string> blocked = settingsContext.BlockedUsers ?? System.Array.Empty<string>();
+                    if (version != cachedMessageVersion || unread != cachedRawUnread || !cachedBlockedUsers.SetEquals(blocked))
+                    {
+                        cachedBlockedUsers.Clear();
+                        cachedBlockedUsers.UnionWith(blocked);
+                        cachedFilteredUnread = cachedBlockedUsers.Count == 0
+                            ? unread
+                            : CountUnreadExcluding(cachedBlockedUsers);
+                        cachedRawUnread = unread;
+                        cachedMessageVersion = version;
+                    }
+                    return cachedFilteredUnread;
+                }
+            }
+        }
 
         public UIChatMessage[] GetChatMessages(bool markAsRead = true, bool unreadOnly = false)
         {
@@ -76,6 +114,8 @@ namespace Phinix.ChatExtension.Client
 
         private void onDisplayMessageReceived(object sender, FrameworkDisplayMessageEventArgs args)
         {
+            // Even a blocked message can evict an older unread message at capacity.
+            System.Threading.Interlocked.Increment(ref messageVersion);
             if (args?.Message == null)
             {
                 return;

@@ -36,9 +36,9 @@ namespace Phinix.ChatExtension.Client
         private const float IMAGE_LOADING_HEIGHT = 120f;
         private const float IMAGE_MIN_HEIGHT = 48f;
         private const int IMAGE_CACHE_LIMIT = 128;
+        private const int VIRTUAL_LIST_OVERSCAN = 2;
 
         private static readonly Regex UrlRegex = new Regex(@"https?:\/\/\S+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex MentionRegex = new Regex(@"@(\S+)", RegexOptions.Compiled);
         private static readonly string[] ImageFileExtensions = { "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff" };
         private static readonly char[] UrlTrailingPunctuation = { '.', ',', ';', ':', '!', '?', ')', ']', '}', '，', '。', '、', '；', '：', '！', '？', '）', '》', '"', '\'' };
         private static readonly Dictionary<string, Texture2D> imageTextureCache = new Dictionary<string, Texture2D>();
@@ -63,6 +63,11 @@ namespace Phinix.ChatExtension.Client
         private bool stickyScroll = true;
         private bool clearMessages;
         private bool wasOnline;
+        private float[] messagePrefixOffsets = new float[1];
+        private object layoutLanguage;
+        private bool layoutShowNameFormatting;
+        private bool layoutShowChatFormatting;
+        private bool layoutShowImages;
 
         private float viewportHeight;
         private string hoveredReplyTargetId;
@@ -72,6 +77,8 @@ namespace Phinix.ChatExtension.Client
         private struct CachedMessageDisplay
         {
             public string MessageText;
+            public string RenderedMessageText;
+            public float MessageTextHeight;
             public Vector2 TimestampSize;
             public Vector2 DisplayNameSize;
             public bool ShowNameFormatting;
@@ -79,11 +86,14 @@ namespace Phinix.ChatExtension.Client
             public UIChatMessageStatus Status;
             public string ReplyQuoteText;
             public string ReplyQuoteSenderName;
+            public string ReplyQuoteDisplay;
+            public float ReplyQuoteHeight;
             public bool IsNotice;
             public bool IsSelf;
             public bool IsSystem;
             public bool IsGrouped;
             public string TimestampText;
+            public string TimestampDisplay;
             public string SenderDisplayName;
             public string DisplayNameFormatted;
             public bool HasMentions;
@@ -114,6 +124,11 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            if (inRect.width <= SCROLLBAR_WIDTH || inRect.height <= 0f)
+            {
+                return;
+            }
+
             // 设计哲学 §3.5 同步韧性：启动即连接时，历史同步可能在聊天列表事件订阅
             // 完成前就已写入消息存储，导致"进入存档后左侧在线用户正常、聊天界面却未初始化"。
             // 复刻 ChatSidebarProvider 的"上线瞬间刷新"：一旦会话上线，就从存储重读一次
@@ -158,11 +173,24 @@ namespace Phinix.ChatExtension.Client
                 hostContext.ChatService.MarkAsRead();
             }
 
+            object activeLanguage = LanguageDatabase.activeLanguage;
+            if (!ReferenceEquals(layoutLanguage, activeLanguage) ||
+                layoutShowNameFormatting != hostContext.ShowNameFormatting ||
+                layoutShowChatFormatting != hostContext.ShowChatFormatting ||
+                layoutShowImages != hostContext.ShowImages)
+            {
+                layoutDirty = true;
+            }
+
             if (layoutDirty || !layoutRect.Equals(inRect))
             {
                 layoutDirty = true;
                 recalculateMessageRects(inRect);
                 layoutRect = inRect;
+                layoutLanguage = activeLanguage;
+                layoutShowNameFormatting = hostContext.ShowNameFormatting;
+                layoutShowChatFormatting = hostContext.ShowChatFormatting;
+                layoutShowImages = hostContext.ShowImages;
                 layoutDirty = false;
             }
 
@@ -190,8 +218,15 @@ namespace Phinix.ChatExtension.Client
 
             try
             {
-                foreach (UIChatMessage chatMessage in filteredMessages)
+                VirtualListRange visibleRange = VirtualListLayout.GetDynamicRange(
+                    messagePrefixOffsets,
+                    filteredMessages.Count,
+                    chatScroll.y,
+                    inRect.height,
+                    VIRTUAL_LIST_OVERSCAN);
+                for (int index = visibleRange.FirstIndex; index < visibleRange.EndIndexExclusive; index++)
                 {
+                    UIChatMessage chatMessage = filteredMessages[index];
                     if (messageRectCache.TryGetValue(chatMessage.MessageId, out Rect messageRect))
                     {
                         drawChatMessage(messageRect, chatMessage);
@@ -212,7 +247,8 @@ namespace Phinix.ChatExtension.Client
                 flashHighlightId = null;
             }
 
-            bool scrolledToBottom = chatScroll.y.Equals(innerContainer.height - inRect.height);
+            float bottomScroll = Mathf.Max(0f, innerContainer.height - inRect.height);
+            bool scrolledToBottom = chatScroll.y.Equals(bottomScroll);
             bool scrollChanged = !chatScroll.y.Equals(oldChatScroll.y);
             bool heightChanged = !(oldHeight - innerContainer.height).Equals(0f);
 
@@ -222,7 +258,7 @@ namespace Phinix.ChatExtension.Client
             }
             else if ((heightChanged && stickyScroll) || scrollToBottom)
             {
-                chatScroll.y = innerContainer.height - inRect.height;
+                chatScroll.y = bottomScroll;
                 scrollToBottom = false;
             }
 
@@ -287,6 +323,11 @@ namespace Phinix.ChatExtension.Client
         {
             messageRectCache.Clear();
             displayCache.Clear();
+            if (messagePrefixOffsets.Length < filteredMessages.Count + 1)
+            {
+                messagePrefixOffsets = new float[filteredMessages.Count + 1];
+            }
+            messagePrefixOffsets[0] = 0f;
 
             HashSet<string> activeMessageIds = new HashSet<string>(filteredMessages.Select(message => message.MessageId));
             foreach (string messageId in messageImageStates.Keys.Where(messageId => !activeMessageIds.Contains(messageId)).ToArray())
@@ -303,8 +344,9 @@ namespace Phinix.ChatExtension.Client
             string lastSenderUuid = null;
             DateTime lastTimestamp = DateTime.MinValue;
 
-            foreach (UIChatMessage chatMessage in filteredMessages)
+            for (int messageIndex = 0; messageIndex < filteredMessages.Count; messageIndex++)
             {
+                UIChatMessage chatMessage = filteredMessages[messageIndex];
                 bool isSelf = chatMessage.SenderUuid == localUuid;
                 bool isSystem = chatMessage.SenderUuid == FrameworkProtocol.SystemSenderUuid;
                 bool isNotice = chatMessage.IsNotice;
@@ -335,13 +377,32 @@ namespace Phinix.ChatExtension.Client
                     chatMessage.MentionedUuids != null &&
                     chatMessage.MentionedUuids.Count > 0;
 
+                string renderedMessageText = messageText;
+                if (!isSystem && !isNotice)
+                {
+                    if (!showChat || chatMessage.Status != UIChatMessageStatus.Confirmed)
+                        renderedMessageText = TextHelper.StripRichText(renderedMessageText);
+                    if (hasMentions)
+                        renderedMessageText = HighlightMentions(renderedMessageText);
+                    if (chatMessage.Status == UIChatMessageStatus.Pending)
+                        renderedMessageText = TextHelper.StripRichText(renderedMessageText).Colorize(ChatTheme.PendingMessage);
+                    else if (chatMessage.Status == UIChatMessageStatus.Denied)
+                        renderedMessageText = TextHelper.StripRichText(renderedMessageText).Colorize(ChatTheme.DeniedMessage);
+                }
+
                 Color nameColor = isSelf ? ChatTheme.SelfName : ChatTheme.GetNameColor(chatMessage.SenderUuid);
                 string displayNameFormatted = (showName && chatMessage.Status == UIChatMessageStatus.Confirmed && !isSystem)
                     ? ChatTheme.FormatDisplayName(chatMessage.User.DisplayName, chatMessage.SenderUuid, nameColor)
                     : TextHelper.StripRichText(chatMessage.User.DisplayName);
+                if (chatMessage.Status == UIChatMessageStatus.Pending)
+                    displayNameFormatted = TextHelper.StripRichText(displayNameFormatted).Colorize(ChatTheme.PendingMessage);
+                else if (chatMessage.Status == UIChatMessageStatus.Denied)
+                    displayNameFormatted = TextHelper.StripRichText(displayNameFormatted).Colorize(ChatTheme.DeniedMessage);
 
                 string replyQuoteText = null;
                 string replyQuoteSenderName = null;
+                string replyQuoteDisplay = null;
+                float replyQuoteHeight = 0f;
                 if (!string.IsNullOrEmpty(chatMessage.ReplyToMessageId))
                 {
                     UIChatMessage original = null;
@@ -363,6 +424,15 @@ namespace Phinix.ChatExtension.Client
                             : ChatTheme.GetNameColor(original.SenderUuid);
                         replyQuoteSenderName = ChatTheme.FormatDisplayName(original.User.DisplayName, original.SenderUuid, origColor);
                     }
+
+                    if (!string.IsNullOrEmpty(replyQuoteText))
+                    {
+                        replyQuoteDisplay = !string.IsNullOrEmpty(replyQuoteSenderName)
+                            ? ("↩ " + replyQuoteSenderName + ": " + replyQuoteText).Colorize(ChatTheme.ReplyQuoteText)
+                            : ("↩ " + replyQuoteText).Colorize(ChatTheme.ReplyQuoteText);
+                        float baseTextWidth = isGrouped ? contentWidth - GROUP_INDENT : contentWidth;
+                        replyQuoteHeight = Mathf.Max(QUOTE_HEIGHT, Text.CalcHeight(replyQuoteDisplay, Mathf.Max(1f, baseTextWidth - QUOTE_INDENT)));
+                    }
                 }
 
                 List<ChatImageState> imageStates = null;
@@ -380,26 +450,27 @@ namespace Phinix.ChatExtension.Client
                 }
 
                 float height;
+                float messageTextHeight;
                 if (isSystem || isNotice)
                 {
-                    float textHeight = Text.CalcHeight(messageText, contentWidth - 20f);
-                    height = textHeight + MESSAGE_TOP_PADDING + MESSAGE_BOTTOM_PADDING;
+                    messageTextHeight = Text.CalcHeight(renderedMessageText, Mathf.Max(1f, contentWidth - 20f));
+                    height = messageTextHeight + MESSAGE_TOP_PADDING + MESSAGE_BOTTOM_PADDING;
                 }
                 else if (isGrouped)
                 {
                     float textWidth = contentWidth - GROUP_INDENT;
-                    float textHeight = Text.CalcHeight(messageText, textWidth);
-                    height = textHeight + GROUP_TOP_PADDING + GROUP_BOTTOM_PADDING;
+                    messageTextHeight = Text.CalcHeight(renderedMessageText, Mathf.Max(1f, textWidth));
+                    height = messageTextHeight + GROUP_TOP_PADDING + GROUP_BOTTOM_PADDING;
                 }
                 else
                 {
-                    float textHeight = Text.CalcHeight(messageText, contentWidth);
-                    height = nameLineHeight + MESSAGE_TOP_PADDING + textHeight + MESSAGE_BOTTOM_PADDING;
+                    messageTextHeight = Text.CalcHeight(renderedMessageText, Mathf.Max(1f, contentWidth));
+                    height = nameLineHeight + MESSAGE_TOP_PADDING + messageTextHeight + MESSAGE_BOTTOM_PADDING;
                 }
 
                 if (!string.IsNullOrEmpty(replyQuoteText))
                 {
-                    height += QUOTE_HEIGHT;
+                    height += replyQuoteHeight;
                 }
 
                 height += imageHeight;
@@ -413,6 +484,8 @@ namespace Phinix.ChatExtension.Client
                 displayCache[chatMessage.MessageId] = new CachedMessageDisplay
                 {
                     MessageText = messageText,
+                    RenderedMessageText = renderedMessageText,
+                    MessageTextHeight = messageTextHeight,
                     TimestampSize = timestampSize,
                     DisplayNameSize = displayNameSize,
                     ShowNameFormatting = showName,
@@ -420,11 +493,14 @@ namespace Phinix.ChatExtension.Client
                     Status = chatMessage.Status,
                     ReplyQuoteText = replyQuoteText,
                     ReplyQuoteSenderName = replyQuoteSenderName,
+                    ReplyQuoteDisplay = replyQuoteDisplay,
+                    ReplyQuoteHeight = replyQuoteHeight,
                     IsNotice = isNotice,
                     IsSelf = isSelf,
                     IsSystem = isSystem,
                     IsGrouped = isGrouped,
                     TimestampText = timestampText,
+                    TimestampDisplay = timestampText.Colorize(ChatTheme.ReplyQuoteText),
                     SenderDisplayName = displayName,
                     DisplayNameFormatted = displayNameFormatted,
                     HasMentions = hasMentions,
@@ -442,6 +518,7 @@ namespace Phinix.ChatExtension.Client
                 }
 
                 currentY += messageRect.height;
+                messagePrefixOffsets[messageIndex + 1] = currentY - inRect.yMin;
             }
 
             cachedTotalHeight = currentY - inRect.yMin;
@@ -601,28 +678,15 @@ namespace Phinix.ChatExtension.Client
 
                 cursorY = DrawReplyQuote(inRect.x, cursorY, textWidth, chatMessage, cached);
 
-                string messageText = cached.MessageText;
-                if (!cached.ShowChatFormatting || cached.Status != UIChatMessageStatus.Confirmed)
-                    messageText = TextHelper.StripRichText(messageText);
-
-                if (cached.HasMentions)
-                    messageText = HighlightMentions(messageText);
-
-                if (cached.Status == UIChatMessageStatus.Pending)
-                    messageText = TextHelper.StripRichText(messageText).Colorize(ChatTheme.PendingMessage);
-                else if (cached.Status == UIChatMessageStatus.Denied)
-                    messageText = TextHelper.StripRichText(messageText).Colorize(ChatTheme.DeniedMessage);
-
-                float textHeight = Text.CalcHeight(messageText, textWidth);
-                Rect textRect = new Rect(textX, cursorY, textWidth, textHeight);
-                Widgets.Label(textRect, messageText);
+                Rect textRect = new Rect(textX, cursorY, textWidth, cached.MessageTextHeight);
+                Widgets.Label(textRect, cached.RenderedMessageText);
 
                 if (Widgets.ButtonInvisible(textRect, false))
                 {
                     drawMessageContextMenu(chatMessage);
                 }
 
-                cursorY += textHeight + GROUP_BOTTOM_PADDING;
+                cursorY += cached.MessageTextHeight + GROUP_BOTTOM_PADDING;
                 drawMessageImages(textX, cursorY, textWidth, chatMessage, cached);
             }
             else
@@ -630,13 +694,7 @@ namespace Phinix.ChatExtension.Client
                 float nameY = inRect.y;
                 Rect nameRect = new Rect(inRect.x, nameY, inRect.width - cached.TimestampSize.x - TIMESTAMP_RIGHT_MARGIN, cached.NameLineHeight);
 
-                string displayNameText = cached.DisplayNameFormatted;
-                if (cached.Status == UIChatMessageStatus.Pending)
-                    displayNameText = TextHelper.StripRichText(cached.SenderDisplayName).Colorize(ChatTheme.PendingMessage);
-                else if (cached.Status == UIChatMessageStatus.Denied)
-                    displayNameText = TextHelper.StripRichText(cached.SenderDisplayName).Colorize(ChatTheme.DeniedMessage);
-
-                Widgets.Label(nameRect, displayNameText);
+                Widgets.Label(nameRect, cached.DisplayNameFormatted);
 
                 if (Widgets.ButtonInvisible(nameRect, true))
                 {
@@ -645,34 +703,21 @@ namespace Phinix.ChatExtension.Client
 
                 float tsX = inRect.x + inRect.width - cached.TimestampSize.x - TIMESTAMP_RIGHT_MARGIN;
                 Rect tsRect = new Rect(tsX, nameY, cached.TimestampSize.x, cached.NameLineHeight);
-                Widgets.Label(tsRect, cached.TimestampText.Colorize(ChatTheme.ReplyQuoteText));
+                Widgets.Label(tsRect, cached.TimestampDisplay);
                 if (Widgets.ButtonInvisible(tsRect, false)) { }
 
                 float cursorY = nameY + cached.NameLineHeight + MESSAGE_TOP_PADDING;
                 cursorY = DrawReplyQuote(inRect.x, cursorY, inRect.width, chatMessage, cached);
 
-                string messageText = cached.MessageText;
-                if (!cached.ShowChatFormatting || cached.Status != UIChatMessageStatus.Confirmed)
-                    messageText = TextHelper.StripRichText(messageText);
-
-                if (cached.HasMentions)
-                    messageText = HighlightMentions(messageText);
-
-                if (cached.Status == UIChatMessageStatus.Pending)
-                    messageText = TextHelper.StripRichText(messageText).Colorize(ChatTheme.PendingMessage);
-                else if (cached.Status == UIChatMessageStatus.Denied)
-                    messageText = TextHelper.StripRichText(messageText).Colorize(ChatTheme.DeniedMessage);
-
-                float textHeight = Text.CalcHeight(messageText, inRect.width);
-                Rect msgRect = new Rect(inRect.x, cursorY, inRect.width, textHeight);
-                Widgets.Label(msgRect, messageText);
+                Rect msgRect = new Rect(inRect.x, cursorY, inRect.width, cached.MessageTextHeight);
+                Widgets.Label(msgRect, cached.RenderedMessageText);
 
                 if (Widgets.ButtonInvisible(msgRect, false))
                 {
                     drawMessageContextMenu(chatMessage);
                 }
 
-                cursorY += textHeight + MESSAGE_BOTTOM_PADDING;
+                cursorY += cached.MessageTextHeight + MESSAGE_BOTTOM_PADDING;
                 drawMessageImages(inRect.x, cursorY, inRect.width, chatMessage, cached);
             }
         }
@@ -951,21 +996,13 @@ namespace Phinix.ChatExtension.Client
             if (string.IsNullOrEmpty(chatMessage.ReplyToMessageId) || string.IsNullOrEmpty(cached.ReplyQuoteText))
                 return y;
 
-            Rect quoteRect = new Rect(x + QUOTE_INDENT, y, width - QUOTE_INDENT, QUOTE_HEIGHT);
-            Rect quoteLineRect = new Rect(x, y, QUOTE_LINE_WIDTH, QUOTE_HEIGHT);
+            float quoteHeight = Mathf.Max(QUOTE_HEIGHT, cached.ReplyQuoteHeight);
+            Rect quoteRect = new Rect(x + QUOTE_INDENT, y, Mathf.Max(0f, width - QUOTE_INDENT), quoteHeight);
+            Rect quoteLineRect = new Rect(x, y, QUOTE_LINE_WIDTH, quoteHeight);
 
             Widgets.DrawBoxSolid(quoteLineRect, ChatTheme.ReplyQuoteBorder);
 
-            string quoteDisplay;
-            if (!string.IsNullOrEmpty(cached.ReplyQuoteSenderName))
-            {
-                quoteDisplay = "↩ " + cached.ReplyQuoteSenderName + ": " + cached.ReplyQuoteText.Colorize(ChatTheme.ReplyQuoteText);
-            }
-            else
-            {
-                quoteDisplay = ("↩ " + cached.ReplyQuoteText).Colorize(ChatTheme.ReplyQuoteText);
-            }
-            Widgets.Label(quoteRect, quoteDisplay);
+            Widgets.Label(quoteRect, cached.ReplyQuoteDisplay);
 
             if (Mouse.IsOver(quoteRect))
             {
@@ -977,16 +1014,12 @@ namespace Phinix.ChatExtension.Client
                 }
             }
 
-            return y + QUOTE_HEIGHT;
+            return y + quoteHeight;
         }
 
         private static string HighlightMentions(string messageText)
         {
-            if (string.IsNullOrEmpty(messageText)) return messageText;
-            return MentionRegex.Replace(messageText, match =>
-            {
-                return "<color=" + ColorUtility.ToHtmlStringRGB(ChatTheme.MentionText) + ">@" + match.Groups[1].Value + "</color>";
-            });
+            return ChatMentionUtility.Highlight(messageText, ColorUtility.ToHtmlStringRGB(ChatTheme.MentionText));
         }
 
         private void drawChatMessageFallback(Rect inRect, UIChatMessage chatMessage)

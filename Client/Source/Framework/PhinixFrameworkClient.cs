@@ -852,6 +852,18 @@ namespace PhinixClient.Framework
                 return;
             }
 
+            // Reject ordinary history replays before extension interceptors run so
+            // interceptors with notification/statistics side effects do not see the
+            // same stored message twice. Recheck under the insertion lock below to
+            // keep concurrent live/history delivery from adding duplicate rows.
+            lock (displayMessagesLock)
+            {
+                if (isDisplayMessageAlreadyStoredUnsafe(message))
+                {
+                    return;
+                }
+            }
+
             if (shouldSuppress(message))
             {
                 return;
@@ -859,14 +871,31 @@ namespace PhinixClient.Framework
 
             lock (displayMessagesLock)
             {
+                // History replay and live delivery can overlap. Identity belongs to
+                // the originating extension; unrelated sources may reuse an ID.
+                if (isDisplayMessageAlreadyStoredUnsafe(message))
+                {
+                    return;
+                }
+
                 if (displayMessages.Count >= MaxDisplayMessages)
                 {
-                    displayMessages.RemoveRange(0, displayMessages.Count - MaxDisplayMessages + 1);
+                    int removedCount = displayMessages.Count - MaxDisplayMessages + 1;
+                    displayMessages.RemoveRange(0, removedCount);
+                    // The read cursor is an index in the retained buffer, so it must
+                    // move with the buffer when old messages are evicted.
+                    displayMessageCountAtLastCheck = Math.Max(0, displayMessageCountAtLastCheck - removedCount);
                 }
                 displayMessages.Add(message);
             }
 
             OnDisplayMessageReceived?.Invoke(this, new FrameworkDisplayMessageEventArgs(message));
+        }
+
+        private bool isDisplayMessageAlreadyStoredUnsafe(FrameworkDisplayMessage message)
+        {
+            return !string.IsNullOrEmpty(message.MessageId) && displayMessages.Any(existing =>
+                existing.MessageId == message.MessageId && existing.Source == message.Source);
         }
 
         void IDisplayMessageSink.Enqueue(FrameworkDisplayMessage message)

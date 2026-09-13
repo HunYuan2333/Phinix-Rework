@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using PhinixClient;
 using PhinixClient.Framework;
 using PhinixClient.Trade;
 using UnityEngine;
@@ -25,6 +26,9 @@ namespace Phinix.TradeExtension.Client
         private const float ROW_HEIGHT = TRADE_TITLE_LABEL_HEIGHT + ACCEPTED_STATE_LABEL_HEIGHT;
 
         private const float BUTTON_WIDTH = 80f;
+        private const float NARROW_ROW_HEIGHT = 78f;
+        private const float MINIMUM_INLINE_TITLE_WIDTH = 180f;
+        private const int VIRTUAL_OVERSCAN = 2;
 
         /// <summary>
         /// List of active trades.
@@ -43,6 +47,10 @@ namespace Phinix.TradeExtension.Client
         /// Lock object protecting <see cref="trades"/>.
         /// </summary>
         private readonly object tradesLock = new object();
+        private Vector2 scrollPos;
+        private object cachedLanguage;
+        private string cachedOpenLabel;
+        private string cachedCancelLabel;
 
         /// <summary>
         /// Creates a new <see cref="TradeList"/>.
@@ -68,6 +76,8 @@ namespace Phinix.TradeExtension.Client
 
         public void Draw(Rect inRect)
         {
+            if (inRect.width <= 0f || inRect.height <= 0f) return;
+            EnsureTextCache();
             if (tradesChanged)
             {
                 // Try lock the unfiltered list, otherwise wait until the next frame to refresh content
@@ -91,25 +101,31 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            // Set up the scrollable container
+            bool compactRows = inRect.width < BUTTON_WIDTH * 2f + DEFAULT_SPACING * 2f + MINIMUM_INLINE_TITLE_WIDTH;
+            float rowHeight = compactRows ? NARROW_ROW_HEIGHT : ROW_HEIGHT;
             Rect contentRect = new Rect(
                 x: inRect.xMin,
                 y: inRect.yMin,
                 width: inRect.width,
-                height: ROW_HEIGHT * filteredTrades.Count
+                height: rowHeight * filteredTrades.Count
             );
-            if (contentRect.height > inRect.height) contentRect.width = inRect.width - SCROLLBAR_WIDTH;
+            bool scrollRequired = contentRect.height > inRect.height;
+            if (scrollRequired) contentRect.width = Mathf.Max(0f, inRect.width - SCROLLBAR_WIDTH);
 
-            // Draw the list
-            float currentY = contentRect.yMin;
-            for (int i = 0; i < filteredTrades.Count; i++, currentY += ROW_HEIGHT)
+            if (scrollRequired) Widgets.BeginScrollView(inRect, ref scrollPos, contentRect);
+            VirtualListRange visibleRange = VirtualListLayout.GetFixedRange(filteredTrades.Count, rowHeight, scrollRequired ? scrollPos.y : 0f, inRect.height, VIRTUAL_OVERSCAN);
+            for (int i = visibleRange.FirstIndex; i < visibleRange.EndIndexExclusive; i++)
             {
                 ClientTradeSnapshot trade = filteredTrades[i];
+                float currentY = contentRect.yMin + i * rowHeight;
 
-                Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, ROW_HEIGHT);
-                Rect buttonAreaRect = new Rect(rowRect.xMax - (BUTTON_WIDTH * 2 + DEFAULT_SPACING), currentY, BUTTON_WIDTH * 2 + DEFAULT_SPACING, ROW_HEIGHT);
-                Rect tradeTitleRect = new Rect(rowRect.xMin, currentY, rowRect.width - buttonAreaRect.width - DEFAULT_SPACING, TRADE_TITLE_LABEL_HEIGHT);
-                Rect acceptedStateRect = new Rect(rowRect.xMin, tradeTitleRect.yMax, rowRect.width - buttonAreaRect.width - DEFAULT_SPACING, ACCEPTED_STATE_LABEL_HEIGHT);
+                Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
+                Rect buttonAreaRect = compactRows
+                    ? new Rect(rowRect.xMin, rowRect.yMax - 30f, rowRect.width, 30f)
+                    : new Rect(rowRect.xMax - (BUTTON_WIDTH * 2 + DEFAULT_SPACING), currentY, BUTTON_WIDTH * 2 + DEFAULT_SPACING, ROW_HEIGHT);
+                float textWidth = compactRows ? rowRect.width : Mathf.Max(0f, rowRect.width - buttonAreaRect.width - DEFAULT_SPACING);
+                Rect tradeTitleRect = new Rect(rowRect.xMin, currentY, textWidth, TRADE_TITLE_LABEL_HEIGHT);
+                Rect acceptedStateRect = new Rect(rowRect.xMin, tradeTitleRect.yMax, textWidth, ACCEPTED_STATE_LABEL_HEIGHT);
 
                 // Background highlight
                 if (i % 2 != 0) Widgets.DrawHighlight(rowRect);
@@ -122,29 +138,46 @@ namespace Phinix.TradeExtension.Client
                 // Trade with ... label
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
-                Widgets.LabelFit(tradeTitleRect, "Phinix_trade_activeTrade_tradeWithLabel".Translate(TextHelper.StripRichText(trade.OtherPartyDisplayName)));
+                string tradeTitle = "Phinix_trade_activeTrade_tradeWithLabel".Translate(TextHelper.StripRichText(trade.OtherPartyDisplayName));
+                Widgets.LabelFit(tradeTitleRect, tradeTitle);
+                TooltipHandler.TipRegion(tradeTitleRect, tradeTitle);
 
                 // Accepted state label
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.LowerLeft;
-                Widgets.Label(acceptedStateRect, ("Phinix_trade_activeTrade_theyHave" + (!trade.OtherPartyAccepted ? "Not" : "") + "Accepted").Translate());
+                string acceptedState = ("Phinix_trade_activeTrade_theyHave" + (!trade.OtherPartyAccepted ? "Not" : "") + "Accepted").Translate();
+                Widgets.LabelFit(acceptedStateRect, acceptedState);
+                TooltipHandler.TipRegion(acceptedStateRect, acceptedState);
 
                 // Restore the text settings
                 Text.Font = previousFont;
                 Text.Anchor = previousAnchor;
 
                 // Open button
-                if (Widgets.ButtonText(buttonAreaRect.LeftPartPixels(BUTTON_WIDTH), "Phinix_trade_activeTrade_openButton".Translate()))
+                float actionWidth = Mathf.Max(0f, (buttonAreaRect.width - DEFAULT_SPACING) / 2f);
+                Rect openRect = new Rect(buttonAreaRect.xMin, buttonAreaRect.yMin, actionWidth, buttonAreaRect.height);
+                Rect cancelRect = new Rect(openRect.xMax + DEFAULT_SPACING, buttonAreaRect.yMin, actionWidth, buttonAreaRect.height);
+                if (Widgets.ButtonText(openRect, cachedOpenLabel))
                 {
                     hostContext.OpenTradeWindow(trade);
                 }
 
                 // Cancel button
-                if (Widgets.ButtonText(buttonAreaRect.RightPartPixels(BUTTON_WIDTH), "Phinix_trade_activeTrade_cancelButton".Translate()))
+                if (Widgets.ButtonText(cancelRect, cachedCancelLabel))
                 {
                     tradeService.CancelTrade(trade.TradeId);
                 }
             }
+            if (scrollRequired) Widgets.EndScrollView();
+        }
+
+        private void EnsureTextCache()
+        {
+            object language = LanguageDatabase.activeLanguage;
+            if (ReferenceEquals(language, cachedLanguage) && cachedOpenLabel != null) return;
+            cachedLanguage = language;
+            cachedOpenLabel = "Phinix_trade_activeTrade_openButton".Translate();
+            cachedCancelLabel = "Phinix_trade_activeTrade_cancelButton".Translate();
         }
 
         /// <summary>

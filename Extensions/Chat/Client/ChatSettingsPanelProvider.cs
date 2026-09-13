@@ -1,5 +1,6 @@
 using System;
 using PhinixClient.Framework;
+using UnityEngine;
 using Verse;
 
 namespace Phinix.ChatExtension.Client
@@ -7,6 +8,10 @@ namespace Phinix.ChatExtension.Client
     internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
         private readonly IUiTheme theme;
+        private readonly string[] labels = new string[12];
+        private readonly float[] labelHeights = new float[12];
+        private float cachedWidth = -1f;
+        private object cachedLanguage;
 
         public ChatSettingsPanelProvider(IUiTheme theme = null)
         {
@@ -21,51 +26,31 @@ namespace Phinix.ChatExtension.Client
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         {
-            bool playNoiseOnMessageReceived = settings.Get("chat.playNoiseOnMessageReceived", true);
-            listing.CheckboxLabeled("Phinix_modSettings_playNoiseOnMessageReceived".Translate(), ref playNoiseOnMessageReceived);
-            settings.Set("chat.playNoiseOnMessageReceived", playNoiseOnMessageReceived);
+            RebuildLabels(listing.ColumnWidth);
+            DrawCheckbox(listing, settings, 0, "chat.playNoiseOnMessageReceived", true);
+            DrawCheckbox(listing, settings, 1, "chat.showNameFormatting", true);
+            DrawCheckbox(listing, settings, 2, "chat.showChatFormatting", true);
+            DrawCheckbox(listing, settings, 3, "chat.showUnreadMessageCount", true);
+            DrawCheckbox(listing, settings, 4, "chat.showBlockedUnreadMessageCount", false);
 
-            bool showNameFormatting = settings.Get("chat.showNameFormatting", true);
-            listing.CheckboxLabeled("Phinix_modSettings_showNameFormatting".Translate(), ref showNameFormatting);
-            settings.Set("chat.showNameFormatting", showNameFormatting);
-
-            bool showChatFormatting = settings.Get("chat.showChatFormatting", true);
-            listing.CheckboxLabeled("Phinix_modSettings_showChatFormatting".Translate(), ref showChatFormatting);
-            settings.Set("chat.showChatFormatting", showChatFormatting);
-
-            bool showUnreadMessageCount = settings.Get("chat.showUnreadMessageCount", true);
-            listing.CheckboxLabeled("Phinix_modSettings_showUnreadMessageCount".Translate(), ref showUnreadMessageCount);
-            settings.Set("chat.showUnreadMessageCount", showUnreadMessageCount);
-
-            bool showBlockedUnreadMessageCount = settings.Get("chat.showBlockedUnreadMessageCount", false);
-            listing.CheckboxLabeled("Phinix_modSettings_showBlockedUnreadMessageCount".Translate(), ref showBlockedUnreadMessageCount);
-            settings.Set("chat.showBlockedUnreadMessageCount", showBlockedUnreadMessageCount);
-
-            listing.Label("Phinix_modSettings_chatMessageLimit".Translate());
+            DrawLabel(listing, 5);
             string limitStr = settings.Get("chat.messageLimit", 40).ToString();
             limitStr = listing.TextEntry(limitStr);
             int.TryParse(limitStr, out int chatMessageLimit);
             settings.Set("chat.messageLimit", chatMessageLimit);
 
-            bool forceMessageFieldFocus = settings.Get("chat.forceMessageFieldFocus", true);
-            listing.CheckboxLabeled("Phinix_modSettings_forceMessageFieldFocus".Translate(), ref forceMessageFieldFocus);
-            settings.Set("chat.forceMessageFieldFocus", forceMessageFieldFocus);
+            DrawCheckbox(listing, settings, 6, "chat.forceMessageFieldFocus", true);
+            DrawCheckbox(listing, settings, 7, "chat.notice.enabled", true);
 
-            bool noticeEnabled = settings.Get("chat.notice.enabled", true);
-            listing.CheckboxLabeled("Phinix_modSettings_noticeEnabled".Translate(), ref noticeEnabled);
-            settings.Set("chat.notice.enabled", noticeEnabled);
-
-            listing.Label("Phinix_modSettings_noticeDefaultDuration".Translate());
+            DrawLabel(listing, 8);
             string noticeDurationStr = settings.Get("chat.notice.defaultDuration", 10).ToString();
             noticeDurationStr = listing.TextEntry(noticeDurationStr);
             int.TryParse(noticeDurationStr, out int noticeDuration);
             settings.Set("chat.notice.defaultDuration", noticeDuration);
 
-            bool chatImagesEnabled = settings.Get("chat.images.enabled", true);
-            listing.CheckboxLabeled("Phinix_modSettings_chatImagesEnabled".Translate(), ref chatImagesEnabled);
-            settings.Set("chat.images.enabled", chatImagesEnabled);
+            DrawCheckbox(listing, settings, 9, "chat.images.enabled", true);
 
-            listing.Label("Phinix_modSettings_chatImagesMaxHeight".Translate());
+            DrawLabel(listing, 10);
             string maxImageHeightStr = settings.Get("chat.images.maxHeight", 240f).ToString();
             maxImageHeightStr = listing.TextEntry(maxImageHeightStr);
             if (float.TryParse(maxImageHeightStr, out float maxImageHeight))
@@ -76,12 +61,54 @@ namespace Phinix.ChatExtension.Client
             if (theme != null)
             {
                 listing.Gap(4f);
-                if (listing.ButtonText("Phinix_modSettings_reloadTheme".Translate()))
+                Rect buttonRect = listing.GetRect(Mathf.Max(30f, labelHeights[11]));
+                if (Widgets.ButtonText(buttonRect, labels[11]))
                 {
                     theme.Reload();
                     ChatTheme.Refresh(theme);
                 }
             }
+        }
+
+        private void RebuildLabels(float width)
+        {
+            width = Mathf.Max(1f, width);
+            object language = LanguageDatabase.activeLanguage;
+            if (Mathf.Approximately(cachedWidth, width) && ReferenceEquals(cachedLanguage, language)) return;
+            cachedWidth = width;
+            cachedLanguage = language;
+            string[] keys =
+            {
+                "Phinix_modSettings_playNoiseOnMessageReceived", "Phinix_modSettings_showNameFormatting",
+                "Phinix_modSettings_showChatFormatting", "Phinix_modSettings_showUnreadMessageCount",
+                "Phinix_modSettings_showBlockedUnreadMessageCount", "Phinix_modSettings_chatMessageLimit",
+                "Phinix_modSettings_forceMessageFieldFocus", "Phinix_modSettings_noticeEnabled",
+                "Phinix_modSettings_noticeDefaultDuration", "Phinix_modSettings_chatImagesEnabled",
+                "Phinix_modSettings_chatImagesMaxHeight", "Phinix_modSettings_reloadTheme"
+            };
+            for (int i = 0; i < keys.Length; i++)
+            {
+                labels[i] = keys[i].Translate();
+                float textWidth = i <= 4 || i == 6 || i == 7 || i == 9 ? width - 36f : width;
+                labelHeights[i] = Mathf.Max(30f, Text.CalcHeight(labels[i], Mathf.Max(1f, textWidth)));
+            }
+        }
+
+        private void DrawCheckbox(Listing_Standard listing, IClientSettingsContext settings,
+            int labelIndex, string key, bool defaultValue)
+        {
+            bool value = settings.Get(key, defaultValue);
+            Rect rect = listing.GetRect(labelHeights[labelIndex]);
+            Widgets.CheckboxLabeled(rect, labels[labelIndex], ref value);
+            TooltipHandler.TipRegion(rect, labels[labelIndex]);
+            settings.Set(key, value);
+        }
+
+        private void DrawLabel(Listing_Standard listing, int labelIndex)
+        {
+            Rect rect = listing.GetRect(labelHeights[labelIndex]);
+            Widgets.Label(rect, labels[labelIndex]);
+            TooltipHandler.TipRegion(rect, labels[labelIndex]);
         }
 
         public bool TryMigrateLegacySettings(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues)
