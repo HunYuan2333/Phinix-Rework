@@ -1631,9 +1631,9 @@ Minimal `.csproj` skeleton (client-side, .NET Framework 4.7.2):
 
   <!-- Post-build copy to Extensions directory (for integrated Phinix directory deployment) -->
   <Target Name="AfterBuild">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll"
-          DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\17-$(AssemblyName).dll" />
+          DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\17-$(AssemblyName).dll" />
   </Target>
 </Project>
 ```

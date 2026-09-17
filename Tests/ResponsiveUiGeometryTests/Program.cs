@@ -16,6 +16,7 @@ internal static class Program
             TestFormModes();
             TestToolbarWrapAndOverflow();
             TestVirtualRanges();
+            TestRedPacketClaimRows();
             TestTalentOfferReachability();
             TestZeroSizeInputs();
             TestStableGeometryDoesNotAllocate();
@@ -143,6 +144,37 @@ internal static class Program
         }
     }
 
+    private static void TestRedPacketClaimRows()
+    {
+        Rect row = new Rect(0f, 0f, 600f, 30f);
+        var fourDigits = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
+            row, 72f, 76f, true);
+        Assert(fourDigits.AmountRect.width == 72f, "A four-digit claim amount must retain its complete measured width.");
+        Assert(fourDigits.ShowBest, "The best tag should remain visible when the row has room.");
+        AssertContained(fourDigits.NameRect, row);
+        AssertContained(fourDigits.BestRect, row);
+        AssertContained(fourDigits.AmountRect, row);
+        Assert(fourDigits.NameRect.xMax <= fourDigits.BestRect.xMin, "Claim row columns must not overlap.");
+        Assert(fourDigits.BestRect.xMax <= fourDigits.AmountRect.xMin, "Best tag must not overlap the amount.");
+
+        Rect narrow = new Rect(0f, 0f, 180f, 30f);
+        var compact = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
+            narrow, 96f, 76f, true);
+        Assert(compact.AmountRect.width == 96f, "Compact rows must preserve authoritative amounts before optional metadata.");
+        Assert(!compact.ShowBest, "Compact rows should hide the optional best tag before clipping the amount.");
+        AssertContained(compact.NameRect, narrow);
+        AssertContained(compact.AmountRect, narrow);
+        Assert(compact.NameRect.xMax <= compact.AmountRect.xMin, "Compact claim row columns must not overlap.");
+
+        Rect tiny = new Rect(10f, 20f, 50f, 30f);
+        var constrained = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
+            tiny, 120f, 200f, true);
+        Assert(!constrained.ShowBest, "An oversized localized tag must degrade cleanly in a tiny row.");
+        AssertContained(constrained.NameRect, tiny);
+        AssertContained(constrained.AmountRect, tiny);
+        Assert(constrained.AmountRect.width <= tiny.width, "A physically impossible amount must remain contained by the row.");
+    }
+
     private static void TestZeroSizeInputs()
     {
         Rect empty = new Rect(10f, 20f, 0f, 0f);
@@ -182,6 +214,8 @@ internal static class Program
             ResponsiveToolbarLayout.Calculate(new Rect(0f, 0f, 220f, 80f), widths, 3, 2, 30f, 10f, 2, 40f, rects);
             VirtualListLayout.GetFixedRange(1000, 20f, 200f, 100f, 1);
             VirtualListLayout.GetDynamicRange(StableDynamicOffsets, 3, 20f, 50f, 1);
+            Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
+                new Rect(0f, 0f, 600f, 30f), 96f, 76f, true);
         }
     }
 

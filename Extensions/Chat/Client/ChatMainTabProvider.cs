@@ -20,6 +20,10 @@ namespace Phinix.ChatExtension.Client
         private const float REPLY_LINE_WIDTH = 3f;
         private const float REPLY_CLOSE_WIDTH = 24f;
         private const float REPLY_TEXT_PADDING = 4f;
+        // Dynamic/virtualized message rows allocate a variable number of IMGUI
+        // control IDs. Resynchronize the ID stream before the text input so an
+        // incoming message cannot move keyboard focus to a later control.
+        private const int CHAT_INPUT_CONTROL_BOUNDARY = 0x50484349;
         private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
         private const int REFOCUS_ATTEMPTS = 2;
 
@@ -146,6 +150,7 @@ namespace Phinix.ChatExtension.Client
                 }
             }
 
+            GUIUtility.GetControlID(CHAT_INPUT_CONTROL_BOUNDARY, FocusType.Passive);
             GUI.SetNextControlName(CHAT_INPUT_CONTROL);
             message = Widgets.TextField(messageBoxRect, message);
             UpdateInputOwnership(messageBoxRect);

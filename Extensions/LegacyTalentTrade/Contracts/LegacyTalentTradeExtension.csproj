@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <Target Name="CopyToClientExtensions" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net472'">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\15-LegacyTalentTradeExtension.dll" />
   </Target>
 </Project>

@@ -37,8 +37,11 @@
 - 主体编码器不再过滤失败项；一件物品编码失败则整批抛出异常，交由已有调用方恢复。
 - 未提供 token 的调用在 adapter 中生成唯一 wire token，防止旧回执确认后续操作。
 - 明确未连接会通知操作失败；其他传输异常保留 pending，等待真实回执，不能认定服务端未收到。
+- 新客户端用 `core.item.scribe-v1` 保存完整 `Thing`/`ThingComp` 状态；基础物品预览与 opaque 状态分离，服务端不解释状态载荷。
+- 原版服务端路径由 Legacy adapter 将状态载荷封装在旧服务端能够原样保存、转发的 `InnerProtoThing` 哨兵节点中。哨兵格式、深度/大小限制和还原逻辑不得移出 `Extensions/LegacyAdapter/Client`。
+- 入站状态载荷必须与旧协议可见的物品预览一致；缺失 codec、载荷损坏、缺失 Mod/Def 或预览不匹配均拒绝交付，不能降级为重新 `ThingMaker.MakeThing` 的空白/随机物品。
 
-验证：`Tests/LegacyTradeRuntimeTests` 使用编译后的真实 adapter、交易服务和 protobuf 包，注入内存传输，8 组场景通过：发送不提前确认、拒绝回执、未连接、整批转换拒绝、空报价、唯一 token、整批编码拒绝、发送结果未知后收到回执。包含重复/未知回执不覆盖状态、普通快照携带 token 仍不得确认的断言。
+验证：`Tests/LegacyTradeRuntimeTests` 使用编译后的真实 adapter、交易服务和 protobuf 包，注入内存传输，9 组场景通过：发送不提前确认、拒绝回执、未连接、整批转换拒绝、空报价、唯一 token、整批编码拒绝、发送结果未知后收到回执、状态物品经旧服务端消息形状往返。包含重复/未知回执不覆盖状态、普通快照携带 token 仍不得确认、状态载荷逐字保留及 UI 快照继续持有状态的断言。
 
 测试程序集按 mod 的 net472 依赖编译，在 .NET 10 下运行无 GUI 场景，避免 Windows Framework 测试进程与游戏依赖的 netstandard 版本冲突。它不替代 RimWorld/Unity 内的联机测试。
 

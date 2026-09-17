@@ -23,7 +23,7 @@ namespace Phinix.TradeExtension.Client
                 Log = (message, level) => log?.Invoke(new LogEventArgs(message, level))
             };
 
-            codecs = new List<IItemCodec> { new DefaultLegacyTradeItemCodec() };
+            codecs = new List<IItemCodec> { new ScribedTradeItemCodec(), new DefaultLegacyTradeItemCodec() };
             foreach (IItemCodec codec in extensionCodecs ?? Enumerable.Empty<IItemCodec>())
             {
                 if (codec == null || string.IsNullOrEmpty(codec.CodecId))
@@ -36,7 +36,7 @@ namespace Phinix.TradeExtension.Client
                     continue;
                 }
 
-                codecs.Add(codec);
+                codecs.Insert(0, codec);
             }
         }
 
@@ -61,7 +61,7 @@ namespace Phinix.TradeExtension.Client
                     continue;
                 }
 
-                codecs.Add(codec);
+                codecs.Insert(Math.Max(0, codecs.FindIndex(candidate => candidate is ScribedTradeItemCodec)), codec);
             }
         }
 
@@ -110,6 +110,10 @@ namespace Phinix.TradeExtension.Client
             IItemCodec codec = codecs.FirstOrDefault(candidate => candidate.CanDecode(payload, codecContext));
             if (codec == null)
             {
+                if (string.Equals(payload?.CodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"No item codec could decode required stateful payload '{payload.CodecId}'.");
+                }
                 codecContext.Log?.Invoke($"No item codec could decode payload for codec '{payload?.CodecId ?? "unknown"}'; creating UnknownItem.", LogLevel.WARNING);
                 return buildUnknownItem(payload?.CodecId ?? "UnknownCodec");
             }
@@ -120,6 +124,10 @@ namespace Phinix.TradeExtension.Client
             }
             catch (Exception exception)
             {
+                if (string.Equals(payload?.CodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("Stateful trade item decoding failed; delivery was rejected to prevent item-state loss.", exception);
+                }
                 codecContext.Log?.Invoke($"Failed to decode item payload with codec '{codec.CodecId}': {exception.Message}", LogLevel.WARNING);
                 return buildUnknownItem(payload?.CodecId ?? codec.CodecId);
             }

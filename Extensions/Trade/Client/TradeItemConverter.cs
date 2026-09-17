@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Phinix.TradeExtension.Client;
 using RimWorld;
 using Verse;
 
@@ -22,6 +23,13 @@ namespace PhinixClient.Trade
 
         public static TradeItemSnapshot ConvertThingFromVerse(Thing verseThing)
         {
+            return ConvertThingFromVerse(verseThing, true);
+        }
+
+        private static TradeItemSnapshot ConvertThingFromVerse(Thing verseThing, bool captureState)
+        {
+            if (verseThing == null) throw new ArgumentNullException(nameof(verseThing));
+
             TradeItemQuality quality = verseThing.TryGetQuality(out QualityCategory gottenQuality)
                 ? toTradeItemQuality(gottenQuality)
                 : TradeItemQuality.None;
@@ -29,8 +37,12 @@ namespace PhinixClient.Trade
             TradeItemSnapshot innerItem = null;
             if (verseThing is MinifiedThing minifiedVerseThing)
             {
-                innerItem = ConvertThingFromVerse(minifiedVerseThing.InnerThing);
+                innerItem = ConvertThingFromVerse(minifiedVerseThing.InnerThing, false);
             }
+
+            byte[] statePayload = captureState
+                ? TradeThingStateSerializer.Serialize(verseThing)
+                : Array.Empty<byte>();
 
             return new TradeItemSnapshot(
                 verseThing.def.defName,
@@ -38,7 +50,9 @@ namespace PhinixClient.Trade
                 verseThing.HitPoints,
                 quality,
                 verseThing.Stuff?.defName,
-                innerItem);
+                innerItem,
+                captureState ? StatefulTradeItemProtocol.ScribeCodecId : string.Empty,
+                statePayload);
         }
 
         private static readonly Dictionary<string, ThingDef> thingDefCache = new Dictionary<string, ThingDef>();
@@ -62,6 +76,25 @@ namespace PhinixClient.Trade
 
         public static Thing ConvertThingFromSnapshot(TradeItemSnapshot item)
         {
+            if (item == null) throw new ArgumentNullException(nameof(item));
+
+            if (item.StatePayload != null && item.StatePayload.Length > 0)
+            {
+                if (!string.Equals(item.StateCodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"Unsupported trade item state codec '{item.StateCodecId}'.");
+                }
+
+                Thing restoredThing = TradeThingStateSerializer.Deserialize(item.StatePayload);
+                if (!string.Equals(restoredThing.def?.defName, item.DefName, StringComparison.Ordinal) ||
+                    restoredThing.stackCount != item.StackCount)
+                {
+                    throw new InvalidOperationException(
+                        $"Restored trade item does not match snapshot (expected '{item.DefName}' x{item.StackCount}, got '{restoredThing.def?.defName ?? "unknown"}' x{restoredThing.stackCount}).");
+                }
+                return restoredThing;
+            }
+
             ThingDef thingDef = GetThingDefByName(item.DefName);
 
             if (thingDef == null)
@@ -98,6 +131,11 @@ namespace PhinixClient.Trade
             }
             catch (InvalidOperationException)
             {
+                if (item?.StatePayload != null && item.StatePayload.Length > 0)
+                {
+                    throw;
+                }
+
                 ThingDef thingDef = GetThingDefByName("UnknownItem");
 
                 UnknownItem verseThing = (UnknownItem)ThingMaker.MakeThing(thingDef);

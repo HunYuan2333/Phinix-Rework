@@ -109,6 +109,12 @@ namespace PhinixClient
         private int cachedSettingsExtensionCount = -1;
         private Vector2 modSettingsScrollPosition;
         private float modSettingsContentHeight = 1200f;
+        private readonly Listing_Standard modSettingsListing = new Listing_Standard
+        {
+            // The outer ScrollView owns vertical overflow. Internal pagination would
+            // move later providers into a clipped column to the right.
+            maxOneColumn = true
+        };
         public Settings Settings { get; }
 
         /// <summary>
@@ -376,10 +382,8 @@ namespace PhinixClient
 
             float listingWidth = Math.Min(600f, contentWidth);
 
-            Listing_Standard listing = new Listing_Standard()
-            {
-                ColumnWidth = listingWidth
-            };
+            Listing_Standard listing = modSettingsListing;
+            listing.ColumnWidth = listingWidth;
             listing.Begin(viewRect);
 
             listing.Label("Phinix_modSettings_serverAddressTitle".Translate());

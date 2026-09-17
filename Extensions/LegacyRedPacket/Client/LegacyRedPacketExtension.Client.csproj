@@ -72,6 +72,7 @@
     <Compile Include="BuiltInLegacyRedPacketClientExtension.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RedPacket.cs" />
+    <Compile Include="RedPacketClaimRowLayout.cs" />
     <Compile Include="RedPacketDetailWindow.cs" />
     <Compile Include="RedPacketDropHelper.cs" />
     <Compile Include="RedPacketLimits.cs" />
@@ -111,7 +112,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\14-LegacyRedPacketExtension.Client.dll" />
   </Target>
 </Project>

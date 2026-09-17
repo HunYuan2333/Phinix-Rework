@@ -129,7 +129,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\11-ChatExtension.Client.dll" />
   </Target>
 </Project>

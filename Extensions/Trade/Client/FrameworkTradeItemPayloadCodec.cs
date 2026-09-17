@@ -10,6 +10,12 @@ namespace Phinix.TradeExtension.Client
         public static bool TryDecodeToTradeItemSnapshot(FrameworkItemPayload payload, out TradeItemSnapshot item)
         {
             item = null;
+            if (payload != null &&
+                string.Equals(payload.CodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))
+            {
+                return StatefulTradeItemProtocol.TryGetPreview(payload, out item);
+            }
+
             if (payload == null ||
                 !string.Equals(payload.CodecId, "core.item.vanilla", StringComparison.OrdinalIgnoreCase) ||
                 ((payload.PayloadBytes == null || payload.PayloadBytes.Length == 0) && string.IsNullOrEmpty(payload.PayloadJson)))

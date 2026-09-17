@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <Target Name="CopyToClientExtensions" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net472'">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\13-LegacyRedPacketExtension.dll" />
   </Target>
 </Project>

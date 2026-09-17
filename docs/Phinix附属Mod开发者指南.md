@@ -1630,9 +1630,9 @@ Phinix-Rework/
 
   <!-- 构建后复制到 Extensions 目录（适用于放入 Phinix 目录的集成方式） -->
   <Target Name="AfterBuild">
-    <MakeDir Directories="$(SolutionDir)\Output\Client\Common\Extensions" />
+    <MakeDir Directories="$(SolutionDir)\Output\phinix-rework\Common\Extensions" />
     <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll"
-          DestinationFiles="$(SolutionDir)\Output\Client\Common\Extensions\17-$(AssemblyName).dll" />
+          DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Extensions\17-$(AssemblyName).dll" />
   </Target>
 </Project>
 ```

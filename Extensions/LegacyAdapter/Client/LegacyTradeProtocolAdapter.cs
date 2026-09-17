@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Connections;
 using Google.Protobuf;
 using Phinix.TradeExtension;
@@ -28,6 +29,13 @@ namespace Phinix.LegacyAdapter.Client
     /// </summary>
     internal sealed class LegacyTradeProtocolAdapter : IClientOutgoingCommandHandler
     {
+        // Compatibility tunnel for old servers. Keep every detail of this encoding
+        // inside the adapter: Framework trade and item codecs remain unaware of the
+        // legacy ProtoThing compromise.
+        private const string StatefulTunnelSentinel = "__PHINIX_STATEFUL_ITEM_V1__";
+        private const int StatefulTunnelMagic = -2147482461;
+        private const int MaxTunnelJsonBytes = 8 * 1024 * 1024;
+
         private readonly ILegacyModuleTransport legacyTransport;
         private readonly IDisplayMessageSink displaySink;
         private readonly IClientSessionContext sessionContext;
@@ -681,6 +689,12 @@ namespace Phinix.LegacyAdapter.Client
             var items = new List<FrameworkItemPayload>(protoThings.Count);
             foreach (var protoThing in protoThings)
             {
+                if (TryExtractStatefulTunnel(protoThing, out FrameworkItemPayload tunneledPayload))
+                {
+                    items.Add(tunneledPayload);
+                    continue;
+                }
+
                 var itemData = ConvertProtoThingToVanillaItemData(protoThing);
                 if (itemData == null)
                     continue;
@@ -728,6 +742,15 @@ namespace Phinix.LegacyAdapter.Client
         private static TradeItemSnapshot ConvertProtoThingToTradeItem(Trading.ProtoThing protoThing)
         {
             if (protoThing == null) return null;
+
+            if (TryExtractStatefulTunnel(protoThing, out FrameworkItemPayload tunneledPayload))
+            {
+                if (!StatefulTradeItemProtocol.TryGetPreview(tunneledPayload, out TradeItemSnapshot tunneledItem))
+                {
+                    throw new InvalidOperationException("Legacy stateful item tunnel has no valid preview.");
+                }
+                return tunneledItem;
+            }
 
             return new TradeItemSnapshot(
                 protoThing.DefName ?? string.Empty,
@@ -821,6 +844,11 @@ namespace Phinix.LegacyAdapter.Client
         {
             if (payload == null) return null;
 
+            if (string.Equals(payload.CodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertStatefulPayloadToProtoThing(payload, index);
+            }
+
             if (!string.Equals(payload.CodecId, "core.item.vanilla", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException($"Legacy trading does not support item codec '{payload.CodecId}'.");
@@ -848,6 +876,113 @@ namespace Phinix.LegacyAdapter.Client
                 $"[LegacyAdapter] ConvertToProtoThing: item[{index}] has no PayloadBytes and no PayloadJson — SKIPPED (CodecId={payload.CodecId ?? "null"})",
                 LogLevel.WARNING);
             return null;
+        }
+
+        private Trading.ProtoThing ConvertStatefulPayloadToProtoThing(FrameworkItemPayload payload, int index)
+        {
+            if (!StatefulTradeItemProtocol.TryGetPreview(payload, out TradeItemSnapshot preview))
+            {
+                throw new InvalidOperationException($"Stateful trade item {index} has no valid vanilla preview.");
+            }
+
+            if (payload.PayloadBytes == null || payload.PayloadBytes.Length == 0 ||
+                payload.PayloadBytes.Length > StatefulTradeItemProtocol.MaxStatePayloadBytes)
+            {
+                throw new InvalidOperationException($"Stateful trade item {index} has an invalid payload size.");
+            }
+
+            Trading.ProtoThing protoThing = ConvertVanillaItemDataToProtoThing(StatefulTradeItemProtocol.ToPreview(preview));
+            string tunnelJson = FrameworkSerialization.SerializePayload(payload);
+            int tunnelBytes = Encoding.UTF8.GetByteCount(tunnelJson);
+            if (tunnelBytes > MaxTunnelJsonBytes)
+            {
+                throw new InvalidOperationException($"Stateful trade item {index} exceeds the legacy tunnel limit ({tunnelBytes} bytes).");
+            }
+
+            Trading.ProtoThing leaf = protoThing;
+            while (leaf.InnerProtoThing != null)
+            {
+                leaf = leaf.InnerProtoThing;
+            }
+
+            leaf.InnerProtoThing = new Trading.ProtoThing
+            {
+                DefName = StatefulTunnelSentinel,
+                StackCount = StatefulTunnelMagic,
+                HitPoints = StatefulTunnelMagic,
+                StuffDefName = tunnelJson
+            };
+
+            log?.Invoke(
+                $"[LegacyAdapter] Encoded stateful item[{index}] through the legacy tunnel, codec={payload.CodecId}, bytes={payload.PayloadBytes.Length}",
+                LogLevel.DEBUG);
+            return protoThing;
+        }
+
+        private static bool TryExtractStatefulTunnel(Trading.ProtoThing protoThing, out FrameworkItemPayload payload)
+        {
+            payload = null;
+            if (protoThing == null) return false;
+
+            Trading.ProtoThing node = protoThing;
+            int depth = 0;
+            while (node.InnerProtoThing != null && depth++ < 32)
+            {
+                Trading.ProtoThing candidate = node.InnerProtoThing;
+                if (string.Equals(candidate.DefName, StatefulTunnelSentinel, StringComparison.Ordinal) &&
+                    candidate.StackCount == StatefulTunnelMagic &&
+                    candidate.HitPoints == StatefulTunnelMagic)
+                {
+                    if (string.IsNullOrEmpty(candidate.StuffDefName) ||
+                        Encoding.UTF8.GetByteCount(candidate.StuffDefName) > MaxTunnelJsonBytes)
+                    {
+                        throw new InvalidOperationException("Legacy stateful item tunnel is empty or exceeds its size limit.");
+                    }
+
+                    FrameworkItemPayload decoded = FrameworkSerialization.DeserializePayload<FrameworkItemPayload>(candidate.StuffDefName);
+                    if (decoded == null ||
+                        !string.Equals(decoded.CodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase) ||
+                        !StatefulTradeItemProtocol.TryGetPreview(decoded, out TradeItemSnapshot preview) ||
+                        !PreviewMatchesProtoThing(preview, protoThing))
+                    {
+                        throw new InvalidOperationException("Legacy stateful item tunnel failed codec or preview validation.");
+                    }
+
+                    payload = decoded;
+                    return true;
+                }
+
+                node = candidate;
+            }
+
+            if (depth >= 32 && node.InnerProtoThing != null)
+            {
+                throw new InvalidOperationException("Legacy ProtoThing nesting exceeds the supported depth.");
+            }
+
+            return false;
+        }
+
+        private static bool PreviewMatchesProtoThing(TradeItemSnapshot preview, Trading.ProtoThing protoThing)
+        {
+            if (preview == null || protoThing == null) return preview == null && protoThing == null;
+            if (!string.Equals(preview.DefName, protoThing.DefName, StringComparison.Ordinal) ||
+                preview.StackCount != protoThing.StackCount ||
+                preview.HitPoints != protoThing.HitPoints ||
+                preview.Quality != ConvertQualityToTrade(protoThing.Quality) ||
+                !string.Equals(preview.StuffDefName ?? string.Empty, protoThing.StuffDefName ?? string.Empty, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (preview.InnerItem == null)
+            {
+                return protoThing.InnerProtoThing != null &&
+                       string.Equals(protoThing.InnerProtoThing.DefName, StatefulTunnelSentinel, StringComparison.Ordinal) &&
+                       protoThing.InnerProtoThing.StackCount == StatefulTunnelMagic;
+            }
+
+            return PreviewMatchesProtoThing(preview.InnerItem, protoThing.InnerProtoThing);
         }
 
         private Trading.ProtoThing ConvertFromFrameworkVanillaItemData(byte[] payloadBytes, int index)

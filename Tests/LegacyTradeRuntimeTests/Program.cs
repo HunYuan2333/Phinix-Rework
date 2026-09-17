@@ -24,7 +24,8 @@ internal static class Program
             AssertTokenlessRequestsGetUniqueWireTokens();
             AssertEncodingFailureDoesNotReturnPartialItems();
             AssertUnknownSendOutcomeRemainsPending();
-            Console.WriteLine("All 8 legacy trade runtime scenarios passed.");
+            AssertStatefulItemsRoundTripThroughLegacyServerShape();
+            Console.WriteLine("All 9 legacy trade runtime scenarios passed.");
             return 0;
         }
         catch (Exception exception)
@@ -149,6 +150,50 @@ internal static class Program
         Assert(rejected, "Encoding must reject the whole offer instead of returning only the valid items.");
         Assert(pipeline.EncodeTradeItems(new[] { new TradeItemSnapshot("Silver", 10, 100) }).Length == 1,
             "A rejected operation must not prevent a later valid encoding.");
+
+        TradeItemSnapshot statefulSnapshot = new TradeItemSnapshot(
+            "QING_TraitDisk", 1, 50, stateCodecId: StatefulTradeItemProtocol.ScribeCodecId,
+            statePayload: new byte[] { 1, 2, 3 });
+        FrameworkItemPayload encodedStateful = pipeline.EncodeTradeItems(new[] { statefulSnapshot }).Single();
+        Assert(encodedStateful.CodecId == StatefulTradeItemProtocol.ScribeCodecId,
+            "The stateful codec must run before the vanilla fallback.");
+    }
+
+    private static void AssertStatefulItemsRoundTripThroughLegacyServerShape()
+    {
+        var fixture = new Fixture();
+        FrameworkItemPayload statefulItem = StatefulItem(1, new byte[] { 31, 41, 59, 26 });
+        fixture.Send("stateful", statefulItem);
+
+        Trading.UpdateTradeItemsPacket sent = fixture.Transport.Sent.Single();
+        Trading.ProtoThing tunneled = sent.Items.Single();
+        Assert(tunneled.DefName == "QING_TraitDisk", "The legacy-visible preview must remain the real item.");
+        Assert(tunneled.InnerProtoThing != null, "Stateful data must be carried in a legacy ProtoThing tunnel.");
+
+        // Simulate an old server parsing, storing, and serializing only the message
+        // shape it knows. The tunnel uses known ProtoThing fields, so it survives.
+        Trading.ProtoThing relayed = Trading.ProtoThing.Parser.ParseFrom(tunneled.ToByteArray());
+        var response = new Trading.UpdateTradeItemsResponsePacket
+        {
+            TradeId = "trade",
+            Token = "stateful",
+            Success = true
+        };
+        response.Items.Add(relayed);
+        fixture.Transport.Receive(response);
+
+        FrameworkItemPayload confirmed = fixture.Service.GetRepositoryTrades().Single().Participants
+            .Single(participant => participant.Uuid == "local").ItemsOnOffer.Single();
+        Assert(confirmed.CodecId == StatefulTradeItemProtocol.ScribeCodecId,
+            "The legacy adapter must restore the original stateful codec payload.");
+        Assert(confirmed.PayloadBytes.SequenceEqual(statefulItem.PayloadBytes),
+            "The old-server round trip must preserve the opaque item state byte-for-byte.");
+
+        Assert(fixture.Service.TryGetItemsOnOffer("trade", "local", out IEnumerable<TradeItemSnapshot> snapshots),
+            "The confirmed stateful offer must remain readable.");
+        TradeItemSnapshot snapshot = snapshots.Single();
+        Assert(snapshot.DefName == "QING_TraitDisk" && snapshot.StatePayload.SequenceEqual(statefulItem.PayloadBytes),
+            "The UI snapshot must retain the same state payload for later updates and reset recovery.");
     }
 
     private static FrameworkItemPayload VanillaItem(int count)
@@ -161,6 +206,17 @@ internal static class Program
                 DefName = "Silver", StackCount = count, HitPoints = 100
             })
         };
+    }
+
+    private static FrameworkItemPayload StatefulItem(int count, byte[] state)
+    {
+        var payload = new FrameworkItemPayload
+        {
+            CodecId = StatefulTradeItemProtocol.ScribeCodecId,
+            PayloadBytes = state.ToArray()
+        };
+        StatefulTradeItemProtocol.SetPreview(payload, new TradeItemSnapshot("QING_TraitDisk", count, 50));
+        return payload;
     }
 
     private static Trading.ProtoThing ProtoItem(int count)

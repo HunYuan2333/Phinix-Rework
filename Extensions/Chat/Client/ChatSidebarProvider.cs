@@ -13,6 +13,7 @@ namespace Phinix.ChatExtension.Client
         private const float UserSearchHeight = 30f;
         private const float StatusBarHeight = 22f;
         private const float StatusDotSize = 10f;
+        private const string UserSearchControl = "PhinixChatUserSearchInput";
         private static readonly Color OnlineStatusColor = new Color(0.35f, 0.8f, 0.4f, 1f);
         private static readonly Color OfflineStatusColor = new Color(0.6f, 0.6f, 0.6f, 1f);
 
@@ -104,6 +105,7 @@ namespace Phinix.ChatExtension.Client
             string userSearchOld = userSearch;
             if (userSearchRect.height > 0f)
             {
+                GUI.SetNextControlName(UserSearchControl);
                 userSearch = Widgets.TextField(userSearchRect, userSearch);
             }
             if (!userSearch.Equals(userSearchOld, StringComparison.Ordinal))
