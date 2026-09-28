@@ -84,7 +84,13 @@ namespace Connections
 
             // Forward events
             listener.PeerConnectedEvent += (peer) => { OnConnecting?.Invoke(this, EventArgs.Empty); };
-            listener.PeerDisconnectedEvent += (peer, info) => { OnDisconnect?.Invoke(this, EventArgs.Empty); };
+            listener.PeerDisconnectedEvent += (peer, info) =>
+            {
+                // A failed address probe is not a disconnect from the selected server.
+                if (peer != serverPeer) return;
+                RaiseLogEntry(new LogEventArgs($"[Phinix] Server connection closed: {info.Reason}.", LogLevel.WARNING));
+                OnDisconnect?.Invoke(this, EventArgs.Empty);
+            };
         }
 
         /// <summary>
@@ -174,6 +180,7 @@ namespace Connections
                     {
                         // No connected peers available, disconnect
                         connectedPeer = null;
+                        RaiseLogEntry(new LogEventArgs("[Phinix] Connection attempt ended: no server address responded.", LogLevel.WARNING));
                         Disconnect();
                     }
 
@@ -248,6 +255,7 @@ namespace Connections
         {
             stopProbeThread();
             clearProbePeers();
+            serverPeer = null;
 
             // Check if the client is running
             if (clientNetManager.IsRunning)

@@ -5,7 +5,8 @@ namespace Phinix.TradeExtension.Client
 {
     internal sealed class FrameworkLegacyTradeClientAdapter :
         IFrameworkLegacyTradeRepositoryApi,
-        IFrameworkLegacyTradeCompletionApi
+        IFrameworkLegacyTradeCompletionApi,
+        IFrameworkLegacyTradeDeliveryApi
     {
         private readonly PhinixFrameworkTradeClientService tradeService;
 
@@ -27,6 +28,12 @@ namespace Phinix.TradeExtension.Client
         public void CompleteTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<TradeItemSnapshot> items)
         {
             tradeService?.CompleteLegacyTrade(tradeId, success, otherPartyUuid, items);
+        }
+
+        public void CompleteTrade(string tradeId, bool success, string otherPartyUuid,
+            IEnumerable<Utils.Framework.FrameworkItemPayload> items)
+        {
+            tradeService?.CompleteLegacyTradePayloads(tradeId, success, otherPartyUuid, items);
         }
     }
 }

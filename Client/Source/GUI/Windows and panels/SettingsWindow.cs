@@ -1,6 +1,5 @@
 using System;
 using System.Text.RegularExpressions;
-using System.Threading;
 using UnityEngine;
 using Verse;
 
@@ -26,6 +25,8 @@ namespace PhinixClient
         private string addressLabel;
         private string portLabel;
         private string connectLabel;
+        private string connectingLabel;
+        private string connectionFailedLabel;
         private string disconnectLabel;
         private string setNameLabel;
         private string displayNameLabel;
@@ -74,7 +75,10 @@ namespace PhinixClient
             RebuildLayoutIfNeeded(Mathf.Max(1f, inRect.width - 16f));
             bool connected = Client.Instance.Connected;
             bool online = Client.Instance.Online;
-            float contentHeight = (connected ? connectedHeight : connectionHeight) +
+            bool showConnectionStatus = !connected &&
+                (Client.Instance.Connecting || Client.Instance.ConnectionAttemptFailed);
+            float formHeight = connectionHeight + (showConnectionStatus ? Spacing + RowHeight : 0f);
+            float contentHeight = (connected ? connectedHeight : formHeight) +
                 (online ? Spacing + displayNameHeight : 0f);
             float contentWidth = contentHeight > inRect.height ? Mathf.Max(0f, inRect.width - 16f) : inRect.width;
             scrollPosition.y = Mathf.Clamp(scrollPosition.y, 0f, Mathf.Max(0f, contentHeight - inRect.height));
@@ -84,7 +88,7 @@ namespace PhinixClient
             {
                 float y = 0f;
                 if (connected) y += DrawConnected(new Rect(0f, y, contentWidth, connectedHeight));
-                else y += DrawConnectionForm(new Rect(0f, y, contentWidth, connectionHeight));
+                else y += DrawConnectionForm(new Rect(0f, y, contentWidth, formHeight));
                 if (online) DrawDisplayName(new Rect(0f, y + Spacing, contentWidth, displayNameHeight));
             }
             finally { Widgets.EndScrollView(); }
@@ -127,13 +131,19 @@ namespace PhinixClient
             if (ServerPortRegex.IsMatch(candidate)) serverPortString = candidate;
             bool valid = int.TryParse(serverPortString, out int portValue) && portValue > 0 &&
                 portValue <= 65535 && !string.IsNullOrWhiteSpace(serverAddress);
-            if (Widgets.ButtonText(port.ActionRect, connectLabel, active: valid) && valid)
+            bool connecting = Client.Instance.Connecting;
+            if (Widgets.ButtonText(port.ActionRect, connectLabel, active: valid && !connecting) && valid && !connecting)
             {
                 string addressValue = serverAddress;
                 Client.Instance.Settings.ServerAddress = addressValue;
                 Client.Instance.Settings.ServerPort = portValue;
                 Client.Instance.Settings.AcceptChanges();
-                ThreadPool.QueueUserWorkItem(_ => Client.Instance.Connect(addressValue, portValue));
+                Client.Instance.QueueConnect(addressValue, portValue);
+            }
+            if (Client.Instance.Connecting || Client.Instance.ConnectionAttemptFailed)
+            {
+                string status = Client.Instance.Connecting ? connectingLabel : connectionFailedLabel;
+                Widgets.Label(new Rect(rect.x, portBase.y + port.Height + Spacing, rect.width, RowHeight), status);
             }
             return rect.height;
         }
@@ -173,6 +183,8 @@ namespace PhinixClient
             addressLabel = "Phinix_settings_addressLabel".Translate();
             portLabel = "Phinix_settings_portLabel".Translate();
             connectLabel = "Phinix_settings_connectButton".Translate();
+            connectingLabel = "Phinix_settings_connecting".Translate();
+            connectionFailedLabel = "Phinix_settings_connectionFailed".Translate();
             disconnectLabel = "Phinix_settings_disconnectButton".Translate();
             setNameLabel = "Phinix_settings_setDisplayNameButton".Translate();
             displayNameLabel = "Phinix_modSettings_displayNameTitle".Translate();

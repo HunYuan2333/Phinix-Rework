@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using PhinixClient.Framework;
 using PhinixClient.Trade;
+using Phinix.InventoryExtension;
 using RimWorld;
 using UserManagement;
 using Utils;
@@ -78,8 +79,10 @@ namespace Phinix.TradeExtension.Client
             Map map = settingsContext.Get("trade.dropCurrentMap", false)
                 ? Find.CurrentMap
                 : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
-            IntVec3 dropSpot = DropCellFinder.TradeDropSpot(map);
-            DropPodUtility.DropThingsNear(dropSpot, map, verseThings, canRoofPunch: false);
+            if (!InventoryDropDelivery.TryResolveTradeDropTarget(map, out IntVec3 dropSpot, out string reason))
+                throw new InvalidOperationException(reason);
+            InventoryDeliveryResult result = InventoryDropDelivery.DeliverThings(verseThings, map, dropSpot);
+            if (!result.Succeeded) throw new InvalidOperationException(result.Reason ?? "Drop-pod delivery failed.");
 
             return new LookTargets(dropSpot, map);
         }

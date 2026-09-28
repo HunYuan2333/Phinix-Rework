@@ -21,4 +21,23 @@ namespace PhinixClient.Framework
 
         public void RaiseBlockedUsersChanged(UserBlockStateChangedEventArgs args) => BlockedUsersChanged?.Invoke(this, args);
     }
+
+    internal sealed class ClientShellEventStream : IClientShellEventStream
+    {
+        public event EventHandler MainWindowOpened;
+
+        public void RaiseMainWindowOpened()
+        {
+            EventHandler handlers = MainWindowOpened;
+            if (handlers == null) return;
+            foreach (EventHandler handler in handlers.GetInvocationList())
+            {
+                try { handler(this, EventArgs.Empty); }
+                catch (Exception exception)
+                {
+                    Verse.Log.Error("[Phinix] Main-window event subscriber failed: " + exception);
+                }
+            }
+        }
+    }
 }

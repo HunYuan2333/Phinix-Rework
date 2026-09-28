@@ -19,6 +19,7 @@ namespace Phinix.LegacyRedPacketExtension
         public const string Version = "v1";
         public const int MaxWireMessageChars = 65536;
         public const int MaxProtocolPayloadChars = 8192;
+        public const int StatePartBytes = 5600;
         private const string ZeroSentinel = "\u2060\u2060\u2060\u2060";
         private const char Zero0 = '\u200C';
         private const char Zero1 = '\u200D';
@@ -66,10 +67,30 @@ namespace Phinix.LegacyRedPacketExtension
                 packet.CreatedAtUtc.Ticks.ToString(),
                 packet.ExpiresAtUtc.Ticks.ToString(),
                 EncodeField(packet.SenderDisplayName ?? string.Empty),
-                packet.LuckyAlgorithmVersion.ToString()
+                packet.LuckyAlgorithmVersion.ToString(),
+                EncodeField(packet.StateCodecId ?? string.Empty),
+                packet.StatePayloadHash ?? string.Empty,
+                packet.StatePartCount.ToString(),
+                packet.StateStackCount.ToString()
             });
 
             return payload;
+        }
+
+        public static string BuildStatePart(string packetId, int partIndex, int partCount,
+            string payloadHash, byte[] bytes, int offset, int count)
+        {
+            if (bytes == null) throw new ArgumentNullException(nameof(bytes));
+            if (offset < 0 || count < 1 || offset + count > bytes.Length || count > StatePartBytes)
+                throw new ArgumentOutOfRangeException(nameof(count));
+            byte[] chunk = new byte[count];
+            Buffer.BlockCopy(bytes, offset, chunk, 0, count);
+            return string.Join("|", new[]
+            {
+                Prefix, Version, "state", packetId ?? string.Empty,
+                partIndex.ToString(), partCount.ToString(), payloadHash ?? string.Empty,
+                Convert.ToBase64String(chunk)
+            });
         }
 
         public static string DecodeField(string value)
@@ -174,6 +195,9 @@ namespace Phinix.LegacyRedPacketExtension
                 case "timeout":
                     messageType = RedPacketMessageType.Timeout;
                     break;
+                case "state":
+                    messageType = RedPacketMessageType.StatePart;
+                    break;
                 default:
                     return false;
             }
@@ -269,6 +293,7 @@ namespace Phinix.LegacyRedPacketExtension
         Create = 1,
         Claim = 2,
         Assign = 3,
-        Timeout = 4
+        Timeout = 4,
+        StatePart = 5
     }
 }

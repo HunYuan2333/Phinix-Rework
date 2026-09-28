@@ -12,8 +12,13 @@ PRs to avoid duplicate push/PR builds. No repository secrets are required.
 ## Toolchain and references
 
 - .NET SDK **10.0.401** for the current `net10.0` server and shared projects.
-- Client assemblies continue to target **.NET Framework 4.7.2** using the Windows
-  runner's targeting pack. The supported game version is **RimWorld 1.6**.
+- Client assemblies continue to target **.NET Framework 4.7.2**. Classic client
+  projects explicitly restore `Microsoft.NETFramework.ReferenceAssemblies`
+  **1.0.3** through `Directory.Build.targets`, so dotnet MSBuild (including Rider
+  on Linux) can resolve the targeting pack. After pulling this change, restore
+  NuGet packages before rebuilding. Legacy HintPath dependencies and game/Unity
+  references listed below are still required. The supported game version is
+  **RimWorld 1.6**.
 - [Krafs.Rimworld.Ref](https://github.com/krafs/RimRef) **1.6.4871** provides public,
   compile-only game/Unity references in `GameDlls/1.6`. The obsolete
   `RIMWORLD_DLLS_PREFIX` secret is no longer used, including for fork PRs.

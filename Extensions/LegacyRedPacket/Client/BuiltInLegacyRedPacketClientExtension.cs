@@ -1,6 +1,7 @@
 using System;
 using PhinixClient;
 using PhinixClient.Framework;
+using Phinix.InventoryExtension;
 using Utils;
 using Utils.Framework;
 
@@ -13,7 +14,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
     /// 设计哲学 §1.2 host 不依赖插件：本插件只引用 ClientExtensionAbstractions 与 Trade 契约。
     /// 老方案兼容：协议 v1 + HTTP 中继（RedPacketRelay）与老 submod 客户端互通。
     /// </summary>
-    [PhinixExtension("builtin.legacy-redpacket", DependsOn = new[] { "builtin.trade" })]
+    [PhinixExtension("builtin.legacy-redpacket", DependsOn = new[] { "builtin.trade", "builtin.inventory" })]
     public sealed class BuiltInLegacyRedPacketClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
     {
         private ExtensionHostContext hostContext;
@@ -32,6 +33,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private RedPacketSettingsPanel settingsPanel;
 
         private EventHandler disconnectedHandler;
+        private IDisposable inventoryCodecRegistration;
+        private IDisposable inventorySourceRegistration;
 
         public string ExtensionId => "builtin.legacy-redpacket";
 
@@ -76,6 +79,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
         {
             this.hostContext = hostContext;
 
+            if (!hostContext.TryResolveApi<IInventoryDepositApi>(out IInventoryDepositApi inventory) ||
+                !hostContext.TryResolveApi<IInventoryRegistrationApi>(out IInventoryRegistrationApi inventoryRegistry))
+                throw new InvalidOperationException("Inventory deposit and registration APIs are required by red packets.");
+            inventoryCodecRegistration = inventoryRegistry.RegisterCodecScoped(new RedPacketInventoryCodec());
+            inventorySourceRegistration = inventoryRegistry.RegisterSourcePresenter(new RedPacketInventorySourcePresenter());
+            stateMachine.BindInventory(inventory);
+
             disconnectedHandler = (sender, args) => stateMachine?.Clear();
             if (userEventStream != null)
             {
@@ -95,6 +105,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
             disconnectedHandler = null;
 
             stateMachine?.Shutdown();
+            stateMachine?.BindInventory(null);
+            inventorySourceRegistration?.Dispose();
+            inventorySourceRegistration = null;
+            inventoryCodecRegistration?.Dispose();
+            inventoryCodecRegistration = null;
             hostContext.Log?.Invoke("[RedPacket] Red packet extension shut down.", LogLevel.INFO);
         }
     }

@@ -24,6 +24,10 @@ namespace Phinix.LegacyRedPacketExtension
         public int TotalPackets;
         public RedPacketType Type;
         public int LuckyAlgorithmVersion;
+        public string StateCodecId;
+        public string StatePayloadHash;
+        public int StatePartCount;
+        public int StateStackCount;
 
         public DateTime CreatedAtUtc;
         public DateTime ExpiresAtUtc;

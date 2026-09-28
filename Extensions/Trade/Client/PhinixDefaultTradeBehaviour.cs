@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Phinix.InventoryExtension;
 using PhinixClient;
 using PhinixClient.Framework;
 using PhinixClient.Trade;
@@ -20,9 +21,13 @@ namespace Phinix.TradeExtension.Client
         private readonly IClientMainThreadDispatcher dispatcher;
         private readonly IClientWindowService windowService;
         private readonly ClientTradeUiHostContext tradeUiHostContext;
+        private readonly TradeInventoryDelivery inventoryDelivery;
+        private readonly IInventoryReadApi inventoryReadApi;
+        private readonly Action<string, bool> acknowledgeCompletion;
         private readonly Action<LogEventArgs> log;
         private readonly HashSet<string> waitingForTradeCreationWith = new HashSet<string>();
         private readonly object waitingLock = new object();
+        private readonly Dictionary<string, PendingCompletion> pendingCompletions = new Dictionary<string, PendingCompletion>(StringComparer.OrdinalIgnoreCase);
 
         public PhinixDefaultTradeBehaviour(
             IClientTradeService tradeService,
@@ -31,6 +36,9 @@ namespace Phinix.TradeExtension.Client
             IClientMainThreadDispatcher dispatcher,
             IClientWindowService windowService,
             ClientTradeUiHostContext tradeUiHostContext,
+            TradeInventoryDelivery inventoryDelivery,
+            IInventoryReadApi inventoryReadApi,
+            Action<string, bool> acknowledgeCompletion,
             Action<LogEventArgs> log)
         {
             this.tradeService = tradeService;
@@ -39,6 +47,9 @@ namespace Phinix.TradeExtension.Client
             this.dispatcher = dispatcher;
             this.windowService = windowService;
             this.tradeUiHostContext = tradeUiHostContext;
+            this.inventoryDelivery = inventoryDelivery;
+            this.inventoryReadApi = inventoryReadApi;
+            this.acknowledgeCompletion = acknowledgeCompletion;
             this.log = log;
         }
 
@@ -50,6 +61,8 @@ namespace Phinix.TradeExtension.Client
             tradeService.OnTradeCompleted += onTradeCompleted;
             tradeService.OnTradeCancelled += onTradeCancelled;
             tradeService.OnTradeUpdateFailure += onTradeUpdateFailure;
+            inventoryReadApi.AvailabilityChanged += onInventoryAvailabilityChanged;
+            settingsContext.OnSettingChanged += onSettingChanged;
         }
 
         public void Stop()
@@ -60,6 +73,9 @@ namespace Phinix.TradeExtension.Client
             tradeService.OnTradeCompleted -= onTradeCompleted;
             tradeService.OnTradeCancelled -= onTradeCancelled;
             tradeService.OnTradeUpdateFailure -= onTradeUpdateFailure;
+            inventoryReadApi.AvailabilityChanged -= onInventoryAvailabilityChanged;
+            settingsContext.OnSettingChanged -= onSettingChanged;
+            pendingCompletions.Clear();
         }
 
         private void onTradeCreationRequested(object sender, TradeCreationEventArgs args)
@@ -127,64 +143,132 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeCompleted(object sender, TradeCompletionEventArgs args)
         {
-            try
-            {
-                if (args == null) return;
-
-                string displayName = resolveDisplayName(args.OtherPartyUuid);
-
-                dispatcher.Enqueue(() =>
-                {
-                    Thing[] verseItems = args.Items
-                        .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
-                        .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
-                        .ToArray();
-                    LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
-                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeAccepted");
-                    Find.LetterStack.ReceiveLetter(
-                        "Phinix_trade_tradeCompletedLetter_label".Translate(),
-                        "Phinix_trade_tradeCompletedLetter_description".Translate(displayName),
-                        letterDef,
-                        dropSpotLookTarget);
-                });
-            }
-            catch (Exception ex)
-            {
-                log?.Invoke(new LogEventArgs(
-                    $"[PhinixDefaultTradeBehaviour] onTradeCompleted threw: {ex}",
-                    LogLevel.ERROR));
-            }
+            depositCompletion(args, true);
         }
 
         private void onTradeCancelled(object sender, TradeCompletionEventArgs args)
         {
+            depositCompletion(args, false);
+        }
+
+        private void depositCompletion(TradeCompletionEventArgs args, bool completed)
+        {
             try
             {
-                if (args == null || !shouldDisplayTradeEvent(args.OtherPartyUuid)) return;
-
+                if (args == null) return;
                 string displayName = resolveDisplayName(args.OtherPartyUuid);
-
+                bool display = completed || shouldDisplayTradeEvent(args.OtherPartyUuid);
                 dispatcher.Enqueue(() =>
                 {
-                    Thing[] verseItems = args.Items
-                        .Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown)
-                        .Where(thing => thing != null && thing.def != null && thing.def.defName != "UnknownItem")
-                        .ToArray();
-                    LookTargets dropSpotLookTarget = tradeUiHostContext.DropPods(verseItems);
-                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCancelled");
-                    Find.LetterStack.ReceiveLetter(
-                        "Phinix_trade_tradeCancelled_label".Translate(),
-                        "Phinix_trade_tradeCancelled_description".Translate(displayName),
-                        letterDef,
-                        dropSpotLookTarget);
+                    string key = completionKey(args.TradeId, !completed);
+                    pendingCompletions[key] = new PendingCompletion(args, displayName, completed, display);
+                    tryDepositPending(key, true);
                 });
             }
             catch (Exception ex)
             {
                 log?.Invoke(new LogEventArgs(
-                    $"[PhinixDefaultTradeBehaviour] onTradeCancelled threw: {ex}",
+                    $"[PhinixDefaultTradeBehaviour] depositCompletion threw: {ex}",
                     LogLevel.ERROR));
             }
+        }
+
+        private void onInventoryAvailabilityChanged(object sender, EventArgs args)
+        {
+            dispatcher.Enqueue(() =>
+            {
+                foreach (string key in pendingCompletions.Keys.ToArray())
+                    tryDepositPending(key, false);
+            });
+        }
+
+        private void onSettingChanged(string key, object value)
+        {
+            if (key != InventoryDeliveryPreference.SettingKey) return;
+            dispatcher.Enqueue(() =>
+            {
+                foreach (string pendingKey in pendingCompletions.Keys.ToArray())
+                    tryDepositPending(pendingKey, false);
+            });
+        }
+
+        private void tryDepositPending(string key, bool notifyFailure)
+        {
+            if (!pendingCompletions.TryGetValue(key, out PendingCompletion pending)) return;
+            try
+            {
+                bool useInventory = InventoryDeliveryPreference.UsesInventory(
+                    settingsContext.Get(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop));
+                InventoryDepositResult inventoryResult = null;
+                InventoryDeliveryResult directResult = null;
+                if (useInventory)
+                    inventoryResult = inventoryDelivery.Deposit(pending.Args, pending.DisplayName);
+                else
+                    directResult = inventoryDelivery.DeliverDirect(pending.Args,
+                        settingsContext.Get("trade.dropCurrentMap", false));
+
+                bool succeeded = useInventory ? inventoryResult.Succeeded : directResult.Succeeded;
+                if (!succeeded)
+                {
+                    string reason = useInventory
+                        ? (string.IsNullOrWhiteSpace(inventoryResult.Reason)
+                            ? inventoryResult.FailureCode.ToString() : inventoryResult.Reason)
+                        : (directResult?.Reason ?? "Direct delivery failed.");
+                    log?.Invoke(new LogEventArgs(
+                        $"[Trade] Delivery failed for '{pending.Args.TradeId}'; completion remains pending: {reason}",
+                        LogLevel.ERROR));
+                    if (notifyFailure)
+                        Messages.Message((useInventory ? "Phinix_trade_inventoryDepositFailed" :
+                            "Phinix_trade_directDeliveryFailed").Translate(reason), MessageTypeDefOf.RejectInput, false);
+                    return;
+                }
+
+                pendingCompletions.Remove(key);
+                acknowledgeCompletion?.Invoke(pending.Args.TradeId, !pending.Completed);
+                if (!pending.Display || useInventory && inventoryResult.Status == InventoryDepositStatus.AlreadyCommitted) return;
+
+                LetterDef letterDef = DefDatabase<LetterDef>.GetNamed(pending.Completed ? "TradeAccepted" : "TradeCancelled");
+                Find.LetterStack.ReceiveLetter(
+                    pending.Completed
+                        ? "Phinix_trade_tradeCompletedLetter_label".Translate()
+                        : "Phinix_trade_tradeCancelled_label".Translate(),
+                    pending.Completed
+                        ? (useInventory ? "Phinix_trade_tradeCompletedInventoryDescription" :
+                            "Phinix_trade_tradeCompletedLetter_description").Translate(pending.DisplayName)
+                        : (useInventory ? "Phinix_trade_tradeCancelledInventoryDescription" :
+                            "Phinix_trade_tradeCancelled_description").Translate(pending.DisplayName),
+                    letterDef,
+                    useInventory ? null : new LookTargets(directResult.DropSpot, directResult.Map));
+            }
+            catch (Exception ex)
+            {
+                log?.Invoke(new LogEventArgs(
+                    $"[Trade] Inventory delivery threw for '{pending.Args.TradeId}'; completion remains pending: {ex}",
+                    LogLevel.ERROR));
+                if (notifyFailure)
+                    Messages.Message("Phinix_trade_inventoryDepositFailed".Translate(ex.Message), MessageTypeDefOf.RejectInput, false);
+            }
+        }
+
+        private static string completionKey(string tradeId, bool cancelled)
+        {
+            return (cancelled ? "cancelled:" : "completed:") + tradeId;
+        }
+
+        private sealed class PendingCompletion
+        {
+            public PendingCompletion(TradeCompletionEventArgs args, string displayName, bool completed, bool display)
+            {
+                Args = args;
+                DisplayName = displayName;
+                Completed = completed;
+                Display = display;
+            }
+
+            public TradeCompletionEventArgs Args { get; }
+            public string DisplayName { get; }
+            public bool Completed { get; }
+            public bool Display { get; }
         }
 
         private void onTradeUpdateFailure(object sender, TradeUpdateEventArgs args)

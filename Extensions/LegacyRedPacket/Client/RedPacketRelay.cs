@@ -22,13 +22,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private const string RelayApiKey = "ce699fa04e44eca445a9ea809ee765c88b87f8d2665f4d14c3f7c180afab467f";
         private const string RelayRoom = "phinix-global";
 
-        private const int MaxOutgoingQueue = 512;
+        // A maximum-size (4 MiB) stateful item needs up to 750 bounded chunks.
+        private const int MaxOutgoingQueue = 1024;
         private const int MaxIncomingQueue = 512;
 
         private static readonly object OutgoingLock = new object();
         private static readonly Queue<OutgoingProtocol> OutgoingQueue = new Queue<OutgoingProtocol>();
         private static readonly object IncomingLock = new object();
-        private static readonly Queue<string> IncomingQueue = new Queue<string>();
+        private static readonly Queue<IncomingProtocol> IncomingQueue = new Queue<IncomingProtocol>();
+        private static readonly HashSet<long> QueuedIncomingIds = new HashSet<long>();
         private static readonly object StateLock = new object();
 
         private static long lastSeenId;
@@ -43,11 +45,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private const int PollIntervalMs = 700;
         private const int SendIntervalMs = 80;
         private const int RequestTimeoutMs = 5000;
-        private const int FetchLimit = 200;
+        // Keep a full response below RedPacketLimits.MaxResponseBytes even when
+        // every event is a near-maximum state chunk.
+        private const int FetchLimit = 96;
         private const int InitialHistoryMinutes = 20;
         private static readonly DateTime UnixEpochUtc = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         private readonly Action<string, LogLevel> log;
+        private string lastSendFailure;
+        private DateTime nextSendFailureLogUtc;
 
         public RedPacketRelay(Action<string, LogLevel> log)
         {
@@ -57,6 +63,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public void Clear()
         {
             Interlocked.Increment(ref generation);
+            lastSendFailure = null;
+            nextSendFailureLogUtc = DateTime.MinValue;
 
             lock (OutgoingLock)
             {
@@ -66,6 +74,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             lock (IncomingLock)
             {
                 IncomingQueue.Clear();
+                QueuedIncomingIds.Clear();
             }
 
             lock (StateLock)
@@ -100,19 +109,33 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
-        public bool TryDequeueIncoming(out string protocolMessage)
+        public bool TryPeekIncoming(out string protocolMessage)
         {
             lock (IncomingLock)
             {
                 if (IncomingQueue.Count > 0)
                 {
-                    protocolMessage = IncomingQueue.Dequeue();
+                    protocolMessage = IncomingQueue.Peek().Message;
                     return true;
                 }
             }
 
             protocolMessage = null;
             return false;
+        }
+
+        public void AcknowledgeIncoming()
+        {
+            lock (IncomingLock)
+            {
+                if (IncomingQueue.Count == 0) return;
+                IncomingProtocol item = IncomingQueue.Dequeue();
+                QueuedIncomingIds.Remove(item.Id);
+                lock (StateLock)
+                {
+                    if (item.Id > lastSeenId) lastSeenId = item.Id;
+                }
+            }
         }
 
         public void Update()
@@ -212,12 +235,20 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
 
                 if (generation != capturedGen) return;
+                lastSendFailure = null;
                 log?.Invoke("[RedPacket] Relay send ok (event " + outbound.EventId + ").", LogLevel.DEBUG);
             }
             catch (Exception ex)
             {
                 if (generation != capturedGen) return;
-                log?.Invoke("[RedPacket] Relay send failed, will retry: " + ex, LogLevel.WARNING);
+                string failure = ex.ToString();
+                DateTime now = DateTime.UtcNow;
+                if (failure != lastSendFailure || now >= nextSendFailureLogUtc)
+                {
+                    lastSendFailure = failure;
+                    nextSendFailureLogUtc = now.AddSeconds(30);
+                    log?.Invoke("[RedPacket] Relay send failed, will retry: " + failure, LogLevel.WARNING);
+                }
                 if (outbound != null)
                 {
                     lock (OutgoingLock)
@@ -318,16 +349,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 currentLastSeen = lastSeenId;
             }
 
-            long maxId = currentLastSeen;
             firstLine = firstLine.Trim();
-            if (long.TryParse(firstLine, out long reportedLastId))
-            {
-                maxId = Math.Max(maxId, reportedLastId);
-            }
 
             int lineCount = 0;
             int totalBytes = firstLine.Length;
-            int droppedIncoming = 0;
+            bool queueFull = false;
             string line;
             while ((line = reader.ReadLine()) != null)
             {
@@ -347,58 +373,47 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (!long.TryParse(idPart, out long idValue)) continue;
                 if (idValue <= currentLastSeen) continue;
 
-                // A syntactically valid relay id has been consumed even when its payload
-                // is malformed. Advancing here prevents one bad row from being fetched
-                // and decoded forever.
-                if (idValue > maxId) maxId = idValue;
-
                 string b64 = line.Substring(tabIndex + 1).Trim();
-                if (string.IsNullOrEmpty(b64)) continue;
+                string message = string.Empty;
 
                 // RP-06: Base64 编码长度预检查（解码后约为 3/4）
-                if (b64.Length > RedPacketProtocol.MaxWireMessageChars) continue;
-
-                string message;
-                try
+                if (!string.IsNullOrEmpty(b64) && b64.Length <= RedPacketProtocol.MaxWireMessageChars)
                 {
-                    byte[] bytes = Convert.FromBase64String(b64);
-                    message = Encoding.UTF8.GetString(bytes);
-                }
-                catch
-                {
-                    continue;
+                    try
+                    {
+                        byte[] bytes = Convert.FromBase64String(b64);
+                        message = Encoding.UTF8.GetString(bytes);
+                    }
+                    catch (FormatException) { }
                 }
 
                 // RP-06: 解码后消息长度检查
-                if (message.Length > RedPacketProtocol.MaxWireMessageChars) continue;
+                if (message.Length > RedPacketProtocol.MaxWireMessageChars) message = string.Empty;
 
                 // RP-16: generation 检查，防止旧 worker 回灌
                 if (generation != capturedGen) return;
 
                 lock (IncomingLock)
                 {
+                    if (QueuedIncomingIds.Contains(idValue)) continue;
                     if (IncomingQueue.Count >= MaxIncomingQueue)
                     {
-                        IncomingQueue.Dequeue();
-                        droppedIncoming++;
+                        queueFull = true;
+                        break;
                     }
-                    IncomingQueue.Enqueue(message);
+                    IncomingQueue.Enqueue(new IncomingProtocol { Id = idValue, Message = message });
+                    QueuedIncomingIds.Add(idValue);
                 }
             }
 
-            if (droppedIncoming > 0)
-                log?.Invoke("[RedPacket] Relay incoming queue overflow, dropped " + droppedIncoming + " oldest message(s).", LogLevel.WARNING);
+            if (queueFull)
+                log?.Invoke("[RedPacket] Relay incoming queue is full; cursor held for retry.", LogLevel.WARNING);
+        }
 
-            // RP-16: 写回 lastSeenId 前再次检查 generation
-            if (generation != capturedGen) return;
-
-            lock (StateLock)
-            {
-                if (maxId > lastSeenId)
-                {
-                    lastSeenId = maxId;
-                }
-            }
+        private sealed class IncomingProtocol
+        {
+            public long Id;
+            public string Message;
         }
 
         private sealed class OutgoingProtocol

@@ -64,4 +64,5 @@
   <Phinix_legacyRedpacket_summaryNone>No claims.</Phinix_legacyRedpacket_summaryNone>
   <Phinix_legacyRedpacket_summaryLine>{0} x{1}</Phinix_legacyRedpacket_summaryLine>
   <Phinix_legacyRedpacket_testSuccess>Test ok</Phinix_legacyRedpacket_testSuccess>
+  <Phinix_legacyRedpacket_statePending>This item's complete state is still downloading. Try again shortly.</Phinix_legacyRedpacket_statePending>
 </LanguageData>

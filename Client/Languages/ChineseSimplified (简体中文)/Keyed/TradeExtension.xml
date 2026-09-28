@@ -37,8 +37,12 @@
     <Phinix_trade_tradeReceivedLetter_description>{0}已向你发送一个交易请求。\n\n打开Phinix内的'交易'标签以查看详情。</Phinix_trade_tradeReceivedLetter_description>
     <Phinix_trade_tradeCompletedLetter_label>交易成功</Phinix_trade_tradeCompletedLetter_label>
     <Phinix_trade_tradeCompletedLetter_description>你的交易{0}已经成功完成。</Phinix_trade_tradeCompletedLetter_description>
+    <Phinix_trade_tradeCompletedInventoryDescription>你与{0}的交易已经完成，收到的物品已存入 Phinix 库存。</Phinix_trade_tradeCompletedInventoryDescription>
     <Phinix_trade_tradeCancelled_label>交易取消</Phinix_trade_tradeCancelled_label>
     <Phinix_trade_tradeCancelled_description>你的交易{0}被取消了。\n\n你的物品已经运回。</Phinix_trade_tradeCancelled_description>
+    <Phinix_trade_tradeCancelledInventoryDescription>你与{0}的交易已取消，退回的物品已存入 Phinix 库存。</Phinix_trade_tradeCancelledInventoryDescription>
+    <Phinix_trade_inventoryDepositFailed>交易物品无法写入库存。交付仍处于待处理状态，稍后会重试。原因：{0}</Phinix_trade_inventoryDepositFailed>
+    <Phinix_trade_directDeliveryFailed>交易物品无法完成空投。客户端不会确认服务端结算，并会稍后重试。原因：{0}</Phinix_trade_directDeliveryFailed>
 
     <!-- Trade errors -->
     <Phinix_error_tradeCreationFailedTitle>交易创建失败</Phinix_error_tradeCreationFailedTitle>

@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using PhinixClient.Framework;
 using Phinix.LegacyRedPacketExtension;
+using Phinix.InventoryExtension;
 using Phinix.TradeExtension.Client;
 using PhinixClient.Trade;
 using RimWorld;
@@ -34,6 +36,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private static readonly Dictionary<string, RedPacket> Packets = new Dictionary<string, RedPacket>();
         private static readonly Dictionary<string, string> KnownDisplayNames = new Dictionary<string, string>();
         private static readonly Dictionary<string, DateTime> PendingClaims = new Dictionary<string, DateTime>();
+        // A visual timeout must not turn a request that was already sent into an
+        // unauthorized delivery. Keep the authorization until the packet is
+        // settled, while PendingClaims remains the short-lived UI state.
+        private static readonly HashSet<string> AuthorizedLocalClaims = new HashSet<string>();
+        private static readonly Dictionary<string, PendingStateTransfer> PendingStateTransfers =
+            new Dictionary<string, PendingStateTransfer>(StringComparer.Ordinal);
         private static readonly object ProcessedLock = new object();
         private static readonly HashSet<string> ProcessedProtocolKeys = new HashSet<string>();
         /// <summary>RP-05: FIFO 淘汰顺序，与 ProcessedProtocolKeys 同步。</summary>
@@ -61,6 +69,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private readonly RedPacketSettings settings;
         private readonly RedPacketRelay relay;
         private readonly Action<string, LogLevel> log;
+        private IInventoryDepositApi inventory;
+        private bool retryCurrentMessage;
+        private string lastRetryError;
+        private DateTime nextRetryLogUtc;
 
         private System.Timers.Timer driveTimer;
         // Timer callbacks run on a pool thread. Keep at most one relay Tick in
@@ -97,6 +109,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public int BadgeVersion => badgeVersion;
 
         public int ClaimableCount => claimableCount;
+
+        public void BindInventory(IInventoryDepositApi value) { inventory = value; }
 
         private bool IsOnline => session != null && session.Authenticated && session.LoggedIn;
 
@@ -313,7 +327,24 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (IsOnline)
             {
+                BroadcastStatePayload(packet);
                 BroadcastProtocolMessage(RedPacketProtocol.BuildCreate(ToCreateData(packet)));
+            }
+        }
+
+        private void BroadcastStatePayload(RedPacket packet)
+        {
+            byte[] payload = packet?.Template?.StatePayload;
+            if (payload == null || payload.Length == 0) return;
+            string hash = ComputePayloadHash(payload);
+            int partCount = (payload.Length + RedPacketProtocol.StatePartBytes - 1) /
+                RedPacketProtocol.StatePartBytes;
+            for (int index = 0; index < partCount; index++)
+            {
+                int offset = index * RedPacketProtocol.StatePartBytes;
+                int count = Math.Min(RedPacketProtocol.StatePartBytes, payload.Length - offset);
+                BroadcastProtocolMessage(RedPacketProtocol.BuildStatePart(
+                    packet.Id, index, partCount, hash, payload, offset, count));
             }
         }
 
@@ -340,6 +371,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 );
                 return;
             }
+            if (packet.StateRequired && !packet.StateReady)
+            {
+                Messages.Message("Phinix_legacyRedpacket_statePending".Translate(), MessageTypeDefOf.RejectInput);
+                return;
+            }
 
             lock (PacketsLock)
             {
@@ -348,6 +384,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (packet.HasClaimed(localUuid)) return;
                 if (PendingClaims.ContainsKey(packet.Id)) return;
                 PendingClaims[packet.Id] = DateTime.UtcNow;
+                AuthorizedLocalClaims.Add(packet.Id);
             }
 
             string localDisplayName = GetLocalPlayerDisplayName();
@@ -382,7 +419,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
             {
                 Packets.Clear();
                 PendingClaims.Clear();
+                AuthorizedLocalClaims.Clear();
                 KnownDisplayNames.Clear();
+                PendingStateTransfers.Clear();
             }
 
             lock (ProcessedLock)
@@ -391,6 +430,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 ProcessedProtocolKeyOrder.Clear();
             }
             relay?.Clear();
+            retryCurrentMessage = false;
+            lastRetryError = null;
+            nextRetryLogUtc = DateTime.MinValue;
             MarkBadgeDirty();
         }
 
@@ -475,6 +517,22 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             RememberDisplayName(senderUuid, senderDisplayName);
 
+            string stateCodecId = parts.Length >= 17 ? RedPacketProtocol.DecodeField(parts[16]) : string.Empty;
+            string statePayloadHash = parts.Length >= 18 ? parts[17] : string.Empty;
+            int statePartCount = 0;
+            int stateStackCount = 0;
+            bool stateRequired = !string.IsNullOrEmpty(stateCodecId) || !string.IsNullOrEmpty(statePayloadHash);
+            if (stateRequired)
+            {
+                if (!string.Equals(stateCodecId, StatefulTradeItemProtocol.ScribeCodecId,
+                        StringComparison.OrdinalIgnoreCase) ||
+                    !int.TryParse(parts.Length >= 19 ? parts[18] : string.Empty, out statePartCount) ||
+                    !int.TryParse(parts.Length >= 20 ? parts[19] : string.Empty, out stateStackCount) ||
+                    statePartCount < 1 || statePartCount > 1024 || stateStackCount != totalCount ||
+                    statePayloadHash.Length > 128)
+                    return null;
+            }
+
             // RP-02: DateTime 安全构造
             if (createdTicks < 0 || createdTicks > DateTime.MaxValue.Ticks) return null;
             if (expiresTicks < 0 || expiresTicks > DateTime.MaxValue.Ticks) return null;
@@ -483,12 +541,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (expiresAt < createdAt
                 || expiresAt - createdAt > TimeSpan.FromHours(RedPacketLimits.MaxPacketValidityHours)) return null;
 
+            byte[] completedState = stateRequired
+                ? TryTakeCompletedState(packetId, statePayloadHash, statePartCount)
+                : null;
             TradeItemSnapshot template = new TradeItemSnapshot(
                 defName,
                 totalCount,
                 hitPoints,
                 RedPacketProtocol.FromWireQuality(qualityValue),
-                stuffDefName ?? string.Empty);
+                stuffDefName ?? string.Empty,
+                null,
+                completedState != null ? stateCodecId : string.Empty,
+                completedState);
 
             RedPacket packet = new RedPacket
             {
@@ -504,7 +568,13 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 LuckyAlgorithmVersion = luckyAlgorithmVersion,
                 CreatedAtUtc = createdAt,
                 ExpiresAtUtc = expiresAt,
-                Expired = DateTime.UtcNow >= expiresAt
+                Expired = DateTime.UtcNow >= expiresAt,
+                StateRequired = stateRequired,
+                StateReady = !stateRequired || completedState != null,
+                StateCodecId = stateCodecId,
+                StatePayloadHash = statePayloadHash,
+                StatePartCount = statePartCount,
+                StateStackCount = stateStackCount
             };
             if (packet.Expired)
             {
@@ -551,6 +621,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             int amount;
             string localUuid = LocalUuid;
             bool isLocalClaimer = false;
+            bool replayedLocalClaim = false;
             bool completed = false;
             bool isSender = false;
             DateTime completedAtUtc = DateTime.UtcNow;
@@ -563,8 +634,20 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (packet.HasClaimed(claimerUuid)) return false;
                 if (packet.ClaimedUuids.Count >= RedPacketLimits.MaxClaimDetailsPerPacket) return false;
 
+                if (claimerUuid == localUuid && !AuthorizedLocalClaims.Contains(packetId))
+                {
+                    if (!IsRewardAlreadyCommitted(packet, amount: ComputeAmount(packet, claimerUuid), claimerUuid))
+                    {
+                        log?.Invoke("[RedPacket] Ignored an unsolicited local claim result for packet " + packetId + ".", LogLevel.WARNING);
+                        return false;
+                    }
+                    replayedLocalClaim = true;
+                }
+
                 amount = ComputeAmount(packet, claimerUuid);
                 if (amount <= 0) return false;
+
+                if (claimerUuid == localUuid && !replayedLocalClaim && !DepositReward(packet, amount, claimerUuid)) return false;
 
                 packet.RemainingPackets = Math.Max(0, packet.RemainingPackets - 1);
                 packet.RemainingCount = Math.Max(0, packet.RemainingCount - amount);
@@ -579,6 +662,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (isLocalClaimer)
                 {
                     PendingClaims.Remove(packetId);
+                    AuthorizedLocalClaims.Remove(packetId);
                 }
                 else if (packet.RemainingPackets <= 0 || packet.RemainingCount <= 0)
                 {
@@ -607,7 +691,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 ConsumeStoredThings(packet, amount);
             }
 
-            if (isLocalClaimer && amount > 0)
+            if (isLocalClaimer && amount > 0 && !replayedLocalClaim)
             {
                 if (IsMinifiedTemplate(packet.Template))
                 {
@@ -623,10 +707,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                         MessageTypeDefOf.RejectInput
                     );
                 }
-                else
-                {
-                    SpawnReward(packet, amount);
-                }
+                else Messages.Message("Phinix_inventory_rewardStored".Translate(), MessageTypeDefOf.PositiveEvent);
             }
 
             if (completed)
@@ -659,6 +740,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             RedPacket packet;
             string localUuid = LocalUuid;
             bool alreadyClaimed = false;
+            bool appliedClaim = false;
+            bool replayedLocalClaim = false;
             bool completed = false;
             bool isSender = false;
             DateTime completedAtUtc = DateTime.UtcNow;
@@ -667,33 +750,58 @@ namespace Phinix.LegacyRedPacketExtension.Client
             {
                 if (!Packets.TryGetValue(packetId, out packet)) return false;
 
+                if (string.IsNullOrEmpty(claimerUuid) || packet.Expired || amount < 1 ||
+                    packet.IsSender(claimerUuid)) return false;
+
                 alreadyClaimed = !string.IsNullOrEmpty(claimerUuid) && packet.ClaimedUuids.Contains(claimerUuid);
-                if (!alreadyClaimed
-                    && !string.IsNullOrEmpty(claimerUuid)
-                    && packet.ClaimedUuids.Count >= RedPacketLimits.MaxClaimDetailsPerPacket)
-                    return false;
-                packet.RemainingPackets = remainingPackets;
-                packet.RemainingCount = remainingCount;
-                if (!alreadyClaimed && !string.IsNullOrEmpty(claimerUuid))
+                if (alreadyClaimed)
                 {
-                    packet.ClaimedUuids.Add(claimerUuid);
-                    // RP-05: 单红包明细上限
-                    if (packet.ClaimedAmounts.Count < RedPacketLimits.MaxClaimDetailsPerPacket)
+                    if (packet.ClaimedAmounts.TryGetValue(claimerUuid, out int claimedAmount) && claimedAmount != amount)
+                        return false;
+                }
+                else
+                {
+                    if (packet.RemainingPackets <= 0 || packet.RemainingCount <= 0 ||
+                        packet.ClaimedUuids.Count >= RedPacketLimits.MaxClaimDetailsPerPacket)
+                        return false;
+
+                    int expectedAmount = ComputeAmount(packet, claimerUuid);
+                    int expectedRemainingPackets = packet.RemainingPackets - 1;
+                    int expectedRemainingCount = packet.RemainingCount - expectedAmount;
+                    if (amount != expectedAmount || remainingPackets != expectedRemainingPackets ||
+                        remainingCount != expectedRemainingCount || remainingPackets < 0 || remainingCount < 0)
+                        return false;
+
+                    if (claimerUuid == localUuid && !AuthorizedLocalClaims.Contains(packetId))
                     {
-                        packet.ClaimedAmounts[claimerUuid] = amount;
+                        if (!IsRewardAlreadyCommitted(packet, amount, claimerUuid))
+                        {
+                            log?.Invoke("[RedPacket] Ignored an unsolicited local assignment for packet " + packetId + ".", LogLevel.WARNING);
+                            return false;
+                        }
+                        replayedLocalClaim = true;
                     }
+
+                    if (claimerUuid == localUuid && !replayedLocalClaim && !DepositReward(packet, amount, claimerUuid)) return false;
+
+                    packet.RemainingPackets = remainingPackets;
+                    packet.RemainingCount = remainingCount;
+                    packet.ClaimedUuids.Add(claimerUuid);
+                    packet.ClaimedAmounts[claimerUuid] = amount;
+                    appliedClaim = true;
                 }
 
                 if (!string.IsNullOrEmpty(localUuid) && claimerUuid == localUuid)
                 {
                     PendingClaims.Remove(packetId);
+                    AuthorizedLocalClaims.Remove(packetId);
                 }
-                else if (remainingPackets <= 0 || remainingCount <= 0)
+                else if (packet.RemainingPackets <= 0 || packet.RemainingCount <= 0)
                 {
                     PendingClaims.Remove(packetId);
                 }
 
-                completed = remainingPackets <= 0 || remainingCount <= 0;
+                completed = packet.RemainingPackets <= 0 || packet.RemainingCount <= 0;
                 if (completed && !packet.CompletedAtUtc.HasValue)
                 {
                     packet.CompletedAtUtc = DateTime.UtcNow;
@@ -709,7 +817,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
             // RP-07: 登记去重
             MarkProcessed(RedPacketMessageType.Assign, parts);
 
-            if (claimerUuid == localUuid && amount > 0 && !alreadyClaimed)
+            if (isSender && appliedClaim)
+            {
+                ConsumeStoredThings(packet, amount);
+            }
+
+            if (claimerUuid == localUuid && appliedClaim && !replayedLocalClaim)
             {
                 if (IsMinifiedTemplate(packet.Template))
                 {
@@ -725,10 +838,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                         MessageTypeDefOf.RejectInput
                     );
                 }
-                else
-                {
-                    SpawnReward(packet, amount);
-                }
+                else Messages.Message("Phinix_inventory_rewardStored".Translate(), MessageTypeDefOf.PositiveEvent);
             }
 
             if (completed)
@@ -764,6 +874,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     packet.CompletedAtUtc = completedAtUtc;
                 }
                 PendingClaims.Remove(packetId);
+                AuthorizedLocalClaims.Remove(packetId);
             }
 
             // RP-07: 登记去重
@@ -789,8 +900,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             string message;
             while (processed < RedPacketLimits.MaxMessagesPerTick
-                   && relay.TryDequeueIncoming(out message))
+                   && relay.TryPeekIncoming(out message))
             {
+                retryCurrentMessage = false;
                 try
                 {
                     // RP-08: 单消息异常隔离
@@ -799,8 +911,11 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
                 catch (Exception ex)
                 {
-                    log?.Invoke("[RedPacket] Message processing failed, skipping: " + ex, LogLevel.WARNING);
+                    HoldCurrentMessage("[RedPacket] Message processing failed; cursor held for retry: " + ex);
                 }
+                if (retryCurrentMessage) break;
+                relay.AcknowledgeIncoming();
+                lastRetryError = null;
                 processed++;
 
                 // RP-00: 时间预算硬上限
@@ -893,6 +1008,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     return HandleAssignSafe(parts);
                 case RedPacketMessageType.Timeout:
                     return HandleTimeoutSafe(parts);
+                case RedPacketMessageType.StatePart:
+                    return HandleStatePartSafe(parts);
                 default:
                     return false;
             }
@@ -958,6 +1075,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 case RedPacketMessageType.Timeout:
                     if (parts.Length < 4) return null;
                     return string.Concat("timeout:", parts[3]);
+                case RedPacketMessageType.StatePart:
+                    if (parts.Length < 6) return null;
+                    return string.Concat("state:", parts[3], ":", parts[4]);
                 default:
                     return null;
             }
@@ -1253,10 +1373,133 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Messages.Message("Phinix_legacyRedpacket_rewardMessage".Translate(itemLabel, amount, senderName), MessageTypeDefOf.PositiveEvent);
         }
 
+        private bool DepositReward(RedPacket packet, int amount, string claimerUuid)
+        {
+            if (packet == null || amount < 1 || packet.Template == null ||
+                IsMinifiedTemplate(packet.Template) || IsUnknownTemplate(packet.Template))
+            {
+                HoldCurrentMessage("[RedPacket] Reward cannot be deposited; relay cursor is held.");
+                return false;
+            }
+            bool useInventory = InventoryDeliveryPreference.UsesInventory(
+                settingsContext?.Get(InventoryDeliveryPreference.SettingKey,
+                    InventoryDeliveryPreference.DirectDrop));
+            if (!useInventory) return DeliverRewardDirect(packet, amount);
+            if (inventory == null)
+            {
+                HoldCurrentMessage("[RedPacket] Inventory is unavailable; relay cursor is held.");
+                return false;
+            }
+            InventoryDepositResult result = inventory.TryDeposit(BuildRewardDeposit(packet, amount, claimerUuid));
+            if (result.Succeeded)
+            {
+                log?.Invoke("[RedPacket] Reward stored in inventory: packet=" + packet.Id +
+                    ", amount=" + amount + ", status=" + result.Status + ".", LogLevel.INFO);
+                return true;
+            }
+            HoldCurrentMessage("[RedPacket] Reward deposit failed; relay cursor is held: " + result.Reason);
+            return false;
+        }
+
+        private bool DeliverRewardDirect(RedPacket packet, int amount)
+        {
+            List<Thing> things;
+            try { things = CreateThingsFromTemplate(packet.Template, amount); }
+            catch (Exception exception)
+            {
+                HoldCurrentMessage("[RedPacket] Reward could not be restored without loss: " + exception.Message);
+                return false;
+            }
+            if (things.Count == 0)
+            {
+                HoldCurrentMessage("[RedPacket] Reward materialization returned no items.");
+                return false;
+            }
+
+            Map map = DropCurrentMap ? Find.CurrentMap : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
+            if (!InventoryDropDelivery.TryResolveTradeDropTarget(map, out IntVec3 spot, out string reason))
+            {
+                DiscardUnclaimed(things);
+                HoldCurrentMessage("[RedPacket] Direct reward delivery rejected: " + reason);
+                return false;
+            }
+            InventoryDeliveryResult delivery = InventoryDropDelivery.DeliverThings(things, map, spot);
+            if (!delivery.Succeeded)
+            {
+                if (delivery.Status == InventoryDeliveryStatus.Rejected) DiscardUnclaimed(things);
+                HoldCurrentMessage("[RedPacket] Direct reward delivery failed: " + delivery.Reason);
+                return false;
+            }
+
+            string senderName = string.IsNullOrEmpty(packet.SenderDisplayName)
+                ? GetDisplayName(packet.SenderUuid) : packet.SenderDisplayName;
+            Messages.Message("Phinix_legacyRedpacket_rewardMessage".Translate(
+                GetPacketItemLabel(packet), amount, senderName), MessageTypeDefOf.PositiveEvent);
+            return true;
+        }
+
+        private bool IsRewardAlreadyCommitted(RedPacket packet, int amount, string claimerUuid)
+        {
+            if (packet == null || amount < 1 || packet.Template == null || inventory == null) return false;
+            InventoryDepositResult result = inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid));
+            if (result.Status == InventoryDepositStatus.AlreadyCommitted) return true;
+            if (result.Status == InventoryDepositStatus.Unavailable)
+                HoldCurrentMessage("[RedPacket] Reward receipt could not be checked; relay cursor is held: " + result.Reason);
+            return false;
+        }
+
+        private InventoryDeposit BuildRewardDeposit(RedPacket packet, int amount, string claimerUuid)
+        {
+            string senderName = packet.SenderDisplayName;
+            if (string.IsNullOrEmpty(senderName)) senderName = GetDisplayName(packet.SenderUuid);
+            return new InventoryDeposit
+            {
+                DepositId = "redpacket:" + packet.Id + ":" + claimerUuid,
+                Source = "legacy-redpacket",
+                OriginKind = "redpacket",
+                OriginId = packet.Id,
+                OriginUserId = LimitInventoryOrigin(packet.SenderUuid, 100),
+                OriginDisplayName = LimitInventoryOrigin(senderName, 200),
+                Items = new[]
+                {
+                    new InventoryItem
+                    {
+                        CodecId = "legacy-redpacket.template",
+                        CodecVersion = 1,
+                        Payload = RedPacketInventoryCodec.Encode(packet.Template, amount),
+                        Quantity = packet.Template.StatePayload != null && packet.Template.StatePayload.Length > 0 ? 1 : amount,
+                        Label = amount > 1 ? GetPacketItemLabel(packet) + " × " + amount : GetPacketItemLabel(packet)
+                    }
+                }
+            };
+        }
+
+        private static string LimitInventoryOrigin(string value, int maximumLength)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            return value.Length <= maximumLength ? value : value.Substring(0, maximumLength);
+        }
+
+        private void HoldCurrentMessage(string message)
+        {
+            retryCurrentMessage = true;
+            DateTime now = DateTime.UtcNow;
+            if (message == lastRetryError && now < nextRetryLogUtc) return;
+            lastRetryError = message;
+            nextRetryLogUtc = now.AddSeconds(30);
+            log?.Invoke(message, LogLevel.ERROR);
+        }
+
         private static List<Thing> CreateThingsFromTemplate(TradeItemSnapshot template, int count)
         {
             List<Thing> things = new List<Thing>();
             if (template == null || count <= 0) return things;
+
+            if (template.StatePayload != null && template.StatePayload.Length > 0)
+            {
+                things.Add(TradeItemConverter.ConvertStatefulStackFromSnapshot(template, count));
+                return things;
+            }
 
             int stackLimit = 1;
             ThingDef thingDef = DefDatabase<ThingDef>.GetNamedSilentFail(template.DefName);
@@ -1290,7 +1533,93 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 template.HitPoints,
                 template.Quality,
                 template.StuffDefName,
-                template.InnerItem != null ? CloneTemplate(template.InnerItem, template.InnerItem.StackCount) : null);
+                template.InnerItem != null ? CloneTemplate(template.InnerItem, template.InnerItem.StackCount) : null,
+                stackCount == template.StackCount ? template.StateCodecId : string.Empty,
+                stackCount == template.StackCount ? template.StatePayload : null);
+        }
+
+        private static void DiscardUnclaimed(IEnumerable<Thing> things)
+        {
+            foreach (Thing thing in things ?? Enumerable.Empty<Thing>())
+            {
+                if (thing != null && !thing.Destroyed && thing.ParentHolder == null && !thing.Spawned)
+                    thing.Destroy(DestroyMode.Vanish);
+            }
+        }
+
+        private bool HandleStatePartSafe(string[] parts)
+        {
+            if (parts == null || parts.Length < 8) return false;
+            string packetId = parts[3];
+            if (string.IsNullOrEmpty(packetId) || packetId.Length > RedPacketLimits.MaxIdLength ||
+                !int.TryParse(parts[4], out int partIndex) ||
+                !int.TryParse(parts[5], out int partCount) ||
+                partCount < 1 || partCount > 1024 || partIndex < 0 || partIndex >= partCount ||
+                string.IsNullOrEmpty(parts[6]) || parts[6].Length > 128)
+                return false;
+
+            byte[] chunk;
+            try { chunk = Convert.FromBase64String(parts[7]); }
+            catch (FormatException) { return false; }
+            if (chunk.Length < 1 || chunk.Length > RedPacketProtocol.StatePartBytes) return false;
+
+            bool packetUpdated = false;
+            lock (PacketsLock)
+            {
+                if (!PendingStateTransfers.TryGetValue(packetId, out PendingStateTransfer transfer))
+                {
+                    if (PendingStateTransfers.Count >= 16) return false;
+                    transfer = new PendingStateTransfer(partCount, parts[6]);
+                    PendingStateTransfers[packetId] = transfer;
+                }
+                if (transfer.PartCount != partCount || transfer.PayloadHash != parts[6]) return false;
+                if (!transfer.TryAdd(partIndex, chunk)) return false;
+                if (transfer.ReceivedBytes > StatefulTradeItemProtocol.MaxStatePayloadBytes)
+                {
+                    PendingStateTransfers.Remove(packetId);
+                    return false;
+                }
+
+                if (transfer.IsComplete && transfer.CompletedPayload == null)
+                {
+                    byte[] payload = transfer.Assemble();
+                    if (!string.Equals(ComputePayloadHash(payload), transfer.PayloadHash, StringComparison.Ordinal))
+                    {
+                        PendingStateTransfers.Remove(packetId);
+                        return false;
+                    }
+                    transfer.CompletedPayload = payload;
+                }
+
+                if (transfer.CompletedPayload != null && Packets.TryGetValue(packetId, out RedPacket packet) &&
+                    packet.StateRequired && !packet.StateReady && packet.StatePartCount == transfer.PartCount &&
+                    packet.StatePayloadHash == transfer.PayloadHash)
+                {
+                    packet.Template = new TradeItemSnapshot(
+                        packet.Template.DefName, packet.StateStackCount, packet.Template.HitPoints,
+                        packet.Template.Quality, packet.Template.StuffDefName, packet.Template.InnerItem,
+                        packet.StateCodecId, transfer.CompletedPayload);
+                    packet.StateReady = true;
+                    PendingStateTransfers.Remove(packetId);
+                    packetUpdated = true;
+                }
+            }
+
+            MarkProcessed(RedPacketMessageType.StatePart, parts);
+            return packetUpdated;
+        }
+
+        private static byte[] TryTakeCompletedState(string packetId, string payloadHash, int partCount)
+        {
+            lock (PacketsLock)
+            {
+                if (!PendingStateTransfers.TryGetValue(packetId, out PendingStateTransfer transfer) ||
+                    transfer.CompletedPayload == null || transfer.PartCount != partCount ||
+                    transfer.PayloadHash != payloadHash)
+                    return null;
+                PendingStateTransfers.Remove(packetId);
+                return transfer.CompletedPayload;
+            }
         }
 
         private string GetPacketItemLabel(RedPacket packet)
@@ -1452,6 +1781,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     string id = candidates[i];
                     Packets.Remove(id);
                     PendingClaims.Remove(id);
+                    AuthorizedLocalClaims.Remove(id);
                 }
             }
         }
@@ -1512,6 +1842,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (!Packets.TryGetValue(packetId, out RedPacket packet))
                 {
                     PendingClaims.Remove(packetId);
+                    AuthorizedLocalClaims.Remove(packetId);
                     return;
                 }
 
@@ -1526,6 +1857,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
 
                 PendingClaims.Remove(packetId);
+                AuthorizedLocalClaims.Remove(packetId);
             }
         }
 
@@ -1558,6 +1890,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
                     packet.Expired = true;
                     PendingClaims.Remove(packet.Id);
+                    AuthorizedLocalClaims.Remove(packet.Id);
                     if (!packet.CompletedAtUtc.HasValue)
                     {
                         packet.CompletedAtUtc = now;
@@ -1638,6 +1971,17 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 {
                     Packets.Remove(packetId);
                     PendingClaims.Remove(packetId);
+                    AuthorizedLocalClaims.Remove(packetId);
+                    PendingStateTransfers.Remove(packetId);
+                }
+
+                List<string> staleTransfers = PendingStateTransfers
+                    .Where(entry => now > entry.Value.CreatedAtUtc.AddMinutes(20))
+                    .Select(entry => entry.Key)
+                    .ToList();
+                foreach (string packetId in staleTransfers)
+                {
+                    PendingStateTransfers.Remove(packetId);
                 }
             }
 
@@ -1651,6 +1995,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private static RedPacketCreateData ToCreateData(RedPacket packet)
         {
+            byte[] statePayload = packet.Template?.StatePayload;
+            bool hasState = statePayload != null && statePayload.Length > 0;
             return new RedPacketCreateData
             {
                 Id = packet.Id,
@@ -1664,9 +2010,21 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 TotalPackets = packet.TotalPackets,
                 Type = packet.Type,
                 LuckyAlgorithmVersion = packet.LuckyAlgorithmVersion,
+                StateCodecId = hasState ? packet.Template.StateCodecId : string.Empty,
+                StatePayloadHash = hasState ? ComputePayloadHash(statePayload) : string.Empty,
+                StatePartCount = hasState
+                    ? (statePayload.Length + RedPacketProtocol.StatePartBytes - 1) / RedPacketProtocol.StatePartBytes
+                    : 0,
+                StateStackCount = hasState ? packet.Template.StackCount : 0,
                 CreatedAtUtc = packet.CreatedAtUtc,
                 ExpiresAtUtc = packet.ExpiresAtUtc
             };
+        }
+
+        private static string ComputePayloadHash(byte[] payload)
+        {
+            using (SHA256 sha = SHA256.Create())
+                return Convert.ToBase64String(sha.ComputeHash(payload ?? new byte[0]));
         }
 
         private struct ExpirySettlement
@@ -1681,6 +2039,50 @@ namespace Phinix.LegacyRedPacketExtension.Client
             public RedPacket Packet;
             public Dictionary<string, int> Claims;
             public DateTime CompletedAtUtc;
+        }
+
+        private sealed class PendingStateTransfer
+        {
+            private readonly byte[][] parts;
+            private int receivedParts;
+
+            public PendingStateTransfer(int partCount, string payloadHash)
+            {
+                PartCount = partCount;
+                PayloadHash = payloadHash;
+                parts = new byte[partCount][];
+                CreatedAtUtc = DateTime.UtcNow;
+            }
+
+            public int PartCount { get; }
+            public string PayloadHash { get; }
+            public DateTime CreatedAtUtc { get; }
+            public int ReceivedBytes { get; private set; }
+            public byte[] CompletedPayload { get; set; }
+            public bool IsComplete => receivedParts == PartCount;
+
+            public bool TryAdd(int index, byte[] chunk)
+            {
+                if (index < 0 || index >= parts.Length || chunk == null) return false;
+                if (parts[index] != null) return parts[index].SequenceEqual(chunk);
+                parts[index] = chunk;
+                receivedParts++;
+                ReceivedBytes = checked(ReceivedBytes + chunk.Length);
+                return true;
+            }
+
+            public byte[] Assemble()
+            {
+                if (!IsComplete) return null;
+                byte[] payload = new byte[ReceivedBytes];
+                int offset = 0;
+                foreach (byte[] chunk in parts)
+                {
+                    Buffer.BlockCopy(chunk, 0, payload, offset, chunk.Length);
+                    offset += chunk.Length;
+                }
+                return payload;
+            }
         }
     }
 }

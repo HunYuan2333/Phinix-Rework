@@ -119,6 +119,12 @@ namespace PhinixClient.Framework
         event EventHandler<UserBlockStateChangedEventArgs> BlockedUsersChanged;
     }
 
+    /// <summary>Host-owned lifecycle events for the Phinix shell.</summary>
+    public interface IClientShellEventStream
+    {
+        event EventHandler MainWindowOpened;
+    }
+
     public interface IClientMainThreadDispatcher
     {
         void Enqueue(Action action);

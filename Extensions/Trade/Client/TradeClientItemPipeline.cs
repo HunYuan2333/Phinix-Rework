@@ -85,6 +85,23 @@ namespace Phinix.TradeExtension.Client
                 .ToArray();
         }
 
+        public bool CanDecodeItemExactly(FrameworkItemPayload payload)
+        {
+            return payload != null && codecs.Any(candidate => candidate.CanDecode(payload, codecContext));
+        }
+
+        public Thing DecodeItemExactly(FrameworkItemPayload payload)
+        {
+            if (payload == null) throw new ArgumentNullException(nameof(payload));
+            IItemCodec codec = codecs.FirstOrDefault(candidate => candidate.CanDecode(payload, codecContext));
+            if (codec == null)
+                throw new InvalidOperationException($"No item codec can decode payload '{payload.CodecId ?? "unknown"}' without loss.");
+            Thing thing = codec.Decode(payload, codecContext) as Thing;
+            if (thing == null || thing.def == null || thing.def.defName == "UnknownItem")
+                throw new InvalidOperationException($"Item codec '{codec.CodecId}' did not restore an exact game item.");
+            return thing;
+        }
+
         private FrameworkItemPayload encodeTradeItem(TradeItemSnapshot item)
         {
             IItemCodec codec = null;

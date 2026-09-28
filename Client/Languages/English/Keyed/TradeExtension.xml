@@ -37,8 +37,12 @@
     <Phinix_trade_tradeReceivedLetter_description>{0} has sent you a trade offer.\n\nCheck the 'Trades' tab in the Phinix chat panel for details.</Phinix_trade_tradeReceivedLetter_description>
     <Phinix_trade_tradeCompletedLetter_label>Trade successful</Phinix_trade_tradeCompletedLetter_label>
     <Phinix_trade_tradeCompletedLetter_description>Your trade with {0} was successful.</Phinix_trade_tradeCompletedLetter_description>
+    <Phinix_trade_tradeCompletedInventoryDescription>Your trade with {0} was successful. The received items are now in your Phinix inventory.</Phinix_trade_tradeCompletedInventoryDescription>
     <Phinix_trade_tradeCancelled_label>Trade cancelled</Phinix_trade_tradeCancelled_label>
     <Phinix_trade_tradeCancelled_description>Your trade with {0} was cancelled.\n\nYour items have been shipped back to you.</Phinix_trade_tradeCancelled_description>
+    <Phinix_trade_tradeCancelledInventoryDescription>Your trade with {0} was cancelled. Your returned items are now in your Phinix inventory.</Phinix_trade_tradeCancelledInventoryDescription>
+    <Phinix_trade_inventoryDepositFailed>Trade items could not be saved to inventory. Delivery remains pending and will be retried. Reason: {0}</Phinix_trade_inventoryDepositFailed>
+    <Phinix_trade_directDeliveryFailed>Trade items could not be delivered. The server completion remains unacknowledged and delivery will be retried. Reason: {0}</Phinix_trade_directDeliveryFailed>
 
     <!-- Trade errors -->
     <Phinix_error_tradeCreationFailedTitle>Trade creation failed</Phinix_error_tradeCreationFailedTitle>

@@ -7,6 +7,8 @@
 
     <!-- Settings -->
     <Phinix_settings_connectButton>连接</Phinix_settings_connectButton>
+    <Phinix_settings_connecting>正在连接，等待服务器响应……</Phinix_settings_connecting>
+    <Phinix_settings_connectionFailed>连接失败。请检查服务器地址与 RimWorld 日志后重试。</Phinix_settings_connectionFailed>
     <Phinix_settings_disconnectButton>断开</Phinix_settings_disconnectButton>
     <Phinix_settings_connectedToLabel>已连接至{0}</Phinix_settings_connectedToLabel>
     <Phinix_settings_addressLabel>地址</Phinix_settings_addressLabel>

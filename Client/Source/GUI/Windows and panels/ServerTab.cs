@@ -125,6 +125,12 @@ namespace PhinixClient
             ClampWindowToScreenSafeArea();
         }
 
+        public override void PostOpen()
+        {
+            base.PostOpen();
+            Instance?.NotifyMainWindowOpened();
+        }
+
         public override void WindowUpdate()
         {
             base.WindowUpdate();

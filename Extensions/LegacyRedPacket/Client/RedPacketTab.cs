@@ -704,14 +704,20 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 }
 
                 List<Thing> selectedThings = poppedThings.Select(poppedThing => poppedThing.Thing).ToList();
+                if (selectedThings.Count != 1)
+                    throw new InvalidOperationException("Stateful red packets require one physical stack.");
                 TradeItemSnapshot sourceSnapshot = TradeItemConverter.ConvertThingFromVerse(selectedThings[0]);
+                if (sourceSnapshot.StackCount != totalCount)
+                    throw new InvalidOperationException("The selected stack count changed while creating the red packet.");
                 TradeItemSnapshot template = new TradeItemSnapshot(
                     sourceSnapshot.DefName,
                     totalCount,
                     sourceSnapshot.HitPoints,
                     sourceSnapshot.Quality,
                     sourceSnapshot.StuffDefName,
-                    sourceSnapshot.InnerItem);
+                    sourceSnapshot.InnerItem,
+                    sourceSnapshot.StateCodecId,
+                    sourceSnapshot.StatePayload);
 
                 bool special = stateMachine.IsSpecialPacketItem(template);
                 RedPacket packet = new RedPacket

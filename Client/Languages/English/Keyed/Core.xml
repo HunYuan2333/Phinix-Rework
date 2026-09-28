@@ -7,6 +7,8 @@
 
     <!-- Settings -->
     <Phinix_settings_connectButton>Connect</Phinix_settings_connectButton>
+    <Phinix_settings_connecting>Connecting… waiting for server response.</Phinix_settings_connecting>
+    <Phinix_settings_connectionFailed>Connection failed. Check the server address and RimWorld log, then retry.</Phinix_settings_connectionFailed>
     <Phinix_settings_disconnectButton>Disconnect</Phinix_settings_disconnectButton>
     <Phinix_settings_connectedToLabel>Connected to {0}</Phinix_settings_connectedToLabel>
     <Phinix_settings_addressLabel>Address</Phinix_settings_addressLabel>

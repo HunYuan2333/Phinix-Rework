@@ -41,7 +41,7 @@ namespace Phinix.LegacyAdapter.Client
         private readonly IClientSessionContext sessionContext;
         private readonly IFrameworkTradeClientApi tradeApi;
         private readonly IFrameworkLegacyTradeRepositoryApi legacyRepositoryApi;
-        private readonly IFrameworkLegacyTradeCompletionApi legacyCompletionApi;
+        private readonly IFrameworkLegacyTradeDeliveryApi legacyDeliveryApi;
         private readonly IFrameworkClientLifecycle lifecycle;
         private readonly System.Action<string, Utils.LogLevel> log;
         private const string TradingModuleName = "Trading";
@@ -53,7 +53,7 @@ namespace Phinix.LegacyAdapter.Client
             IClientSessionContext sessionContext,
             IFrameworkTradeClientApi tradeApi,
             IFrameworkLegacyTradeRepositoryApi legacyRepositoryApi,
-            IFrameworkLegacyTradeCompletionApi legacyCompletionApi,
+            IFrameworkLegacyTradeDeliveryApi legacyDeliveryApi,
             IFrameworkClientLifecycle lifecycle,
             System.Action<string, Utils.LogLevel> log)
         {
@@ -62,7 +62,7 @@ namespace Phinix.LegacyAdapter.Client
             this.sessionContext = sessionContext;
             this.tradeApi = tradeApi;
             this.legacyRepositoryApi = legacyRepositoryApi;
-            this.legacyCompletionApi = legacyCompletionApi;
+            this.legacyDeliveryApi = legacyDeliveryApi;
             this.lifecycle = lifecycle;
             this.log = log;
         }
@@ -359,8 +359,14 @@ namespace Phinix.LegacyAdapter.Client
         {
             if (packet == null) return;
 
-            var completionItems = DecodeProtoThings(packet.Items);
-            legacyCompletionApi?.CompleteTrade(packet.TradeId, packet.Success, packet.OtherPartyUuid, completionItems);
+            if (legacyDeliveryApi == null)
+            {
+                log?.Invoke("[LegacyAdapter] Legacy trade completion cannot be delivered because the canonical delivery API is unavailable.", LogLevel.ERROR);
+                return;
+            }
+
+            List<FrameworkItemPayload> completionItems = ConvertProtoThings(packet.Items);
+            legacyDeliveryApi.CompleteTrade(packet.TradeId, packet.Success, packet.OtherPartyUuid, completionItems);
 
             string verb = packet.Success ? "完成" : "取消";
             displaySink.Enqueue(new FrameworkDisplayMessage
@@ -696,8 +702,8 @@ namespace Phinix.LegacyAdapter.Client
                 }
 
                 var itemData = ConvertProtoThingToVanillaItemData(protoThing);
-                if (itemData == null)
-                    continue;
+                if (itemData == null || string.IsNullOrWhiteSpace(itemData.DefName) || itemData.StackCount < 1)
+                    throw new InvalidOperationException("Legacy trade item is malformed and cannot be translated losslessly.");
 
                 items.Add(new FrameworkItemPayload
                 {
@@ -726,17 +732,6 @@ namespace Phinix.LegacyAdapter.Client
                         .ToList()
                 })
                 .ToList();
-        }
-
-        private static TradeItemSnapshot[] DecodeProtoThings(
-            Google.Protobuf.Collections.RepeatedField<Trading.ProtoThing> protoThings)
-        {
-            if (protoThings == null) return Array.Empty<TradeItemSnapshot>();
-
-            return protoThings
-                .Select(ConvertProtoThingToTradeItem)
-                .Where(item => item != null)
-                .ToArray();
         }
 
         private static TradeItemSnapshot ConvertProtoThingToTradeItem(Trading.ProtoThing protoThing)

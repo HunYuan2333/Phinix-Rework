@@ -463,7 +463,8 @@ namespace Phinix.TradeExtension.Client
             log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}", LogLevel.DEBUG));
             if (OnTradeCompleted != null)
             {
-                OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
+                OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true,
+                    payload.OtherPartyUuid, DecodeTradeItems(payload.Items), null, payload.Items));
                 log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully", LogLevel.DEBUG));
             }
             else
@@ -484,7 +485,8 @@ namespace Phinix.TradeExtension.Client
             log?.Invoke(new LogEventArgs($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
             repository.Remove(payload.TradeId);
             RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false, payload.OtherPartyUuid, DecodeTradeItems(payload.Items)));
+            OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false,
+                payload.OtherPartyUuid, DecodeTradeItems(payload.Items), null, payload.Items));
             log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' cancelled with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
         }
 
@@ -579,6 +581,23 @@ namespace Phinix.TradeExtension.Client
             {
                 OnTradeCancelled?.Invoke(this, args);
             }
+        }
+
+        internal void CompleteLegacyTradePayloads(string tradeId, bool success, string otherPartyUuid,
+            IEnumerable<FrameworkItemPayload> items)
+        {
+            FrameworkItemPayload[] payloads = (items ?? Array.Empty<FrameworkItemPayload>()).ToArray();
+            TradeItemSnapshot[] snapshots = DecodeTradeItems(payloads);
+            if (string.IsNullOrEmpty(tradeId)) return;
+
+            bool hadTrade = repository.TryGet(tradeId, out _);
+            repository.Remove(tradeId);
+            if (hadTrade) RepositoryChanged?.Invoke(this, EventArgs.Empty);
+
+            TradeCompletionEventArgs args = new TradeCompletionEventArgs(
+                tradeId, success, otherPartyUuid ?? string.Empty, snapshots, null, payloads);
+            if (success) OnTradeCompleted?.Invoke(this, args);
+            else OnTradeCancelled?.Invoke(this, args);
         }
 
         private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)

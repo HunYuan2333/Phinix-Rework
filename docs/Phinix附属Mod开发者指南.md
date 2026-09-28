@@ -135,8 +135,11 @@ Chat 和 Trade **不是**特权模块。它们和你写的 Submod 走完全相�
 |--------|----------|----------|
 | `ChatExtension`（Contracts） | `IFrameworkChatClientApi`、`IChatUiHostContext` 等，供插件间直接调用 | [Extensions/Chat/Contracts/ChatExtension.csproj](Extensions/Chat/Contracts/ChatExtension.csproj) |
 | `TradeExtension`（Contracts） | `IFrameworkTradeClientApi`、`ITradeRequestApi` 等 | [Extensions/Trade/Contracts/TradeExtension.csproj](Extensions/Trade/Contracts/TradeExtension.csproj) |
+| `InventoryExtension`（Contracts） | 客户端存档库存的 `IInventoryApi`、`IInventoryCodec` 和不透明物品载荷 | [Extensions/Inventory/Contracts/InventoryExtension.csproj](Extensions/Inventory/Contracts/InventoryExtension.csproj) |
 
 > **注意**：引用 Contracts 工程不会让你依赖 Chat/Trade 的内部实现——Contracts 只包含接口定义和协议常量。这是推荐的插件间协作方式（详见 [§9](#9-插件间协作)）。
+
+库存接入需声明 `DependsOn = new[] { "builtin.inventory" }`。在 `Activate` 中解析 `IInventoryRegistrationApi` 与 `IInventoryDepositApi`，通过 `RegisterCodecScoped` 注册带版本的 `IInventoryCodec`，并在 `Shutdown` 中释放返回的注册对象。插件还可注册 `IInventorySourcePresenter` 来显示自己拥有的追溯语义；库存本身不知道任何生产者事件类型。入账时传稳定的 `DepositId`，将 `Committed` 与 `AlreadyCommitted` 都视为安全落账；其他状态都要求生产者继续持有物品或权威待交付记录。`CheckDeposit` 只查询完全相同批次是否已经提交，不会新增条目。异常大批次应先读取 `IInventoryReadApi.GetCapabilities()`；需要重试权威交付时可订阅库存可用性事件。需要追溯事件或交易对方时填写 `OriginKind`、`OriginId`、`OriginUserId` 与 `OriginDisplayName`；类型和 ID 使用稳定且不本地化的值，显示名称只是为阅读保存的当时快照。库存只属于当前已保存的 RimWorld 存档，操作须在游戏主线程进行。新 codec 还应实现增量接口 `IInventoryVerifiedDeliveryCodec`，在移交持有权后返回“已交付、已拒绝、结果不确定”；拒绝会恢复余额，只有不确定才保留预留。旧 `IInventoryCodec.Deliver` 仍兼容，库存会在其返回后检查持有关系。缺失 codec 的记录会保留为不透明数据。原 `IInventoryApi` 为二进制兼容保留，新接入应使用这些职责单一的接口。详见 [库存架构与恢复边界](库存.md)。
 
 ### 2.3 绝对不能引用的
 

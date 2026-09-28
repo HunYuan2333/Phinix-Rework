@@ -123,6 +123,28 @@ namespace PhinixClient.Trade
             return verseThing;
         }
 
+        /// <summary>
+        /// Restores one proportional part of a stateful stack. The opaque Scribe
+        /// state remains authoritative; only stackCount is reduced, and callers
+        /// must ensure all distributed parts sum to the original stack.
+        /// </summary>
+        public static Thing ConvertStatefulStackFromSnapshot(TradeItemSnapshot item, int stackCount)
+        {
+            if (item == null || item.StatePayload == null || item.StatePayload.Length == 0 ||
+                !string.Equals(item.StateCodecId, StatefulTradeItemProtocol.ScribeCodecId,
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The item has no supported stateful stack payload.");
+            if (stackCount < 1 || stackCount > item.StackCount)
+                throw new ArgumentOutOfRangeException(nameof(stackCount));
+
+            Thing restoredThing = TradeThingStateSerializer.Deserialize(item.StatePayload);
+            if (!string.Equals(restoredThing.def?.defName, item.DefName, StringComparison.Ordinal) ||
+                restoredThing.stackCount != item.StackCount || stackCount > Math.Max(1, restoredThing.def.stackLimit))
+                throw new InvalidOperationException("The restored stateful stack does not match its red-packet preview.");
+            restoredThing.stackCount = stackCount;
+            return restoredThing;
+        }
+
         public static Thing ConvertThingFromSnapshotOrUnknown(TradeItemSnapshot item)
         {
             try

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 using UserManagement;
 using Utils;
@@ -31,6 +32,10 @@ namespace PhinixClient
         #region Modules
         private NetClient netClient;
         public bool Connected => netClient.Connected;
+        private volatile bool connectionAttemptPending;
+        private volatile bool connectionAttemptFailed;
+        public bool Connecting => connectionAttemptPending && !Connected;
+        public bool ConnectionAttemptFailed => connectionAttemptFailed && !Connected;
         public void Send(string module, byte[] serialisedMessage) => netClient.Send(module, serialisedMessage);
         public event EventHandler OnConnecting;
         public event EventHandler OnDisconnect;
@@ -61,6 +66,11 @@ namespace PhinixClient
         public void SendMessage(string message)
         {
             frameworkClient.TryHandleOutgoingMessage(message);
+        }
+
+        internal void NotifyMainWindowOpened()
+        {
+            shellEventStream?.RaiseMainWindowOpened();
         }
         // 缓存解析结果——设计哲学 §8.3 要求属性 getter 不做实时查询/分配。
         // 扩展注册后不会变化，因此解析一次后永不过期。
@@ -101,6 +111,7 @@ namespace PhinixClient
         private EventHandler processExitHandler;
         public PhinixFrameworkClient FrameworkClient => frameworkClient;
         private ClientUserEventStream userEventStream;
+        private ClientShellEventStream shellEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
         private readonly IClientWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
@@ -147,6 +158,7 @@ namespace PhinixClient
             settingsContext = new ClientSettingsContextAdapter(this);
             windowService = new ClientWindowService();
             userEventStream = new ClientUserEventStream();
+            shellEventStream = new ClientShellEventStream();
             mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)));
             IClientSoundService soundService = new ClientSoundService(this);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
@@ -160,6 +172,7 @@ namespace PhinixClient
             extensionHostContext.AddService(sessionContext);
             extensionHostContext.AddService(settingsContext);
             extensionHostContext.AddService<IClientUserEventStream>(userEventStream);
+            extensionHostContext.AddService<IClientShellEventStream>(shellEventStream);
             extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientWindowService>(windowService);
@@ -229,6 +242,11 @@ namespace PhinixClient
             // Subscribe to connection events
             netClient.OnDisconnect += (sender, args) =>
             {
+                if (connectionAttemptPending)
+                {
+                    connectionAttemptFailed = true;
+                    connectionAttemptPending = false;
+                }
                 userEventStream.RaiseDisconnected();
             };
 
@@ -252,6 +270,8 @@ namespace PhinixClient
             // Subscribe to user management events
             userManager.OnLoginSuccess += (sender, args) =>
             {
+                connectionAttemptPending = false;
+                connectionAttemptFailed = false;
                 Verse.Log.Message(string.Format("Successfully logged in with UUID {0}", userManager.Uuid));
                 frameworkClient.BeginNegotiation();
             };
@@ -517,7 +537,10 @@ namespace PhinixClient
         /// <param name="port">Server port</param>
         public void Connect(string address, int port)
         {
-            if (Connected) Disconnect();
+            Disconnect();
+            connectionAttemptFailed = false;
+            connectionAttemptPending = true;
+            Verse.Log.Message($"[Phinix] Connecting to {address}:{port}...");
 
             try
             {
@@ -525,12 +548,21 @@ namespace PhinixClient
             }
             catch (Exception ex)
             {
-                Verse.Log.Error($"[Phinix] Could not connect to {Settings.ServerAddress}:{Settings.ServerPort}: {ex}");
-
-                enqueueWindowOpen(mainThreadDispatcher, windowService, new Dialog_MessageBox(
+                connectionAttemptPending = false;
+                connectionAttemptFailed = true;
+                Verse.Log.Error($"[Phinix] Could not connect to {address}:{port}: {ex}");
+                mainThreadDispatcher?.Enqueue(() => windowService?.Open(new Dialog_MessageBox(
                     title: "Phinix_error_connectionFailedTitle".Translate(),
-                    text: "Phinix_error_connectionFailedMessage".Translate(Settings.ServerAddress, Settings.ServerPort)));
+                    text: "Phinix_error_connectionFailedMessage".Translate(address, port))));
             }
+        }
+
+        public void QueueConnect(string address, int port)
+        {
+            if (Connecting) return;
+            connectionAttemptFailed = false;
+            connectionAttemptPending = true;
+            ThreadPool.QueueUserWorkItem(_ => Connect(address, port));
         }
 
         /// <summary>
@@ -538,6 +570,7 @@ namespace PhinixClient
         /// </summary>
         public void Disconnect()
         {
+            connectionAttemptPending = false;
             netClient.Disconnect();
         }
 

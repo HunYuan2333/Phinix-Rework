@@ -87,6 +87,7 @@
     <Compile Include="StoredThingCollector.cs" />
     <Compile Include="TradeClientItemPipeline.cs" />
     <Compile Include="TradeItemConverter.cs" />
+    <Compile Include="TradeInventoryIntegration.cs" />
     <Compile Include="TradeThingStateSerializer.cs" />
     <Compile Include="TradeList.cs" />
     <Compile Include="TradeMainTabProvider.cs" />
@@ -102,6 +103,10 @@
     <ProjectReference Include="..\Contracts\TradeExtension.csproj">
       <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
       <Name>TradeExtension</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Inventory\Contracts\InventoryExtension.csproj">
+      <Project>{F25C60B4-39F1-45E7-A02B-9CB9707C74A1}</Project>
+      <Name>InventoryExtension</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\..\Common\UserManagement\UserManagement.csproj">
       <Project>{4E8C099F-DCAB-418A-A2FE-2705A7065EC3}</Project>

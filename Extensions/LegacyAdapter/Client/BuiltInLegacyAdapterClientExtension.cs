@@ -29,7 +29,7 @@ namespace Phinix.LegacyAdapter.Client
         private IClientSessionContext sessionContext;
         private IFrameworkTradeClientApi tradeApi;
         private IFrameworkLegacyTradeRepositoryApi legacyTradeRepositoryApi;
-        private IFrameworkLegacyTradeCompletionApi legacyTradeCompletionApi;
+        private IFrameworkLegacyTradeDeliveryApi legacyTradeDeliveryApi;
         private Action<string, LogLevel> log;
 
         private LegacyChatProtocolAdapter chatAdapter;
@@ -64,11 +64,14 @@ namespace Phinix.LegacyAdapter.Client
             }
 
             hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeRepositoryApi>(out legacyTradeRepositoryApi);
-            hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeCompletionApi>(out legacyTradeCompletionApi);
+            if (!hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeDeliveryApi>(out legacyTradeDeliveryApi))
+            {
+                log?.Invoke("[LegacyAdapter] IFrameworkLegacyTradeDeliveryApi not registered — legacy trade completion disabled.", LogLevel.ERROR);
+            }
 
             chatAdapter = new LegacyChatProtocolAdapter(legacyTransport, displaySink, sessionContext);
             tradeAdapter = new LegacyTradeProtocolAdapter(
-                legacyTransport, displaySink, sessionContext, tradeApi, legacyTradeRepositoryApi, legacyTradeCompletionApi,
+                legacyTransport, displaySink, sessionContext, tradeApi, legacyTradeRepositoryApi, legacyTradeDeliveryApi,
                 lifecycle, hostContext.Log);
 
             lifecycle.CompatibilityModeChanged += OnCompatibilityModeChanged;

@@ -26,6 +26,12 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public DateTime ExpiresAtUtc;
         public DateTime? CompletedAtUtc;
         public bool Expired;
+        public bool StateRequired;
+        public bool StateReady = true;
+        public string StateCodecId;
+        public string StatePayloadHash;
+        public int StatePartCount;
+        public int StateStackCount;
 
         public readonly HashSet<string> ClaimedUuids = new HashSet<string>();
         public readonly Dictionary<string, int> ClaimedAmounts = new Dictionary<string, int>();

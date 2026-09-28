@@ -64,4 +64,5 @@
   <Phinix_legacyRedpacket_summaryNone>无人领取。</Phinix_legacyRedpacket_summaryNone>
   <Phinix_legacyRedpacket_summaryLine>{0} x{1}</Phinix_legacyRedpacket_summaryLine>
   <Phinix_legacyRedpacket_testSuccess>测试成功</Phinix_legacyRedpacket_testSuccess>
+  <Phinix_legacyRedpacket_statePending>此物品的完整状态仍在下载，请稍后再领取。</Phinix_legacyRedpacket_statePending>
 </LanguageData>
