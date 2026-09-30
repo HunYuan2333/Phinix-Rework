@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <Phinix_inventory_tab>物品库存</Phinix_inventory_tab>
+  <Phinix_inventory_currentSaveTitle>当前存档的库存</Phinix_inventory_currentSaveTitle>
+  <Phinix_inventory_saveOnly>随当前存档保存；停用或移除 Phinix 前请先提取物品。</Phinix_inventory_saveOnly>
+  <Phinix_inventory_entryCount>{0} 组物品</Phinix_inventory_entryCount>
+  <Phinix_inventory_groupTitle>{0} · 可用 {1} 个</Phinix_inventory_groupTitle>
+  <Phinix_inventory_groupSummary>{0} 份记录 · 各自保留状态</Phinix_inventory_groupSummary>
+  <Phinix_inventory_groupHint>仅合并显示，展开后可逐份提取或设置计划。耐久、腐烂进度及特殊状态仍独立保留；待确认操作锁定的数量不计入可用总数。</Phinix_inventory_groupHint>
+  <Phinix_inventory_expand>展开各堆</Phinix_inventory_expand>
+  <Phinix_inventory_collapse>收起</Phinix_inventory_collapse>
+  <Phinix_inventory_wholeStack>按整堆提取，每份 {0} 个</Phinix_inventory_wholeStack>
+  <Phinix_inventory_extractWholeStackTitle>提取「{0}」：可用 {1} 份，每份 {2} 个。请输入份数。</Phinix_inventory_extractWholeStackTitle>
+  <Phinix_inventory_scheduleStackQuantity>每天提取份数（每份 {0} 个）</Phinix_inventory_scheduleStackQuantity>
+  <Phinix_inventory_entryId>库存记录：{0}</Phinix_inventory_entryId>
+  <Phinix_inventory_balance>× {0}</Phinix_inventory_balance>
+  <Phinix_inventory_transferPending>有 {0} 笔库存发送正在等待确认；在发送插件确认结果前，相应数量会保持锁定。</Phinix_inventory_transferPending>
+  <Phinix_inventory_originUnavailable>来源信息不可用</Phinix_inventory_originUnavailable>
+  <Phinix_inventory_empty>库存还是空的。\n选择“存入库存”后，收到的交易和红包物品会出现在这里。</Phinix_inventory_empty>
+  <Phinix_inventory_extractStack>提取</Phinix_inventory_extractStack>
+  <Phinix_inventory_extractAmount>提取数量</Phinix_inventory_extractAmount>
+  <Phinix_inventory_extractEditorTitle>提取“{0}”（可用 {1}）</Phinix_inventory_extractEditorTitle>
+  <Phinix_inventory_extractConfirm>确认提取</Phinix_inventory_extractConfirm>
+  <Phinix_inventory_extractInvalid>请输入大于 0 的整数。</Phinix_inventory_extractInvalid>
+  <Phinix_inventory_extractExceedsBalance>此库存条目当前只有 {0} 个物品。</Phinix_inventory_extractExceedsBalance>
+  <Phinix_inventory_extractSucceeded>已提取 {0} 个。</Phinix_inventory_extractSucceeded>
+  <Phinix_inventory_extractPartial>已提取 {1} 个中的 {0} 个，随后停止。{2}</Phinix_inventory_extractPartial>
+  <Phinix_inventory_cancel>取消</Phinix_inventory_cancel>
+  <Phinix_inventory_plan>每日提取</Phinix_inventory_plan>
+  <Phinix_inventory_dailyPlan>每日自动提取</Phinix_inventory_dailyPlan>
+  <Phinix_inventory_scheduleEditorTitle>为“{0}”设置每日提取</Phinix_inventory_scheduleEditorTitle>
+  <Phinix_inventory_scheduleQuantity>每日数量</Phinix_inventory_scheduleQuantity>
+  <Phinix_inventory_scheduleTime>执行时间（Tick 0–59999）</Phinix_inventory_scheduleTime>
+  <Phinix_inventory_savePlan>保存计划</Phinix_inventory_savePlan>
+  <Phinix_inventory_removePlan>取消计划</Phinix_inventory_removePlan>
+  <Phinix_inventory_planSummary>每日 {0} 个 · Tick {1}</Phinix_inventory_planSummary>
+  <Phinix_inventory_planSaved>已保存每日提取计划。</Phinix_inventory_planSaved>
+  <Phinix_inventory_planRemoved>已移除每日提取计划。</Phinix_inventory_planRemoved>
+  <Phinix_inventory_planInvalid>数量或时间无效；数量不能超过当前库存余额。</Phinix_inventory_planInvalid>
+  <Phinix_inventory_originRedPacket>来自 {0} 的红包</Phinix_inventory_originRedPacket>
+  <Phinix_inventory_originTrade>与 {0} 的交易</Phinix_inventory_originTrade>
+  <Phinix_inventory_originReturn>交易物品返还</Phinix_inventory_originReturn>
+  <Phinix_inventory_originSource>来源：{0}</Phinix_inventory_originSource>
+  <Phinix_inventory_originUnknown>未知用户</Phinix_inventory_originUnknown>
+  <Phinix_inventory_originEventId>来源事件 ID：{0}</Phinix_inventory_originEventId>
+  <Phinix_inventory_originUserId>来源用户 ID：{0}</Phinix_inventory_originUserId>
+  <Phinix_inventory_rewardStored>奖励已存入 Phinix 库存。</Phinix_inventory_rewardStored>
+  <Phinix_inventory_pawnStored>Pawn 已存入 Phinix 库存。</Phinix_inventory_pawnStored>
+  <Phinix_inventory_pawnsStored>Pawn 已存入 Phinix 库存。</Phinix_inventory_pawnsStored>
+  <Phinix_inventory_recoveryTitle>发现待恢复的库存记录</Phinix_inventory_recoveryTitle>
+  <Phinix_inventory_recoveryWarning>本地库存记录比当前存档更新。请确认这些记录是否属于这次游戏；Phinix 不会自动合并，以免重复物品。</Phinix_inventory_recoveryWarning>
+  <Phinix_inventory_recover>恢复事务</Phinix_inventory_recover>
+  <Phinix_inventory_keepSave>保留当前存档</Phinix_inventory_keepSave>
+  <Phinix_inventory_recoverFailed>恢复失败，库存保持只读。</Phinix_inventory_recoverFailed>
+  <Phinix_inventory_operationFailed>库存变更无法保存。</Phinix_inventory_operationFailed>
+  <Phinix_inventory_pendingTitle>需要确认上次提取结果</Phinix_inventory_pendingTitle>
+  <Phinix_inventory_pendingWarning>上次提取在确认交付前中断。请检查地图上是否已有空投仓，再选择对应结果；确认前库存会保持锁定。</Phinix_inventory_pendingWarning>
+  <Phinix_inventory_markDelivered>地图上已有物品</Phinix_inventory_markDelivered>
+  <Phinix_inventory_restoreBalance>地图上没有物品</Phinix_inventory_restoreBalance>
+  <Phinix_inventory_unavailableTitle>库存暂不可用</Phinix_inventory_unavailableTitle>
+  <Phinix_inventory_deliveryChoiceTitle>选择物品交付方式</Phinix_inventory_deliveryChoiceTitle>
+  <Phinix_inventory_deliveryChoiceText>请选择交易和红包物品的接收方式。</Phinix_inventory_deliveryChoiceText>
+  <Phinix_inventory_deliveryChoiceIntro>收到交易或红包物品时，Phinix 可以立即投放到地图，也可以先替你保存在当前存档中。</Phinix_inventory_deliveryChoiceIntro>
+  <Phinix_inventory_deliveryChoiceFooter>此选项跨存档保存，之后可在 Phinix 设置中随时切换。库存内容跟随当前存档；停用或移除 Phinix 前请先提取。</Phinix_inventory_deliveryChoiceFooter>
+  <Phinix_inventory_deliveryDirect>直接空投</Phinix_inventory_deliveryDirect>
+  <Phinix_inventory_deliveryDirectDesc>确认收取后立即生成空投仓。飞船航行或没有安全落点时不会扣除物品，可稍后重试。</Phinix_inventory_deliveryDirectDesc>
+  <Phinix_inventory_deliveryDirectButton>使用直接空投</Phinix_inventory_deliveryDirectButton>
+  <Phinix_inventory_deliveryInventory>存入库存</Phinix_inventory_deliveryInventory>
+  <Phinix_inventory_deliveryInventoryDesc>先保存到当前存档的“物品库存”，由你决定提取数量和时间。适合暂时没有安全落点时使用。</Phinix_inventory_deliveryInventoryDesc>
+  <Phinix_inventory_deliveryInventoryButton>使用物品库存</Phinix_inventory_deliveryInventoryButton>
+  <Phinix_inventory_deliverySettingTitle>交易与红包的接收方式</Phinix_inventory_deliverySettingTitle>
+  <Phinix_inventory_deliverySettingDesc>全局设置，跨存档保存；切换后立即生效。人才交易保持独立，不受此选项影响。</Phinix_inventory_deliverySettingDesc>
+</LanguageData>

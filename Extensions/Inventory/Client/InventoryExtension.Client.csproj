@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{C8735D5F-4812-46DA-815C-1CA1155F694B}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Phinix.InventoryExtension.Client</RootNamespace>
+    <AssemblyName>InventoryExtension.Client</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RimWorldDepDir)' == '' and Exists('$(MSBuildThisFileDirectory)../../../GameDlls/1.6/Assembly-CSharp.dll')">
+    <RimWorldDepDir>$(MSBuildThisFileDirectory)../../../GameDlls/1.6</RimWorldDepDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RimWorldDepDir)' == ''">
+    <RimWorldDepDir>$(MSBuildThisFileDirectory)../../../GameDlls</RimWorldDepDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony"><HintPath>../../../.nuget/Lib.Harmony.2.3.6/lib/net472/0Harmony.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldDepDir)/Assembly-CSharp.dll</HintPath></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(RimWorldDepDir)/UnityEngine.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(RimWorldDepDir)/UnityEngine.CoreModule.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(RimWorldDepDir)/UnityEngine.IMGUIModule.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(RimWorldDepDir)/UnityEngine.TextRenderingModule.dll</HintPath></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Contracts/InventoryExtension.csproj" />
+    <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
+    <ProjectReference Include="../../../Common/Utils/Utils.csproj" />
+  </ItemGroup>
+  <Target Name="CopyToClientExtensions" AfterTargets="Build">
+    <MakeDir Directories="$(SolutionDir)Output/phinix-rework/Common/Extensions" />
+    <Copy SourceFiles="$(TargetDir)InventoryExtension.dll" DestinationFiles="$(SolutionDir)Output/phinix-rework/Common/Extensions/10-InventoryExtension.dll" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)Output/phinix-rework/Common/Extensions/11-InventoryExtension.Client.dll" />
+  </Target>
+</Project>

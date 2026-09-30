@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <Phinix_inventory_tab>Item inventory</Phinix_inventory_tab>
+  <Phinix_inventory_currentSaveTitle>Inventory for this save</Phinix_inventory_currentSaveTitle>
+  <Phinix_inventory_saveOnly>Saved with this game. Extract items before disabling or removing Phinix.</Phinix_inventory_saveOnly>
+  <Phinix_inventory_entryCount>{0} groups</Phinix_inventory_entryCount>
+  <Phinix_inventory_groupTitle>{0} · {1} available</Phinix_inventory_groupTitle>
+  <Phinix_inventory_groupSummary>{0} records · states kept separately</Phinix_inventory_groupSummary>
+  <Phinix_inventory_groupHint>Display grouping only. Expand to extract or schedule each record. Durability, spoilage and special states remain independent; locked quantities are excluded from the available total.</Phinix_inventory_groupHint>
+  <Phinix_inventory_expand>Show stacks</Phinix_inventory_expand>
+  <Phinix_inventory_collapse>Collapse</Phinix_inventory_collapse>
+  <Phinix_inventory_wholeStack>Extract whole stacks: {0} items each</Phinix_inventory_wholeStack>
+  <Phinix_inventory_extractWholeStackTitle>Extract “{0}”: {1} stacks available, {2} items per stack. Enter stacks.</Phinix_inventory_extractWholeStackTitle>
+  <Phinix_inventory_scheduleStackQuantity>Stacks per day ({0} items each)</Phinix_inventory_scheduleStackQuantity>
+  <Phinix_inventory_entryId>Inventory record: {0}</Phinix_inventory_entryId>
+  <Phinix_inventory_balance>× {0}</Phinix_inventory_balance>
+  <Phinix_inventory_transferPending>{0} outgoing inventory operation(s) are awaiting confirmation. Their quantities remain locked until the sending plugin confirms the result.</Phinix_inventory_transferPending>
+  <Phinix_inventory_originUnavailable>Source details unavailable</Phinix_inventory_originUnavailable>
+  <Phinix_inventory_empty>Your inventory is empty.\nChoose “Store in inventory” to keep incoming trade and red-packet items here.</Phinix_inventory_empty>
+  <Phinix_inventory_extractStack>Extract</Phinix_inventory_extractStack>
+  <Phinix_inventory_extractAmount>Quantity to extract</Phinix_inventory_extractAmount>
+  <Phinix_inventory_extractEditorTitle>Extract “{0}” ({1} available)</Phinix_inventory_extractEditorTitle>
+  <Phinix_inventory_extractConfirm>Extract</Phinix_inventory_extractConfirm>
+  <Phinix_inventory_extractInvalid>Enter an integer greater than zero.</Phinix_inventory_extractInvalid>
+  <Phinix_inventory_extractExceedsBalance>Only {0} item(s) are available in this inventory entry.</Phinix_inventory_extractExceedsBalance>
+  <Phinix_inventory_extractSucceeded>Extracted {0}.</Phinix_inventory_extractSucceeded>
+  <Phinix_inventory_extractPartial>Extracted {0} of {1} before stopping. {2}</Phinix_inventory_extractPartial>
+  <Phinix_inventory_cancel>Cancel</Phinix_inventory_cancel>
+  <Phinix_inventory_plan>Daily extract</Phinix_inventory_plan>
+  <Phinix_inventory_dailyPlan>Automatic daily extraction</Phinix_inventory_dailyPlan>
+  <Phinix_inventory_scheduleEditorTitle>Daily extraction for “{0}”</Phinix_inventory_scheduleEditorTitle>
+  <Phinix_inventory_scheduleQuantity>Quantity per day</Phinix_inventory_scheduleQuantity>
+  <Phinix_inventory_scheduleTime>Time of day (tick 0–59999)</Phinix_inventory_scheduleTime>
+  <Phinix_inventory_savePlan>Save schedule</Phinix_inventory_savePlan>
+  <Phinix_inventory_removePlan>Cancel schedule</Phinix_inventory_removePlan>
+  <Phinix_inventory_planSummary>{0} daily · tick {1}</Phinix_inventory_planSummary>
+  <Phinix_inventory_planSaved>Daily extraction saved.</Phinix_inventory_planSaved>
+  <Phinix_inventory_planRemoved>Daily extraction removed.</Phinix_inventory_planRemoved>
+  <Phinix_inventory_planInvalid>Enter a valid quantity and game time; the quantity cannot exceed the current balance.</Phinix_inventory_planInvalid>
+  <Phinix_inventory_originRedPacket>Red packet from {0}</Phinix_inventory_originRedPacket>
+  <Phinix_inventory_originTrade>Trade with {0}</Phinix_inventory_originTrade>
+  <Phinix_inventory_originReturn>Returned trade item</Phinix_inventory_originReturn>
+  <Phinix_inventory_originSource>Source: {0}</Phinix_inventory_originSource>
+  <Phinix_inventory_originUnknown>unknown user</Phinix_inventory_originUnknown>
+  <Phinix_inventory_originEventId>Source event ID: {0}</Phinix_inventory_originEventId>
+  <Phinix_inventory_originUserId>Source user ID: {0}</Phinix_inventory_originUserId>
+  <Phinix_inventory_rewardStored>Reward stored in Phinix inventory.</Phinix_inventory_rewardStored>
+  <Phinix_inventory_pawnStored>Pawn stored in Phinix inventory.</Phinix_inventory_pawnStored>
+  <Phinix_inventory_pawnsStored>Pawns stored in Phinix inventory.</Phinix_inventory_pawnsStored>
+  <Phinix_inventory_recoveryTitle>Inventory records need review</Phinix_inventory_recoveryTitle>
+  <Phinix_inventory_recoveryWarning>Local inventory records are newer than this save. Confirm that they belong to this game. Phinix will not merge them automatically, which prevents duplicate items.</Phinix_inventory_recoveryWarning>
+  <Phinix_inventory_recover>Restore transactions</Phinix_inventory_recover>
+  <Phinix_inventory_keepSave>Keep this save</Phinix_inventory_keepSave>
+  <Phinix_inventory_recoverFailed>Recovery failed; inventory remains read only.</Phinix_inventory_recoverFailed>
+  <Phinix_inventory_operationFailed>The inventory change could not be saved.</Phinix_inventory_operationFailed>
+  <Phinix_inventory_pendingTitle>Confirm the previous extraction</Phinix_inventory_pendingTitle>
+  <Phinix_inventory_pendingWarning>The previous extraction stopped before delivery could be confirmed. Check the map for its drop pod, then choose the matching result. Inventory remains locked until you confirm.</Phinix_inventory_pendingWarning>
+  <Phinix_inventory_markDelivered>Items are on the map</Phinix_inventory_markDelivered>
+  <Phinix_inventory_restoreBalance>No items were delivered</Phinix_inventory_restoreBalance>
+  <Phinix_inventory_unavailableTitle>Inventory unavailable</Phinix_inventory_unavailableTitle>
+  <Phinix_inventory_deliveryChoiceTitle>Choose item delivery</Phinix_inventory_deliveryChoiceTitle>
+  <Phinix_inventory_deliveryChoiceText>Choose how to receive trade and red-packet items.</Phinix_inventory_deliveryChoiceText>
+  <Phinix_inventory_deliveryChoiceIntro>When trade or red-packet items arrive, Phinix can drop them onto a map immediately or hold them safely in this save.</Phinix_inventory_deliveryChoiceIntro>
+  <Phinix_inventory_deliveryChoiceFooter>This choice is shared across saves and can be changed at any time in Phinix settings. Inventory contents remain with the current save; extract them before disabling or removing Phinix.</Phinix_inventory_deliveryChoiceFooter>
+  <Phinix_inventory_deliveryDirect>Direct drop pods</Phinix_inventory_deliveryDirect>
+  <Phinix_inventory_deliveryDirectDesc>Create a drop pod as soon as receipt is confirmed. Items are not deducted while a gravship is in flight or no safe landing cell is available.</Phinix_inventory_deliveryDirectDesc>
+  <Phinix_inventory_deliveryDirectButton>Use direct drops</Phinix_inventory_deliveryDirectButton>
+  <Phinix_inventory_deliveryInventory>Store in inventory</Phinix_inventory_deliveryInventory>
+  <Phinix_inventory_deliveryInventoryDesc>Keep incoming items in this save's Item inventory, then choose how many to extract and when. Useful when no safe landing site is available.</Phinix_inventory_deliveryInventoryDesc>
+  <Phinix_inventory_deliveryInventoryButton>Use item inventory</Phinix_inventory_deliveryInventoryButton>
+  <Phinix_inventory_deliverySettingTitle>Receiving trade and red-packet items</Phinix_inventory_deliverySettingTitle>
+  <Phinix_inventory_deliverySettingDesc>This global choice is shared across saves and takes effect immediately. Talent trading remains independent.</Phinix_inventory_deliverySettingDesc>
+</LanguageData>

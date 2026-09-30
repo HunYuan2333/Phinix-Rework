@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{F25C60B4-39F1-45E7-A02B-9CB9707C74A1}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Phinix.InventoryExtension</RootNamespace>
+    <AssemblyName>InventoryExtension</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RimWorldDepDir)' == '' and Exists('$(MSBuildThisFileDirectory)../../../GameDlls/1.6/Assembly-CSharp.dll')">
+    <RimWorldDepDir>$(MSBuildThisFileDirectory)../../../GameDlls/1.6</RimWorldDepDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RimWorldDepDir)' == ''">
+    <RimWorldDepDir>$(MSBuildThisFileDirectory)../../../GameDlls</RimWorldDepDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldDepDir)/Assembly-CSharp.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Target Name="CopyToClientExtensions" AfterTargets="Build">
+    <MakeDir Directories="$(SolutionDir)Output/phinix-rework/Common/Extensions" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)Output/phinix-rework/Common/Extensions/10-InventoryExtension.dll" />
+  </Target>
+</Project>
