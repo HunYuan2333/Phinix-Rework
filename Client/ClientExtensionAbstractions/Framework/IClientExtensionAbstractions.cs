@@ -218,4 +218,26 @@ namespace PhinixClient.Framework
         /// <summary>当前是否应该显示此设置组。可用于根据兼容模式等条件隐藏设置。</summary>
         bool IsVisible(IClientSettingsContext settings);
     }
+
+    /// <summary>
+    /// Phinix 快捷设置窗口中的插件设置区块提供者。
+    /// host 只负责排列与滚动，具体选项及持久化语义仍由插件拥有。
+    /// </summary>
+    public interface IClientQuickSettingsPanelProvider
+    {
+        /// <summary>设置分组标识，用于日志与稳定排序。</summary>
+        string SectionId { get; }
+
+        /// <summary>显示顺序，数值越小越靠前。</summary>
+        float Order { get; }
+
+        /// <summary>当前是否应该显示此快捷设置区块。</summary>
+        bool IsVisible(IClientSettingsContext settings);
+
+        /// <summary>按当前可用宽度返回区块所需高度。</summary>
+        float GetQuickSettingsHeight(float width);
+
+        /// <summary>在 host 分配的矩形内绘制快捷设置。</summary>
+        void DrawQuickSettings(UnityEngine.Rect rect, IClientSettingsContext settings);
+    }
 }

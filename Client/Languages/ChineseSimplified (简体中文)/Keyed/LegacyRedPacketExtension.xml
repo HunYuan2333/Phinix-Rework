@@ -18,6 +18,11 @@
   <Phinix_legacyRedpacket_sendButton>发送</Phinix_legacyRedpacket_sendButton>
   <Phinix_legacyRedpacket_sendCooldownButton>冷却 {0}秒</Phinix_legacyRedpacket_sendCooldownButton>
   <Phinix_legacyRedpacket_noItemsPlaceholder>没有可用物资。</Phinix_legacyRedpacket_noItemsPlaceholder>
+  <Phinix_legacyRedpacket_inventorySource>库存</Phinix_legacyRedpacket_inventorySource>
+  <Phinix_legacyRedpacket_inventoryReturnSource>红包物品返还</Phinix_legacyRedpacket_inventoryReturnSource>
+  <Phinix_legacyRedpacket_inventorySendPending>有 {0} 笔库存红包等待发送确认或结算，相关物品暂由红包托管。</Phinix_legacyRedpacket_inventorySendPending>
+  <Phinix_legacyRedpacket_inventorySendQueued>红包已加入发送队列：{0} x{1}，正在等待确认。</Phinix_legacyRedpacket_inventorySendQueued>
+  <Phinix_legacyRedpacket_sendFailed>红包发送失败：{0}</Phinix_legacyRedpacket_sendFailed>
   <Phinix_legacyRedpacket_listTitle>红包列表</Phinix_legacyRedpacket_listTitle>
   <Phinix_legacyRedpacket_notificationToggle>消息提醒</Phinix_legacyRedpacket_notificationToggle>
   <Phinix_legacyRedpacket_noPacketsPlaceholder>没有可抢红包。</Phinix_legacyRedpacket_noPacketsPlaceholder>

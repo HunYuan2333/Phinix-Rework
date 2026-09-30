@@ -95,6 +95,69 @@ namespace PhinixClient.Trade
                 return restoredThing;
             }
 
+            return ConvertThingFromPreview(item);
+        }
+
+        /// <summary>
+        /// Builds a non-authoritative UI preview without touching the opaque Scribe payload.
+        /// Remote state may reference defs unavailable on this client; list rendering must not
+        /// deserialize that state repeatedly or imply that a lossy reconstruction is deliverable.
+        /// </summary>
+        public static Thing ConvertThingFromSnapshotPreviewOrUnknown(TradeItemSnapshot item)
+        {
+            try
+            {
+                return ConvertThingFromPreview(item);
+            }
+            catch (InvalidOperationException)
+            {
+                return CreateUnknownItem(item);
+            }
+        }
+
+        public static IReadOnlyList<string> FindMissingDependencies(IEnumerable<TradeItemSnapshot> items)
+        {
+            HashSet<string> missing = new HashSet<string>(StringComparer.Ordinal);
+            foreach (TradeItemSnapshot item in items ?? Enumerable.Empty<TradeItemSnapshot>())
+            {
+                CollectMissingDependencies(item, missing);
+            }
+            return missing.OrderBy(value => value, StringComparer.Ordinal).ToArray();
+        }
+
+        private static void CollectMissingDependencies(TradeItemSnapshot item, ISet<string> missing)
+        {
+            if (item == null) return;
+            if (!string.IsNullOrEmpty(item.DefName) && GetThingDefByName(item.DefName) == null)
+                missing.Add("ThingDef: " + item.DefName);
+            if (!string.IsNullOrEmpty(item.StuffDefName) && GetThingDefByName(item.StuffDefName) == null)
+                missing.Add("ThingDef: " + item.StuffDefName);
+            CollectMissingDependencies(item.InnerItem, missing);
+
+            if (item.StatePayload == null || item.StatePayload.Length == 0) return;
+            if (!string.Equals(item.StateCodecId, StatefulTradeItemProtocol.ScribeCodecId,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                missing.Add("Codec: " + (item.StateCodecId ?? "<empty>"));
+                return;
+            }
+
+            try
+            {
+                HashSet<string> missingDefs = new HashSet<string>(StringComparer.Ordinal);
+                TradeThingStateSerializer.CollectMissingThingDefs(item.StatePayload, missingDefs);
+                foreach (string defName in missingDefs) missing.Add("ThingDef: " + defName);
+            }
+            catch (Exception)
+            {
+                missing.Add("State: " + (item.DefName ?? "<unknown>"));
+            }
+        }
+
+        private static Thing ConvertThingFromPreview(TradeItemSnapshot item)
+        {
+            if (item == null) throw new ArgumentNullException(nameof(item));
+
             ThingDef thingDef = GetThingDefByName(item.DefName);
 
             if (thingDef == null)
@@ -117,7 +180,7 @@ namespace PhinixClient.Trade
 
             if (verseThing is MinifiedThing minifiedVerseThing)
             {
-                minifiedVerseThing.InnerThing = item.InnerItem != null ? ConvertThingFromSnapshot(item.InnerItem) : null;
+                minifiedVerseThing.InnerThing = item.InnerItem != null ? ConvertThingFromPreview(item.InnerItem) : null;
             }
 
             return verseThing;
@@ -157,15 +220,21 @@ namespace PhinixClient.Trade
                 {
                     throw;
                 }
-
-                ThingDef thingDef = GetThingDefByName("UnknownItem");
-
-                UnknownItem verseThing = (UnknownItem)ThingMaker.MakeThing(thingDef);
-                verseThing.stackCount = item?.StackCount ?? 1;
-                verseThing.HitPoints = item?.HitPoints ?? verseThing.MaxHitPoints;
-                verseThing.OriginalLabel = getInnerDefName(item);
-                return verseThing;
+                return CreateUnknownItem(item);
             }
+        }
+
+        private static Thing CreateUnknownItem(TradeItemSnapshot item)
+        {
+            ThingDef thingDef = GetThingDefByName("UnknownItem");
+            if (thingDef == null)
+                throw new InvalidOperationException("Could not find the Phinix UnknownItem definition.");
+
+            UnknownItem verseThing = (UnknownItem)ThingMaker.MakeThing(thingDef);
+            verseThing.stackCount = item?.StackCount ?? 1;
+            verseThing.HitPoints = item?.HitPoints ?? verseThing.MaxHitPoints;
+            verseThing.OriginalLabel = getInnerDefName(item);
+            return verseThing;
         }
 
         public static bool CompareThings(Thing thing, Thing other)

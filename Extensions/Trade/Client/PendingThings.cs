@@ -12,5 +12,7 @@ namespace Phinix.TradeExtension.Client
         /// Time the trade update was created.
         /// </summary>
         public DateTime Timestamp;
+
+        public string InventoryReservationId;
     }
 }

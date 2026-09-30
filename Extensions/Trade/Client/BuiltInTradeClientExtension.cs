@@ -36,6 +36,7 @@ namespace Phinix.TradeExtension.Client
         private IDisposable inventorySourceRegistration;
         private TradeInventoryDelivery inventoryDelivery;
         private IInventoryReadApi inventoryReadApi;
+        private IInventoryReservationApi inventoryReservationApi;
 
         public string ExtensionId => FrameworkTradeProtocol.Capability;
 
@@ -90,9 +91,10 @@ namespace Phinix.TradeExtension.Client
 
             if (!hostContext.TryResolveApi<IInventoryRegistrationApi>(out IInventoryRegistrationApi inventoryRegistration) ||
                 !hostContext.TryResolveApi<IInventoryDepositApi>(out IInventoryDepositApi inventoryDeposit) ||
-                !hostContext.TryResolveApi<IInventoryReadApi>(out inventoryReadApi))
+                !hostContext.TryResolveApi<IInventoryReadApi>(out inventoryReadApi) ||
+                !hostContext.TryResolveApi<IInventoryReservationApi>(out inventoryReservationApi))
             {
-                throw new InvalidOperationException("Inventory registration, deposit, and read APIs are required by trade.");
+                throw new InvalidOperationException("Inventory registration, deposit, read, and reservation APIs are required by trade.");
             }
             inventoryCodecRegistration?.Dispose();
             inventorySourceRegistration?.Dispose();
@@ -199,6 +201,7 @@ namespace Phinix.TradeExtension.Client
             inventoryCodecRegistration = null;
             inventoryDelivery = null;
             inventoryReadApi = null;
+            inventoryReservationApi = null;
             defaultTradeBehaviour = null;
         }
 
@@ -222,7 +225,9 @@ namespace Phinix.TradeExtension.Client
                 userEvents,
                 dispatcher,
                 windowService,
-                log);
+                log,
+                inventoryReadApi,
+                inventoryReservationApi);
             defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(
                 tradeFacade,
                 userDirectory,

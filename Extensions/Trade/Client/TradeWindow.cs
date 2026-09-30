@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Phinix.InventoryExtension;
 using PhinixClient;
 using PhinixClient.GUI;
 using PhinixClient.Framework;
@@ -69,12 +70,15 @@ namespace Phinix.TradeExtension.Client
         private bool tradeUpdated = false;
         private object updatedTradeLock = new object();
 
-        private List<StackedThings> availableItems = new List<StackedThings>();
-        private List<StackedThings> filteredAvailableItems = new List<StackedThings>();
+        private List<TradeAvailableItem> availableItems = new List<TradeAvailableItem>();
+        private List<TradeAvailableItem> filteredAvailableItems = new List<TradeAvailableItem>();
         private string searchText = string.Empty;
 
         private Dictionary<string, PendingThings> pendingItemStacks = new Dictionary<string, PendingThings>();
         private object pendingItemStacksLock = new object();
+        private readonly ClientTradeUiHostContext clientHostContext;
+        private EventHandler inventoryChangedHandler;
+        private bool closed;
 
         private volatile bool shouldClose;
         private readonly object pendingAcceptedLock = new object();
@@ -96,6 +100,7 @@ namespace Phinix.TradeExtension.Client
         {
             this.trade = trade;
             this.hostContext = hostContext;
+            this.clientHostContext = hostContext as ClientTradeUiHostContext;
             this.tradeService = hostContext.TradeService;
 
             this.doCloseX = true;
@@ -134,25 +139,37 @@ namespace Phinix.TradeExtension.Client
             tradeService.OnTradeCancelled += OnTradeFinished;
             tradeService.OnTradeUpdateSuccess += OnTradeUpdated;
             tradeService.OnTradeUpdateFailure += OnTradeUpdated;
+            if (clientHostContext?.InventoryReadApi != null)
+            {
+                inventoryChangedHandler = (_, __) => hostContext.RunOnMainThread(refreshAvailableItems);
+                clientHostContext.InventoryReadApi.InventoryChanged += inventoryChangedHandler;
+            }
 
             refreshAvailableItems();
 
             ourOfferCache = StackedThings.GroupThings(
-                trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotPreviewOrUnknown),
                 logMessage);
             theirOfferCache = StackedThings.GroupThings(
-                trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotPreviewOrUnknown),
                 logMessage);
         }
 
         public override void Close(bool doCloseSound = true)
         {
             base.Close(doCloseSound);
+            closed = true;
 
             tradeService.OnTradeCompleted -= OnTradeFinished;
             tradeService.OnTradeCancelled -= OnTradeFinished;
-            tradeService.OnTradeUpdateSuccess -= OnTradeUpdated;
-            tradeService.OnTradeUpdateFailure -= OnTradeUpdated;
+            if (clientHostContext?.InventoryReadApi != null && inventoryChangedHandler != null)
+                clientHostContext.InventoryReadApi.InventoryChanged -= inventoryChangedHandler;
+            inventoryChangedHandler = null;
+            DisposeAvailableItems();
+            lock (pendingItemStacksLock)
+            {
+                if (pendingItemStacks.Count == 0) UnsubscribeTradeUpdates();
+            }
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -169,10 +186,10 @@ namespace Phinix.TradeExtension.Client
                 {
                     trade = updatedTrade;
                     ourOfferCache = StackedThings.GroupThings(
-                        trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                        trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotPreviewOrUnknown),
                         logMessage);
                     theirOfferCache = StackedThings.GroupThings(
-                        trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotOrUnknown),
+                        trade.OtherPartyItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshotPreviewOrUnknown),
                         logMessage);
                     tradeUpdated = false;
                     Monitor.Exit(updatedTradeLock);
@@ -218,7 +235,8 @@ namespace Phinix.TradeExtension.Client
             DrawOfferArea(offerAreaRect, ref ourOfferAccepted, ref theirOfferAccepted);
             if (ourOfferAccepted != (pendingAcceptedValue ?? trade.Accepted))
             {
-                sendTradeStatusUpdate(ourOfferAccepted);
+                if (ourOfferAccepted) ConfirmTradeWithCompatibilityWarning();
+                else sendTradeStatusUpdate(false);
             }
 
             DrawToolbar(toolbarRect);
@@ -230,7 +248,7 @@ namespace Phinix.TradeExtension.Client
             }
             else
             {
-                drawItemStackList(availableItemsRect, filteredAvailableItems, ref availableItemsScrollPos, true);
+                drawAvailableItemList(availableItemsRect, filteredAvailableItems, ref availableItemsScrollPos);
             }
         }
 
@@ -341,28 +359,86 @@ namespace Phinix.TradeExtension.Client
         private void UpdateTradeItems()
         {
             string token = null;
+            string reservationId = null;
             List<PoppedThing> selectedThings = new List<PoppedThing>();
+            bool sendAttempted = false;
             try
             {
                 token = Guid.NewGuid().ToString();
-                foreach (StackedThings itemStack in availableItems) selectedThings.AddRange(itemStack.PopSelectedWithOrigins());
+                List<TradeAvailableItem> selectedInventory = availableItems
+                    .Where(item => item.IsInventory && item.Selected > 0).ToList();
+                List<TradeItemSnapshot> inventoryOffer = new List<TradeItemSnapshot>();
+                if (selectedInventory.Count > 0)
+                {
+                    if (clientHostContext?.InventoryReservationApi == null)
+                        throw new InvalidOperationException("Inventory reservations are unavailable.");
+                    InventoryReservationResult reservation = clientHostContext.InventoryReservationApi.TryReserve(
+                        new InventoryReservationRequest
+                        {
+                            OperationId = "trade-offer:" + trade.TradeId + ":" + token,
+                            OwnerExtensionId = "builtin.trade",
+                            Purpose = "trade.offer",
+                            Lines = selectedInventory.Select(item => new InventoryReservationLine
+                            {
+                                EntryId = item.InventoryEntry.EntryId,
+                                Quantity = item.Selected
+                            }).ToArray()
+                        });
+                    if (!reservation.Succeeded || reservation.Reservation == null)
+                        throw new InvalidOperationException(reservation.Reason ?? "Inventory items could not be reserved.");
+                    reservationId = reservation.Reservation.ReservationId;
+                    InventoryMaterializationResult materialization =
+                        clientHostContext.InventoryReservationApi.MaterializeReservation(reservationId);
+                    if (!materialization.Succeeded)
+                        throw new InvalidOperationException(materialization.Reason ??
+                            "Reserved inventory items could not be materialized for trade.");
+                    try
+                    {
+                        foreach (Thing thing in materialization.Things)
+                            inventoryOffer.Add(TradeItemConverter.ConvertThingFromVerse(thing));
+                    }
+                    finally { DiscardTransientThings(materialization.Things); }
+                }
+
+                foreach (TradeAvailableItem itemStack in availableItems)
+                    selectedThings.AddRange(itemStack.PopSelectedPhysical());
                 foreach (PoppedThing selectedThing in selectedThings) selectedThing.DeSpawn();
                 lock (pendingItemStacksLock)
                 {
-                    pendingItemStacks.Add(token, new PendingThings { Things = selectedThings.ToArray(), Timestamp = DateTime.UtcNow });
+                    pendingItemStacks.Add(token, new PendingThings
+                    {
+                        Things = selectedThings.ToArray(),
+                        Timestamp = DateTime.UtcNow,
+                        InventoryReservationId = reservationId
+                    });
                 }
-                hostContext.Log(new LogEventArgs($"Added {selectedThings.Count} item stack(s) to pending", LogLevel.DEBUG));
-                IEnumerable<TradeItemSnapshot> actualOffer = trade.ItemsOnOffer.Concat(selectedThings.Select(selectedThing => TradeItemConverter.ConvertThingFromVerse(selectedThing.Thing)));
+                hostContext.Log(new LogEventArgs($"Added {selectedThings.Count} map stack(s) and {inventoryOffer.Count} inventory stack(s) to pending", LogLevel.DEBUG));
+                IEnumerable<TradeItemSnapshot> actualOffer = trade.ItemsOnOffer
+                    .Concat(selectedThings.Select(selectedThing => TradeItemConverter.ConvertThingFromVerse(selectedThing.Thing)))
+                    .Concat(inventoryOffer);
+                sendAttempted = true;
                 tradeService.UpdateTradeItems(trade.TradeId, actualOffer, token);
                 hostContext.Log(new LogEventArgs("Sent update", LogLevel.DEBUG));
             }
             catch (Exception ex)
             {
-                if (!string.IsNullOrEmpty(token))
+                if (sendAttempted)
                 {
-                    lock (pendingItemStacksLock) pendingItemStacks.Remove(token);
+                    if (!string.IsNullOrEmpty(reservationId))
+                        clientHostContext?.InventoryReservationApi?.ResolveReservation(reservationId,
+                            InventoryReservationResolution.MarkUncertain, "trade-send-threw:" + ex.GetType().Name);
                 }
-                restorePoppedThings(selectedThings, "TradeWindow.UpdateTradeItems");
+                else
+                {
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        lock (pendingItemStacksLock) pendingItemStacks.Remove(token);
+                    }
+                    if (!string.IsNullOrEmpty(reservationId))
+                        clientHostContext?.InventoryReservationApi?.ResolveReservation(reservationId,
+                            InventoryReservationResolution.Restore, "trade-not-sent:" + ex.GetType().Name);
+                    restorePoppedThings(selectedThings, "TradeWindow.UpdateTradeItems");
+                }
                 refreshAvailableItems();
                 hostContext.Log(new LogEventArgs($"Failed to update trade items: {ex}", LogLevel.ERROR));
             }
@@ -371,7 +447,7 @@ namespace Phinix.TradeExtension.Client
         private void ResetTradeItems()
         {
             hostContext.DropPods(trade.ItemsOnOffer.Select(TradeItemConverter.ConvertThingFromSnapshot));
-            foreach (StackedThings stack in availableItems) stack.Selected = 0;
+            foreach (TradeAvailableItem stack in availableItems) stack.Selected = 0;
             refreshAvailableItems();
             tradeService.UpdateTradeItems(trade.TradeId, Array.Empty<TradeItemSnapshot>());
         }
@@ -399,7 +475,7 @@ namespace Phinix.TradeExtension.Client
             filteredAvailableItems.Clear();
             for (int i = 0; i < availableItems.Count; i++)
             {
-                StackedThings stack = availableItems[i];
+                TradeAvailableItem stack = availableItems[i];
                 if (stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) >= 0)
                     filteredAvailableItems.Add(stack);
             }
@@ -430,6 +506,34 @@ namespace Phinix.TradeExtension.Client
             }
         }
 
+        private void ConfirmTradeWithCompatibilityWarning()
+        {
+            IReadOnlyList<string> missing = TradeItemConverter.FindMissingDependencies(
+                trade.OtherPartyItemsOnOffer);
+            if (missing.Count == 0)
+            {
+                sendTradeStatusUpdate(true);
+                return;
+            }
+
+            ClientTradeSnapshot expectedTrade = trade;
+            string warning = "Phinix_trade_missingDependencyWarning".Translate(
+                string.Join("\n", missing.ToArray()));
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
+                warning,
+                delegate
+                {
+                    if (!shouldClose && ReferenceEquals(trade, expectedTrade))
+                    {
+                        sendTradeStatusUpdate(true);
+                        return;
+                    }
+                    Messages.Message("Phinix_trade_offerChangedDuringWarning".Translate(),
+                        MessageTypeDefOf.RejectInput, false);
+                },
+                destructive: true));
+        }
+
         private void sendCancelTradeRequest()
         {
             hostContext.Log(new LogEventArgs($"[TradeWindow] Cancel clicked: tradeId={trade.TradeId}", LogLevel.DEBUG));
@@ -445,17 +549,58 @@ namespace Phinix.TradeExtension.Client
 
         private void refreshAvailableItems()
         {
+            DisposeAvailableItems();
             List<Map> homeMaps = Find.Maps.Where(map => map != null && map.IsPlayerHome).ToList();
             List<Thing> rawThings = StoredThingCollector
                 .Collect(homeMaps, hostContext.AllItemsTradable, logMessage)
                 .Where(thing => thing.def.category == ThingCategory.Item && !thing.def.IsCorpse)
                 .ToList();
-            availableItems = StackedThings.GroupThings(rawThings, logMessage);
+            availableItems = StackedThings.GroupThings(rawThings, logMessage)
+                .Select(TradeAvailableItem.FromPhysical).ToList();
+            if (clientHostContext?.InventoryReservationApi != null)
+            {
+                foreach (InventoryEntry entry in clientHostContext.InventoryReservationApi.GetAvailableSnapshot())
+                {
+                    try
+                    {
+                        InventoryMaterializationResult preview =
+                            clientHostContext.InventoryReservationApi.CreatePreview(entry.EntryId);
+                        if (!preview.Succeeded || preview.Things == null || preview.Things.Count != 1)
+                        {
+                            DiscardTransientThings(preview?.Things);
+                            continue;
+                        }
+                        availableItems.Add(TradeAvailableItem.FromInventory(entry, preview.Things[0]));
+                    }
+                    catch (Exception exception)
+                    {
+                        hostContext.Log(new LogEventArgs(
+                            $"[TradeWindow] Inventory entry '{entry.EntryId}' cannot be offered: {exception}",
+                            LogLevel.WARNING));
+                    }
+                }
+            }
             filteredAvailableItems = availableItems
                 .Where(stack => stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1)
                 .ToList();
 
             hostContext.Log(new LogEventArgs($"[TradeWindow] refreshAvailableItems: homeMaps={homeMaps.Count()}, allItemsTradable={hostContext.AllItemsTradable}, rawThings={rawThings.Count}, groupedStacks={availableItems.Count}, filteredStacks={filteredAvailableItems.Count}, searchText='{searchText}'", LogLevel.DEBUG));
+        }
+
+        private void DisposeAvailableItems()
+        {
+            foreach (TradeAvailableItem item in availableItems) item?.Dispose();
+            availableItems.Clear();
+            filteredAvailableItems.Clear();
+        }
+
+        private static void DiscardTransientThings(IEnumerable<Thing> things)
+        {
+            foreach (Thing thing in things ?? Enumerable.Empty<Thing>())
+            {
+                if (thing != null && !thing.Destroyed && !thing.Spawned && thing.ParentHolder == null)
+                    thing.Destroy(DestroyMode.Vanish);
+            }
         }
 
         private void applyTradeUpdated(TradeUpdateEventArgs args)
@@ -483,6 +628,13 @@ namespace Phinix.TradeExtension.Client
             {
                 return;
             }
+            if (!matchingTrade)
+            {
+                hostContext.Log(new LogEventArgs(
+                    $"[TradeWindow] Ignored update token '{args.Token}' for a different trade.",
+                    LogLevel.WARNING));
+                return;
+            }
 
             bool foundPendingThings = false;
             PendingThings pendingThings = default;
@@ -502,6 +654,8 @@ namespace Phinix.TradeExtension.Client
 
             if (args.FailureReason == TradeFailureReason.None)
             {
+                ResolveInventoryReservation(pendingThings.InventoryReservationId,
+                    InventoryReservationResolution.Commit, "trade-update-success:" + args.Token);
                 foreach (PoppedThing pendingThing in pendingThings.Things)
                 {
                     Thing thing = pendingThing.Thing;
@@ -510,11 +664,44 @@ namespace Phinix.TradeExtension.Client
                         thing.Destroy();
                     }
                 }
+                FinishClosedPendingListenerIfIdle();
                 return;
             }
 
+            ResolveInventoryReservation(pendingThings.InventoryReservationId,
+                InventoryReservationResolution.Restore, "trade-update-rejected:" + args.Token);
             restorePoppedThings(pendingThings.Things, "TradeWindow.TradeUpdateFailure");
-            refreshAvailableItems();
+            if (!closed) refreshAvailableItems();
+            FinishClosedPendingListenerIfIdle();
+        }
+
+        private void ResolveInventoryReservation(string reservationId,
+            InventoryReservationResolution resolution, string evidence)
+        {
+            if (string.IsNullOrEmpty(reservationId)) return;
+            InventoryReservationResolutionResult result = clientHostContext?.InventoryReservationApi?
+                .ResolveReservation(reservationId, resolution, evidence);
+            if (result == null || !result.Succeeded)
+            {
+                hostContext.Log(new LogEventArgs(
+                    $"[TradeWindow] Inventory reservation '{reservationId}' could not be resolved as {resolution}: {result?.Reason ?? "API unavailable"}",
+                    LogLevel.ERROR));
+            }
+        }
+
+        private void FinishClosedPendingListenerIfIdle()
+        {
+            if (!closed) return;
+            lock (pendingItemStacksLock)
+            {
+                if (pendingItemStacks.Count == 0) UnsubscribeTradeUpdates();
+            }
+        }
+
+        private void UnsubscribeTradeUpdates()
+        {
+            tradeService.OnTradeUpdateSuccess -= OnTradeUpdated;
+            tradeService.OnTradeUpdateFailure -= OnTradeUpdated;
         }
 
         private void restorePoppedThings(IEnumerable<PoppedThing> poppedThings, string context)
@@ -731,6 +918,100 @@ namespace Phinix.TradeExtension.Client
             }
 
             if (scrollRequired) Widgets.EndScrollView();
+        }
+
+        private void drawAvailableItemList(Rect inRect, List<TradeAvailableItem> stacks, ref Vector2 scrollPos)
+        {
+            if (inRect.height <= 0f || stacks == null || stacks.Count == 0) return;
+            const float rightPadding = 5f;
+            bool scrollbarsPresent = ITEM_ROW_HEIGHT * stacks.Count > inRect.height;
+            Rect contentRect = new Rect(inRect.xMin, inRect.yMin,
+                scrollbarsPresent ? Mathf.Max(0f, inRect.width - SCROLLBAR_WIDTH) : inRect.width,
+                ITEM_ROW_HEIGHT * stacks.Count);
+            bool scrollRequired = contentRect.height > inRect.height;
+            if (scrollRequired) Widgets.BeginScrollView(inRect, ref scrollPos, contentRect);
+
+            VirtualListRange visibleRange = VirtualListLayout.GetFixedRange(stacks.Count, ITEM_ROW_HEIGHT,
+                scrollRequired ? scrollPos.y : 0f, inRect.height, 2);
+            for (int stackIndex = visibleRange.FirstIndex; stackIndex < visibleRange.EndIndexExclusive; stackIndex++)
+            {
+                TradeAvailableItem stack = stacks[stackIndex];
+                if (stack == null || stack.Count < 1) continue;
+                Rect rowRect = new Rect(contentRect.xMin, contentRect.yMin + stackIndex * ITEM_ROW_HEIGHT,
+                    contentRect.width, ITEM_ROW_HEIGHT);
+                if ((stackIndex & 1) != 0) Widgets.DrawHighlight(rowRect);
+                else if (Mouse.IsOver(rowRect)) Widgets.DrawBoxSolid(rowRect, TradeTheme.RowHoverBg);
+
+                Rect iconRect = rowRect.LeftPartPixels(ICON_WIDTH);
+                Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
+                bool showTenButtons = rowRect.width >= 430f;
+                bool showOneButtons = rowRect.width >= 350f;
+                int visibleButtonCount = showTenButtons ? 4 : showOneButtons ? 2 : 0;
+                float buttonAreaWidth = visibleButtonCount * ITEM_BUTTON_WIDTH + ITEM_QUANTITY_FIELD_WIDTH +
+                    ITEM_COUNT_WIDTH + DEFAULT_SPACING * (visibleButtonCount + 1);
+                Rect buttonAreaRect = new Rect(rowRect.xMax - rightPadding - buttonAreaWidth,
+                    rowRect.yMin, buttonAreaWidth, rowRect.height);
+                float controlsX = buttonAreaRect.xMin;
+                Rect btnMinus10 = new Rect(controlsX, buttonAreaRect.yMin,
+                    showTenButtons ? ITEM_BUTTON_WIDTH : 0f, buttonAreaRect.height);
+                if (showTenButtons) controlsX = btnMinus10.xMax + DEFAULT_SPACING;
+                Rect btnMinus1 = new Rect(controlsX, buttonAreaRect.yMin,
+                    showOneButtons ? ITEM_BUTTON_WIDTH : 0f, buttonAreaRect.height);
+                if (showOneButtons) controlsX = btnMinus1.xMax + DEFAULT_SPACING;
+                Rect quantityFieldRect = new Rect(controlsX, buttonAreaRect.yMin,
+                    ITEM_QUANTITY_FIELD_WIDTH, buttonAreaRect.height);
+                Rect availableCountRect = new Rect(quantityFieldRect.xMax + DEFAULT_SPACING,
+                    buttonAreaRect.yMin, ITEM_COUNT_WIDTH, buttonAreaRect.height);
+                controlsX = availableCountRect.xMax + DEFAULT_SPACING;
+                Rect btnPlus1 = new Rect(controlsX, buttonAreaRect.yMin,
+                    showOneButtons ? ITEM_BUTTON_WIDTH : 0f, buttonAreaRect.height);
+                if (showOneButtons) controlsX = btnPlus1.xMax + DEFAULT_SPACING;
+                Rect btnPlus10 = new Rect(controlsX, buttonAreaRect.yMin,
+                    showTenButtons ? ITEM_BUTTON_WIDTH : 0f, buttonAreaRect.height);
+                Rect itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin,
+                    Mathf.Max(0f, buttonAreaRect.xMin - iconRect.xMax - DEFAULT_SPACING * 2), rowRect.height);
+
+                if (showTenButtons && Widgets.ButtonText(btnMinus10, "-10")) stack.Selected = Clamp(stack.Selected - 10, 0, stack.Count);
+                if (showOneButtons && Widgets.ButtonText(btnMinus1, "-1")) stack.Selected = Clamp(stack.Selected - 1, 0, stack.Count);
+                string buf = stack.Selected == 0 ? "" : stack.Selected.ToString();
+                buf = Widgets.TextField(quantityFieldRect, buf, 100, itemCountInputRegex);
+                stack.Selected = string.IsNullOrEmpty(buf) ? 0 : int.TryParse(buf, out int parsedCount)
+                    ? Clamp(parsedCount, 0, stack.Count) : stack.Count;
+                SaveTextFormat();
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Widgets.Label(availableCountRect, "/ " + stack.Count);
+                RestoreTextFormat();
+                if (showOneButtons && Widgets.ButtonText(btnPlus1, "+1")) stack.Selected = Clamp(stack.Selected + 1, 0, stack.Count);
+                if (showTenButtons && Widgets.ButtonText(btnPlus10, "+10")) stack.Selected = Clamp(stack.Selected + 10, 0, stack.Count);
+                if (Event.current != null && Event.current.type == EventType.MouseDown && Event.current.button == 1 && Mouse.IsOver(rowRect))
+                {
+                    DrawAvailableItemContextMenu(stack);
+                    Event.current.Use();
+                }
+
+                SaveTextFormat();
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Widgets.LabelFit(itemNameRect, stack.Label);
+                TooltipHandler.TipRegion(itemNameRect, stack.Label);
+                RestoreTextFormat();
+            }
+            if (scrollRequired) Widgets.EndScrollView();
+        }
+
+        private void DrawAvailableItemContextMenu(TradeAvailableItem stack)
+        {
+            List<FloatMenuOption> items = new List<FloatMenuOption>
+            {
+                new FloatMenuOption("Phinix_trade_selectAll".Translate(), () => stack.Selected = stack.Count),
+                new FloatMenuOption("Phinix_trade_selectHalf".Translate(), () => stack.Selected = stack.Count / 2),
+                new FloatMenuOption("Phinix_trade_selectNone".Translate(), () => stack.Selected = 0),
+                new FloatMenuOption("Phinix_trade_select100".Translate(), () => stack.Selected = Clamp(100, 0, stack.Count)),
+                new FloatMenuOption("+10", () => stack.Selected = Clamp(stack.Selected + 10, 0, stack.Count)),
+                new FloatMenuOption("-10", () => stack.Selected = Clamp(stack.Selected - 10, 0, stack.Count)),
+                new FloatMenuOption("+1", () => stack.Selected = Clamp(stack.Selected + 1, 0, stack.Count)),
+                new FloatMenuOption("-1", () => stack.Selected = Clamp(stack.Selected - 1, 0, stack.Count))
+            };
+            Find.WindowStack.Add(new FloatMenu(items));
         }
 
         private void DrawItemContextMenu(StackedThings stack)

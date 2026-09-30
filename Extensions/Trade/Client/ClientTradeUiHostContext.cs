@@ -19,6 +19,8 @@ namespace Phinix.TradeExtension.Client
         private IClientMainThreadDispatcher dispatcher;
         private IClientWindowService windowService;
         private Action<LogEventArgs> log;
+        private IInventoryReadApi inventoryReadApi;
+        private IInventoryReservationApi inventoryReservationApi;
         private bool started;
         private event EventHandler disconnected;
         private event EventHandler<UserDisplayNameChangedEventArgs> userDisplayNameChanged;
@@ -33,16 +35,22 @@ namespace Phinix.TradeExtension.Client
             IClientUserEventStream userEvents,
             IClientMainThreadDispatcher dispatcher,
             IClientWindowService windowService,
-            Action<LogEventArgs> log)
+            Action<LogEventArgs> log,
+            IInventoryReadApi inventoryReadApi,
+            IInventoryReservationApi inventoryReservationApi)
         {
             this.settingsContext = settingsContext;
             this.userEvents = userEvents;
             this.dispatcher = dispatcher;
             this.windowService = windowService;
             this.log = log;
+            this.inventoryReadApi = inventoryReadApi;
+            this.inventoryReservationApi = inventoryReservationApi;
         }
 
         public IClientTradeService TradeService => tradeService;
+        internal IInventoryReadApi InventoryReadApi => inventoryReadApi;
+        internal IInventoryReservationApi InventoryReservationApi => inventoryReservationApi;
 
         internal void Start()
         {

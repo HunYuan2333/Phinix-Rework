@@ -76,6 +76,9 @@
     <Compile Include="RedPacketDetailWindow.cs" />
     <Compile Include="RedPacketDropHelper.cs" />
     <Compile Include="RedPacketInventoryCodec.cs" />
+    <Compile Include="RedPacketAvailableItem.cs" />
+    <Compile Include="RedPacketInventorySendStore.cs" />
+    <Compile Include="RedPacketInventorySending.cs" />
     <Compile Include="RedPacketLimits.cs" />
     <Compile Include="RedPacketRelay.cs" />
     <Compile Include="RedPacketSettings.cs" />

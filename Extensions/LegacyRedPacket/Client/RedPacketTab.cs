@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Phinix.TradeExtension.Client;
+using Phinix.InventoryExtension;
 using PhinixClient;
 using PhinixClient.Framework;
 using PhinixClient.Trade;
@@ -67,14 +68,23 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private Vector2 availableItemsScroll = Vector2.zero;
         private Vector2 packetListScroll = Vector2.zero;
 
-        private List<StackedThings> availableItems = new List<StackedThings>();
-        private List<StackedThings> filteredItems = new List<StackedThings>();
+        private List<RedPacketAvailableItem> availableItems = new List<RedPacketAvailableItem>();
+        private List<RedPacketAvailableItem> filteredItems = new List<RedPacketAvailableItem>();
+        private IInventoryReadApi inventoryRead;
+        private IInventoryReservationApi inventoryReservations;
+        private volatile bool itemsDirty = true;
+        private Game itemsGame;
+        private int cachedPendingSendCount = -1;
+        private string cachedPendingSendText;
+        private object cachedPendingLanguage;
+        private float cachedPendingWidth = -1f;
+        private float cachedPendingHeight;
         private RedPacket[] cachedDisplayedPackets = Array.Empty<RedPacket>();
         private int cachedBadgeVersion = -1;
 
         private string searchText = string.Empty;
         private string packetCountText = "1";
-        private StackedThings selectedStack;
+        private RedPacketAvailableItem selectedStack;
         private RedPacketType selectedType = RedPacketType.Normal;
         private CompactPane compactPane;
         private DateTime nextSendAllowedUtc = DateTime.MinValue;
@@ -160,14 +170,47 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private void EnsureItemsFresh()
         {
-            if (!availableItems.Any())
+            if (itemsDirty || !ReferenceEquals(itemsGame, Current.Game))
             {
                 RefreshAvailableItems();
             }
         }
 
+        public void BindInventory(IInventoryReadApi read, IInventoryReservationApi reservations)
+        {
+            stateMachine.Cleared -= ClearItems;
+            if (inventoryRead != null)
+            {
+                inventoryRead.InventoryChanged -= OnInventoryChanged;
+                inventoryRead.AvailabilityChanged -= OnInventoryChanged;
+            }
+            inventoryRead = read;
+            inventoryReservations = reservations;
+            if (read != null)
+            {
+                stateMachine.Cleared += ClearItems;
+                read.InventoryChanged += OnInventoryChanged;
+                read.AvailabilityChanged += OnInventoryChanged;
+            }
+            ClearItems();
+        }
+
+        private void OnInventoryChanged(object sender, EventArgs args) { itemsDirty = true; }
+
+        public void ClearItems()
+        {
+            foreach (RedPacketAvailableItem item in availableItems) item.Dispose();
+            availableItems.Clear();
+            filteredItems.Clear();
+            selectedStack = null;
+            itemsDirty = true;
+        }
+
         private void RefreshAvailableItems()
         {
+            ClearItems();
+            itemsDirty = false;
+            itemsGame = Current.Game;
             List<Map> homeMaps = Find.Maps.Where(map => map != null && map.IsPlayerHome).ToList();
             bool allItemsTradable = settingsContext != null && settingsContext.Get("trade.allItemsTradable", false);
             availableItems = StackedThings.GroupThings(
@@ -176,7 +219,27 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     && !thing.def.IsCorpse
                     && !(thing is MinifiedThing)),
                 log
-            );
+            ).Select(RedPacketAvailableItem.FromPhysical).ToList();
+            if (inventoryReservations != null)
+            {
+                foreach (InventoryEntry entry in inventoryReservations.GetAvailableSnapshot())
+                {
+                    InventoryMaterializationResult preview = null;
+                    try
+                    {
+                        preview = inventoryReservations.CreatePreview(entry.EntryId);
+                        if (!preview.Succeeded || preview.Things.Count != 1) continue;
+                        RedPacketAvailableItem item = RedPacketAvailableItem.FromInventory(entry, preview.Things[0]);
+                        availableItems.Add(item);
+                        preview = null; // the candidate owns this preview until refresh/shutdown
+                    }
+                    catch (Exception exception)
+                    {
+                        log?.Invoke("[RedPacket] Cannot preview inventory entry " + entry.EntryId + ": " + exception, LogLevel.WARNING);
+                    }
+                    finally { RedPacketAvailableItem.Discard(preview?.Things); }
+                }
+            }
 
             selectedStack = null;
             UpdateFilteredItems();
@@ -204,6 +267,25 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             Rect titleRect = new Rect(contentRect.x, y, contentRect.width, TITLE_HEIGHT);
             y += TITLE_HEIGHT + DEFAULT_SPACING;
+            int pendingSends = stateMachine.PendingInventorySendCount;
+            if (pendingSends > 0)
+            {
+                object language = LanguageDatabase.activeLanguage;
+                if (cachedPendingSendCount != pendingSends || !ReferenceEquals(language, cachedPendingLanguage))
+                {
+                    cachedPendingSendText = "Phinix_legacyRedpacket_inventorySendPending".Translate(pendingSends);
+                    cachedPendingSendCount = pendingSends;
+                    cachedPendingLanguage = language;
+                    cachedPendingWidth = -1f;
+                }
+                if (cachedPendingWidth != contentRect.width)
+                {
+                    cachedPendingHeight = Text.CalcHeight(cachedPendingSendText, Mathf.Max(1f, contentRect.width));
+                    cachedPendingWidth = contentRect.width;
+                }
+                Widgets.Label(new Rect(contentRect.x, y, contentRect.width, cachedPendingHeight), cachedPendingSendText);
+                y += cachedPendingHeight + DEFAULT_SPACING;
+            }
 
             ResponsiveFormResult searchLayout = ResponsiveFormLayout.Calculate(
                 new Rect(contentRect.x, y, contentRect.width, contentRect.yMax - y),
@@ -307,8 +389,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             // groups without summing every Thing stack on every frame.
             for (int i = filteredItems.Count - 1; i >= 0; i--)
             {
-                StackedThings stack = filteredItems[i];
-                if (stack == null || stack.Things == null || stack.Things.Count == 0)
+                RedPacketAvailableItem stack = filteredItems[i];
+                if (stack == null || stack.Count == 0)
                     filteredItems.RemoveAt(i);
             }
             int drawCount = filteredItems.Count;
@@ -335,7 +417,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 drawCount, rowHeight, scrollRequired ? availableItemsScroll.y : 0f, inRect.height, VIRTUAL_LIST_OVERSCAN);
             for (int i = visibleRange.FirstIndex; i < visibleRange.EndIndexExclusive; i++)
             {
-                StackedThings stack = filteredItems[i];
+                RedPacketAvailableItem stack = filteredItems[i];
                 float currentY = contentRect.yMin + i * rowHeight;
                 Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, rowHeight);
                 if ((i % 2 != 0) || selectedStack == stack) Widgets.DrawHighlight(rowRect);
@@ -624,7 +706,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             Find.WindowStack.Add(new RedPacketDetailWindow(snapshot));
         }
 
-        private void OnSelectedChanged(StackedThings stack, int selected)
+        private void OnSelectedChanged(RedPacketAvailableItem stack, int selected)
         {
             if (selected <= 0)
             {
@@ -668,7 +750,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 return;
             }
 
-            if (selectedStack.Things.Any(thing => thing is MinifiedThing))
+            if (selectedStack.ThingDef.defName == "MinifiedThing")
             {
                 Messages.Message("Phinix_legacyRedpacket_minifiedSendReject".Translate(), MessageTypeDefOf.RejectInput);
                 return;
@@ -689,24 +771,66 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             string itemLabel = selectedStack.Label;
             List<PoppedThing> poppedThings = null;
+            string reservationId = null;
+            IList<Thing> transientThings = null;
+            bool inventoryQueued = false;
             try
             {
-                poppedThings = selectedStack.PopSelectedWithOrigins().ToList();
-                if (!poppedThings.Any())
+                string packetId = Guid.NewGuid().ToString("N");
+                TradeItemSnapshot sourceSnapshot;
+                TradeItemSnapshot inventorySource = null;
+                int unsentCount = 0;
+                List<Thing> selectedThings;
+                if (selectedStack.IsInventory)
                 {
-                    Messages.Message("Phinix_legacyRedpacket_errorSelectItem".Translate(), MessageTypeDefOf.RejectInput);
-                    return;
+                    // Bound materialization before reserving a large aggregatable entry.
+                    if (selectedStack.ReservationQuantity > (long)Math.Max(1, selectedStack.ThingDef.stackLimit) * 1000)
+                        throw new InvalidOperationException("The red packet selection exceeds the transfer stack limit.");
+                    InventoryReservationResult reserved = inventoryReservations.TryReserve(new InventoryReservationRequest
+                    {
+                        OperationId = "redpacket-send:" + packetId,
+                        OwnerExtensionId = "builtin.legacy-redpacket", Purpose = "redpacket.send",
+                        Lines = new[] { new InventoryReservationLine
+                        {
+                            EntryId = selectedStack.Entry.EntryId, Quantity = selectedStack.ReservationQuantity
+                        } }
+                    });
+                    if (!reserved.Succeeded || reserved.Reservation == null)
+                        throw new InvalidOperationException(reserved.Reason ?? "Inventory reservation failed.");
+                    reservationId = reserved.Reservation.ReservationId;
+                    InventoryMaterializationResult materialized = inventoryReservations.MaterializeReservation(reservationId);
+                    if (!materialized.Succeeded || materialized.Things.Count == 0)
+                        throw new InvalidOperationException(materialized.Reason ?? "Inventory conversion failed.");
+                    transientThings = materialized.Things;
+                    Thing first = transientThings[0];
+                    foreach (Thing thing in transientThings)
+                        if (!ReferenceEquals(first, thing) && !first.CanStackWith(thing))
+                            throw new InvalidOperationException("Inventory stacks do not have identical red packet state.");
+                    long sourceCount = transientThings.Sum(thing => (long)thing.stackCount);
+                    if (sourceCount < totalCount || sourceCount > int.MaxValue)
+                        throw new InvalidOperationException("Inventory materialization count does not match the selection.");
+                    int firstCount = first.stackCount;
+                    try
+                    {
+                        first.stackCount = (int)sourceCount;
+                        inventorySource = TradeItemConverter.ConvertThingFromVerse(first);
+                        first.stackCount = totalCount;
+                        sourceSnapshot = TradeItemConverter.ConvertThingFromVerse(first);
+                    }
+                    finally { first.stackCount = firstCount; }
+                    unsentCount = (int)sourceCount - totalCount;
+                    selectedThings = new List<Thing>();
                 }
-
-                foreach (PoppedThing poppedThing in poppedThings)
+                else
                 {
-                    poppedThing.DeSpawn();
+                    poppedThings = selectedStack.PopSelectedPhysical().ToList();
+                    if (!poppedThings.Any()) throw new InvalidOperationException("No selected items remain.");
+                    foreach (PoppedThing poppedThing in poppedThings) poppedThing.DeSpawn();
+                    selectedThings = poppedThings.Select(poppedThing => poppedThing.Thing).ToList();
+                    if (selectedThings.Count != 1)
+                        throw new InvalidOperationException("Stateful red packets require one physical stack.");
+                    sourceSnapshot = TradeItemConverter.ConvertThingFromVerse(selectedThings[0]);
                 }
-
-                List<Thing> selectedThings = poppedThings.Select(poppedThing => poppedThing.Thing).ToList();
-                if (selectedThings.Count != 1)
-                    throw new InvalidOperationException("Stateful red packets require one physical stack.");
-                TradeItemSnapshot sourceSnapshot = TradeItemConverter.ConvertThingFromVerse(selectedThings[0]);
                 if (sourceSnapshot.StackCount != totalCount)
                     throw new InvalidOperationException("The selected stack count changed while creating the red packet.");
                 TradeItemSnapshot template = new TradeItemSnapshot(
@@ -722,7 +846,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 bool special = stateMachine.IsSpecialPacketItem(template);
                 RedPacket packet = new RedPacket
                 {
-                    Id = Guid.NewGuid().ToString("N"),
+                    Id = packetId,
                     SenderUuid = LocalUuid,
                     SenderDisplayName = GetLocalDisplayName(),
                     Template = template,
@@ -737,20 +861,32 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     Expired = false
                 };
 
-                packet.StoredThings.AddRange(selectedThings);
-                stateMachine.AddLocalPacket(packet);
+                if (reservationId != null)
+                {
+                    inventoryQueued = stateMachine.TryAddInventoryPacket(packet, reservationId, inventorySource, unsentCount);
+                    if (!inventoryQueued) throw new InvalidOperationException("The red packet relay could not queue the complete packet.");
+                }
+                else
+                {
+                    packet.StoredThings.AddRange(selectedThings);
+                    stateMachine.AddLocalPacket(packet);
+                }
             }
             catch (Exception exception)
             {
+                if (reservationId != null && !inventoryQueued)
+                    inventoryReservations.ResolveReservation(reservationId, InventoryReservationResolution.Restore,
+                        "redpacket-not-published");
                 RestorePoppedThings(poppedThings);
                 selectedStack = null;
                 RefreshAvailableItems();
                 log?.Invoke(
                     $"[RedPacketTab] Failed to create a red packet; selected things were restored.{Environment.NewLine}{exception}",
                     LogLevel.ERROR);
-                Messages.Message("Phinix_legacyRedpacket_errorSelectItem".Translate(), MessageTypeDefOf.RejectInput);
+                Messages.Message("Phinix_legacyRedpacket_sendFailed".Translate(exception.Message), MessageTypeDefOf.RejectInput);
                 return;
             }
+            finally { RedPacketAvailableItem.Discard(transientThings); }
 
             try
             {
@@ -763,7 +899,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     LogLevel.WARNING);
             }
 
-            Messages.Message("Phinix_legacyRedpacket_sentMessage".Translate(itemLabel, totalCount), MessageTypeDefOf.PositiveEvent);
+            Messages.Message((inventoryQueued ? "Phinix_legacyRedpacket_inventorySendQueued" :
+                "Phinix_legacyRedpacket_sentMessage").Translate(itemLabel, totalCount), MessageTypeDefOf.PositiveEvent);
             nextSendAllowedUtc = now.AddSeconds(SEND_COOLDOWN_SECONDS);
 
             selectedStack = null;

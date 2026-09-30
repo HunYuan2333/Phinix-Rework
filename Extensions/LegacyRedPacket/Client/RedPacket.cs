@@ -32,6 +32,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public string StatePayloadHash;
         public int StatePartCount;
         public int StateStackCount;
+        internal string InventoryReservationId;
+        internal bool InventoryCustodySettled;
 
         public readonly HashSet<string> ClaimedUuids = new HashSet<string>();
         public readonly Dictionary<string, int> ClaimedAmounts = new Dictionary<string, int>();

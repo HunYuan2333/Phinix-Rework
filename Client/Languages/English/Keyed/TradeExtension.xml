@@ -17,12 +17,15 @@
     <Phinix_trade_noItemsAvailable>No items available</Phinix_trade_noItemsAvailable>
     <Phinix_trade_noItemsAvailableWithSearch>No items match your search</Phinix_trade_noItemsAvailableWithSearch>
     <Phinix_trade_offerEmpty>Offer empty — select items below to add</Phinix_trade_offerEmpty>
+    <Phinix_trade_missingDependencyWarning>The offered items reference definitions or state that this client cannot verify:\n\n{0}\n\nContinuing may discard ingredients, modifiers, names, or other mod data. You accept the consequences for this trade. Continue?</Phinix_trade_missingDependencyWarning>
+    <Phinix_trade_offerChangedDuringWarning>The trade offer changed while the compatibility warning was open. Review it and confirm again.</Phinix_trade_offerChangedDuringWarning>
 
     <!-- Trade window: item context menu -->
     <Phinix_trade_selectAll>Select all</Phinix_trade_selectAll>
     <Phinix_trade_selectHalf>Select half</Phinix_trade_selectHalf>
     <Phinix_trade_selectNone>Select none</Phinix_trade_selectNone>
     <Phinix_trade_select100>Select 100</Phinix_trade_select100>
+    <Phinix_trade_inventorySourceBadge>Inventory</Phinix_trade_inventorySourceBadge>
 
     <!-- Trade list -->
     <Phinix_trade_noActiveTradesPlaceholder>You have no active trades.</Phinix_trade_noActiveTradesPlaceholder>

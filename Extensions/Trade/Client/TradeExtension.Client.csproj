@@ -86,6 +86,7 @@
     <Compile Include="StackedThings.cs" />
     <Compile Include="StoredThingCollector.cs" />
     <Compile Include="TradeClientItemPipeline.cs" />
+    <Compile Include="TradeAvailableItem.cs" />
     <Compile Include="TradeItemConverter.cs" />
     <Compile Include="TradeInventoryIntegration.cs" />
     <Compile Include="TradeThingStateSerializer.cs" />

@@ -85,8 +85,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
             inventoryCodecRegistration = inventoryRegistry.RegisterCodecScoped(new RedPacketInventoryCodec());
             inventorySourceRegistration = inventoryRegistry.RegisterSourcePresenter(new RedPacketInventorySourcePresenter());
             stateMachine.BindInventory(inventory);
+            if (!hostContext.TryResolveApi<IInventoryReservationApi>(out IInventoryReservationApi reservations) ||
+                !hostContext.TryResolveApi<IInventoryReadApi>(out IInventoryReadApi inventoryRead))
+                throw new InvalidOperationException("Inventory reservation and read APIs are required by red packets.");
+            stateMachine.BindInventorySending(inventoryRead, reservations,
+                name => hostContext.GetStoragePath(ExtensionId, name));
+            tab.BindInventory(inventoryRead, reservations);
 
-            disconnectedHandler = (sender, args) => stateMachine?.Clear();
+            disconnectedHandler = (sender, args) => mainThreadDispatcher?.Enqueue(() =>
+            {
+                stateMachine?.Clear();
+                tab?.ClearItems();
+            });
             if (userEventStream != null)
             {
                 userEventStream.Disconnected += disconnectedHandler;
@@ -105,6 +115,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             disconnectedHandler = null;
 
             stateMachine?.Shutdown();
+            stateMachine?.BindInventorySending(null, null, null);
+            tab?.BindInventory(null, null);
             stateMachine?.BindInventory(null);
             inventorySourceRegistration?.Dispose();
             inventorySourceRegistration = null;

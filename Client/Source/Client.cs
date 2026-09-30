@@ -115,6 +115,7 @@ namespace PhinixClient
         private ClientMainThreadDispatcher mainThreadDispatcher;
         private readonly IClientWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
+        internal IClientSettingsContext SettingsContext => settingsContext;
         private readonly List<IClientSettingsPanelProvider> sortedSettingsPanels = new List<IClientSettingsPanelProvider>();
         private PhinixFrameworkClient cachedSettingsPanelFramework;
         private int cachedSettingsExtensionCount = -1;

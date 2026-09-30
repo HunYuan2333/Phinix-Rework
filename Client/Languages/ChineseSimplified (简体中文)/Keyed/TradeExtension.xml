@@ -17,12 +17,15 @@
     <Phinix_trade_noItemsAvailable>没有可用于交易的物品。</Phinix_trade_noItemsAvailable>
     <Phinix_trade_noItemsAvailableWithSearch>未搜索到相符的物品</Phinix_trade_noItemsAvailableWithSearch>
     <Phinix_trade_offerEmpty>报价为空 — 从下方选择物品添加</Phinix_trade_offerEmpty>
+    <Phinix_trade_missingDependencyWarning>对方物品引用了本机无法验证的定义或状态：\n\n{0}\n\n继续交易可能丢失配料、词条、名称或其他 Mod 数据。选择继续即表示你愿意承担本次交易的后果。是否仍然确认？</Phinix_trade_missingDependencyWarning>
+    <Phinix_trade_offerChangedDuringWarning>兼容性警告显示期间，交易内容已经变化。请重新检查并再次确认。</Phinix_trade_offerChangedDuringWarning>
 
     <!-- Trade window: item context menu -->
     <Phinix_trade_selectAll>全选</Phinix_trade_selectAll>
     <Phinix_trade_selectHalf>选一半</Phinix_trade_selectHalf>
     <Phinix_trade_selectNone>清零</Phinix_trade_selectNone>
     <Phinix_trade_select100>选100</Phinix_trade_select100>
+    <Phinix_trade_inventorySourceBadge>库存</Phinix_trade_inventorySourceBadge>
 
     <!-- Trade list -->
     <Phinix_trade_noActiveTradesPlaceholder>没有活动中的交易</Phinix_trade_noActiveTradesPlaceholder>

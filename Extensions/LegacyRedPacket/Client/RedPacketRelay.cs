@@ -28,6 +28,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         private static readonly object OutgoingLock = new object();
         private static readonly Queue<OutgoingProtocol> OutgoingQueue = new Queue<OutgoingProtocol>();
+        private readonly Queue<Action> acceptedCallbacks = new Queue<Action>();
         private static readonly object IncomingLock = new object();
         private static readonly Queue<IncomingProtocol> IncomingQueue = new Queue<IncomingProtocol>();
         private static readonly HashSet<long> QueuedIncomingIds = new HashSet<long>();
@@ -36,6 +37,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private static long lastSeenId;
         private static DateTime nextPollUtc = DateTime.MinValue;
         private static DateTime nextSendUtc = DateTime.MinValue;
+        private DateTime caughtUpThroughUtc = DateTime.MinValue;
         private static int pollInFlight;
         private static int sendInFlight;
         private static int pollWorkerSequence;
@@ -52,12 +54,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private static readonly DateTime UnixEpochUtc = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         private readonly Action<string, LogLevel> log;
+        private readonly Action<string, string, string> postProtocol;
         private string lastSendFailure;
         private DateTime nextSendFailureLogUtc;
 
-        public RedPacketRelay(Action<string, LogLevel> log)
+        public RedPacketRelay(Action<string, LogLevel> log, Action<string, string, string> postProtocol = null)
         {
             this.log = log;
+            this.postProtocol = postProtocol ?? PostProtocol;
         }
 
         public void Clear()
@@ -69,6 +73,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             lock (OutgoingLock)
             {
                 OutgoingQueue.Clear();
+                acceptedCallbacks.Clear();
             }
 
             lock (IncomingLock)
@@ -82,6 +87,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 lastSeenId = 0;
                 nextPollUtc = DateTime.MinValue;
                 nextSendUtc = DateTime.MinValue;
+                caughtUpThroughUtc = DateTime.MinValue;
             }
 
             Interlocked.Exchange(ref pollInFlight, 0);
@@ -96,8 +102,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             {
                 if (OutgoingQueue.Count >= MaxOutgoingQueue)
                 {
-                    OutgoingQueue.Dequeue();
-                    log?.Invoke("[RedPacket] Relay outgoing queue overflow, dropped oldest message.", LogLevel.WARNING);
+                    throw new InvalidOperationException("The red packet relay outgoing queue is full.");
                 }
 
                 OutgoingQueue.Enqueue(new OutgoingProtocol
@@ -138,8 +143,52 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
+        // Reserve capacity for every state part plus create together. Retry keeps
+        // the same event ID and head position, so create never overtakes a part.
+        public bool TryEnqueueBatch(IList<string> messages, string senderUuid, string batchId, Action accepted)
+        {
+            if (messages == null || messages.Count == 0 || messages.Count > MaxOutgoingQueue ||
+                string.IsNullOrEmpty(senderUuid) || string.IsNullOrEmpty(batchId)) return false;
+            foreach (string message in messages)
+                if (string.IsNullOrEmpty(message) || message.Length > RedPacketProtocol.MaxWireMessageChars) return false;
+            lock (OutgoingLock)
+            {
+                if (OutgoingQueue.Count + messages.Count > MaxOutgoingQueue) return false;
+                for (int i = 0; i < messages.Count; i++)
+                    OutgoingQueue.Enqueue(new OutgoingProtocol
+                    {
+                        Message = messages[i], SenderUuid = senderUuid,
+                        EventId = batchId + ":" + i,
+                        Accepted = i == messages.Count - 1 ? accepted : null
+                    });
+                return true;
+            }
+        }
+
+        public bool IsCaughtUpThrough(DateTime utc)
+        {
+            lock (IncomingLock)
+            lock (StateLock)
+                return IncomingQueue.Count == 0 && caughtUpThroughUtc >= utc;
+        }
+
         public void Update()
         {
+            // Update is driven on the game thread; HTTP workers only queue results.
+            while (true)
+            {
+                Action callback;
+                lock (OutgoingLock)
+                {
+                    if (acceptedCallbacks.Count == 0) break;
+                    callback = acceptedCallbacks.Dequeue();
+                }
+                try { callback(); }
+                catch (Exception exception)
+                {
+                    log?.Invoke("[RedPacket] Relay acceptance handling failed: " + exception, LogLevel.ERROR);
+                }
+            }
             DateTime now = DateTime.UtcNow;
 
             bool shouldSend = false;
@@ -202,39 +251,21 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 {
                     if (OutgoingQueue.Count > 0)
                     {
-                        outbound = OutgoingQueue.Dequeue();
+                        outbound = OutgoingQueue.Peek();
                     }
                 }
 
-                if (outbound == null) return;
+                if (outbound == null || generation != capturedGen) return;
 
-                string url = RelayBaseUrl.TrimEnd('/') + "/v1/raw";
-                byte[] bodyBytes = Encoding.UTF8.GetBytes(outbound.Message);
+                postProtocol(outbound.Message, outbound.SenderUuid, outbound.EventId);
 
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-                request.Method = "POST";
-                request.Timeout = RequestTimeoutMs;
-                request.ReadWriteTimeout = RequestTimeoutMs;
-                request.Proxy = null;
-                request.ContentType = "text/plain; charset=utf-8";
-                request.ContentLength = bodyBytes.Length;
-                request.Headers["X-Api-Key"] = RelayApiKey;
-                request.Headers["X-Room"] = RelayRoom;
-                request.Headers["X-Sender"] = outbound.SenderUuid;
-                request.Headers["X-Event-Id"] = outbound.EventId;
-
-                using (Stream requestStream = request.GetRequestStream())
+                lock (OutgoingLock)
                 {
-                    requestStream.Write(bodyBytes, 0, bodyBytes.Length);
+                    if (generation != capturedGen) return;
+                    if (OutgoingQueue.Count > 0 && ReferenceEquals(OutgoingQueue.Peek(), outbound))
+                        OutgoingQueue.Dequeue();
+                    if (outbound.Accepted != null) acceptedCallbacks.Enqueue(outbound.Accepted);
                 }
-
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
-                {
-                    reader.ReadToEnd();
-                }
-
-                if (generation != capturedGen) return;
                 lastSendFailure = null;
                 log?.Invoke("[RedPacket] Relay send ok (event " + outbound.EventId + ").", LogLevel.DEBUG);
             }
@@ -249,15 +280,6 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     nextSendFailureLogUtc = now.AddSeconds(30);
                     log?.Invoke("[RedPacket] Relay send failed, will retry: " + failure, LogLevel.WARNING);
                 }
-                if (outbound != null)
-                {
-                    lock (OutgoingLock)
-                    {
-                        if (OutgoingQueue.Count < MaxOutgoingQueue)
-                            OutgoingQueue.Enqueue(outbound);
-                    }
-                }
-
                 lock (StateLock)
                 {
                     nextSendUtc = DateTime.UtcNow.AddSeconds(1);
@@ -274,6 +296,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         {
             try
             {
+                DateTime requestedAtUtc = DateTime.UtcNow;
                 long afterId;
                 lock (StateLock)
                 {
@@ -317,7 +340,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
                     using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
                     {
-                        ParseRawResponseStreaming(reader, capturedGen);
+                        ParseRawResponseStreaming(reader, capturedGen, requestedAtUtc);
                     }
                 }
             }
@@ -336,7 +359,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
         }
 
-        private void ParseRawResponseStreaming(StreamReader reader, int capturedGen)
+        private void ParseRawResponseStreaming(StreamReader reader, int capturedGen, DateTime requestedAtUtc)
         {
             if (reader == null) return;
 
@@ -350,10 +373,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             firstLine = firstLine.Trim();
+            // The raw endpoint starts with a numeric cursor. An HTML/error body
+            // returned with HTTP 200 is not evidence that claim history is empty.
+            if (!long.TryParse(firstLine, out long reportedLastId) || reportedLastId < 0) return;
 
             int lineCount = 0;
             int totalBytes = firstLine.Length;
             bool queueFull = false;
+            bool truncated = false;
             string line;
             while ((line = reader.ReadLine()) != null)
             {
@@ -362,15 +389,18 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
                 // RP-06: 响应行数和累计字节限制
                 if (lineCount > FetchLimit || totalBytes > RedPacketLimits.MaxResponseBytes)
+                {
+                    truncated = true;
                     break;
+                }
 
                 if (string.IsNullOrEmpty(line)) continue;
 
                 int tabIndex = line.IndexOf('\t');
-                if (tabIndex <= 0) continue;
+                if (tabIndex <= 0) { truncated = true; continue; }
 
                 string idPart = line.Substring(0, tabIndex).Trim();
-                if (!long.TryParse(idPart, out long idValue)) continue;
+                if (!long.TryParse(idPart, out long idValue)) { truncated = true; continue; }
                 if (idValue <= currentLastSeen) continue;
 
                 string b64 = line.Substring(tabIndex + 1).Trim();
@@ -384,11 +414,16 @@ namespace Phinix.LegacyRedPacketExtension.Client
                         byte[] bytes = Convert.FromBase64String(b64);
                         message = Encoding.UTF8.GetString(bytes);
                     }
-                    catch (FormatException) { }
+                    catch (FormatException) { truncated = true; }
                 }
+                else truncated = true;
 
                 // RP-06: 解码后消息长度检查
-                if (message.Length > RedPacketProtocol.MaxWireMessageChars) message = string.Empty;
+                if (message.Length > RedPacketProtocol.MaxWireMessageChars)
+                {
+                    message = string.Empty;
+                    truncated = true;
+                }
 
                 // RP-16: generation 检查，防止旧 worker 回灌
                 if (generation != capturedGen) return;
@@ -408,6 +443,31 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
             if (queueFull)
                 log?.Invoke("[RedPacket] Relay incoming queue is full; cursor held for retry.", LogLevel.WARNING);
+            if (!queueFull && !truncated && lineCount < FetchLimit && generation == capturedGen)
+            {
+                lock (StateLock) caughtUpThroughUtc = requestedAtUtc;
+            }
+        }
+
+        private static void PostProtocol(string message, string senderUuid, string eventId)
+        {
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(message);
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(RelayBaseUrl.TrimEnd('/') + "/v1/raw");
+            request.Method = "POST";
+            request.Timeout = RequestTimeoutMs;
+            request.ReadWriteTimeout = RequestTimeoutMs;
+            request.Proxy = null;
+            request.ContentType = "text/plain; charset=utf-8";
+            request.ContentLength = bodyBytes.Length;
+            request.Headers["X-Api-Key"] = RelayApiKey;
+            request.Headers["X-Room"] = RelayRoom;
+            request.Headers["X-Sender"] = senderUuid;
+            request.Headers["X-Event-Id"] = eventId;
+            using (Stream requestStream = request.GetRequestStream())
+                requestStream.Write(bodyBytes, 0, bodyBytes.Length);
+            using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+            using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                reader.ReadToEnd();
         }
 
         private sealed class IncomingProtocol
@@ -421,6 +481,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             public string Message;
             public string SenderUuid;
             public string EventId;
+            public Action Accepted;
         }
     }
 }

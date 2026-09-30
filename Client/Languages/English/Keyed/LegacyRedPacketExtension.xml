@@ -18,6 +18,11 @@
   <Phinix_legacyRedpacket_sendButton>Send</Phinix_legacyRedpacket_sendButton>
   <Phinix_legacyRedpacket_sendCooldownButton>Cooldown {0}s</Phinix_legacyRedpacket_sendCooldownButton>
   <Phinix_legacyRedpacket_noItemsPlaceholder>No items available.</Phinix_legacyRedpacket_noItemsPlaceholder>
+  <Phinix_legacyRedpacket_inventorySource>Inventory</Phinix_legacyRedpacket_inventorySource>
+  <Phinix_legacyRedpacket_inventoryReturnSource>Returned red packet items</Phinix_legacyRedpacket_inventoryReturnSource>
+  <Phinix_legacyRedpacket_inventorySendPending>{0} inventory red packet(s) awaiting confirmation or settlement. Their items remain in red packet custody.</Phinix_legacyRedpacket_inventorySendPending>
+  <Phinix_legacyRedpacket_inventorySendQueued>Red packet queued: {0} x{1}. Waiting for confirmation.</Phinix_legacyRedpacket_inventorySendQueued>
+  <Phinix_legacyRedpacket_sendFailed>Could not send red packet: {0}</Phinix_legacyRedpacket_sendFailed>
   <Phinix_legacyRedpacket_listTitle>Red Packets</Phinix_legacyRedpacket_listTitle>
   <Phinix_legacyRedpacket_notificationToggle>Notifications</Phinix_legacyRedpacket_notificationToggle>
   <Phinix_legacyRedpacket_noPacketsPlaceholder>No active red packets.</Phinix_legacyRedpacket_noPacketsPlaceholder>

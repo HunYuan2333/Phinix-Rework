@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -10,6 +12,7 @@ namespace PhinixClient
         private static readonly Regex ServerPortRegex = new Regex("^[0-9]{0,5}$", RegexOptions.Compiled);
         private const float Spacing = 8f;
         private const float RowHeight = 30f;
+        private const float SectionDividerHeight = 1f;
         private static string serverAddress = Client.Instance.Settings.ServerAddress;
         private static string serverPortString = Client.Instance.Settings.ServerPort.ToString();
         private Vector2 scrollPosition;
@@ -22,6 +25,8 @@ namespace PhinixClient
         private float connectedHeight;
         private float connectionHeight;
         private float displayNameHeight;
+        private readonly List<IClientQuickSettingsPanelProvider> quickSettingsPanels =
+            new List<IClientQuickSettingsPanelProvider>();
         private string addressLabel;
         private string portLabel;
         private string connectLabel;
@@ -36,7 +41,7 @@ namespace PhinixClient
             get
             {
                 Rect safe = UiScreenSafeArea.Current;
-                return new Vector2(Mathf.Min(600f, safe.width), Mathf.Min(260f, safe.height));
+                return new Vector2(Mathf.Min(620f, safe.width), Mathf.Min(500f, safe.height));
             }
         }
 
@@ -54,6 +59,7 @@ namespace PhinixClient
             base.PreOpen();
             serverAddress = Client.Instance.Settings.ServerAddress;
             serverPortString = Client.Instance.Settings.ServerPort.ToString();
+            RefreshQuickSettingsPanels();
             cachedWidth = -1f;
         }
 
@@ -78,9 +84,11 @@ namespace PhinixClient
             bool showConnectionStatus = !connected &&
                 (Client.Instance.Connecting || Client.Instance.ConnectionAttemptFailed);
             float formHeight = connectionHeight + (showConnectionStatus ? Spacing + RowHeight : 0f);
-            float contentHeight = (connected ? connectedHeight : formHeight) +
+            float baseHeight = (connected ? connectedHeight : formHeight) +
                 (online ? Spacing + displayNameHeight : 0f);
+            float contentHeight = baseHeight + GetQuickSettingsHeight(Mathf.Max(1f, inRect.width - 16f));
             float contentWidth = contentHeight > inRect.height ? Mathf.Max(0f, inRect.width - 16f) : inRect.width;
+            contentHeight = baseHeight + GetQuickSettingsHeight(Mathf.Max(1f, contentWidth));
             scrollPosition.y = Mathf.Clamp(scrollPosition.y, 0f, Mathf.Max(0f, contentHeight - inRect.height));
             Rect viewRect = new Rect(0f, 0f, contentWidth, Mathf.Max(contentHeight, inRect.height));
             Widgets.BeginScrollView(inRect, ref scrollPosition, viewRect);
@@ -89,9 +97,92 @@ namespace PhinixClient
                 float y = 0f;
                 if (connected) y += DrawConnected(new Rect(0f, y, contentWidth, connectedHeight));
                 else y += DrawConnectionForm(new Rect(0f, y, contentWidth, formHeight));
-                if (online) DrawDisplayName(new Rect(0f, y + Spacing, contentWidth, displayNameHeight));
+                if (online)
+                {
+                    y += Spacing;
+                    DrawDisplayName(new Rect(0f, y, contentWidth, displayNameHeight));
+                    y += displayNameHeight;
+                }
+                DrawQuickSettings(contentWidth, ref y);
             }
             finally { Widgets.EndScrollView(); }
+        }
+
+        private void RefreshQuickSettingsPanels()
+        {
+            quickSettingsPanels.Clear();
+            PhinixFrameworkClient framework = Client.Instance.FrameworkClient;
+            if (framework == null) return;
+            IReadOnlyList<IClientQuickSettingsPanelProvider> providers =
+                framework.ResolveExtensionApis<IClientQuickSettingsPanelProvider>();
+            for (int i = 0; i < providers.Count; i++) quickSettingsPanels.Add(providers[i]);
+            quickSettingsPanels.Sort((left, right) =>
+            {
+                int order = left.Order.CompareTo(right.Order);
+                return order != 0
+                    ? order
+                    : string.Compare(left.SectionId, right.SectionId, StringComparison.Ordinal);
+            });
+        }
+
+        private float GetQuickSettingsHeight(float width)
+        {
+            IClientSettingsContext settings = Client.Instance.SettingsContext;
+            float height = 0f;
+            bool hasVisiblePanel = false;
+            for (int i = 0; i < quickSettingsPanels.Count; i++)
+            {
+                IClientQuickSettingsPanelProvider panel = quickSettingsPanels[i];
+                try
+                {
+                    if (!panel.IsVisible(settings)) continue;
+                    float panelHeight = Mathf.Max(0f, panel.GetQuickSettingsHeight(width));
+                    if (panelHeight <= 0f) continue;
+                    if (!hasVisiblePanel)
+                    {
+                        height += Spacing + SectionDividerHeight + Spacing;
+                        hasVisiblePanel = true;
+                    }
+                    else height += Spacing;
+                    height += panelHeight;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[Phinix] Quick settings panel '{panel.SectionId}' failed to measure: {ex}");
+                }
+            }
+            return height;
+        }
+
+        private void DrawQuickSettings(float width, ref float y)
+        {
+            IClientSettingsContext settings = Client.Instance.SettingsContext;
+            bool drewPanel = false;
+            for (int i = 0; i < quickSettingsPanels.Count; i++)
+            {
+                IClientQuickSettingsPanelProvider panel = quickSettingsPanels[i];
+                try
+                {
+                    if (!panel.IsVisible(settings)) continue;
+                    float panelHeight = Mathf.Max(0f, panel.GetQuickSettingsHeight(width));
+                    if (panelHeight <= 0f) continue;
+                    if (!drewPanel)
+                    {
+                        y += Spacing;
+                        Widgets.DrawLineHorizontal(0f, y, width);
+                        y += SectionDividerHeight + Spacing;
+                        drewPanel = true;
+                    }
+                    else y += Spacing;
+                    Rect panelRect = new Rect(0f, y, width, panelHeight);
+                    y += panelHeight;
+                    panel.DrawQuickSettings(panelRect, settings);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[Phinix] Quick settings panel '{panel.SectionId}' failed to draw: {ex}");
+                }
+            }
         }
 
         private float DrawConnected(Rect rect)

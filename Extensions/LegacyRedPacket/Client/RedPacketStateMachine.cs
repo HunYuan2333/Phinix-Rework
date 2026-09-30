@@ -30,7 +30,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
     /// 驱动：Timer 每 200ms 通过主线程调度器触发 Tick（中继轮询 + 状态机 + 过期结算）。
     /// 设计哲学 §3.5/§3.6/§3.8：异常隔离、有界集合、日志分级。
     /// </summary>
-    internal sealed class RedPacketStateMachine : IDisposable
+    internal sealed partial class RedPacketStateMachine : IDisposable
     {
         private static readonly object PacketsLock = new object();
         private static readonly Dictionary<string, RedPacket> Packets = new Dictionary<string, RedPacket>();
@@ -109,6 +109,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public int BadgeVersion => badgeVersion;
 
         public int ClaimableCount => claimableCount;
+        public event Action Cleared;
 
         public void BindInventory(IInventoryDepositApi value) { inventory = value; }
 
@@ -182,6 +183,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         private void Tick()
         {
             if (disposed) return;
+            UpdateInventoryScope();
 
             try
             {
@@ -193,6 +195,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
 
             PollRelayBuffer();
+            ProcessInventorySends();
             CheckClaimTimeouts();
             UpdateExpiry();
             CleanupFinishedPackets();
@@ -318,6 +321,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
         public void AddLocalPacket(RedPacket packet)
         {
             if (packet == null || string.IsNullOrEmpty(packet.Id)) return;
+            if (!IsOnline) throw new InvalidOperationException("The red packet session is offline.");
+            List<string> messages = BuildInventoryBroadcast(packet);
 
             lock (PacketsLock)
             {
@@ -325,26 +330,10 @@ namespace Phinix.LegacyRedPacketExtension.Client
             }
             MarkBadgeDirty();
 
-            if (IsOnline)
+            if (!relay.TryEnqueueBatch(messages, packet.SenderUuid, "redpacket-" + packet.Id, null))
             {
-                BroadcastStatePayload(packet);
-                BroadcastProtocolMessage(RedPacketProtocol.BuildCreate(ToCreateData(packet)));
-            }
-        }
-
-        private void BroadcastStatePayload(RedPacket packet)
-        {
-            byte[] payload = packet?.Template?.StatePayload;
-            if (payload == null || payload.Length == 0) return;
-            string hash = ComputePayloadHash(payload);
-            int partCount = (payload.Length + RedPacketProtocol.StatePartBytes - 1) /
-                RedPacketProtocol.StatePartBytes;
-            for (int index = 0; index < partCount; index++)
-            {
-                int offset = index * RedPacketProtocol.StatePartBytes;
-                int count = Math.Min(RedPacketProtocol.StatePartBytes, payload.Length - offset);
-                BroadcastProtocolMessage(RedPacketProtocol.BuildStatePart(
-                    packet.Id, index, partCount, hash, payload, offset, count));
+                lock (PacketsLock) Packets.Remove(packet.Id);
+                throw new InvalidOperationException("The relay cannot queue the complete red packet.");
             }
         }
 
@@ -415,6 +404,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
 
         public void Clear()
         {
+            InterruptInventorySends();
             lock (PacketsLock)
             {
                 Packets.Clear();
@@ -434,6 +424,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
             lastRetryError = null;
             nextRetryLogUtc = DateTime.MinValue;
             MarkBadgeDirty();
+            Cleared?.Invoke();
         }
 
         private void MarkBadgeDirty()
@@ -467,6 +458,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
         /// </summary>
         private bool HandleCreateSafe(string[] parts, ref int newPacketCount, ref RedPacket lastNewPacket)
         {
+            if (TryConfirmInventoryCreate(parts)) return true;
             RedPacket newPacket = HandleCreateCore(parts);
             if (newPacket == null) return false;
 
@@ -584,6 +576,14 @@ namespace Phinix.LegacyRedPacketExtension.Client
             lock (PacketsLock)
             {
                 if (Packets.ContainsKey(packetId)) return null;
+                // An interrupted local send remains in durable custody. Replaying
+                // its public create must not turn it back into an untracked packet.
+                if (inventorySends.Values.Any(record => record.PacketId == packetId && record.SenderUuid == senderUuid))
+                {
+                    packet.InventoryReservationId = inventorySends.Values.First(record => record.PacketId == packetId).ReservationId;
+                    packet.Expired = true;
+                    packet.CompletedAtUtc = expiresAt;
+                }
 
                 // RP-05: Packets 容量淘汰（优先清理已完成/已过期且无本地存储物品的）
                 if (Packets.Count >= RedPacketLimits.MaxActivePackets)
@@ -638,6 +638,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 {
                     if (!IsRewardAlreadyCommitted(packet, amount: ComputeAmount(packet, claimerUuid), claimerUuid))
                     {
+                        // Receipt lookup may have requested a retry while inventory
+                        // is attaching/recovering. That is not an unsolicited claim.
+                        if (retryCurrentMessage) return false;
                         log?.Invoke("[RedPacket] Ignored an unsolicited local claim result for packet " + packetId + ".", LogLevel.WARNING);
                         return false;
                     }
@@ -648,6 +651,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 if (amount <= 0) return false;
 
                 if (claimerUuid == localUuid && !replayedLocalClaim && !DepositReward(packet, amount, claimerUuid)) return false;
+                if (!RecordInventoryClaim(packet, claimerUuid, amount)) return false;
 
                 packet.RemainingPackets = Math.Max(0, packet.RemainingPackets - 1);
                 packet.RemainingCount = Math.Max(0, packet.RemainingCount - amount);
@@ -776,6 +780,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     {
                         if (!IsRewardAlreadyCommitted(packet, amount, claimerUuid))
                         {
+                            if (retryCurrentMessage) return false;
                             log?.Invoke("[RedPacket] Ignored an unsolicited local assignment for packet " + packetId + ".", LogLevel.WARNING);
                             return false;
                         }
@@ -783,6 +788,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                     }
 
                     if (claimerUuid == localUuid && !replayedLocalClaim && !DepositReward(packet, amount, claimerUuid)) return false;
+                    if (!RecordInventoryClaim(packet, claimerUuid, amount)) return false;
 
                     packet.RemainingPackets = remainingPackets;
                     packet.RemainingCount = remainingCount;
@@ -866,6 +872,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
             lock (PacketsLock)
             {
                 if (!Packets.TryGetValue(packetId, out packet)) return false;
+                // A legacy timeout has no ownership acknowledgement. Inventory
+                // sender returns require our expiry plus a drained relay history.
+                if (!string.IsNullOrEmpty(packet.InventoryReservationId)) return false;
                 string localUuid = LocalUuid;
                 isSender = !string.IsNullOrEmpty(localUuid) && packet.IsSender(localUuid);
                 packet.Expired = true;
@@ -1391,6 +1400,9 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 return false;
             }
             InventoryDepositResult result = inventory.TryDeposit(BuildRewardDeposit(packet, amount, claimerUuid));
+            if (result.Status == InventoryDepositStatus.Conflict &&
+                inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid, false)).Status == InventoryDepositStatus.AlreadyCommitted)
+                return true; // receipt created before legal-stack splitting was introduced
             if (result.Succeeded)
             {
                 log?.Invoke("[RedPacket] Reward stored in inventory: packet=" + packet.Id +
@@ -1443,12 +1455,15 @@ namespace Phinix.LegacyRedPacketExtension.Client
             if (packet == null || amount < 1 || packet.Template == null || inventory == null) return false;
             InventoryDepositResult result = inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid));
             if (result.Status == InventoryDepositStatus.AlreadyCommitted) return true;
+            if (result.Status == InventoryDepositStatus.Conflict &&
+                inventory.CheckDeposit(BuildRewardDeposit(packet, amount, claimerUuid, false)).Status == InventoryDepositStatus.AlreadyCommitted)
+                return true;
             if (result.Status == InventoryDepositStatus.Unavailable)
                 HoldCurrentMessage("[RedPacket] Reward receipt could not be checked; relay cursor is held: " + result.Reason);
             return false;
         }
 
-        private InventoryDeposit BuildRewardDeposit(RedPacket packet, int amount, string claimerUuid)
+        private InventoryDeposit BuildRewardDeposit(RedPacket packet, int amount, string claimerUuid, bool splitStatefulStacks = true)
         {
             string senderName = packet.SenderDisplayName;
             if (string.IsNullOrEmpty(senderName)) senderName = GetDisplayName(packet.SenderUuid);
@@ -1460,17 +1475,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 OriginId = packet.Id,
                 OriginUserId = LimitInventoryOrigin(packet.SenderUuid, 100),
                 OriginDisplayName = LimitInventoryOrigin(senderName, 200),
-                Items = new[]
-                {
-                    new InventoryItem
-                    {
-                        CodecId = "legacy-redpacket.template",
-                        CodecVersion = 1,
-                        Payload = RedPacketInventoryCodec.Encode(packet.Template, amount),
-                        Quantity = packet.Template.StatePayload != null && packet.Template.StatePayload.Length > 0 ? 1 : amount,
-                        Label = amount > 1 ? GetPacketItemLabel(packet) + " × " + amount : GetPacketItemLabel(packet)
-                    }
-                }
+                Items = RedPacketInventoryCodec.BuildItems(packet.Template, amount, GetPacketItemLabel(packet),
+                    splitStatefulStacks ? Math.Max(1, DefDatabase<ThingDef>.GetNamedSilentFail(packet.Template.DefName)?.stackLimit ?? 1) : amount)
             };
         }
 
@@ -1766,7 +1772,8 @@ namespace Phinix.LegacyRedPacketExtension.Client
             foreach (KeyValuePair<string, RedPacket> kv in Packets)
             {
                 RedPacket p = kv.Value;
-                if ((p.Expired || p.CompletedAtUtc.HasValue) && (p.StoredThings == null || p.StoredThings.Count == 0))
+                if ((p.Expired || p.CompletedAtUtc.HasValue) && (p.StoredThings == null || p.StoredThings.Count == 0) &&
+                    (string.IsNullOrEmpty(p.InventoryReservationId) || p.InventoryCustodySettled))
                 {
                     candidates.Add(kv.Key);
                 }
@@ -1886,6 +1893,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 foreach (KeyValuePair<string, RedPacket> entry in Packets)
                 {
                     RedPacket packet = entry.Value;
+                    if (!string.IsNullOrEmpty(packet.InventoryReservationId)) continue;
                     if (packet.Expired || packet.CompletedAtUtc.HasValue || now < packet.ExpiresAtUtc) continue;
 
                     packet.Expired = true;
@@ -1961,6 +1969,7 @@ namespace Phinix.LegacyRedPacketExtension.Client
                 foreach (KeyValuePair<string, RedPacket> entry in Packets)
                 {
                     RedPacket packet = entry.Value;
+                    if (!string.IsNullOrEmpty(packet.InventoryReservationId) && !packet.InventoryCustodySettled) continue;
                     DateTime? finishedAt = GetFinishedAtUtc(packet);
                     if (!finishedAt.HasValue) continue;
                     if (now <= finishedAt.Value.Add(SenderFinishedRetention)) continue;
