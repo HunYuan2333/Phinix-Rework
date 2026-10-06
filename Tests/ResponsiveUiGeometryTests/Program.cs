@@ -18,6 +18,8 @@ internal static class Program
             TestVirtualRanges();
             TestRedPacketClaimRows();
             TestTalentOfferReachability();
+            TestStoreActionReachability();
+            TestManagedPackageCards();
             TestZeroSizeInputs();
             TestStableGeometryDoesNotAllocate();
             Console.WriteLine("All responsive UI geometry tests passed.");
@@ -27,6 +29,23 @@ internal static class Program
         {
             Console.Error.WriteLine(exception.Message);
             return 1;
+        }
+    }
+
+    private static void TestManagedPackageCards()
+    {
+        foreach(float width in new[]{0f,1f,100f,320f,480f,860f})
+        foreach(float height in new[]{0f,1f,30f,148f,300f})
+        {
+            Rect bounds=new Rect(10f,20f,width,height);
+            var layout=PhinixClient.Framework.ManagedExtensionManagerLayout.Card(bounds);
+            foreach(Rect rect in new[]{layout.Title,layout.State,layout.Modules,layout.ModuleButton,layout.Diagnostic,layout.Toggle,layout.Removal})
+            {
+                Assert(rect.width>=0f && rect.height>=0f,"Managed card dimensions are non-negative");
+                Assert(rect.x>=bounds.x && rect.y>=bounds.y && rect.xMax<=bounds.xMax+0.01f && rect.yMax<=bounds.yMax+0.01f,"Managed card remains within its bounds");
+            }
+            Assert(layout.Toggle.xMax<=layout.Removal.x+0.01f,"Managed intent actions do not overlap");
+            if(width>=320f && height>=148f) Assert(layout.Toggle.height==30f && layout.Removal.height==30f && layout.ModuleButton.width>=60f,"Managed package/module actions remain reachable");
         }
     }
 
@@ -173,6 +192,36 @@ internal static class Program
         AssertContained(constrained.NameRect, tiny);
         AssertContained(constrained.AmountRect, tiny);
         Assert(constrained.AmountRect.width <= tiny.width, "A physically impossible amount must remain contained by the row.");
+    }
+
+    private static void TestStoreActionReachability()
+    {
+        foreach (float width in new[] { 0f, 160f, 320f, 780f, 1512f })
+        foreach (float height in new[] { 0f, 30f, 120f, 240f, 480f, 859f })
+        {
+            Rect container = new Rect(15f, 20f, width, height);
+            var layout = Phinix.PluginStore.StoreBrowserLayout.Calculate(container, 200f, 1000f);
+            var managed = Phinix.PluginStore.ManagedStoreLayout.Calculate(container);
+            AssertContained(managed.List, container);
+            AssertContained(managed.Detail, container);
+            Assert(managed.List.xMax <= managed.Detail.xMin || managed.List.yMax <= managed.Detail.yMin, "Managed store list and details never overlap.");
+            AssertContained(layout.Management, container);
+            AssertContained(layout.Selection, container);
+            AssertContained(layout.Plan, container);
+            AssertContained(layout.Feedback, container);
+            AssertContained(layout.Body, container);
+            Assert(layout.Management.yMax <= layout.Selection.yMin && layout.Selection.yMax <= layout.Plan.yMin &&
+                layout.Plan.yMax <= layout.Feedback.yMin && layout.Feedback.yMax <= layout.Body.yMin,
+                "Store actions and feedback must not overlap or be displaced by the catalog form/list.");
+            if (height >= 120f)
+                Assert(layout.Plan.height == 30f && layout.Plan.yMax <= container.yMin + 120f,
+                    "Dependency planning must remain reachable near the top even with long selection/error text.");
+        }
+        Assert(Phinix.PluginStore.StoreBrowserLayout.PackageListHeight(3) == 96f,
+            "The three-item sample must not reserve a large empty list below its rows.");
+        Assert(Phinix.PluginStore.StoreBrowserLayout.PackageListHeight(0) == 32f &&
+            Phinix.PluginStore.StoreBrowserLayout.PackageListHeight(int.MaxValue) == 220f,
+            "Empty and large catalog heights must stay bounded.");
     }
 
     private static void TestZeroSizeInputs()

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "locale": "en-US",
+  "display": {
+    "name": "Phinix Store Playtest",
+    "summary": "Tests package language files, tab registration, counting and 100 silver. Use test saves.",
+    "changelog": "UI uses host localization with language switching and missing-key fallback."
+  },
+  "strings": {
+    "tab": "Store test",
+    "intro": "This tab checks discovery and registration. The click count is retained through uninstall/reinstall. Silver changes the current save.",
+    "click": "Test registration: count clicks",
+    "silver": "Place 100 silver on the current map",
+    "confirm": "Place 100 silver near this map’s center? This changes the colony and will be retained if you save. Use a test save.",
+    "mapRequired": "Silver requires a loaded map. Click counting also works without a map.",
+    "given": "100 silver placed near the map center. See the Playtest operation log.",
+    "failed": "Silver placement failed. See the Playtest operation log.",
+    "count": "Click count: {0}"
+  }
+}

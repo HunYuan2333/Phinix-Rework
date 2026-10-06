@@ -9,6 +9,10 @@
   <!-- Client endpoint projects target net472. Compile the same game-independent
        sources here so their existing regression tests can run on .NET 10. -->
   <ItemGroup>
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\ClientEnvironmentSnapshot.cs" Link="ClientEnvironmentSnapshot.cs" />
+    <Compile Include="..\..\Client\Source\Framework\ClientEnvironmentService.cs" Link="ClientEnvironmentService.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientExtensionManagementWindowService.cs" Link="IClientExtensionManagementWindowService.cs" />
+    <Compile Include="..\..\Client\Source\Framework\ClientExtensionManagementWindowService.cs" Link="ClientExtensionManagementWindowService.cs" />
     <Compile Include="..\..\Common\Connections\NetClient.cs" Link="NetClient.cs" />
     <Compile Include="..\..\Common\Authentication\ClientAuthenticator.cs" Link="ClientAuthenticator.cs" />
     <Reference Include="LiteNetLib">

@@ -39,6 +39,10 @@ namespace PhinixClient
         private string impact;
         private string restartHint;
         private bool hasWarnings;
+        private readonly ManagedExtensionManagerView managedView = new ManagedExtensionManagerView();
+        private bool showManaged;
+        private string modulesLabel, packagesLabel;
+        private object navigationLanguage;
 
         public string TabLabel => "Phinix_tabs_extensions".Translate();
         public float TabOrder => 999f;
@@ -49,6 +53,17 @@ namespace PhinixClient
             inRect.width = Mathf.Max(0f, inRect.width);
             inRect.height = Mathf.Max(0f, inRect.height);
             if (inRect.width <= 0f || inRect.height <= 0f) return;
+
+            if(!ReferenceEquals(navigationLanguage,LanguageDatabase.activeLanguage) || modulesLabel==null)
+            { modulesLabel="Phinix_managed_modulesTab".Translate(); packagesLabel="Phinix_managed_packagesTab".Translate(); navigationLanguage=LanguageDatabase.activeLanguage; }
+            float navigationHeight=Mathf.Min(30f,inRect.height);
+            float navigationGap=Mathf.Min(6f,inRect.width);
+            float navigationWidth=Mathf.Max(0f,(inRect.width-navigationGap)/2f);
+            if(Widgets.ButtonText(new Rect(inRect.x,inRect.y,navigationWidth,navigationHeight),modulesLabel)) showManaged=false;
+            if(Widgets.ButtonText(new Rect(inRect.x+navigationWidth+navigationGap,inRect.y,navigationWidth,navigationHeight),packagesLabel)) showManaged=true;
+            inRect=new Rect(inRect.x,inRect.y+navigationHeight+6f,inRect.width,Mathf.Max(0f,inRect.height-navigationHeight-6f));
+            managedView.Update();
+            if(showManaged) { managedView.Draw(inRect); return; }
 
             PhinixFrameworkClient framework = Client.Instance?.FrameworkClient;
             Settings settings = Client.Instance?.Settings;
@@ -93,6 +108,8 @@ namespace PhinixClient
             DrawLog(logSection);
             DrawBottom(bottom);
         }
+
+        internal void Close() { managedView.Dispose(); }
 
         private void DrawList(Rect section)
         {
@@ -162,7 +179,7 @@ namespace PhinixClient
             {
                 float checkbox = Mathf.Min(18f, inner.height);
                 bool enabled = row.Checked;
-                if (row.CanToggle)
+                if (row.CanToggle && !managedView.Busy)
                 {
                     Widgets.Checkbox(new Vector2(inner.x, inner.y + 4f), ref enabled, checkbox);
                     if (enabled != row.Checked && Client.Instance?.Settings != null)

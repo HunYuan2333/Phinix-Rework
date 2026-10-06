@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LanguageData>
+  <Phinix_playtest_tab>Store test</Phinix_playtest_tab>
+  <Phinix_playtest_intro>This tab confirms public extension discovery, registration and activation. Test-only: silver affects your current save. No persistent plugin data.</Phinix_playtest_intro>
+  <Phinix_playtest_click>Test registration: count clicks</Phinix_playtest_click>
+  <Phinix_playtest_silver>Place 100 silver on the current map</Phinix_playtest_silver>
+  <Phinix_playtest_confirm>Place 100 silver near this map’s center? This changes the colony and will be retained if you save. Use a test save.</Phinix_playtest_confirm>
+  <Phinix_playtest_mapRequired>Silver requires a loaded map. Click counting also works without a map.</Phinix_playtest_mapRequired>
+  <Phinix_playtest_given>100 silver placed near the map center. See the Playtest operation log.</Phinix_playtest_given>
+  <Phinix_playtest_failed>Silver placement failed. See the Playtest operation log.</Phinix_playtest_failed>
+</LanguageData>

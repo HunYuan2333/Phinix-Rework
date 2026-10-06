@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFrameworks>net472;net10.0</TargetFrameworks><LangVersion>7.3</LangVersion><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../Extensions/LegacyTalentTrade/Client/PendingPawnReturnLedger.cs" Link="Production/PendingPawnReturnLedger.cs" />
+    <None Include="../../Extensions/LegacyRedPacket/Client/localization.json" Link="OfficialPackages/LegacyRedPacket/14-LegacyRedPacketExtension.Client.dll.localization.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Extensions/LegacyTalentTrade/Client/localization.json" Link="OfficialPackages/LegacyTalentTrade/16-LegacyTalentTradeExtension.Client.dll.localization.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Extensions/LegacyRedPacket/Client/Resources/LegacyRedPacket/Localization/*.json" Link="OfficialPackages/LegacyRedPacket/Resources/LegacyRedPacket/Localization/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../Extensions/LegacyTalentTrade/Client/Resources/LegacyTalentTrade/Localization/*.json" Link="OfficialPackages/LegacyTalentTrade/Resources/LegacyTalentTrade/Localization/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="Fixtures/**/*.cs" />
+    <None Update="Fixtures/OfficialResourceKeys/*.txt" TargetPath="OfficialResourceKeys/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientLocalizationService.cs" Link="Production/IClientLocalizationService.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientLocalizationService.cs" Link="Production/ClientLocalizationService.cs" />
+    <None Include="../../docs/branch-local/dev/plugin-store/managed-store-protocol-v3/*.json" Link="ManagedStoreProtocol/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../Client/Source/Framework/ManagedExtensionManagerController.cs" Link="Production/ManagedExtensionManagerController.cs" />
+    <ProjectReference Include="../../Common/Utils/Utils.csproj" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs" Link="Production/ClientEnvironmentSnapshot.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PluginStore/PackageVersion.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PluginStore/PackageModels.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/PluginStore/CatalogReader.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PayloadValidator.cs" Link="Production/PluginStore/PayloadValidator.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/PluginStore/RepositoryMetadata.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/PluginStore/ManagedStoreCatalog.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreListing.cs" Link="Production/PluginStore/ManagedStoreListing.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryCache.cs" Link="Production/PluginStore/ManagedRepositoryCache.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryPayloadTransport.cs" Link="Production/PluginStore/ManagedRepositoryPayloadTransport.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryAccess.cs" Link="Production/PluginStore/ManagedRepositoryAccess.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/GitHubRepositoryAccess.cs" Link="Production/PluginStore/GitHubRepositoryAccess.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedPayloadTransfer.cs" Link="Production/PluginStore/ManagedPayloadTransfer.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreProgress.cs" Link="Production/PluginStore/ManagedStoreProgress.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreUpdates.cs" Link="Production/PluginStore/ManagedStoreUpdates.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryTransport.cs" Link="Production/PluginStore/RepositoryTransport.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryPayloadTransport.cs" Link="Production/PluginStore/RepositoryPayloadTransport.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryCache.cs" Link="Production/PluginStore/RepositoryCache.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryDiagnostics.cs" Link="Production/PluginStore/RepositoryDiagnostics.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/PluginStore/ManagedStorePayloadValidator.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreInstallationInput.cs" Link="Production/PluginStore/ManagedStoreInstallationInput.cs" />
+    <ProjectReference Include="Fixtures/Plugin/Plugin.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" AdditionalProperties="TargetFramework=net472" />
+    <ProjectReference Include="Fixtures/Provider/Provider.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" AdditionalProperties="TargetFramework=net472" />
+    <ProjectReference Include="Fixtures/HostUpgrade/HostUpgrade.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" AdditionalProperties="TargetFramework=net472" />
+  </ItemGroup>
+  <ItemGroup><None Include="../PluginStoreRuntimeTests/Fixtures/localization-display/cases.json" Link="LocalizationDisplay/cases.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <Target Name="CopyFixtures" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/Fixtures/Plugin/bin/$(Configuration)/net472/Fixture.Managed.Plugin.dll;$(MSBuildProjectDirectory)/Fixtures/Helper/bin/$(Configuration)/net472/Fixture.Managed.Helper.dll;$(MSBuildProjectDirectory)/Fixtures/Provider/bin/$(Configuration)/net472/Fixture.Managed.Provider.dll" DestinationFolder="$(TargetDir)Fixtures" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/Fixtures/HostUpgrade/bin/$(Configuration)/net472/Fixture.Managed.Helper.dll" DestinationFolder="$(TargetDir)Fixtures/HostUpgrade" />
+  </Target>
+</Project>

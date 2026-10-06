@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Phinix Plugin Store — Local Preview</name>
+  <packageId>hunyuan2333.phinixpluginstore</packageId>
+  <author>Phinix contributors</author>
+  <description>Development preview: browse a local JSON index and inspect a locked dependency plan in the Phinix Store tab or mod settings. Extension management is available from the store and host settings; extension toggles take effect after restarting the game. Downloading, installation and Steam actions are not available. Requires the updated Phinix host and ClientExtensionAbstractions 1.3.0.</description>
+  <supportedVersions><li>1.6</li></supportedVersions>
+  <modDependencies><li><packageId>hunyuan2333.phinixrework</packageId><displayName>Phinix Rework</displayName></li></modDependencies>
+  <loadAfter><li>hunyuan2333.phinixrework</li></loadAfter>
+</ModMetaData>

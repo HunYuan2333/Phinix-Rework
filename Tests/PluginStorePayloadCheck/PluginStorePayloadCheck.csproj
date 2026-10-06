@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PackageVersion.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PackageModels.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/CatalogReader.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PayloadValidator.cs" Link="Production/PayloadValidator.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/ManagedStorePayloadValidator.cs" />
+    <Compile Include="../../Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

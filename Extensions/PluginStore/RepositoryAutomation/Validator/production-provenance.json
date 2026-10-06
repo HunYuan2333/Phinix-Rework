@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "originRepository": "HunYuan2333/Phinix-Rework",
+  "description": "Pinned static catalog/ZIP/PE/localization validation only. Client installation, runtime planning and repository adapters are excluded. Check or explicitly refresh with scripts/validator_snapshot.py; candidate code is never loaded.",
+  "files": [
+    {
+      "source": "Extensions/PluginStore/Client/PackageVersion.cs",
+      "snapshot": "Validator/Production/PackageVersion.cs",
+      "sha256": "d4db6465504fecc8c5164d9c1046ff9f9a61a97b0e51bf75381861b193f94219"
+    },
+    {
+      "source": "Extensions/PluginStore/Client/PackageModels.cs",
+      "snapshot": "Validator/Production/PackageModels.cs",
+      "sha256": "d52a8ab36fe77e1566ace32c06a238a29e455b2f6b5932c49e517e2aab572da5"
+    },
+    {
+      "source": "Extensions/PluginStore/Client/CatalogReader.cs",
+      "snapshot": "Validator/Production/CatalogReader.cs",
+      "sha256": "64735c5007ae3fc4aa14b7f18ecc0beae26dfe61cd1d13977317b5c25268c08d"
+    },
+    {
+      "source": "Extensions/PluginStore/Client/PayloadValidator.cs",
+      "snapshot": "Validator/Production/PayloadValidator.cs",
+      "sha256": "661ad2be369cd474f6f1273e64e5553fc7b3758ed7c022a5538e521ab9e743fd"
+    },
+    {
+      "source": "Extensions/PluginStore/Client/ManagedStoreCatalog.cs",
+      "snapshot": "Validator/Production/ManagedStoreCatalog.cs",
+      "sha256": "950570babb69720e3ab853c1db668b72fb9bf3721f786bb9c7e342b1583126e6"
+    },
+    {
+      "source": "Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs",
+      "snapshot": "Validator/Production/ManagedStorePayloadValidator.cs",
+      "sha256": "2089ed8e76f2711e5c37cbca7693b7d1f4afa47ea8c7de31ac74c54f426f8c4c"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionJson.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionJson.cs",
+      "sha256": "3ff0641f068af280c21e2d276c980a7b77c4bd3219c1e6beca5095c5d91cbea9"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionManifest.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionManifest.cs",
+      "sha256": "bf4a236272cde3cb408a7485feacbb7f2fc15189bd5a99a267851068f4b02592"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionManifestReader.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionManifestReader.cs",
+      "sha256": "8adb820128c871f3c1fd83a7c7dae8ae6d17bebb9a9ad6d3c43c2ed7b66a8061"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionMetadata.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionMetadata.cs",
+      "sha256": "464901bb28a8fa314bb509eb6f8e0e99c904322d294f3ef15515373e620a475b"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionPayloadInspector.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionPayloadInspector.cs",
+      "sha256": "ee1992a741c62ba1de07e446410aefb59ceb604a17bf014c18d5d5e2a2d71902"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ExtensionLocalization.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ExtensionLocalization.cs",
+      "sha256": "adc0f3166ae691697ed43c59a10d6c11199245a3c227532b863c7d03752c41cd"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionReferenceFailure.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionReferenceFailure.cs",
+      "sha256": "3fe38667ef6351640013de6f8e73ceacf187e5c220dcf4bcfce1fe8c980dd58f"
+    },
+    {
+      "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionDigest.cs",
+      "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionDigest.cs",
+      "sha256": "5230337d8c3e3f924d0747a96597d5ade5ba50831430805a4aeb8b3b1e6e5316"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "phinixRange": "\u003E=0.9.7 \u003C1.0.0",
+      "assemblies": [
+        {
+          "name": "ChatExtension",
+          "sha256": "cdfcecd5fa48ce35976c9ffe3453533779d15186ade7177df0037a9a5fe606bb"
+        },
+        {
+          "name": "TradeExtension",
+          "sha256": "30eb06f92d3687e4b58673d0cf9fa454cb6035fd2f1fe51a55bf58ece58e1e42"
+        },
+        {
+          "name": "InventoryExtension",
+          "sha256": "35633540c9b28d0c8ed23b8386a11d5a222a41e330d5ee00dea50b4d7d08552b"
+        },
+        {
+          "name": "LegacyAdapter.Client",
+          "sha256": "a02794262a0b0895159d271f77a511ed010a805d58865ba652146f7b32fd1934"
+        },
+        {
+          "name": "ChatExtension.Client",
+          "sha256": "4a177bed2eca966b2701a795def2e1429ab5067478b093f601ad518bdbbfc806"
+        },
+        {
+          "name": "InventoryExtension.Client",
+          "sha256": "3cb32d90d195547abf71a73a233c77d7db8198439a37359c9c409ac038792f0b"
+        },
+        {
+          "name": "TradeExtension.Client",
+          "sha256": "e4b9aed7d95bfb4e5b7be84916eeea5baa1067c6323fcf30a31ab99e8d2cb2af"
+        },
+        {
+          "name": "PluginStore.Client",
+          "sha256": "ff74d36c9f5fbe71092da74684b162d25c301c41fcbd131c2056795c7ad4f4f0"
+        }
+      ],
+      "modules": [
+        {
+          "id": "builtin.chat",
+          "dependsOn": []
+        },
+        {
+          "id": "builtin.inventory",
+          "dependsOn": []
+        },
+        {
+          "id": "builtin.legacy-adapter",
+          "dependsOn": []
+        },
+        {
+          "id": "builtin.trade",
+          "dependsOn": [
+            "builtin.inventory"
+          ]
+        },
+        {
+          "id": "phinix.plugin-store",
+          "dependsOn": []
+        }
+      ]
+    }
+  ]
+}

@@ -163,7 +163,7 @@ PhinixMod/
     Assemblies/           ← 客户端专属宿主（13-PhinixClient.dll）
   Common/
     Assemblies/           ← 框架基础 DLL（01-10，包含 LiteNetLib, Protobuf, Utils, Connections, Auth, UserManagement, ClientExtensionAbstractions）
-    Extensions/           ← 官方内置插件 DLL（08-16，包含 Chat, Trade, LegacyAdapter, RedPacket, TalentTrade 及其 Client 端实现）
+    Extensions/           ← 官方内置插件 DLL（Chat、Trade、Inventory、LegacyAdapter 和 PluginStore；红包/人才独立安装）
 ```
 
 #### 第三方 Submod 的两种分发与部署方式
@@ -269,7 +269,7 @@ public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionMo
   - `DependencyDisabled`：本身被启用，但其所依赖的父扩展被禁用，因而连锁跳过。
 
 - **宿主内置管理与可观测性**：
-  - 客户端主窗口提供了内置的 `ExtensionManagerTab`（并在 Mod 设置中提供了“扩展管理”面板，Order=50）。
+  - 客户端宿主提供扩展管理窗口（复用 `ExtensionManagerTab` 内容），并在 Mod 设置中提供“扩展管理”面板，Order=50。商店扩展提供主 Tab，通过通用服务打开宿主管理窗口；商店禁用后仍可从设置恢复。
   - 玩家和开发者可实时查看所有扩展的当前状态、版本、来源程序集路径与所属 RimWorld Mod 包 ID，并可直接开关特定扩展。
   - 宿主维护了容量为 300 条的扩展日志环形缓冲区（带 `ExtensionLogVersion` 缓存失效戳），可在该界面中直接查看扩展运行时的诊断日志。
 
@@ -414,6 +414,16 @@ public void Activate(ExtensionHostContext hostContext)
 **推荐**：如果对方提供了 Contracts 工程（如 Chat 和 Trade 都提供了），**直接引用 Contracts 工程**。API registry 方式更适合"对方没有提供 Contracts 程序集"或"你只需要弱依赖（对方可能不存在）"的场景。
 
 ---
+
+### 5.5 DLL 插件语言文件（ClientExtensionAbstractions 1.7.0）
+
+宿主在 Activate 前提供 `IClientLocalizationService`。在 Activate 中调用 `ForModule(this)`，保留返回的 `IClientLocalizer`；绘制时用 `Text("tab.title")` 或 `Format("counter.value", count)`。TabLabel 应动态取值。可订阅主线程 `LanguageChanged` 清理布局缓存，在 Shutdown 中退订并 Dispose。宿主也会在激活失败/Shutdown 后自动释放资源。绑定与语言切换限主线程；文字读取不调用 Verse 翻译设施，可在后台使用。
+
+一个语言一个 UTF-8 JSON，位于 `Resources/Localization/en-US.json`、`zh-CN.json` 等，包含 schemaVersion=1、locale、display（name/summary/可选 changelog）和 strings（UI key→文字）。只提供任一语言即可；缺译逐项按游戏语言、同语言变体、英语、作者默认、实际可用语言回退。编号参数使用 `{0}`，不同译文的参数集合须一致。DLL 硬编码文字不会自动翻译。相同 key 按包隔离，停用商店不影响翻译；工坊 Mod 内部仍由 RimWorld 处理。
+
+托管包 manifest 的可选 `localization.files` 列出语言文件，文件也须在 resources 中声明长度及 SHA-256。打包工具的重复 `--language-file` 参数生成这些声明；`--default-locale` 可选。安装前与启动前均严格验证，启动后使用冻结词典。Common/Extensions 可直接放 DLL，也可每个插件一个一级子目录，DLL/伴随清单/Resources 放在一起；资源目录不递归发现 DLL。通常发现的随包 DLL 使用旁边的 `<assembly>.dll.localization.json`：`--bundle-output` 会输出 DLL、绑定程序集名的伴随清单，以及 `Resources/<packageId>/Localization/`，各插件路径不会碰撞。宿主只接受已注册模块归属，不接受调用方任意路径。没有伴随文件表示无语言包。详见 [作者格式与宿主契约](branch-local/dev/plugin-store/插件语言文件与宿主应用契约.md) 和 [Playtest 样例](../Extensions/PluginStore/Samples/Playtest/README.zh-CN.md)。
+
+目录 v3 只提取这些文件的 display 名称/简介/更新日志，UI strings 仍留在包内。打包工具可用 `--display-output` 输出投影；RepositoryAutomation/scripts/catalog.py 的 project 会对既有 ZIP 提取并校验，build 生成已校验目录草稿。托管条目没有顶层 name/summary，允许仅提供一个语言，与宿主共用逐字段回退。[目录格式](branch-local/dev/plugin-store/managed-store-protocol-v3/README.zh-CN.md)。草稿生成不代表获得上架或发布权限。
 
 ## 6. 三条通信管线
 
@@ -878,6 +888,8 @@ public interface IClientSettingsPanelProvider
 
 注册方式：`builder.RegisterApi<IClientSettingsPanelProvider>(this)`。
 
+`SectionId` 是稳定注册身份，不是玩家标题。使用模块本地化服务在 `DrawSettings` 内绘制标题；Mod 设置页仅在 `SectionId` 是已有 Verse 翻译键时额外显示分组标题，隐藏未翻译的内部 ID。[正式示例插件](https://github.com/HunYuan2333/Phinix-Example-Plugin) 演示多语言设置面板与 Tab 共享持久状态。
+
 完整示例参考 Chat 的实现：[ChatSettingsPanelProvider.cs](Extensions/Chat/Client/ChatSettingsPanelProvider.cs) 和 Trade 的实现：[TradeSettingsPanelProvider.cs](Extensions/Trade/Client/TradeSettingsPanelProvider.cs)。
 
 ### 7.6 设置迁移（Legacy Settings）
@@ -1232,6 +1244,64 @@ public interface IExtensionActivationPolicy
 - 供扩展在运行时查询其他关联扩展是否处于被用户禁用的状态（`DisabledExtensions` 集合），以便执行功能降级或展示提示。
 
 ---
+
+### 8.18 IClientEnvironmentService（客户端抽象 1.2.0）
+
+所有扩展都可以在 `Activate` 中解析此通用服务，在宿主发现结束后的明确主线程操作中调用 `Capture()`；不要在每帧 `Draw` 中扫描，也不要在工作线程调用游戏 API。
+
+```csharp
+IClientEnvironmentService environment = hostContext.GetRequiredService<IClientEnvironmentService>();
+// 宿主启动完成后，在主线程捕获，再将不可变快照交给后台任务。
+ClientEnvironmentSnapshot snapshot = environment.Capture();
+if (!snapshot.IsComplete) return; // 提示 Diagnostics，不猜测缺失事实。
+string dataDirectory = snapshot.Paths.GetExtensionDataDirectory("my.extension.id");
+```
+
+契约定义在 [ClientEnvironmentSnapshot.cs](../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs)。快照包含 RimWorld major.minor、宿主声明的 Phinix/客户端抽象兼容版本、标准本地 Mods 根和 SaveData 根、已安装模组（包含未启用副本）、当前已加载程序集及模块状态。程序集的 CLR 版本、模组启用状态和包目录都不是发行包版本或经过验证的来源证明。集合已复制为只读；目录路径/模块归属无法核实时保留未知信息并提供 Diagnostics，商店适配器因此阻断计划。
+
+新数据路径为 `<SaveData>/Phinix/ExtensionData/<extensionId>`，必须位于本地 Mods 根之外，不依赖当前工作目录。分配路径不创建目录，不证明目录可写，也不解析符号链接；调用者仍需验证文件系统状态、完成持久化和恢复。旧 `hostContext.GetStoragePath` 与既有模块数据位置不迁移。模块可在 Activate 中取得服务，但发现尚未结束时捕获结果会包含 `ExtensionDiscoveryNotReady`，必须在启动完成后重新捕获。
+
+本接口于客户端抽象 1.2.0 引入；加入 §8.19 管理服务及 §8.20 托管路径/运行时归属后当前程序集/兼容版本为 1.6.0；使用它的扩展须配套更新宿主和抽象 DLL，不附带第二份框架 DLL。真实游戏加载/文件系统安装验证仍属于消费插件的验收。
+
+### 8.19 IClientExtensionManagementWindowService（客户端抽象 1.3.0）
+
+激活时解析此通用宿主服务，由主线程 UI 操作调用：
+
+```csharp
+var management = hostContext.GetRequiredService<IClientExtensionManagementWindowService>();
+management.OpenExtensionManagerWindow();
+```
+
+宿主同时只打开一个管理窗口，展示已发现扩展、运行状态、依赖、最近日志及待重启变更。内置和官方扩展使用相同策略；无需服务器登录，也不引用商店实现。宿主模组设置保留独立入口，以便商店禁用后恢复。开关保存现有禁用 ID 设置并在游戏重启后生效，不热卸载程序集、不修改 RimWorld 模组启用列表。
+
+此增量接口保留既有窗口服务成员，引入时抽象版本为 1.3.0；加入 §8.20–8.21 后当前版本为 1.6.0；消费方需更新宿主和抽象 DLL，不随扩展携带第二份框架。
+
+### 8.20 托管扩展静态契约（客户端抽象 1.4.0）
+
+`ClientEnvironmentPaths.ManagedExtensions` 提供游戏保存目录下的绝对 `ManagedExtensionPaths`，独立于本地 Mods 和主包；分配路径不创建目录。`Utils.Framework.ManagedExtensions` 提供不可变清单、版本/范围、期望包状态以及 `ManagedExtensionInventoryReader.Read(paths, cancellationToken)`。
+
+库存读取安装凭据、精确归属文件字节，以及绑定来源/包/清单的期望状态；不联网、不加载程序集、不注册模块。`ContentVerified` 不代表 CLR 身份/引用、兼容性或激活已验证。缺失/损坏状态不默认启用。模块激活与包加载意图保持独立；插件不得附带第二份 Utils 或 ClientExtensionAbstractions DLL。
+
+`ManagedExtensionMetadataReader.ReadIdentity(bytes)` 有界、无执行地读取本地 CLR 身份用于重名检查，不解释插件特性或入口类型，也不授权下载包。`ManagedExtensionMetadataReader.Read(bytes)` 继续严格检查下载插件的 CLR 身份/引用和入口声明；`ManagedExtensionPayloadInspector.Inspect(...)` 冻结并核验字节；`ManagedExtensionCandidatePlanner.Plan(...)` 返回兼容/依赖/冲突结果及关联审计数据。这些静态 API 不加载 DLL、不修改状态。通用宿主运行时现已接入待卸载恢复、核验字节冻结、宿主/托管模块联合依赖图及按依赖顺序加载，再走相同的发现/Register/Activate/Shutdown。CLR 引用要求完整身份精确匹配，解析对象限定为已加载宿主或批准的托管程序集；托管目录不加入旧探测目录。
+
+抽象版本 1.5.0 为已加载程序集/模块快照新增 `ManagedSourceId`、`ManagedPackageId` 和 `ManagedPackageRoot`，保留旧构造方法。托管归属按真实 Assembly 对象记录，支持 Location 为空的字节加载程序集；`SourceModRoot` 保持 null，InstalledMods 仅包含真实 RimWorld Mod。宿主注册只读 `Utils.Framework.ManagedExtensions.IManagedExtensionInventoryService`，其 Snapshot 报告启动库存、诊断和字节是否已加载，与当前模块激活状态分开。
+
+发现/激活经主线程分发器在 Mod 加载结束后运行；自动连接服务器在框架初始化之后。启动持有独占托管库存租约直至关闭。待卸载恢复重新核验收据/状态/日志归属和反向依赖，保留改动/未知文件，不删除 ExtensionData 或存档。日志包含 UTC 时间、启动内序号、稳定阶段/错误码及包/摘要/事务关联；异常详情属于内部诊断，客户端在 DevMode 开启时输出。
+
+宿主还注册 Common/Utils 的增量 `IManagedExtensionManagementService`。`Refresh(disabledModules, token)` 返回新读取的期望状态/归属和不可变启动事实；`ChangeDesiredState(expected, desired, disabledModules, token)` 重新核验身份、内容和依赖，在现有生命周期租约下原子保存意图。先在 UI 主线程捕获模块设置，再进行后台操作。过期状态/来源拒绝写入；包与模块意图不改变当前激活结果。宿主管理窗口展示未加载包、操作阻止原因和待重启；卸载在下次启动恢复并保留业务数据，未知事务阻止写入。托管联网下载仍是 M4 工作。写入必须复用宿主协调器，不另抢租约或在本次会话修改已安装代码。DLL 字节无法热卸载，变更须重启；运行时不是代码沙箱。.NET 10/macOS 锁明确不支持，Windows/macOS 游戏平台验收待做。验证和剩余游戏验收见[分支记录](branch-local/dev/plugin-store/托管DLL分步实现.md)。本次 API 增量不表示新路线已能联网下载安装。
+
+
+### 8.21 宿主协调的安装服务（客户端抽象 1.6.0）
+
+`ClientEnvironmentSnapshot.DisabledModuleIds` 与新增构造方法在主线程捕获当前停用设置，旧构造方法保留。后台工作前捕获环境/设置，使用配套 1.6.0 宿主与抽象 DLL；实际托管 CLR 完整引用身份与语义兼容区间分别核对。
+
+宿主注册 Common/Utils `IManagedExtensionInstallationService`。`ManagedExtensionInstallPackage` 冻结原始 manifest、声明文件和来源凭据；`ManagedExtensionInstallRequest` 限定同源/目录快照的一批最多 32 包、展开合计 256 MiB。`Install(request, disabledModules, token)` 使用宿主持有的全生命周期租约，重新核对 PE、库存、已加载身份及联合图，仅安装新包。服务不做联网或发布者认证：消费方负责下载链、在线 freshness 与用户确认。不能竞争租约或覆盖已有包。
+
+preparing 日志只授权精确归属暂存清理；committing 日志授权下一次加载前继续完成提交。提交决定前响应取消，之后完成/恢复优先。变化或未知文件保留证据，关闭托管写入/加载。结果区分安装已保存、拒绝、需恢复或存储结果不确定。安装成功也不在当前会话加载 DLL 或注册模块；包启停/卸载同样重启生效。卸载保留设置、业务数据与存档。商店停用也不影响通用服务或已装包的普通生命周期。
+
+CLR 引用拒绝通过 `ManagedExtensionAssemblyReferenceFailure` 传递至候选/安装结果及启动/安装审计，包含引用方、所需完整身份与可用同名身份。这些仅为诊断，不授权重绑定、加载缺失程序集或绕过精确版本。打包工具可用重复 `--host-assembly` 在写 ZIP 前核对。编译须匹配目标游戏的实际构建号，仅 RimWorld major.minor 不足以证明 `Assembly-CSharp` 精确匹配。
+
+目录 v3/托管 ZIP 与内置商店已经接通测试来源；公开发布、游戏/平台验收见[首版清单](branch-local/dev/plugin-store/商店首版交付与验收.md)。最小打包工具静态读取真实 PE 声明，不执行 DLL；不能把打包成功当作任意代码获准或远端发布授权。
 
 ## 9. 插件间协作
 
@@ -1872,16 +1942,19 @@ RimWorld 的 `ModAssemblyHandler` 按文件名字符串序加载程序集。当�
 | 08 | ChatExtension | `Common/Extensions/` | 官方 Chat 领域 Contracts |
 | 09 | TradeExtension | `Common/Extensions/` | 官方 Trade 领域 Contracts |
 | 10 | LegacyAdapter.Client | `Common/Extensions/` | 兼容旧服务器的协议适配器客户端 |
+| 10 | InventoryExtension | `Common/Extensions/` | 库存领域契约 |
+| 11 | InventoryExtension.Client | `Common/Extensions/` | 库存客户端实现 |
 | 11 | ChatExtension.Client | `Common/Extensions/` | 官方 Chat 客户端扩展实现 |
 | 12 | TradeExtension.Client | `Common/Extensions/` | 官方 Trade 客户端扩展实现 |
-| 13 | LegacyRedPacketExtension | `Common/Extensions/` | 官方红包扩展契约 |
-| 14 | LegacyRedPacketExtension.Client | `Common/Extensions/` | 官方红包客户端扩展实现 |
-| 15 | LegacyTalentTradeExtension | `Common/Extensions/` | 官方异能/天赋交易扩展契约 |
-| 16 | LegacyTalentTradeExtension.Client | `Common/Extensions/` | 官方异能/天赋交易客户端扩展实现 |
 | 13 | PhinixClient | `1.6/Assemblies/` | 客户端宿主（按版本隔离） |
-| 17+ | 第三方 Submod（放入 Extensions 时） | `Common/Extensions/` | 必须使用 17 或更大前缀，排在所有官方插件之后 |
+| 17 | PluginStore.Client | `Common/Extensions/` | 内置插件商店 |
+| 18+ | 第三方平铺 DLL | `Common/Extensions/` | 排在内置扩展之后 |
 
 > **提示**：如果采用**方案 A（独立 Mod）**分发，DLL 位于独立 Mod 的 `Assemblies/` 中，RimWorld 会在加载完 Phinix 的所有程序集后再加载你的 Mod 程序集，因此通常无需在文件名中添加数字前缀；但如果你的 Mod 包含多个有前后依赖关系的 DLL，仍需在自己的文件名间遵循字母序规则。
+
+红包/人才贸易从主包移除后，安装完整独立包（两个自有 DLL 和语言资源），不要再混用旧 `13`–`16` 平铺副本。主包更新建议替换旧 Mod 文件夹，而不是只覆盖 DLL；保留玩家设置/存档/托管目录。程序集、模块和 Scribe 类型身份不变，但缺包后重存的人物恢复尚未验收，旧人才业务存档先备份并重新安装插件，再打开保存。
+
+托管插件的宿主库引用采用同主版本向上兼容：例如所需 Harmony `2.3.6.0`，宿主已加载 `2.4.1.0` 可以使用；`3.x`、较旧版本、名称/语言/公钥不一致仍拒绝。优先精确版本，没有精确版本时只接受一个兼容候选。预检、启动绑定和打包器共用规则；实际绑定只用启动前已加载且已声明的宿主程序集，写入 `ManagedHostReferenceUpgraded` 审计。插件包自身及依赖包的 DLL 身份、内容摘要与语义版本范围仍严格锁定；同主版本放行不是完整 API 兼容性证明。
 
 ### 12.8 调试提示
 
@@ -1926,6 +1999,12 @@ RimWorld 的 `ModAssemblyHandler` 按文件名字符串序加载程序集。当�
 
 > **状态符号**：✅ = 完整可用 | ⚠️ = 半成品/过渡态 | 🔮 = 计划中
 
+## 托管程序集占用规则
+
+托管包保留 CLR、游戏和框架程序集名称。`ChatExtension`、`TradeExtension` 等业务扩展名属于普通包身份，不因官方身份永久保留。客户端同时检查声明的程序集身份和 DLL 文件名别名，与宿主实际发现的程序集、其他已安装包及本次选中的包核对；名称已被占用仍会阻止安装。不要把宿主或游戏 DLL 打进插件包来满足引用。
+
+索引校验器使用固定版本的静态解析源码子集。维护者可运行 `scripts/validator_snapshot.py check` 检查快照；与主源码比较或刷新时，必须显式提供可信的主源码检出路径。候选插件源码不会被执行，也不会用于刷新校验器。验证结果和待同步的远端工作见[客户端耦合收口验收](branch-local/dev/plugin-store/商店客户端耦合收口验收.md)。
+
 ## 附录 B：ExtensionHostContext 全部服务速查表
 
 以下服务在 `Activate()` 中通过 `hostContext.GetRequiredService<T>()` 获取：
@@ -1937,6 +2016,8 @@ RimWorld 的 `ModAssemblyHandler` 按文件名字符串序加载程序集。当�
 | `IClientDisplayMessageStore` | 消息持久化存储 | [IClientExtensionAbstractions.cs:41-50](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L41-L50) |
 | `IClientDisplayMessageFeed` | 消息流事件订阅 | [IClientExtensionAbstractions.cs:52-55](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L52-L55) |
 | `IFrameworkClientLifecycle` | 兼容模式与协商 | [IClientExtensionAbstractions.cs:67-72](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L67-L72) |
+| `IClientEnvironmentService` | 主线程捕获通用游戏环境与稳定新数据路径 | [ClientEnvironmentSnapshot.cs](../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs) |
+| `IClientExtensionManagementWindowService` | 主线程 UI 打开宿主扩展管理窗口 | [IClientExtensionManagementWindowService.cs](../Client/ClientExtensionAbstractions/Framework/IClientExtensionManagementWindowService.cs) |
 | `IClientSessionContext` | 当前会话状态 | [IClientExtensionAbstractions.cs:74-83](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L74-L83) |
 | `IClientSettingsContext` | 读写设置 | [IClientExtensionAbstractions.cs:85-100](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L85-L100) |
 | `IClientUserDirectory` | 用户信息查询 | [IClientExtensionAbstractions.cs:102-109](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L102-L109) |

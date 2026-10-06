@@ -1,0 +1,80 @@
+name: Plugin intake
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  push:
+    branches: [main, codex/index-bot-bootstrap]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Submission issue number; 0 runs the validator self-check only"
+        required: true
+        default: "0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: intake-${{ github.event.issue.number || inputs.issue_number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: github.repository == 'HunYuan2333/Phinix-Plugin-Index' && (github.event_name != 'issues' || startsWith(github.event.issue.title, '[Plugin]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build trusted static validator
+        run: dotnet build Validator/Validator.csproj --configuration Release
+      - name: Regression checks
+        run: python3 -m unittest discover -s tests -v
+      - name: Check unchanged fixed candidate
+        if: github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && inputs.issue_number != '0')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        run: python3 scripts/bot.py check --issue-number "$ISSUE_NUMBER" --validator Validator/bin/Release/net10.0/Validator.dll --output out
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always() && (github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && inputs.issue_number != '0'))
+        with:
+          name: candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            out/report.json
+            out/candidate.json
+            out/static.json
+          if-no-files-found: error
+          retention-days: 14
+
+  report:
+    needs: validate
+    if: always() && github.repository == 'HunYuan2333/Phinix-Plugin-Index' && (github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && inputs.issue_number != '0')) && needs.validate.result != 'skipped' && needs.validate.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: report
+      - name: Report without approval or publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/bot.py post --report report/report.json

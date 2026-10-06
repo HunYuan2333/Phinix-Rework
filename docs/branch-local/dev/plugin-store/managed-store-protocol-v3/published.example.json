@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "example.source",
+  "snapshotId": "4444444444444444444444444444444444444444",
+  "catalogSchemaVersion": 3,
+  "catalogSha256": "11788cbb0d74efe6a206abf78a58c2fc3d4fe2cf688dfcd9e779acea8376e345",
+  "catalogSizeBytes": 3153,
+  "repository": "example-owner/example-index",
+  "repositoryId": "1011",
+  "ownerId": "1002",
+  "releaseId": "1013",
+  "assetId": "1014",
+  "assetName": "catalog.json"
+}

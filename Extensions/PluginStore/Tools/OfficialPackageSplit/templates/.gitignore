@@ -1,0 +1,11 @@
+bin/
+obj/
+artifacts/
+references/
+*.dll
+*.pdb
+*.zip
+*.log
+*.local.json
+__pycache__/
+.env*

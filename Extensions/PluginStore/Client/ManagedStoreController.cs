@@ -1,0 +1,266 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using PhinixClient.Framework;
+using Utils.Framework.ManagedExtensions;
+
+namespace Phinix.PluginStore
+{
+    internal enum ManagedStoreState { Idle, Reading, Ready, Planning, PlanReady, Downloading, Verified, Installing, Installed, Managing, Failed, Canceled, Stopped }
+    internal sealed class ManagedStoreSnapshot
+    {
+        internal ManagedStoreSnapshot(long revision,ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,
+            ManagedExtensionManagementSnapshot inventory,string code,string requestId=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,ManagedStoreProgress progress=null)
+        { Revision=revision; State=state; Catalog=catalog; Repository=repository; Plan=plan; Inventory=inventory; Code=code; RequestId=requestId; LocalIdentity=localIdentity; ReferenceFailure=referenceFailure; Progress=progress; }
+        internal long Revision { get; }
+        internal ManagedStoreState State { get; }
+        internal ManagedStoreCatalogSnapshot Catalog { get; }
+        internal RepositoryBrowseInfo Repository { get; }
+        internal ManagedStorePlan Plan { get; }
+        internal ManagedExtensionManagementSnapshot Inventory { get; }
+        internal string Code { get; }
+        internal string RequestId { get; }
+        internal LocalIdentityDiagnostic LocalIdentity { get; }
+        internal ManagedExtensionAssemblyReferenceFailure ReferenceFailure { get; }
+        internal ManagedStoreProgress Progress { get; }
+        internal bool Busy => State==ManagedStoreState.Reading || State==ManagedStoreState.Planning || State==ManagedStoreState.Downloading || State==ManagedStoreState.Installing || State==ManagedStoreState.Managing;
+    }
+    internal sealed class ManagedStoreController : IDisposable
+    {
+        private readonly object gate=new object();
+        private readonly IManagedExtensionManagementService management;
+        private readonly IManagedExtensionInstallationService installation;
+        private readonly Action<string> log;
+        private ManagedStoreSnapshot snapshot=new ManagedStoreSnapshot(0,ManagedStoreState.Idle,null,null,null,null,null);
+        private CancellationTokenSource running;
+        private bool disposed;
+        private long lastProgressTicks;
+        private ClientEnvironmentSnapshot updateEnvironment,updatesEnvironment;
+        private ManagedStoreCatalogSnapshot updatesCatalog;
+        private ManagedExtensionManagementSnapshot updatesInventory;
+        private ManagedStoreRecord[] updates=new ManagedStoreRecord[0];
+        private System.Collections.ObjectModel.ReadOnlyCollection<ManagedStoreRecord> updatesView=Array.AsReadOnly(new ManagedStoreRecord[0]);
+        internal ManagedStoreController(IManagedExtensionManagementService management,IManagedExtensionInstallationService installation,Action<string> log=null)
+        { this.management=management; this.installation=installation; this.log=log; }
+        internal ManagedStoreSnapshot Snapshot { get { lock(gate) return snapshot; } }
+        internal System.Collections.ObjectModel.ReadOnlyCollection<ManagedStoreRecord> Updates
+        {
+            get
+            {
+                lock(gate)
+                {
+                    if(updatesCatalog!=snapshot.Catalog || updatesInventory!=snapshot.Inventory || updatesEnvironment!=updateEnvironment)
+                    {
+                        updatesCatalog=snapshot.Catalog; updatesInventory=snapshot.Inventory; updatesEnvironment=updateEnvironment;
+                        updates=ManagedStoreUpdates.Find(snapshot.Catalog,snapshot.Inventory,snapshot.Repository?.Endpoint,updateEnvironment);
+                        updatesView=Array.AsReadOnly(updates);
+                    }
+                    return updatesView;
+                }
+            }
+        }
+        internal Task CheckUpdates(RepositoryEndpoint endpoint,ClientEnvironmentSnapshot environment)
+        {
+            lock(gate) updateEnvironment=environment;
+            return Run(ManagedStoreState.Reading,async token=>
+            {
+                var inventory=Inventory(environment,token);
+                // No installed official plugins: avoid a startup network request entirely.
+                if(!inventory.Packages.Any(p=>p.Package.SourceId==endpoint.SourceId && p.Package.RepositoryIdentitySha256==endpoint.IdentityKey &&
+                    p.Package.DesiredState!=ManagedExtensionDesiredState.PendingRemoval && p.Package.ContentState==ManagedExtensionContentState.ContentVerified))
+                    return Result(ManagedStoreState.Idle,null,null,null,inventory,"ManagedUpdateCheckSkipped");
+                var audit=new RepositoryDiagnostics(log,endpoint.SourceId);
+                audit.Event("managed.update_check_started","UpdateMetadata");
+                var cache=new ManagedRepositoryCache(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),endpoint);
+                using(var connection=ManagedRepositoryAccess.Create(endpoint,audit))
+                {
+                    var entry=await Metadata(t=>ManagedRepositoryBrowser.Refresh(endpoint,cache,connection,t),token).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested(); cache.Save(entry,token);
+                    inventory=Inventory(environment,token);
+                    audit.Event("managed.update_check_complete","UpdateMetadata");
+                    return Result(ManagedStoreState.Ready,entry.Catalog,new RepositoryBrowseInfo(endpoint,entry.CheckedUtc,false,false),null,inventory,"ManagedUpdateCheckComplete");
+                }
+            });
+        }
+        private ManagedExtensionManagementSnapshot Inventory(ClientEnvironmentSnapshot environment,CancellationToken token)
+        {
+            if(environment==null || !environment.IsComplete || management==null) throw Error("IncompleteEnvironment");
+            return management.Refresh(environment.DisabledModuleIds,token);
+        }
+        internal Task Refresh(RepositoryEndpoint endpoint,ClientEnvironmentSnapshot environment,bool offline,RepositoryTransport transport)
+        { return Refresh(endpoint,environment,offline,new CloudflareRepositoryAccess(transport)); }
+        internal Task Refresh(RepositoryEndpoint endpoint,ClientEnvironmentSnapshot environment,bool offline=false,IManagedRepositoryAccess transport=null)
+        {
+            lock(gate)
+            {
+                if(running!=null) throw Error("StoreBusy");
+                updateEnvironment=environment;
+                if(snapshot.Repository!=null && (snapshot.Repository.Endpoint.IdentityKey!=endpoint.IdentityKey || snapshot.Repository.Endpoint.AccessKey!=endpoint.AccessKey))
+                    snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,ManagedStoreState.Idle,null,null,null,snapshot.Inventory,null);
+            }
+            return Run(ManagedStoreState.Reading,async token=>
+            {
+                var cache=new ManagedRepositoryCache(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),endpoint);
+                ManagedRepositoryCacheEntry entry;
+                if(offline) entry=cache.TryRead(token)??throw Error("CacheUnavailable");
+                else using(var connection=transport??ManagedRepositoryAccess.Create(endpoint,new RepositoryDiagnostics(log,endpoint.SourceId)))
+                {
+                    entry=await Metadata(t=>ManagedRepositoryBrowser.Refresh(endpoint,cache,connection,t),token).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested(); cache.Save(entry,token);
+                }
+                bool stale=offline && (DateTime.UtcNow-entry.CheckedUtc>TimeSpan.FromMinutes(30) || entry.CheckedUtc>DateTime.UtcNow);
+                return Result(ManagedStoreState.Ready,entry.Catalog,new RepositoryBrowseInfo(endpoint,entry.CheckedUtc,offline,stale),null,Inventory(environment,token),offline?"ManagedStoreOffline":"ManagedStoreReady");
+            });
+        }
+        internal Task RefreshInventory(ClientEnvironmentSnapshot environment)
+        { var before=Snapshot; return Run(ManagedStoreState.Managing,token=>Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,token),"ManagedInventoryRefreshed"))); }
+        internal Task Plan(ManagedStoreRecord selected,ClientEnvironmentSnapshot environment,ManagedStoreCatalogSnapshot expected,bool replace=false)
+        {
+            var before=Snapshot; if(before.Catalog!=expected) throw Error("SnapshotChanged");
+            return Run(ManagedStoreState.Planning,token=>
+            {
+                var inventory=Inventory(environment,token);
+                if(before.Repository==null) throw Error("InvalidEndpoint");
+                var plan=new ManagedStorePlanner(before.Catalog,environment,inventory,before.Repository.Endpoint,replace).Plan(selected,token);
+                return Task.FromResult(Result(ManagedStoreState.PlanReady,before.Catalog,before.Repository,plan,inventory,"ManagedPlanReady"));
+            });
+        }
+        internal Task Download(ManagedStorePlan expected,ClientEnvironmentSnapshot environment,bool install,RepositoryTransport transport)
+        { return Download(expected,environment,install,new CloudflareRepositoryAccess(transport)); }
+        internal Task Download(ManagedStorePlan expected,ClientEnvironmentSnapshot environment,bool install,IManagedRepositoryAccess transport=null)
+        {
+            var before=Snapshot;
+            if(expected==null || expected!=before.Plan || expected.Catalog!=before.Catalog) throw Error("SnapshotChanged");
+            if(before.Repository==null || before.Repository.Offline || before.Repository.Stale || DateTime.UtcNow-before.Repository.CheckedUtc>TimeSpan.FromMinutes(30) || before.Repository.CheckedUtc>DateTime.UtcNow) throw Error("RepositoryStale");
+            if(install && installation==null) throw Error("ManagedManagementUnavailable");
+            var endpoint=before.Repository.Endpoint; var audit=new RepositoryDiagnostics(log,endpoint.SourceId);
+            return Run(install?ManagedStoreState.Installing:ManagedStoreState.Downloading,async token=>
+            {
+                audit.Event("managed.download_started","ManagedPackage");
+                var cache=new ManagedRepositoryCache(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),endpoint);
+                using(var connection=transport??ManagedRepositoryAccess.Create(endpoint,audit))
+                {
+                    var entry=await Fresh(connection,cache,endpoint,expected,token).ConfigureAwait(false);
+                    var inventory=Inventory(environment,token);
+                    var selected=entry.Catalog.Packages.Single(p=>p.Id==expected.Root.Id && !p.IsWorkshop && p.Manifest.Version.ToString()==expected.Root.Manifest.Version.ToString());
+                    var current=new ManagedStorePlanner(entry.Catalog,environment,inventory,endpoint,expected.ReplacesPackages).Plan(selected,token);
+                    if(current.Identity!=expected.Identity) throw Error("ManagedStateChanged");
+                    var packages=new List<ManagedExtensionInstallPackage>();
+                    var downloads=current.Items.Where(i=>i.RequiresDownload).ToArray();
+                    long received=0; int index=0;
+                    foreach(var item in downloads)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        index++;
+                        long transferredBefore=received; int ordinal=index;
+                        ReportProgress(token,new ManagedStoreProgress(ManagedProgressStage.Checking,item.Package,received,current.DownloadBytes,index,downloads.Length));
+                        audit.Event("managed.package_checking","ManagedPackage",managed:item.Package);
+                        var report=await connection.DownloadManagedPackage(endpoint,entry.Catalog,item.Package,environment.Paths,token,null,p=>
+                            ReportProgress(token,new ManagedStoreProgress(p.Stage,item.Package,transferredBefore+p.Received,current.DownloadBytes,ordinal,downloads.Length))).ConfigureAwait(false);
+                        received+=item.Package.Artifact.SizeBytes;
+                        packages.Add(report.InstallationInput(endpoint,entry.Catalog,item.Installed));
+                    }
+                    if(packages.Count==0) throw Error("ManagedAlreadyInstalled");
+                    if(install)
+                    {
+                        // Withdrawal or any pointer change during transfer requires a new user review.
+                        ReportProgress(token,new ManagedStoreProgress(ManagedProgressStage.Rechecking,null,received,current.DownloadBytes,index,downloads.Length));
+                        audit.Event("managed.precommit_checking","ManagedInstall",bytes:received);
+                        await Fresh(connection,cache,endpoint,expected,token).ConfigureAwait(false);
+                        var finalInventory=Inventory(environment,token);
+                        if(new ManagedStorePlanner(entry.Catalog,environment,finalInventory,endpoint,expected.ReplacesPackages).Plan(selected,token).Identity!=expected.Identity) throw Error("ManagedStateChanged");
+                        ReportProgress(token,new ManagedStoreProgress(ManagedProgressStage.Committing,null,received,current.DownloadBytes,index,downloads.Length));
+                        audit.Event("managed.commit_started","ManagedInstall",bytes:received);
+                        var result=installation.Install(new ManagedExtensionInstallRequest(packages),environment.DisabledModuleIds,token);
+                        audit.TransactionId=result.TransactionId; audit.Event("managed.install_result","ManagedInstall",result.Code,referenceFailure:result.ReferenceFailure);
+                        if(!result.Succeeded) throw new StoreValidationException(result.Code,"Managed installation refused.") {ReferenceFailure=result.ReferenceFailure};
+                        inventory=Inventory(environment,CancellationToken.None);
+                    }
+                    return Result(install?ManagedStoreState.Installed:ManagedStoreState.Verified,before.Catalog,new RepositoryBrowseInfo(endpoint,DateTime.UtcNow,false,false),expected,inventory,install?"ManagedInstallSaved":"ManagedPayloadsVerified");
+                }
+            });
+        }
+        private static async Task<ManagedRepositoryCacheEntry> Fresh(IManagedRepositoryAccess transport,ManagedRepositoryCache cache,RepositoryEndpoint endpoint,ManagedStorePlan expected,CancellationToken token)
+        {
+            // Always read the live pointer; a browsing cache cannot authorize installation.
+            var entry=await Metadata(t=>ManagedRepositoryBrowser.Refresh(endpoint,cache,transport,t,true),token).ConfigureAwait(false);
+            if(entry.Catalog.SnapshotId!=expected.Catalog.SnapshotId || entry.Catalog.Sha256!=expected.Catalog.Sha256) throw Error("SnapshotChanged");
+            return entry;
+        }
+        internal Task Change(ManagedExtensionPackageSnapshot expected,ManagedExtensionDesiredState state,ClientEnvironmentSnapshot environment)
+        {
+            var before=Snapshot;
+            return Run(ManagedStoreState.Managing,token=>
+            {
+                var result=management.ChangeDesiredState(expected,state,environment.DisabledModuleIds,token);
+                if(!result.Succeeded) throw Error(result.Code);
+                return Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,token),"ManagedStateSaved"));
+            });
+        }
+        private Task Run(ManagedStoreState state,Func<CancellationToken,Task<ManagedStoreSnapshot>> work)
+        {
+            lock(gate)
+            {
+                if(disposed) throw new ObjectDisposedException(nameof(ManagedStoreController));
+                if(running!=null) throw Error("StoreBusy");
+                var source=new CancellationTokenSource(); running=source;
+                lastProgressTicks=0;
+                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,state,snapshot.Catalog,snapshot.Repository,snapshot.Plan,snapshot.Inventory,null);
+                return Task.Run(async ()=>
+                {
+                    ManagedStoreSnapshot result;
+                    try { result=await work(source.Token).ConfigureAwait(false); }
+                    catch(OperationCanceledException) { result=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled"); }
+                    catch(Exception ex)
+                    {
+                        var validation=ex as StoreValidationException;
+                        string code=validation?.Code??(ex as ManagedExtensionValidationException)?.Code??"ManagedStoreFailed";
+                        var referenceFailure=validation?.ReferenceFailure??(ex as ManagedExtensionValidationException)?.ReferenceFailure;
+                        new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId).Event("managed.operation_failed","ManagedStore",code,validation?.RequestId,localIdentity:validation?.LocalIdentity,referenceFailure:referenceFailure);
+                        result=Result(ManagedStoreState.Failed,null,null,null,null,code,validation?.RequestId,validation?.LocalIdentity,referenceFailure);
+                    }
+                    lock(gate)
+                    {
+                        if(!disposed) snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,result.State,result.Catalog??snapshot.Catalog,result.Repository??snapshot.Repository,
+                            result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure);
+                        running=null; source.Dispose();
+                    }
+                });
+            }
+        }
+        private void ReportProgress(CancellationToken token,ManagedStoreProgress progress)
+        {
+            lock(gate)
+            {
+                // A timed-out adapter may finish late, after cancellation or even a new operation.
+                if(disposed || running==null || running.Token!=token || token.IsCancellationRequested) return;
+                long ticks=Stopwatch.GetTimestamp(); var previous=snapshot.Progress;
+                if(previous!=null && (progress.Index<previous.Index || progress.Received<previous.Received)) return;
+                bool boundary=previous==null || previous.Stage!=progress.Stage || previous.Package!=progress.Package || progress.Received==progress.Total;
+                if(!boundary && ticks-lastProgressTicks<Stopwatch.Frequency/4) return;
+                lastProgressTicks=ticks;
+                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,snapshot.State,snapshot.Catalog,snapshot.Repository,snapshot.Plan,snapshot.Inventory,
+                    snapshot.Code,snapshot.RequestId,snapshot.LocalIdentity,snapshot.ReferenceFailure,progress);
+            }
+        }
+        private static async Task<T> Metadata<T>(Func<CancellationToken,Task<T>> work,CancellationToken token)
+        {
+            using(var deadline=CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                var task=work(deadline.Token); var delay=Task.Delay(30000,deadline.Token);
+                if(await Task.WhenAny(task,delay).ConfigureAwait(false)!=task)
+                { deadline.Cancel(); _=task.ContinueWith(t=>{var ignored=t.Exception;},TaskContinuationOptions.OnlyOnFaulted); token.ThrowIfCancellationRequested(); throw Error("RepositoryTimeout"); }
+                deadline.Cancel(); return await task.ConfigureAwait(false);
+            }
+        }
+        internal void Cancel() { lock(gate) { if(!disposed) running?.Cancel(); } }
+        public void Dispose() { lock(gate) { if(disposed) return; disposed=true; running?.Cancel(); snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,ManagedStoreState.Stopped,snapshot.Catalog,snapshot.Repository,null,snapshot.Inventory,"ManagedStoreStopped"); } }
+        private static ManagedStoreSnapshot Result(ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,ManagedExtensionManagementSnapshot inventory,string code,string request=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null)
+        { return new ManagedStoreSnapshot(0,state,catalog,repository,plan,inventory,code,request,localIdentity,referenceFailure); }
+        private static StoreValidationException Error(string code) { return new StoreValidationException(code,"Managed shop operation: "+code); }
+    }
+}

@@ -18,10 +18,18 @@ namespace PhinixClient.Framework
     /// </summary>
     internal sealed class ExtensionControlSettingsPanelProvider : IClientSettingsPanelProvider
     {
+        private readonly IClientExtensionManagementWindowService management;
+
+        public ExtensionControlSettingsPanelProvider(IClientExtensionManagementWindowService management)
+        {
+            this.management = management;
+        }
+
         // 布局缓存（设计哲学 §8.3）：设置面板每帧重绘，排序、文本拼接、颜色标记只在
         // 扩展结果数量或设置版本变化时重建一次，Draw 路径零分配。
         private List<ExtensionDiscoveryResult> cachedSortedResults;
         private string[] cachedLabels;
+        private string cachedManagementLabel;
         private string[] cachedHints;
         private float[] cachedLabelHeights;
         private float[] cachedHintHeights;
@@ -73,6 +81,11 @@ namespace PhinixClient.Framework
                 return;
             }
 
+            if (listing.ButtonText(cachedManagementLabel))
+            {
+                management.OpenExtensionManagerWindow();
+            }
+
             for (int i = 0; i < cachedSortedResults.Count; i++)
             {
                 ExtensionDiscoveryResult result = cachedSortedResults[i];
@@ -121,6 +134,7 @@ namespace PhinixClient.Framework
             Settings hostSettings,
             float availableWidth)
         {
+            cachedManagementLabel = "Phinix_extensions_management".Translate();
             IReadOnlyCollection<string> disabledIds = hostSettings?.DisabledExtensions;
 
             cachedSortedResults = new List<ExtensionDiscoveryResult>(results);

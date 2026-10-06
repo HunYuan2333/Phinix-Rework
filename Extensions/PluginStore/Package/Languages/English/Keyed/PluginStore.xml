@@ -1,0 +1,160 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LanguageData>
+  <Phinix_store_tab>Store</Phinix_store_tab>
+  <Phinix_store_management>Extension management</Phinix_store_management>
+  <Phinix_store_sourceSettings>Index settings / reload</Phinix_store_sourceSettings>
+  <Phinix_store_operationFailed>Operation failed.</Phinix_store_operationFailed>
+  <Phinix_store_selected>Selected</Phinix_store_selected>
+  <Phinix_store_selectionAction>Click Preview dependency plan above to resolve dependencies.</Phinix_store_selectionAction>
+  <Phinix_store_inactive>This package is unavailable for dependency planning.</Phinix_store_inactive>
+  <Phinix_store_open>Open plugin store</Phinix_store_open>
+  <Phinix_store_title>Plugin store</Phinix_store_title>
+  <Phinix_store_preview>Browse an HTTPS repository, review dependencies, and install verified new ZIP packages. Enable them in RimWorld and restart. Offline caches authorize browsing only.</Phinix_store_preview>
+  <Phinix_store_path>Absolute local JSON path</Phinix_store_path>
+  <Phinix_store_source>Expected index source ID</Phinix_store_source>
+  <Phinix_store_search>Search packages</Phinix_store_search>
+  <Phinix_store_load>Load local index</Phinix_store_load>
+  <Phinix_store_cancel>Cancel current operation</Phinix_store_cancel>
+  <Phinix_store_plan>Preview dependency plan</Phinix_store_plan>
+  <Phinix_store_dependencies>Package dependencies</Phinix_store_dependencies>
+  <Phinix_store_workshop>Steam Workshop</Phinix_store_workshop>
+  <Phinix_store_workshopPending>Workshop opening is awaiting Steam integration verification. This preview only shows the listing.</Phinix_store_workshopPending>
+  <Phinix_store_planPreview>Locked plan preview</Phinix_store_planPreview>
+  <Phinix_store_bytes>Declared download bytes</Phinix_store_bytes>
+  <Phinix_store_existing>Existing verified package</Phinix_store_existing>
+  <Phinix_store_new>New package</Phinix_store_new>
+  <Phinix_store_enable>Enable and restart required</Phinix_store_enable>
+  <Phinix_store_external>External mod requirement</Phinix_store_external>
+  <Phinix_store_noInstall>Installation requires confirmation and fresh online checks. Existing packages are never overwritten.</Phinix_store_noInstall>
+  <Phinix_store_select>Select a package version to inspect its details.</Phinix_store_select>
+  <Phinix_store_state_Idle>Configure a repository endpoint, or open the local JSON test tools.</Phinix_store_state_Idle>
+  <Phinix_store_state_ReadingIndex>Reading and validating the index…</Phinix_store_state_ReadingIndex>
+  <Phinix_store_state_CatalogReady>Index loaded.</Phinix_store_state_CatalogReady>
+  <Phinix_store_state_Planning>Resolving dependencies…</Phinix_store_state_Planning>
+  <Phinix_store_state_PlanReady>Dependency plan ready.</Phinix_store_state_PlanReady>
+  <Phinix_store_state_Failed>Operation failed. The previous valid index remains available.</Phinix_store_state_Failed>
+  <Phinix_store_state_Cancelled>Operation cancelled.</Phinix_store_state_Cancelled>
+  <Phinix_store_state_Shutdown>Plugin store has stopped.</Phinix_store_state_Shutdown>
+  <Phinix_store_endpoint>Repository HTTPS origin</Phinix_store_endpoint>
+  <Phinix_store_remoteSource>Repository source ID</Phinix_store_remoteSource>
+  <Phinix_store_refresh>Refresh online index</Phinix_store_refresh>
+  <Phinix_store_cache>Browse cached index offline</Phinix_store_cache>
+  <Phinix_store_localTools>Local JSON preview / test tools</Phinix_store_localTools>
+  <Phinix_store_offline>Offline cache: browsing and plan preview only</Phinix_store_offline>
+  <Phinix_store_online>Online index verified</Phinix_store_online>
+  <Phinix_store_checked>Last successful check</Phinix_store_checked>
+  <Phinix_store_stale>Previous or expired browsing cache. Withdrawal status needs an online refresh; installation is unavailable.</Phinix_store_stale>
+  <Phinix_store_checkDownloads>Download and check ZIP packages (preview)</Phinix_store_checkDownloads>
+  <Phinix_store_state_CheckingPackages>Downloading and checking the frozen package plan…</Phinix_store_state_CheckingPackages>
+  <Phinix_store_state_PayloadsVerified>All new ZIP packages passed static checks. Nothing installed.</Phinix_store_state_PayloadsVerified>
+  <Phinix_store_payloadVerified>Payload verified</Phinix_store_payloadVerified>
+  <Phinix_store_install>Install new packages in this plan</Phinix_store_install>
+  <Phinix_store_installConfirm>Install the following packages? Files will be written to local Mods after online and payload checks. Nothing is enabled automatically; enable the mods and restart RimWorld afterwards.</Phinix_store_installConfirm>
+  <Phinix_store_managedRefresh>Refresh installed packages / recover unfinished operations</Phinix_store_managedRefresh>
+  <Phinix_store_managedPackages>Packages installed by this store</Phinix_store_managedPackages>
+  <Phinix_store_uninstall>Uninstall this package</Phinix_store_uninstall>
+  <Phinix_store_uninstallConfirm>Remove this store-owned package? First disable it in RimWorld’s Mods list and restart if its DLL has been loaded. Dependent packages and modified files block deletion. Saves and plugin settings are preserved.</Phinix_store_uninstallConfirm>
+  <Phinix_store_state_Installing>Downloading and staging packages; checking the online index again…</Phinix_store_state_Installing>
+  <Phinix_store_state_Committing>Committing the filesystem operation. Cancellation is unavailable during this short phase.</Phinix_store_state_Committing>
+  <Phinix_store_state_Installed>Installed. Enable the new mods in RimWorld’s Mods list and restart to discover and activate them.</Phinix_store_state_Installed>
+  <Phinix_store_state_Managing>Checking owned packages and recovering unfinished operations…</Phinix_store_state_Managing>
+  <Phinix_store_state_Uninstalled>Package uninstalled. Restart RimWorld to refresh its mod list. Saves and settings were preserved.</Phinix_store_state_Uninstalled>
+  <Phinix_store2_refresh>Refresh store</Phinix_store2_refresh>
+  <Phinix_store2_management>Extension manager</Phinix_store2_management>
+  <Phinix_store2_source>Repository settings</Phinix_store2_source>
+  <Phinix_store2_endpoint>Repository address</Phinix_store2_endpoint>
+  <Phinix_store2_sourceId>Source ID</Phinix_store2_sourceId>
+  <Phinix_store2_offline>Browse offline</Phinix_store2_offline>
+  <Phinix_store2_search>Search names, descriptions or tags</Phinix_store2_search>
+  <Phinix_store2_choose>Select a plugin to see its description, compatibility and installation actions.</Phinix_store2_choose>
+  <Phinix_store2_workshopNotice>Steam manages subscription, download and activation of complete mods. The store provides a listing and link.</Phinix_store2_workshopNotice>
+  <Phinix_store2_managedRoute>Phinix managed plugin</Phinix_store2_managedRoute>
+  <Phinix_store2_modules>Modules:</Phinix_store2_modules>
+  <Phinix_store2_dependency>Plugin dependency:</Phinix_store2_dependency>
+  <Phinix_store2_externalMod>Required active mod:</Phinix_store2_externalMod>
+  <Phinix_store2_installedState>Installed state:</Phinix_store2_installedState>
+  <Phinix_store2_restartRequired>Restart required</Phinix_store2_restartRequired>
+  <Phinix_store2_plan>Review dependencies</Phinix_store2_plan>
+  <Phinix_store2_downloadSize>Download:</Phinix_store2_downloadSize>
+  <Phinix_store2_newPackage>New installation</Phinix_store2_newPackage>
+  <Phinix_store2_existingPackage>Installed and enabled</Phinix_store2_existingPackage>
+  <Phinix_store2_workshop>Workshop mod</Phinix_store2_workshop>
+  <Phinix_store2_refreshFirst>Refresh the store to load its catalog.</Phinix_store2_refreshFirst>
+  <Phinix_store2_empty>No matching plugins.</Phinix_store2_empty>
+  <Phinix_store2_openWorkshop>Open Workshop page</Phinix_store2_openWorkshop>
+  <Phinix_store2_checkDownload>Download and verify (no installation)</Phinix_store2_checkDownload>
+  <Phinix_store2_install>Install plugin</Phinix_store2_install>
+  <Phinix_store2_enable>Enable on restart</Phinix_store2_enable>
+  <Phinix_store2_disable>Disable on restart</Phinix_store2_disable>
+  <Phinix_store2_uninstall>Uninstall on restart</Phinix_store2_uninstall>
+  <Phinix_store2_cancel>Cancel task</Phinix_store2_cancel>
+  <Phinix_store2_blocked>Action blocked:</Phinix_store2_blocked>
+  <Phinix_store2_legacyTools>Legacy mod records / cleanup</Phinix_store2_legacyTools>
+  <Phinix_store2_confirmInstall>Install these plugins and dependencies. Phinix manages their DLL files and enables them after a game restart. Plugin code has game-process access; install only publishers you trust.</Phinix_store2_confirmInstall>
+  <Phinix_store2_confirmUninstall>Mark this plugin for removal before loading on the next startup. Only verified owned code is removed. Settings, business data and saves are retained.</Phinix_store2_confirmUninstall>
+  <Phinix_store2_reviewAgain>The catalog or plan changed. Review dependencies again.</Phinix_store2_reviewAgain>
+  <Phinix_store2_failed>Operation failed:</Phinix_store2_failed>
+  <Phinix_store2_request>Diagnostic request ID:</Phinix_store2_request>
+  <Phinix_store2_offlineNotice>Offline cache is for browsing. Refresh online before installing.</Phinix_store2_offlineNotice>
+  <Phinix_store2_desired_Enabled>Enabled</Phinix_store2_desired_Enabled>
+  <Phinix_store2_desired_Disabled>Disabled</Phinix_store2_desired_Disabled>
+  <Phinix_store2_desired_PendingRemoval>Pending removal</Phinix_store2_desired_PendingRemoval>
+  <Phinix_store2_desired_Unknown>Unverified state</Phinix_store2_desired_Unknown>
+  <Phinix_store2_state_Idle>No catalog loaded.</Phinix_store2_state_Idle>
+  <Phinix_store2_state_Reading>Fetching and verifying the catalog…</Phinix_store2_state_Reading>
+  <Phinix_store2_state_Ready>Catalog and local state refreshed.</Phinix_store2_state_Ready>
+  <Phinix_store2_state_Planning>Checking dependencies and compatibility…</Phinix_store2_state_Planning>
+  <Phinix_store2_state_PlanReady>Dependency checks passed. Continue installation or confirm dependencies.</Phinix_store2_state_PlanReady>
+  <Phinix_store2_state_Downloading>Downloading and verifying plugins…</Phinix_store2_state_Downloading>
+  <Phinix_store2_state_Verified>Download and static validation passed. Not installed yet.</Phinix_store2_state_Verified>
+  <Phinix_store2_state_Installing>Downloading, rechecking and installing. A decided commit completes the entire batch.</Phinix_store2_state_Installing>
+  <Phinix_store2_state_Installed>Installed. Restart the game and check loading in the extension manager.</Phinix_store2_state_Installed>
+  <Phinix_store2_state_Managing>Reading or saving managed state…</Phinix_store2_state_Managing>
+  <Phinix_store2_state_Failed>Operation failed. Review the reason.</Phinix_store2_state_Failed>
+  <Phinix_store2_state_Canceled>Task canceled. An installation with a durable commit decision will finish.</Phinix_store2_state_Canceled>
+  <Phinix_store2_state_Stopped>Store stopped.</Phinix_store2_state_Stopped>
+  <Phinix_store2_searchShort>Search</Phinix_store2_searchShort>
+  <Phinix_store2_localIdentityNotice>Local mod inspection needs attention before a plan can be created.</Phinix_store2_localIdentityNotice>
+  <Phinix_store2_localMod>Mod:</Phinix_store2_localMod>
+  <Phinix_store2_localFile>File within mod:</Phinix_store2_localFile>
+  <Phinix_store2_localReason>Inspection reason:</Phinix_store2_localReason>
+  <Phinix_store2_referenceNotice>The plugin requires a different CLR assembly identity. Use a package built for this game/framework version.</Phinix_store2_referenceNotice>
+  <Phinix_store2_referencingAssembly>Plugin assembly:</Phinix_store2_referencingAssembly>
+  <Phinix_store2_requiredReference>Required reference:</Phinix_store2_requiredReference>
+  <Phinix_store2_availableReferences>Available identity:</Phinix_store2_availableReferences>
+  <Phinix_store2_referenceMissing>Not present in the host snapshot</Phinix_store2_referenceMissing>
+  <Phinix_store2_accessCurrent>Access method:</Phinix_store2_accessCurrent>
+  <Phinix_store2_accessGithub>GitHub direct</Phinix_store2_accessGithub>
+  <Phinix_store2_accessCloudflare>CF acceleration</Phinix_store2_accessCloudflare>
+  <Phinix_store2_accessHint>Use the GitHub / CF button to switch access method and retry.</Phinix_store2_accessHint>
+  <Phinix_store2_cfEndpoint>CF endpoint (not used by GitHub direct)</Phinix_store2_cfEndpoint>
+  <Phinix_store2_changelog>Changelog</Phinix_store2_changelog>
+  <Phinix_store2_noChangelog>No changelog supplied.</Phinix_store2_noChangelog>
+  <Phinix_store2_version>Version</Phinix_store2_version>
+  <Phinix_store2_installedVersion>Installed version:</Phinix_store2_installedVersion>
+  <Phinix_store2_foreignInstallation>This plugin is managed by another repository. Use Extension manager to manage it; switching access methods does not move installations.</Phinix_store2_foreignInstallation>
+  <Phinix_store2_replacementUnavailable>You are viewing another version. Version replacement is not available yet; the controls below manage the installed version.</Phinix_store2_replacementUnavailable>
+  <Phinix_store2_withdrawn>Unavailable for installation</Phinix_store2_withdrawn>
+  <Phinix_store2_dependencyConfirmation>This installation includes dependencies. Confirm the following plugins; they take effect after restarting the game.</Phinix_store2_dependencyConfirmation>
+  <Phinix_store2_failedFriendly>The operation could not be completed. Open error details for help.</Phinix_store2_failedFriendly>
+  <Phinix_store2_errorDetails>Error details</Phinix_store2_errorDetails>
+  <Phinix_store2_networkFriendly>Cannot reach the repository. Switch GitHub / CF access and retry.</Phinix_store2_networkFriendly>
+  <Phinix_store2_rateLimitedFriendly>Too many requests. Wait a moment, then refresh again.</Phinix_store2_rateLimitedFriendly>
+  <Phinix_store2_compatibilityFriendly>This plugin or the local environment needs a compatibility check. See error details.</Phinix_store2_compatibilityFriendly>
+  <Phinix_store2_catalogEmpty>No plugins are listed yet. Refresh later.</Phinix_store2_catalogEmpty>
+  <Phinix_store2_managementDetails>Why is this unavailable?</Phinix_store2_managementDetails>
+  <Phinix_store2_blockedFriendly>A dependency or local state prevents this action. Manage related extensions first; technical details follow.</Phinix_store2_blockedFriendly>
+  <Phinix_store2_progressChecking>Checking package</Phinix_store2_progressChecking>
+  <Phinix_store2_progressDownloading>Downloading</Phinix_store2_progressDownloading>
+  <Phinix_store2_progressValidating>Verifying package</Phinix_store2_progressValidating>
+  <Phinix_store2_progressRechecking>Checking before installation</Phinix_store2_progressRechecking>
+  <Phinix_store2_progressCommitting>Saving installation; restart required after completion</Phinix_store2_progressCommitting>
+  <Phinix_store2_progressBytes>Downloaded {0} / {1}</Phinix_store2_progressBytes>
+  <Phinix_store2_updateAvailable>A newer version is available. Review its changelog; updates are never installed automatically.</Phinix_store2_updateAvailable>
+  <Phinix_store2_updateNotice>Updates are available for {0} plugins. Click to open the store.</Phinix_store2_updateNotice>
+  <Phinix_store2_update>Update plugin</Phinix_store2_update>
+  <Phinix_store2_updatedPackage>Will update</Phinix_store2_updatedPackage>
+  <Phinix_store2_updateConfirmation>Update these packages? Changes take effect after restarting. Plugin settings are retained; this does not migrate or roll back plugin data.</Phinix_store2_updateConfirmation>
+  <Phinix_store2_downgradeUnavailable>Installing an older version over this package is unavailable.</Phinix_store2_downgradeUnavailable>
+  <Phinix_store2_enableBeforeUpdate>Enable this package before updating; packages awaiting removal cannot be updated.</Phinix_store2_enableBeforeUpdate>
+</LanguageData>

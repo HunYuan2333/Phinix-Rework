@@ -1,0 +1,75 @@
+name: Plugin label admission
+run-name: >-
+  ${{ github.event.label.name == 'plugin-approved' && 'Label admission' || 'Ignored label' }} #${{ github.event.issue.number }}
+on:
+  issues:
+    types: [labeled]
+permissions:
+  contents: read
+concurrency:
+  group: index-metadata
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'HunYuan2333/Phinix-Plugin-Index' && github.event.label.name == 'plugin-approved' && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build Validator/Validator.csproj --configuration Release
+      - run: python3 -m unittest discover -s tests -v
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/label_admission.py prepare --validator Validator/bin/Release/net10.0/Validator.dll --output approval
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: label-approval
+          path: approval/
+          retention-days: 14
+          if-no-files-found: error
+  admit:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: label-approval
+          path: approval
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/label_admission.py admit --input approval
+  notify:
+    if: always() && github.repository == 'HunYuan2333/Phinix-Plugin-Index' && github.event.label.name == 'plugin-approved' && !github.event.issue.pull_request
+    needs: [validate, admit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          ADMITTED: ${{ needs.admit.result == 'success' }}
+        run: python3 scripts/label_admission.py feedback --stage admission --success "$ADMITTED"

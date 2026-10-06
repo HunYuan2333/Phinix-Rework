@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "package": "LegacyRedPacket",
+      "sourceCommit": "d641476d868c57c9509e82144ec7141090ce2e34",
+      "sourcePath": "Client/Resources/LegacyRedPacket/Localization/en-US.json",
+      "sourceSha256": "a623702b074ecbe5f292b3a5a25ec1a5d973e710459a957848a2348942f54db3",
+      "keys": 71
+    },
+    {
+      "package": "LegacyTalentTrade",
+      "sourceCommit": "d8caafa77e3caf5f14d0cac66c4c99a9483c7f19",
+      "sourcePath": "Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+      "sourceSha256": "ac88129fb0d314afc14b8982a259161f4c13c7e78de9e6af7ab3638b9e631717",
+      "keys": 114
+    }
+  ]
+}

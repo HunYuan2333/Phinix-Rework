@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{9FBA1C24-48E3-4CB4-A9B4-C9571B312834}</ProjectGuid>
+    <AssemblyName>PluginStore.Client</AssemblyName>
+    <RootNamespace>Phinix.PluginStore</RootNamespace>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GameReferenceDirectory Condition="Exists('$(MSBuildThisFileDirectory)../../../GameDlls/1.6')">$(MSBuildThisFileDirectory)../../../GameDlls/1.6</GameReferenceDirectory>
+    <GameReferenceDirectory Condition="'$(GameReferenceDirectory)' == ''">$(MSBuildThisFileDirectory)../../../GameDlls</GameReferenceDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.IO.Compression" />
+    <Compile Include="PackageVersion.cs" />
+    <Compile Include="PackageModels.cs" />
+    <Compile Include="CatalogReader.cs" />
+    <Compile Include="ManagedStoreCatalog.cs" />
+    <Compile Include="ManagedStoreLocalGate.cs" />
+    <Compile Include="ManagedStorePlanner.cs" />
+    <Compile Include="ManagedStoreController.cs" />
+    <Compile Include="ManagedStoreListing.cs" />
+    <Compile Include="ManagedRepositoryCache.cs" />
+    <Compile Include="ManagedRepositoryPayloadTransport.cs" />
+    <Compile Include="ManagedRepositoryAccess.cs" />
+    <Compile Include="GitHubRepositoryAccess.cs" />
+    <Compile Include="ManagedPayloadTransfer.cs" />
+    <Compile Include="ManagedStoreProgress.cs" />
+    <Compile Include="ManagedStoreUpdates.cs" />
+    <Compile Include="ManagedPluginStoreView.cs" />
+    <Compile Include="ManagedStoreLayout.cs" />
+    <Compile Include="ManagedStorePayloadValidator.cs" />
+    <Compile Include="ManagedStoreInstallationInput.cs" />
+    <Compile Include="RepositoryMetadata.cs" />
+    <Compile Include="RepositoryTransport.cs" />
+    <Compile Include="RepositoryPayloadTransport.cs" />
+    <Compile Include="RepositoryDiagnostics.cs" />
+    <Compile Include="RepositoryCache.cs" />
+    <Compile Include="PayloadValidator.cs" />
+    <Compile Include="DependencyPlanner.cs" />
+    <Compile Include="StoreEnvironmentAdapter.cs" />
+    <Compile Include="PluginStoreClientExtension.cs" />
+    <Compile Include="PluginStoreSettingsPanel.cs" />
+    <Compile Include="PluginStoreWindow.cs" />
+    <Compile Include="PluginStoreMainTabProvider.cs" />
+    <Compile Include="PluginStoreUpdateBanner.cs" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameReferenceDirectory)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj"><Private>false</Private></ProjectReference>
+    <ProjectReference Include="../../../Common/Utils/Utils.csproj"><Private>false</Private><SetTargetFramework>TargetFramework=net472</SetTargetFramework></ProjectReference>
+  </ItemGroup>
+  <!-- Bundled plugin uses ordinary discovery; no host reference to store implementation. -->
+  <Target Name="BuildBundledStore" AfterTargets="Build">
+    <PropertyGroup><BundledRoot>$(MSBuildThisFileDirectory)../../../Output/phinix-rework</BundledRoot></PropertyGroup>
+    <MakeDir Directories="$(BundledRoot)/Common/Extensions" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(BundledRoot)/Common/Extensions/17-PluginStore.Client.dll" />
+    <ItemGroup><BundledLanguage Include="$(MSBuildThisFileDirectory)../Package/Languages/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(BundledLanguage)" DestinationFiles="@(BundledLanguage->'$(BundledRoot)/Languages/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <Import Project="../../../Client/Packaging/ClientPackageLayout.targets" />
+</Project>

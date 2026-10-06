@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <PhinixClientPackageRoot Condition="'$(PhinixClientPackageRoot)' == ''">$(MSBuildThisFileDirectory)../../Output/phinix-rework</PhinixClientPackageRoot>
+  </PropertyGroup>
+  <!-- Distribution cleanup only. Do not touch installed managed packages, user
+       settings or saves. Keep the stable numbering of the remaining extensions. -->
+  <Target Name="PruneRetiredBundledExtensions" AfterTargets="Build">
+    <ItemGroup>
+      <RetiredBundledExtension Include="$(PhinixClientPackageRoot)/Common/Extensions/13-LegacyRedPacketExtension.dll*" />
+      <RetiredBundledExtension Include="$(PhinixClientPackageRoot)/Common/Extensions/14-LegacyRedPacketExtension.Client.dll*" />
+      <RetiredBundledExtension Include="$(PhinixClientPackageRoot)/Common/Extensions/15-LegacyTalentTradeExtension.dll*" />
+      <RetiredBundledExtension Include="$(PhinixClientPackageRoot)/Common/Extensions/16-LegacyTalentTradeExtension.Client.dll*" />
+      <RetiredBundledExtension Include="$(PhinixClientPackageRoot)/Common/Extensions/13-LegacyRedPacketExtension.pdb;$(PhinixClientPackageRoot)/Common/Extensions/14-LegacyRedPacketExtension.Client.pdb;$(PhinixClientPackageRoot)/Common/Extensions/15-LegacyTalentTradeExtension.pdb;$(PhinixClientPackageRoot)/Common/Extensions/16-LegacyTalentTradeExtension.Client.pdb" />
+      <RetiredBundledExtension Include="$(PhinixClientPackageRoot)/Languages/*/Keyed/LegacyRedPacketExtension.xml;$(PhinixClientPackageRoot)/Languages/*/Keyed/LegacyTalentTradeExtension.xml" />
+    </ItemGroup>
+    <Delete Files="@(RetiredBundledExtension)" />
+    <RemoveDir Directories="$(PhinixClientPackageRoot)/Common/Extensions/Resources/LegacyRedPacket;$(PhinixClientPackageRoot)/Common/Extensions/Resources/LegacyTalentTrade" />
+  </Target>
+</Project>
