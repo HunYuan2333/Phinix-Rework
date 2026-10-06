@@ -16,6 +16,7 @@ namespace Phinix.InventoryExtension.Client
         private readonly string path;
         private readonly FileStream lockFile;
         private readonly List<InventoryState> recovered = new List<InventoryState>();
+        private long committedSequence;
 
         public bool Faulted { get; private set; }
         public string FaultReason { get; private set; }
@@ -25,17 +26,18 @@ namespace Phinix.InventoryExtension.Client
         public InventoryJournal(string path, InventoryState snapshot)
         {
             this.path = path ?? throw new ArgumentNullException(nameof(path));
+            InventoryLedger.Validate(snapshot);
+            committedSequence = snapshot.Sequence;
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             lockFile = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            if (!File.Exists(path)) return;
-            if (new FileInfo(path).Length > MaxJournalBytes)
-            {
-                Fault("Inventory journal exceeds its size limit.");
-                return;
-            }
-
             try
             {
+                if (!File.Exists(path)) return;
+                if (new FileInfo(path).Length > MaxJournalBytes)
+                {
+                    Fault("Inventory journal exceeds its size limit.");
+                    return;
+                }
                 bool endsWithNewline = EndsWithNewline(path);
                 bool ignoredTornTail = false;
                 using (FileStream input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -58,7 +60,7 @@ namespace Phinix.InventoryExtension.Client
                             InventoryState state = FrameworkSerialization.DeserializePayload<InventoryState>(Encoding.UTF8.GetString(bytes));
                             InventoryLedger.Validate(state);
                             if (state.Sequence != sequence || sequence <= lastSequence ||
-                                (lastSequence >= 0 && sequence != lastSequence + 1 &&
+                                (lastSequence >= 0 && sequence > snapshot.Sequence && sequence != lastSequence + 1 &&
                                  !(lastSequence < snapshot.Sequence && sequence == snapshot.Sequence + 1)))
                                 throw new InvalidDataException("Inventory journal sequence mismatch.");
                             recovered.Add(state);
@@ -71,14 +73,18 @@ namespace Phinix.InventoryExtension.Client
                         }
                     }
                 }
-                if (ignoredTornTail)
-                    IsolateAndTruncateTornTail(path);
                 InventoryState sameSequence = recovered.FirstOrDefault(state => state.Sequence == snapshot.Sequence);
                 if (sameSequence != null && !string.Equals(StateHash(sameSequence), StateHash(snapshot), StringComparison.Ordinal))
                     throw new InvalidDataException("Inventory save and journal have diverged.");
                 InventoryState firstFuture = recovered.FirstOrDefault(state => state.Sequence > snapshot.Sequence);
                 if (firstFuture != null && firstFuture.Sequence != snapshot.Sequence + 1)
                     throw new InvalidDataException("Inventory journal has a gap after this save snapshot.");
+                // Different save filenames have separate journals. The save already
+                // covers historical gaps; only records after it require continuity.
+                if (ignoredTornTail)
+                    IsolateAndTruncateTornTail(path);
+                else if (!endsWithNewline)
+                    CompleteRecordBoundary(path);
                 HasPendingRecovery = recovered.Any(state => state.Sequence > snapshot.Sequence);
             }
             catch (Exception ex)
@@ -89,7 +95,8 @@ namespace Phinix.InventoryExtension.Client
 
         public bool TryAppend(InventoryState state)
         {
-            if (Faulted || HasPendingRecovery || state == null) return false;
+            if (Faulted || HasPendingRecovery || state == null || committedSequence == long.MaxValue ||
+                state.Sequence != committedSequence + 1) return false;
             try
             {
                 InventoryLedger.Validate(state);
@@ -106,6 +113,7 @@ namespace Phinix.InventoryExtension.Client
                     output.Flush(true);
                 }
                 recovered.Add(state);
+                committedSequence = state.Sequence;
                 return true;
             }
             catch (Exception)
@@ -119,7 +127,9 @@ namespace Phinix.InventoryExtension.Client
         {
             if (Faulted || !HasPendingRecovery) return null;
             HasPendingRecovery = false;
-            return recovered.LastOrDefault();
+            InventoryState latest = recovered.LastOrDefault();
+            committedSequence = latest.Sequence;
+            return latest;
         }
 
         public bool RejectRecovery()
@@ -194,6 +204,18 @@ namespace Phinix.InventoryExtension.Client
                     }
                 }
                 file.SetLength(validLength);
+                file.Flush(true);
+            }
+        }
+
+        private static void CompleteRecordBoundary(string journalPath)
+        {
+            // A crash can leave the entire verified payload but omit its newline.
+            // Preserve it and add the separator before any future append.
+            File.Copy(journalPath, journalPath + ".torn-" + DateTime.UtcNow.Ticks, false);
+            using (FileStream file = new FileStream(journalPath, FileMode.Append, FileAccess.Write, FileShare.None))
+            {
+                file.WriteByte((byte)'\n');
                 file.Flush(true);
             }
         }

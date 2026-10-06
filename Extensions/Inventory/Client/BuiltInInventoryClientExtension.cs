@@ -177,7 +177,11 @@ namespace Phinix.InventoryExtension.Client
                 string path = host.GetStoragePath(ExtensionId, key + ".journal");
                 journal = new InventoryJournal(path, ledger.Export());
                 if (journal.Faulted)
+                {
                     fault = (journal.FaultReason ?? "Inventory journal is damaged or locked.") + " Inventory is read only.";
+                    host?.Log?.Invoke("[Inventory] Journal load failed: " + journal.FaultReason +
+                        " (snapshot sequence " + ledger.Sequence + ", journal " + path + ")", LogLevel.ERROR);
+                }
             }
             catch (Exception ex)
             {
