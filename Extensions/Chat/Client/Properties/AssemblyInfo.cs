@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("ChatExtension.Client")]
@@ -13,3 +14,5 @@ using System.Runtime.InteropServices;
 [assembly: Guid("f89c5883-9754-486e-a27d-f2f22773c4cc")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+
+[assembly: InternalsVisibleTo("ChatRegressionTests")]

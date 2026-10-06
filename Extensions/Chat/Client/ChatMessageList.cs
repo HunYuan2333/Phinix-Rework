@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -43,7 +44,9 @@ namespace Phinix.ChatExtension.Client
         private static readonly char[] UrlTrailingPunctuation = { '.', ',', ';', ':', '!', '?', ')', ']', '}', '，', '。', '、', '；', '：', '！', '？', '）', '》', '"', '\'' };
         private static readonly Dictionary<string, Texture2D> imageTextureCache = new Dictionary<string, Texture2D>();
         private static readonly List<string> imageCacheOrder = new List<string>();
-        private static readonly Dictionary<string, List<Action<Texture2D>>> pendingImageCallbacks = new Dictionary<string, List<Action<Texture2D>>>();
+        private readonly ChatImageDownloadQueue<Texture2D> imageDownloads;
+        private IClientMainThreadDispatcher imageDispatcher;
+        private readonly ConcurrentQueue<Action> imageCompletions = new ConcurrentQueue<Action>();
 
         private readonly List<UIChatMessage> filteredMessages = new List<UIChatMessage>();
         private readonly List<UIChatMessage> messages = new List<UIChatMessage>();
@@ -107,6 +110,7 @@ namespace Phinix.ChatExtension.Client
             public string Url;
             public bool IsLoading;
             public bool Failed;
+            public bool Unsupported;
             public Texture2D Texture;
             public float DisplayHeight;
         }
@@ -114,6 +118,13 @@ namespace Phinix.ChatExtension.Client
         public ChatMessageList(IChatUiHostContext hostContext)
         {
             this.hostContext = hostContext;
+            imageDownloads = new ChatImageDownloadQueue<Texture2D>(StartImageDownload,
+                ex => hostContext.Log(new LogEventArgs("Image download callback failed: " + ex.Message, LogLevel.WARNING)));
+        }
+
+        internal void InitializeImages(IClientMainThreadDispatcher dispatcher)
+        {
+            imageDispatcher = dispatcher;
         }
 
         internal void Start()
@@ -130,6 +141,10 @@ namespace Phinix.ChatExtension.Client
         internal void Stop()
         {
             if (!started) return;
+            imageDownloads.CancelAll();
+            while (imageCompletions.TryDequeue(out _)) { }
+            messageImageStates.Clear();
+            imageDispatcher = null;
             hostContext.ChatService.OnChatMessageReceived -= ChatMessageReceivedEventHandler;
             hostContext.OnUserDisplayNameChanged -= UserChangedEventHandler;
             hostContext.OnBlockedUsersChanged -= BlockedUsersChangedEventHandler;
@@ -155,6 +170,8 @@ namespace Phinix.ChatExtension.Client
             }
             wasOnline = online;
 
+            while (imageCompletions.TryDequeue(out Action completion)) completion();
+            imageDownloads.Pump(Time.realtimeSinceStartup);
             bool markAsRead = false;
             if (Monitor.TryEnter(messagesLock))
             {
@@ -163,6 +180,7 @@ namespace Phinix.ChatExtension.Client
                     if (clearMessages)
                     {
                         filteredMessages.Clear();
+                        imageDownloads.CancelAll();
                         messageImageStates.Clear();
                         clearMessages = false;
                         layoutDirty = true;
@@ -752,6 +770,10 @@ namespace Phinix.ChatExtension.Client
             for (int i = 0; i < cached.Images.Count; i++)
             {
                 ChatImageState imageState = cached.Images[i];
+                // Only visible images enter the bounded queue. A destroyed cache
+                // texture is treated as a cache miss when its row returns.
+                if (imageState.Texture == null && !imageState.IsLoading && !imageState.Failed)
+                    RequestImage(imageState);
                 float imageHeight = imageState.DisplayHeight;
                 if (imageHeight <= 0f)
                 {
@@ -774,15 +796,24 @@ namespace Phinix.ChatExtension.Client
                 {
                     Widgets.DrawBoxSolid(imageRect, ChatTheme.ImagePlaceholderBg);
                     // 绘制时实时翻译，避免静态字段在类加载时缓存未加载的原始键。
-                    Widgets.Label(imageRect, "Phinix_chat_imageFailed".Translate().Colorize(ChatTheme.ImageFailedText));
+                    string key = imageState.Unsupported ? "Phinix_chat_imageUnsupported" : "Phinix_chat_imageFailed";
+                    Widgets.Label(imageRect, key.Translate().Colorize(ChatTheme.ImageFailedText));
+                    if (Widgets.ButtonInvisible(imageRect, false))
+                    {
+                        if (imageState.Unsupported) Application.OpenURL(imageState.Url);
+                        else RequestImage(imageState);
+                    }
                 }
                 else
                 {
                     Widgets.DrawBoxSolid(imageRect, ChatTheme.ImagePlaceholderBg);
                     TextAnchor oldAnchor = Text.Anchor;
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    Widgets.Label(imageRect, "Phinix_chat_imageLoading".Translate().Colorize(ChatTheme.ReplyQuoteText));
-                    Text.Anchor = oldAnchor;
+                    try
+                    {
+                        Text.Anchor = TextAnchor.MiddleCenter;
+                        Widgets.Label(imageRect, "Phinix_chat_imageLoading".Translate().Colorize(ChatTheme.ReplyQuoteText));
+                    }
+                    finally { Text.Anchor = oldAnchor; }
                 }
             }
         }
@@ -810,117 +841,114 @@ namespace Phinix.ChatExtension.Client
         private ChatImageState CreateImageState(string url)
         {
             ChatImageState state = new ChatImageState { Url = url };
-            if (imageTextureCache.TryGetValue(url, out Texture2D cachedTexture))
-            {
-                state.Texture = cachedTexture;
-                return state;
-            }
-
-            state.IsLoading = true;
-            StartImageDownload(state);
+            if (imageTextureCache.TryGetValue(url, out Texture2D texture) && texture != null)
+                state.Texture = texture;
             return state;
         }
 
-        private void StartImageDownload(ChatImageState state)
+        private void RequestImage(ChatImageState state)
         {
-            if (pendingImageCallbacks.TryGetValue(state.Url, out List<Action<Texture2D>> existingCallbacks))
+            if (state.IsLoading) return;
+            if (imageTextureCache.TryGetValue(state.Url, out Texture2D cached) && cached != null)
             {
-                existingCallbacks.Add(texture => ApplyLoadedTexture(state, texture));
+                ApplyLoadedTexture(state, cached, ChatImageFailure.None);
                 return;
             }
+            state.Failed = false;
+            state.Unsupported = false;
+            state.IsLoading = true;
+            if (!imageDownloads.Request(state.Url, (texture, failure) => ApplyLoadedTexture(state, texture, failure)))
+            {
+                state.IsLoading = false; // Queue is full; a visible row can try again on a later frame.
+            }
+            layoutDirty = true;
+        }
 
-            List<Action<Texture2D>> callbacks = new List<Action<Texture2D>> { texture => ApplyLoadedTexture(state, texture) };
-            pendingImageCallbacks[state.Url] = callbacks;
-
-            UnityWebRequest request = null;
+        private Action StartImageDownload(string url, int timeout, Action<Texture2D, ChatImageFailure> complete)
+        {
+            UnityWebRequest request = UnityWebRequestTexture.GetTexture(url);
+            bool closed = false;
+            Action finish = () =>
+            {
+                if (closed) return;
+                closed = true;
+                Texture2D texture = null;
+                ChatImageFailure failure = ChatImageFailure.Permanent;
+                try
+                {
+                    if (request.result == UnityWebRequest.Result.Success)
+                    {
+                        try { texture = DownloadHandlerTexture.GetContent(request); }
+                        catch (Exception) { failure = ChatImageFailure.Unsupported; }
+                        if (texture == null) failure = ChatImageFailure.Unsupported;
+                        else
+                        {
+                            failure = ChatImageFailure.None;
+                            CacheImageTexture(url, texture);
+                        }
+                    }
+                    else
+                    {
+                        failure = ChatImageDownloadQueue<Texture2D>.ClassifyFailure(
+                            request.result == UnityWebRequest.Result.ConnectionError,
+                            request.result == UnityWebRequest.Result.DataProcessingError, request.responseCode);
+                    }
+                    if (texture == null)
+                        hostContext.Log(new LogEventArgs(string.Format(
+                            "Could not download image {0}: {1} (HTTP {2}, timeout {3}s, {4})",
+                            url, request.error, request.responseCode, timeout, failure), LogLevel.WARNING));
+                }
+                catch (Exception ex)
+                {
+                    hostContext.Log(new LogEventArgs("Image download processing failed: " + ex.Message, LogLevel.WARNING));
+                }
+                finally
+                {
+                    try { request.Dispose(); }
+                    finally { complete(texture, failure); }
+                }
+            };
             UnityWebRequestAsyncOperation operation;
+            IClientMainThreadDispatcher dispatcher = imageDispatcher;
+            Action<AsyncOperation> handler = _ =>
+            {
+                if (dispatcher != null) dispatcher.Enqueue(finish);
+                else imageCompletions.Enqueue(finish); // Standalone public ChatMessageList instances pump on Draw.
+            };
             try
             {
-                request = UnityWebRequestTexture.GetTexture(state.Url);
-                request.timeout = 30;
+                request.timeout = timeout;
                 operation = request.SendWebRequest();
+                operation.completed += handler;
             }
-            catch (Exception ex)
+            catch
             {
-                request?.Dispose();
-                pendingImageCallbacks.Remove(state.Url);
-                InvokeImageCallbacks(callbacks, null);
-                hostContext.Log(new LogEventArgs(string.Format("Failed to start image request for {0}: {1}", state.Url, ex.Message), LogLevel.WARNING));
-                return;
-            }
-
-            operation.completed += _ =>
-            {
-                pendingImageCallbacks.Remove(state.Url);
-                Texture2D texture = null;
-                if (request.isDone && request.result == UnityWebRequest.Result.Success)
-                {
-                    try
-                    {
-                        texture = DownloadHandlerTexture.GetContent(request);
-                    }
-                    catch (Exception ex)
-                    {
-                        // 下载成功但解码异常：多为不支持的图片格式（如 webp）。
-                        hostContext.Log(new LogEventArgs(
-                            string.Format("Image {0} uses an unsupported image format (Unity could not decode it, e.g. webp): {1}", state.Url, ex.Message),
-                            LogLevel.WARNING));
-                    }
-
-                    if (texture == null)
-                    {
-                        hostContext.Log(new LogEventArgs(
-                            string.Format("Image {0} uses an unsupported image format (e.g. webp), so it cannot be displayed.", state.Url),
-                            LogLevel.WARNING));
-                    }
-                }
-                else if (request.result == UnityWebRequest.Result.DataProcessingError)
-                {
-                    // 已收到数据但下载处理器解码失败：多为不支持的图片格式（如 webp），
-                    // 区别于"网络/协议"层面的下载失败。
-                    hostContext.Log(new LogEventArgs(
-                        string.Format("Image {0} uses an unsupported image format (e.g. webp, which Unity cannot decode), so it cannot be displayed.", state.Url),
-                        LogLevel.WARNING));
-                }
-                else
-                {
-                    // 网络/协议层面下载失败。
-                    hostContext.Log(new LogEventArgs(
-                        string.Format("Could not download image {0}: {1}", state.Url, request.error),
-                        LogLevel.WARNING));
-                }
-
+                closed = true;
                 request.Dispose();
-                InvokeImageCallbacks(callbacks, texture);
+                throw;
+            }
+            return () =>
+            {
+                if (closed) return;
+                closed = true;
+                operation.completed -= handler;
+                try { request.Abort(); }
+                finally { request.Dispose(); }
             };
         }
 
-        private static void InvokeImageCallbacks(List<Action<Texture2D>> callbacks, Texture2D texture)
+        private void ApplyLoadedTexture(ChatImageState state, Texture2D texture, ChatImageFailure failure)
         {
-            for (int i = 0; i < callbacks.Count; i++)
-            {
-                callbacks[i](texture);
-            }
-        }
-
-        private void ApplyLoadedTexture(ChatImageState state, Texture2D texture)
-        {
-            bool wasLoading = state.IsLoading;
             state.IsLoading = false;
+            state.Failed = texture == null;
+            state.Unsupported = failure == ChatImageFailure.Unsupported;
             if (texture != null)
             {
                 state.Texture = texture;
                 CacheImageTexture(state.Url, texture);
             }
-            else
-            {
-                state.Failed = true;
-            }
 
-            if (wasLoading)
-            {
-                layoutDirty = true;
-            }
+            layoutDirty = true;
         }
 
         private static void CacheImageTexture(string url, Texture2D texture)

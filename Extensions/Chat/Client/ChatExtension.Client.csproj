@@ -92,6 +92,7 @@
     <Compile Include="ChatMentionUtility.cs" />
     <Compile Include="ChatMessageHandler.cs" />
     <Compile Include="ChatMessageList.cs" />
+    <Compile Include="ChatImageDownloadQueue.cs" />
     <Compile Include="ChatMessageRenderer.cs" />
     <Compile Include="ChatSettingsPanelProvider.cs" />
     <Compile Include="ChatSidebarProvider.cs" />

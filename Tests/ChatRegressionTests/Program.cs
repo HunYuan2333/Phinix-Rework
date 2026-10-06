@@ -27,7 +27,8 @@ internal static class Program
             AssertHighlightPreservesMarkup();
             AssertAutocompleteRequiresNewOwnedInput();
             AssertCompletionPreservesMessagePrefix();
-            Console.WriteLine("All 9 chat regression scenarios passed.");
+            ChatImageDownloadScenarios.Run();
+            Console.WriteLine("All 16 chat regression scenarios passed.");
             return 0;
         }
         catch (Exception exception)
