@@ -105,6 +105,7 @@ namespace Phinix.ChatExtension.Client
             EnsureActivationServices(hostContext);
             (chatService as FrameworkClientChatServiceAdapter)?.Start();
             chatUiHostContext?.Start();
+            (chatTabContent as ChatMessageList)?.InitializeImages(dispatcher);
             (chatTabContent as ChatMessageList)?.Start();
 
             if (chatNotificationHandler == null)

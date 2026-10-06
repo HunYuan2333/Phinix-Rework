@@ -17,6 +17,7 @@
     <Reference Include="Assembly-CSharp"><HintPath>..\..\GameDlls\Assembly-CSharp.dll</HintPath></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>..\..\GameDlls\UnityEngine.CoreModule.dll</HintPath></Reference>
     <Compile Include="Program.cs" />
+    <Compile Include="InventoryJournalScenarios.cs" />
     <ProjectReference Include="..\..\Extensions\Inventory\Client\InventoryExtension.Client.csproj" />
     <ProjectReference Include="..\..\Extensions\Inventory\Contracts\InventoryExtension.csproj" />
     <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />

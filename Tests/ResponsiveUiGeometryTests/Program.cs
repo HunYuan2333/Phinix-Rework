@@ -16,8 +16,8 @@ internal static class Program
             TestFormModes();
             TestToolbarWrapAndOverflow();
             TestVirtualRanges();
-            TestRedPacketClaimRows();
-            TestTalentOfferReachability();
+            TestStoreActionReachability();
+            TestManagedPackageCards();
             TestZeroSizeInputs();
             TestStableGeometryDoesNotAllocate();
             Console.WriteLine("All responsive UI geometry tests passed.");
@@ -27,6 +27,23 @@ internal static class Program
         {
             Console.Error.WriteLine(exception.Message);
             return 1;
+        }
+    }
+
+    private static void TestManagedPackageCards()
+    {
+        foreach(float width in new[]{0f,1f,100f,320f,480f,860f})
+        foreach(float height in new[]{0f,1f,30f,148f,300f})
+        {
+            Rect bounds=new Rect(10f,20f,width,height);
+            var layout=PhinixClient.Framework.ManagedExtensionManagerLayout.Card(bounds);
+            foreach(Rect rect in new[]{layout.Title,layout.State,layout.Modules,layout.ModuleButton,layout.Diagnostic,layout.Toggle,layout.Removal})
+            {
+                Assert(rect.width>=0f && rect.height>=0f,"Managed card dimensions are non-negative");
+                Assert(rect.x>=bounds.x && rect.y>=bounds.y && rect.xMax<=bounds.xMax+0.01f && rect.yMax<=bounds.yMax+0.01f,"Managed card remains within its bounds");
+            }
+            Assert(layout.Toggle.xMax<=layout.Removal.x+0.01f,"Managed intent actions do not overlap");
+            if(width>=320f && height>=148f) Assert(layout.Toggle.height==30f && layout.Removal.height==30f && layout.ModuleButton.width>=60f,"Managed package/module actions remain reachable");
         }
     }
 
@@ -110,69 +127,34 @@ internal static class Program
         Assert(thousandRange.Count > 0 && thousandRange.Count < 40, "A 1000-row dynamic list should expose only the visible rows plus overscan.");
     }
 
-    private static void TestTalentOfferReachability()
+    private static void TestStoreActionReachability()
     {
-        int[] counts = { 0, 1, 100, 1000 };
-        float[] heights = { 0f, 50f, 120f, 200f, 500f };
-        foreach (int count in counts)
-        foreach (float height in heights)
-        foreach (bool mine in new[] { true, false })
+        foreach (float width in new[] { 0f, 160f, 320f, 780f, 1512f })
+        foreach (float height in new[] { 0f, 30f, 120f, 240f, 480f, 859f })
         {
-            Rect parent = new Rect(10f, 20f, 280f, height);
-            var layout = Phinix.LegacyTalentTradeExtension.Client.TalentOfferLayout.Calculate(parent, count, mine);
-            AssertContained(layout.Header, parent);
-            AssertContained(layout.Viewport, parent);
-            if (layout.ControlsScroll)
-            {
-                AssertContained(layout.Controls, layout.ScrollContent);
-                // Scrolling to the bottom must expose the final control when the viewport has height.
-                float bottomScroll = Math.Max(0f, layout.ScrollContent.height - layout.Viewport.height);
-                Assert(layout.Controls.yMax <= bottomScroll + layout.Viewport.height,
-                    "The silver input must be reachable at the scroll bottom.");
-            }
-            else
-            {
-                AssertContained(layout.Controls, parent);
-                var empty = Phinix.LegacyTalentTradeExtension.Client.TalentOfferLayout.Calculate(parent, 0, mine);
-                Assert(layout.Controls.y == empty.Controls.y, "Adding units must not move fixed offer controls.");
-            }
-            if (count == 1000)
-            {
-                var range = VirtualListLayout.GetFixedRange(count, 56f, 5000f, layout.Viewport.height, 1);
-                Assert(range.Count < 15, "Large talent offers must only draw visible units.");
-            }
+            Rect container = new Rect(15f, 20f, width, height);
+            var layout = Phinix.PluginStore.StoreBrowserLayout.Calculate(container, 200f, 1000f);
+            var managed = Phinix.PluginStore.ManagedStoreLayout.Calculate(container);
+            AssertContained(managed.List, container);
+            AssertContained(managed.Detail, container);
+            Assert(managed.List.xMax <= managed.Detail.xMin || managed.List.yMax <= managed.Detail.yMin, "Managed store list and details never overlap.");
+            AssertContained(layout.Management, container);
+            AssertContained(layout.Selection, container);
+            AssertContained(layout.Plan, container);
+            AssertContained(layout.Feedback, container);
+            AssertContained(layout.Body, container);
+            Assert(layout.Management.yMax <= layout.Selection.yMin && layout.Selection.yMax <= layout.Plan.yMin &&
+                layout.Plan.yMax <= layout.Feedback.yMin && layout.Feedback.yMax <= layout.Body.yMin,
+                "Store actions and feedback must not overlap or be displaced by the catalog form/list.");
+            if (height >= 120f)
+                Assert(layout.Plan.height == 30f && layout.Plan.yMax <= container.yMin + 120f,
+                    "Dependency planning must remain reachable near the top even with long selection/error text.");
         }
-    }
-
-    private static void TestRedPacketClaimRows()
-    {
-        Rect row = new Rect(0f, 0f, 600f, 30f);
-        var fourDigits = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-            row, 72f, 76f, true);
-        Assert(fourDigits.AmountRect.width == 72f, "A four-digit claim amount must retain its complete measured width.");
-        Assert(fourDigits.ShowBest, "The best tag should remain visible when the row has room.");
-        AssertContained(fourDigits.NameRect, row);
-        AssertContained(fourDigits.BestRect, row);
-        AssertContained(fourDigits.AmountRect, row);
-        Assert(fourDigits.NameRect.xMax <= fourDigits.BestRect.xMin, "Claim row columns must not overlap.");
-        Assert(fourDigits.BestRect.xMax <= fourDigits.AmountRect.xMin, "Best tag must not overlap the amount.");
-
-        Rect narrow = new Rect(0f, 0f, 180f, 30f);
-        var compact = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-            narrow, 96f, 76f, true);
-        Assert(compact.AmountRect.width == 96f, "Compact rows must preserve authoritative amounts before optional metadata.");
-        Assert(!compact.ShowBest, "Compact rows should hide the optional best tag before clipping the amount.");
-        AssertContained(compact.NameRect, narrow);
-        AssertContained(compact.AmountRect, narrow);
-        Assert(compact.NameRect.xMax <= compact.AmountRect.xMin, "Compact claim row columns must not overlap.");
-
-        Rect tiny = new Rect(10f, 20f, 50f, 30f);
-        var constrained = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-            tiny, 120f, 200f, true);
-        Assert(!constrained.ShowBest, "An oversized localized tag must degrade cleanly in a tiny row.");
-        AssertContained(constrained.NameRect, tiny);
-        AssertContained(constrained.AmountRect, tiny);
-        Assert(constrained.AmountRect.width <= tiny.width, "A physically impossible amount must remain contained by the row.");
+        Assert(Phinix.PluginStore.StoreBrowserLayout.PackageListHeight(3) == 96f,
+            "The three-item sample must not reserve a large empty list below its rows.");
+        Assert(Phinix.PluginStore.StoreBrowserLayout.PackageListHeight(0) == 32f &&
+            Phinix.PluginStore.StoreBrowserLayout.PackageListHeight(int.MaxValue) == 220f,
+            "Empty and large catalog heights must stay bounded.");
     }
 
     private static void TestZeroSizeInputs()
@@ -214,8 +196,6 @@ internal static class Program
             ResponsiveToolbarLayout.Calculate(new Rect(0f, 0f, 220f, 80f), widths, 3, 2, 30f, 10f, 2, 40f, rects);
             VirtualListLayout.GetFixedRange(1000, 20f, 200f, 100f, 1);
             VirtualListLayout.GetDynamicRange(StableDynamicOffsets, 3, 20f, 50f, 1);
-            Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-                new Rect(0f, 0f, 600f, 30f), 96f, 76f, true);
         }
     }
 

@@ -8,6 +8,8 @@ using Google.Protobuf;
 using Utils;
 using Utils.Framework;
 using ServerRuntime;
+using PhinixClient.Framework;
+using System.Threading;
 
 internal static class Program
 {
@@ -19,6 +21,8 @@ internal static class Program
             AssertClientKeyGenerationStillWorks();
             AssertExtensionDependencyValidationAndLifecycle();
             AssertExtensionStorageCannotEscapeRoot();
+            AssertClientEnvironmentCaptureRequiresMainThread();
+            AssertExtensionManagementWindowLifecycle();
             AssertApiOwnerRevocationAndProviderPolicy();
             AssertStructuredExtensionLoggerPreservesContext();
             AssertPreHandleInterceptorCanRewriteMessageBeforeDefaultHandler();
@@ -36,6 +40,98 @@ internal static class Program
             Console.Error.WriteLine(ex.Message);
             return 1;
         }
+    }
+
+    private static void AssertExtensionManagementWindowLifecycle()
+    {
+        bool isOpen = false;
+        int probes = 0;
+        int opens = 0;
+        int gameThreadId = Thread.CurrentThread.ManagedThreadId;
+        IClientExtensionManagementWindowService service = null;
+        Exception initializationError = null;
+        var initializer = new Thread(() =>
+        {
+            try
+            {
+                service = new ClientExtensionManagementWindowService(
+                    () => { probes++; return isOpen; }, () => { opens++; isOpen = true; },
+                    () => Thread.CurrentThread.ManagedThreadId == gameThreadId);
+            }
+            catch (Exception ex) { initializationError = ex; }
+        });
+        initializer.Start();
+        Assert(initializer.Join(5000) && initializationError == null && service != null,
+            "Management may initialize on a loading thread without capturing it as the game thread.");
+        Assert(probes == 0 && opens == 0, "Loading-thread construction must not invoke game window callbacks.");
+        service.OpenExtensionManagerWindow();
+        service.OpenExtensionManagerWindow();
+        Assert(opens == 1, "Repeated management actions must not open duplicate windows.");
+        isOpen = false;
+        service.OpenExtensionManagerWindow();
+        Assert(opens == 2, "Closing management must allow a new window to open.");
+        int priorProbes = probes;
+        Exception workerError = null;
+        var worker = new Thread(() =>
+        {
+            try { service.OpenExtensionManagerWindow(); }
+            catch (Exception ex) { workerError = ex; }
+        });
+        worker.Start();
+        Assert(worker.Join(5000), "Management worker must terminate promptly.");
+        Assert(workerError is InvalidOperationException, "Worker requests must be rejected before game window callbacks.");
+        Assert(probes == priorProbes && opens == 2, "Wrong-thread requests must not probe or open game windows.");
+        isOpen = false;
+        service.OpenExtensionManagerWindow();
+        Assert(opens == 3, "Rejected worker calls must not prevent subsequent main-thread recovery.");
+
+        int attempts = 0;
+        var retry = new ClientExtensionManagementWindowService(() => false, () =>
+        {
+            if (++attempts == 1) throw new InvalidOperationException("Simulated window creation failure.");
+        }, () => Thread.CurrentThread.ManagedThreadId == gameThreadId);
+        try { retry.OpenExtensionManagerWindow(); }
+        catch (InvalidOperationException) { }
+        retry.OpenExtensionManagerWindow();
+        Assert(attempts == 2, "A failed window creation must allow retry rather than lock the recovery entry.");
+    }
+
+    private static void AssertClientEnvironmentCaptureRequiresMainThread()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "PhinixEnvironment", Guid.NewGuid().ToString("N"));
+        var paths = new ClientEnvironmentPaths(Path.Combine(root, "Mods"), Path.Combine(root, "SaveData"));
+        var snapshot = new ClientEnvironmentSnapshot(paths, Path.Combine(root, "Mods", "host"),
+            "1.6", "0.9.7", "1.2.0", null, null, null, null);
+        int calls = 0;
+        int gameThreadId = Thread.CurrentThread.ManagedThreadId;
+        ClientEnvironmentService service = null;
+        Exception initializationError = null;
+        var initializer = new Thread(() =>
+        {
+            try
+            {
+                service = new ClientEnvironmentService(() => { calls++; return snapshot; },
+                    () => Thread.CurrentThread.ManagedThreadId == gameThreadId);
+            }
+            catch (Exception ex) { initializationError = ex; }
+        });
+        initializer.Start();
+        Assert(initializer.Join(5000) && initializationError == null && service != null,
+            "Environment service may initialize on a loading thread and later capture on the game thread.");
+        Assert(calls == 0, "Constructing the environment service must not capture game facts.");
+        Assert(ReferenceEquals(service.Capture(), snapshot), "Main-thread environment service should return captured facts.");
+        Exception workerError = null;
+        var worker = new Thread(() =>
+        {
+            try { service.Capture(); }
+            catch (Exception ex) { workerError = ex; }
+        });
+        worker.Start();
+        Assert(worker.Join(5000), "Environment capture worker should terminate promptly.");
+        Assert(workerError is InvalidOperationException, "Background environment capture must fail before touching game facts.");
+        Assert(calls == 1, "Wrong-thread requests must never invoke the game capture factory.");
+        Assert(ReferenceEquals(service.Capture(), snapshot) && calls == 2, "A rejected worker request must not poison future main-thread captures.");
+        Assert(!Directory.Exists(root), "Capturing paths must not create persistent state.");
     }
 
     private static void AssertLegacyApisRemoved()

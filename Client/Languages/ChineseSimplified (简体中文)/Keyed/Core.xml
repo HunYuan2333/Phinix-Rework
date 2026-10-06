@@ -3,6 +3,7 @@
     <!-- Tab labels -->
     <Phinix_tabs_chat>会话</Phinix_tabs_chat>
     <Phinix_tabs_trades>交易</Phinix_tabs_trades>
+    <Phinix_extensions_management>扩展管理</Phinix_extensions_management>
     <Phinix_tabs_extensions>扩展</Phinix_tabs_extensions>
 
     <!-- Settings -->
@@ -63,7 +64,7 @@
     <Phinix_extensions_state_disabled>已禁用</Phinix_extensions_state_disabled>
     <Phinix_extensions_state_dependencyDisabled>已禁用（依赖）</Phinix_extensions_state_dependencyDisabled>
     <Phinix_extensions_state_unknown>未知</Phinix_extensions_state_unknown>
-    <Phinix_extensions_warningsPresent>{0} 个扩展存在问题，请查看扩展标签页。</Phinix_extensions_warningsPresent>
+    <Phinix_extensions_warningsPresent>{0} 个扩展存在问题，请打开扩展管理。</Phinix_extensions_warningsPresent>
     <Phinix_extensions_summaryActiveTotal>{0} 激活 / 共 {1}</Phinix_extensions_summaryActiveTotal>
     <Phinix_extensions_summaryDisabled>{0} 已禁用</Phinix_extensions_summaryDisabled>
     <Phinix_extensions_summaryDepDisabled>{0} 因依赖被禁用</Phinix_extensions_summaryDepDisabled>
@@ -81,4 +82,38 @@
     <Phinix_extensions_undeclaredDeps>存在未声明的依赖</Phinix_extensions_undeclaredDeps>
     <Phinix_modSettings_extensionsSectionTitle>扩展</Phinix_modSettings_extensionsSectionTitle>
     <Phinix_modSettings_extensionsRestartRequired>更改将在重启后生效</Phinix_modSettings_extensionsRestartRequired>
+  <Phinix_managed_modulesTab>模块</Phinix_managed_modulesTab>
+  <Phinix_managed_packagesTab>托管包</Phinix_managed_packagesTab>
+  <Phinix_managed_refresh>刷新</Phinix_managed_refresh>
+  <Phinix_managed_empty>暂无托管包。商店中的托管下载安装将在下一批接入；现有内置扩展仍在“模块”页管理。</Phinix_managed_empty>
+  <Phinix_managed_confirmRemoval>将 {0} 标记为待卸载？退出并重启游戏后，仅删除核验通过的包代码；设置、插件数据与存档保留。本次会话中的模块仍保持当前状态。</Phinix_managed_confirmRemoval>
+  <Phinix_managed_remove>卸载</Phinix_managed_remove>
+  <Phinix_managed_cancelRemoval>撤销卸载</Phinix_managed_cancelRemoval>
+  <Phinix_managed_enable>启用</Phinix_managed_enable>
+  <Phinix_managed_disable>停用</Phinix_managed_disable>
+  <Phinix_managed_moduleActions>模块</Phinix_managed_moduleActions>
+  <Phinix_managed_loaded>字节已加载</Phinix_managed_loaded>
+  <Phinix_managed_unloaded>未加载</Phinix_managed_unloaded>
+  <Phinix_managed_state>本次启动：{0}；期望：{1}</Phinix_managed_state>
+  <Phinix_managed_restartPending>待重启</Phinix_managed_restartPending>
+  <Phinix_managed_verified>文件归属核验通过。</Phinix_managed_verified>
+  <Phinix_managed_restartExplanation>包加载与模块激活是不同状态。启停/卸载重启生效；模块开关可通过“模块”按钮单独管理。</Phinix_managed_restartExplanation>
+  <Phinix_managed_desired_Enabled>启用</Phinix_managed_desired_Enabled>
+  <Phinix_managed_desired_Disabled>停用</Phinix_managed_desired_Disabled>
+  <Phinix_managed_desired_PendingRemoval>待卸载</Phinix_managed_desired_PendingRemoval>
+  <Phinix_managed_desired_Unknown>未知</Phinix_managed_desired_Unknown>
+  <Phinix_managed_working>正在核验，请稍候…</Phinix_managed_working>
+  <Phinix_managed_ready>托管库存已读取。</Phinix_managed_ready>
+  <Phinix_managed_saved>状态已保存，重启后生效。</Phinix_managed_saved>
+  <Phinix_managed_savedRefreshFailed>状态已保存，列表刷新失败，请再次刷新。</Phinix_managed_savedRefreshFailed>
+  <Phinix_managed_dependents>还有依赖方，不能执行此操作。</Phinix_managed_dependents>
+  <Phinix_managed_stale>包或状态已变化，请刷新后重试。</Phinix_managed_stale>
+  <Phinix_managed_transaction>存在未完成事务，请重启恢复或检查日志。</Phinix_managed_transaction>
+  <Phinix_managed_canceled>操作已取消。</Phinix_managed_canceled>
+  <Phinix_managed_startupDisabled>本次启动未启用此包。</Phinix_managed_startupDisabled>
+  <Phinix_managed_diagnostic>诊断：{0}</Phinix_managed_diagnostic>
+  <Phinix_managed_allModulesDisabled>包内模块均已停用，请先通过“模块”按钮启用所需模块。</Phinix_managed_allModulesDisabled>
+  <Phinix_managed_missingDependency>前置包或模块缺失、停用或不可用。</Phinix_managed_missingDependency>
+  <Phinix_managed_incompatible>与当前游戏或主体版本不兼容。</Phinix_managed_incompatible>
+  <Phinix_managed_writeUncertain>写入结果尚不能确认，请刷新核对期望状态并查看日志。</Phinix_managed_writeUncertain>
 </LanguageData>

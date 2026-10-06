@@ -20,7 +20,8 @@ internal static class Program
             DisplayGroupingSeparatesUnknownsAndOverflow();
             ComponentTypeResolverIsStrictlyScoped();
             ResolvedComponentPreservesSnapshot();
-            Console.WriteLine("All seven inventory reservation, grouping and component snapshot runtime scenarios passed.");
+            InventoryJournalScenarios.Run();
+            Console.WriteLine("All 13 inventory reservation, grouping, component snapshot and journal runtime scenarios passed.");
             return 0;
         }
         catch (Exception exception)

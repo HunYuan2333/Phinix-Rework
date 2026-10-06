@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "example.source",
+  "snapshotId": "4444444444444444444444444444444444444444",
+  "catalogSchemaVersion": 3,
+  "catalogSha256": "11788cbb0d74efe6a206abf78a58c2fc3d4fe2cf688dfcd9e779acea8376e345",
+  "catalogSizeBytes": 3153,
+  "publishedSha256": "2fc06fe95e494cba763f6a8a3018de10d76dad926f5b6329c8452bedb1436b56",
+  "publishedSizeBytes": 430
+}

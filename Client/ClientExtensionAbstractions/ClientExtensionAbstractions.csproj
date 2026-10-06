@@ -68,7 +68,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Framework\IClientLocalizationService.cs" />
     <Compile Include="Framework\IClientExtensionAbstractions.cs" />
+    <Compile Include="Framework\IClientExtensionManagementWindowService.cs" />
+    <Compile Include="Framework\ClientEnvironmentSnapshot.cs" />
     <Compile Include="Framework\FrameworkDisplayMessageEventArgs.cs" />
     <Compile Include="Framework\UserBlockStateChangedEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

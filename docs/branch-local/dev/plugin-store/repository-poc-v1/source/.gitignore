@@ -1,0 +1,6 @@
+bin/
+obj/
+*.dll
+*.zip
+.dev.vars*
+.env*

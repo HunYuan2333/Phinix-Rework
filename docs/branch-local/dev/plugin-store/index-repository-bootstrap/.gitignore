@@ -1,0 +1,8 @@
+dist/
+!packages/**
+__pycache__/
+*.pyc
+*.dll
+*.zip
+*.log
+.env

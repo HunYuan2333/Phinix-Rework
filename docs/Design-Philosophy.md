@@ -41,9 +41,9 @@ Network layer (NetClient)
 Extension discovery & lifecycle (PhinixExtensionRegistry, IExtensionActivationPolicy)
 General services (IClientSessionContext, IClientSettingsContext, IClientUserDirectory,
            IClientUserEventStream, IClientMainThreadDispatcher, IClientWindowService,
-           IClientSoundService, IUiTheme, IDisplayMessageSink)
+           IClientSoundService, IClientEnvironmentService, IClientLocalizationService, IClientExtensionManagementWindowService, IUiTheme, IDisplayMessageSink)
 ServerTab (general shell, collects IMainTabProvider / IServerSidebarProvider / INoticeBannerProvider / IUiAcceptKeyHandler for dynamic rendering)
-Basic UI (SettingsWindow, CredentialsWindow, ExtensionManagerTab, ExtensionControlSettingsPanelProvider)
+Basic UI (SettingsWindow, CredentialsWindow, ExtensionManagerWindow/ExtensionManagerTab, ExtensionControlSettingsPanelProvider)
 ```
 
 Business logic (chat, trade, red packets, etc.) is entirely in plugins. The host does not care what businesses currently exist.
@@ -148,6 +148,8 @@ The communication layer and UI layer use the same dynamic dispatch pattern: plug
 - `ServerTab` is a pure container, containing no business UI
 - `ServerTabButtonWorker` aggregates all `IBadgeProvider`s, only displaying the first badge with content
 - Adding a new Tab/sidebar only requires implementing the corresponding interface and registering it in `Register()`
+
+The host exposes `IClientExtensionManagementWindowService` to every extension. It opens the host-owned management window, reusing `ExtensionManagerTab` as its content. The host does not register a dedicated Extensions main tab; a store extension contributes its own `IMainTabProvider` and invokes the management service. Host mod settings retain a recovery entry even if that extension is absent or disabled. Enable/disable changes retain the existing restart-required policy for all discovered extensions, including built-ins.
 
 ### 3.2 Three Communication Pipeline Categories
 
@@ -379,16 +381,17 @@ Client/
     Extensions/                          ← Plugin directory (isolated from Assemblies)
       08-ChatExtension.dll               ← Chat domain contracts
       09-TradeExtension.dll              ← Trade domain contracts
+      10-InventoryExtension.dll          ← Inventory domain contracts
       10-LegacyAdapter.Client.dll        ← Legacy protocol adapter plugin
       11-ChatExtension.Client.dll        ← Chat plugin
+      11-InventoryExtension.Client.dll   ← Inventory client plugin
       12-TradeExtension.Client.dll       ← Trade plugin
-      13-LegacyRedPacketExtension.dll    ← Red packet domain contracts
-      14-LegacyRedPacketExtension.Client.dll ← Red packet client plugin
-      15-LegacyTalentTradeExtension.dll  ← Talent trade domain contracts
-      16-LegacyTalentTradeExtension.Client.dll ← Talent trade client plugin
+      17-PluginStore.Client.dll          ← Bundled plugin store
 ```
 
 When adding new DLLs, assign numbers according to dependency relationships. RimWorld's `ModAssemblyHandler` will only avoid throwing `ReflectionTypeLoadException` if and only if the string order guarantees that all dependencies are loaded before their dependents.
+
+RedPacket and TalentTrade are independent optional plugins, excluded from the main solution and distribution. Main packaging removes only retired flat DLLs, companions and owned language resources from generated output; it does not remove player settings, saves or managed installations. They use ordinary discovery/registration. Existing Legacy/BuiltIn/builtin identity prefixes do not imply bundled distribution.
 
 ### 5.2 Release Boundaries (Implemented State)
 
@@ -603,3 +606,7 @@ Full UI adaptability (Phase 9 acceptance standard) requires the system to mainta
 | Performance | Large payloads use buffering and on-demand / batched instantiation | HIGH |
 | Savegame Safety | Serialization has default fallbacks; single item corruption does not block save loading | CRITICAL |
 
+
+## DLL plugin language resources
+
+The host provides package-scoped localization: plugins bind during Activate, resolve keys while drawing and release during Shutdown. It is independent of store/business plugins and does not inject managed languages into RimWorld global dictionaries. The main thread publishes language changes; resource validation and fallback are general infrastructure.

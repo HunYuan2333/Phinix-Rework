@@ -16,6 +16,7 @@ using Verse.Sound;
 using TaggedString = Verse.TaggedString;
 using Thing = Verse.Thing;
 using PhinixClient.Framework;
+using Utils.Framework.ManagedExtensions;
 
 namespace PhinixClient
 {
@@ -23,6 +24,7 @@ namespace PhinixClient
     {
         public static Client Instance;
         public static readonly Version Version = typeof(Client).Assembly.GetName().Version;
+        public const string CompatibilityVersion = "0.9.7";
         public const string PackageId = "Thomotron.Phinix";
 
         public void Log(LogEventArgs e) => ILoggableHandler(null, e);
@@ -65,7 +67,7 @@ namespace PhinixClient
 
         public void SendMessage(string message)
         {
-            frameworkClient.TryHandleOutgoingMessage(message);
+            frameworkClient?.TryHandleOutgoingMessage(message);
         }
 
         internal void NotifyMainWindowOpened()
@@ -82,6 +84,7 @@ namespace PhinixClient
         {
             get
             {
+                if (frameworkClient == null) return Array.Empty<IMainTabProvider>();
                 if (cachedMainTabProviders == null)
                     cachedMainTabProviders = frameworkClient?.ResolveExtensionApis<IMainTabProvider>() ?? (IReadOnlyList<IMainTabProvider>)Array.Empty<IMainTabProvider>();
                 return cachedMainTabProviders;
@@ -91,6 +94,7 @@ namespace PhinixClient
         {
             get
             {
+                if (frameworkClient == null) return Array.Empty<IServerSidebarProvider>();
                 if (cachedSidebarProviders == null)
                     cachedSidebarProviders = frameworkClient?.ResolveExtensionApis<IServerSidebarProvider>() ?? (IReadOnlyList<IServerSidebarProvider>)Array.Empty<IServerSidebarProvider>();
                 return cachedSidebarProviders;
@@ -100,6 +104,7 @@ namespace PhinixClient
         {
             get
             {
+                if (frameworkClient == null) return Array.Empty<INoticeBannerProvider>();
                 if (cachedBannerProviders == null)
                     cachedBannerProviders = frameworkClient?.ResolveExtensionApis<INoticeBannerProvider>() ?? (IReadOnlyList<INoticeBannerProvider>)Array.Empty<INoticeBannerProvider>();
                 return cachedBannerProviders;
@@ -109,7 +114,12 @@ namespace PhinixClient
 
         private PhinixFrameworkClient frameworkClient;
         private EventHandler processExitHandler;
+        private ManagedExtensionRuntime managedExtensionRuntime;
+        private ClientLocalizationService localizationService;
+        private object localizationGameLanguage;
+        private bool extensionInitializationAttempted;
         public PhinixFrameworkClient FrameworkClient => frameworkClient;
+        internal IManagedExtensionManagementService ManagedExtensionManagement => managedExtensionRuntime;
         private ClientUserEventStream userEventStream;
         private ClientShellEventStream shellEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
@@ -178,67 +188,31 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientWindowService>(windowService);
             extensionHostContext.AddService<IClientSettingsWindowService>((IClientSettingsWindowService)windowService);
+            extensionHostContext.AddService<IClientExtensionManagementWindowService>((IClientExtensionManagementWindowService)windowService);
             extensionHostContext.AddService<IClientSoundService>(soundService);
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
             extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
             // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
             extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
-            extensionHostContext.ResolveSourcePackageId = ResolveModPackageId;
+            extensionHostContext.ResolveSourcePackageId = assembly =>
+            {
+                ManagedExtensionPackageSnapshot owner;
+                return managedExtensionRuntime != null && managedExtensionRuntime.TryGetOwner(assembly,out owner)
+                    ? owner.SourceId + ":" + owner.PackageId : ResolveModPackageId(assembly);
+            };
             string modRoot = content.RootDir?.ToString();
-            IUiTheme uiTheme = new UiTheme(modRoot);
-            extensionHostContext.AddService<IUiTheme>(uiTheme);
-            Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
-            ExtensionAssemblyLoader.LoadAssemblies(
-                GetExtensionProbeDirectories(modRoot),
-                (message, level) =>
-                {
-                    // Always pass through to the log handler so warnings/errors are visible
-                    // even when DevMode is off
-                    Log(new LogEventArgs(message, level));
-                });
-
-            // 构建扩展依赖图（纯反射，不实例化模块）——在 DiscoverExtensions 之前就绪
-            // 《插件启用禁用与扩展管理实施方案》§4.7：host 先 ScanCandidateModuleTypes
-            // → Build graph → 构造 policy → 注册服务
-            List<Type> candidateModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes();
-            ExtensionDependencyGraph dependencyGraph = ExtensionDependencyGraph.Build(candidateModuleTypes);
-            foreach (string graphWarning in dependencyGraph.BuildWarnings)
+            var environmentCapture = new ClientEnvironmentCapture(modRoot, () => frameworkClient?.ExtensionResults,
+                (message, level) => extensionHostContext.Log?.Invoke(message, level), () => managedExtensionRuntime);
+            extensionHostContext.AddService<IClientEnvironmentService>(new ClientEnvironmentService(environmentCapture.Capture, () => UnityData.IsInMainThread));
+            // Mod constructors may run on the loading thread. Start discovery after loading
+            // finishes, through the existing main-thread dispatcher, before connecting.
+            LongEventHandler.ExecuteWhenFinished(() => mainThreadDispatcher.Enqueue(() => InitializeExtensions(modRoot, extensionHostContext)));
+            processExitHandler = (_, __) =>
             {
-                Verse.Log.Warning($"[Phinix] {graphWarning}");
-            }
-
-            // 构造 v1 静态激活策略并注册为服务——DiscoverExtensions 将从 hostContext 解析此策略
-            // 设计哲学 §1.1 插件平权：全部扩展可禁用，host 不硬编码"谁不可禁用"
-            var activationPolicy = new StaticActivationPolicy(Settings.DisabledExtensions, dependencyGraph);
-            extensionHostContext.AddService<IExtensionActivationPolicy>(activationPolicy);
-
-            // 注册 host 核心的 ExtensionManagerTab——必须在 new PhinixFrameworkClient 之前注册，
-            // 因为 DiscoverExtensions 内部 module.Register(builder) 会向同一个 ApiRegistry 注册插件的 provider，
-            // 随后 MainTabProviders 的 lazy cache 在首次被读取时一次性解析全部 provider。
-            // 如果在此之后注册，cache 已被填充为仅含 Chat/Trade，ExtensionManagerTab 会被遗漏。
-            extensionHostContext.ApiRegistry.RegisterApi<IMainTabProvider>("builtin.host", new ExtensionManagerTab());
-            // host 核心的扩展管理设置面板（Mod Settings 页，Order=50）。
-            // 与 ExtensionManagerTab 共用 ExtensionDisplayState 静态计算，勾选后两处显示一致。
-            extensionHostContext.ApiRegistry.RegisterApi<IClientSettingsPanelProvider>(
-                "builtin.host", new ExtensionControlSettingsPanelProvider());
-            // 通用 UI 主题同时注册为 API——扩展管理 Tab 等 host UI 通过 ResolveExtensionApis 解析。
-            // 插件仍通过 GetRequiredService&lt;IUiTheme&gt; 使用服务方式，两种通道并存，互不冲突。
-            extensionHostContext.ApiRegistry.RegisterApi<IUiTheme>("builtin.host", uiTheme);
-
-            Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
-            frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
-            processExitHandler = (_, __) => frameworkClient?.Shutdown();
+                try { frameworkClient?.Shutdown(); managedExtensionRuntime?.RecordLifecycle(frameworkClient?.ExtensionResults); }
+                finally { localizationService?.Dispose(); managedExtensionRuntime?.Dispose(); }
+            };
             AppDomain.CurrentDomain.ProcessExit += processExitHandler;
-            Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
-            if (!Settings.Migrated)
-            {
-                Settings.MigrateLegacySettings(settingsContext, frameworkClient.ResolveExtensionApis<IClientLegacySettingsMigrator>());
-            }
-            // Subscribe to log events (after construction so constructor diagnostics
-            // already went through the hostContext.Log callback above)
-            authenticator.OnLogEntry += ILoggableHandler;
-            userManager.OnLogEntry += ILoggableHandler;
-            frameworkClient.OnLogEntry += ILoggableHandler;
             #region Module Event Handlers
             // Subscribe to connection events
             netClient.OnDisconnect += (sender, args) =>
@@ -323,21 +297,130 @@ namespace PhinixClient
             userManager.OnUserLoggedOut += (sender, e) => { OnUserLoggedOut?.Invoke(sender, e); };
             userManager.OnUserCreated += (sender, e) => { OnUserCreated?.Invoke(sender, e); };
             userManager.OnUserSync += (sender, e) => { OnUserSync?.Invoke(sender, e); };
-            // Connect to the server set in the config
-            Connect(Settings.ServerAddress, Settings.ServerPort);
 
-            // Show warning notification if extensions had issues during loading
-            if (frameworkClient.HasWarnings)
+        }
+
+        private void InitializeExtensions(string modRoot, ExtensionHostContext extensionHostContext)
+        {
+            if(extensionInitializationAttempted) return;
+            if(!UnityData.IsInMainThread) throw new InvalidOperationException("Extension startup requires the main thread.");
+            extensionInitializationAttempted=true;
+            try
             {
-                Verse.Log.Warning($"[Phinix] {frameworkClient.WarningCount} extension warning(s) during startup:");
-                foreach (string warning in frameworkClient.ExtensionWarnings)
-                {
-                    Verse.Log.Warning($"  [Phinix] {warning}");
-                }
-            }
+                IUiTheme uiTheme = new UiTheme(modRoot);
+                extensionHostContext.AddService<IUiTheme>(uiTheme);
+                Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
+                ExtensionAssemblyLoader.LoadAssemblies(
+                    GetExtensionProbeDirectories(modRoot),
+                    (message, level) =>
+                    {
+                        // Always pass through to the log handler so warnings/errors are visible
+                        // even when DevMode is off
+                        Log(new LogEventArgs(message, level));
+                    });
 
-            // 清晰呈现每个扩展的运行状态，便于用户分辨"某功能（如红包）没接入 / 被禁用 / 加载失败(BUG)"。
-            LogExtensionStatusSummary();
+                // Capture game facts on the main thread, then prepare the generic owned domain.
+                List<Type> hostModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes();
+                ExtensionDependencyGraph hostGraph = ExtensionDependencyGraph.Build(hostModuleTypes);
+                var hostPolicy = new StaticActivationPolicy(Settings.DisabledExtensions, hostGraph);
+                var hostIds = hostModuleTypes.Select(type => type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name).ToArray();
+                var availableIds = hostIds.Where(id => hostPolicy.ShouldActivate(id,out _)).ToArray();
+                try
+                {
+                    var paths = new ClientEnvironmentPaths(GenFilePaths.ModsFolderPath,GenFilePaths.SaveDataFolderPath);
+                    managedExtensionRuntime = new ManagedExtensionRuntime(paths.ManagedExtensions,
+                        entry => Verse.Log.Message("[Phinix] " + ManagedExtensionAuditJson.Format(entry)),
+                        error => { if(Prefs.DevMode) Verse.Log.Warning("[Phinix] Managed extension internal diagnostic: " + error); });
+                    extensionHostContext.AddService<IManagedExtensionInventoryService>(managedExtensionRuntime);
+                    extensionHostContext.AddService<IManagedExtensionManagementService>(managedExtensionRuntime);
+                    extensionHostContext.AddService<IManagedExtensionInstallationService>(managedExtensionRuntime);
+                    extensionHostContext.AddService<IExtensionDiscoveryPolicy>(managedExtensionRuntime);
+                    var facts = new ManagedExtensionHostFacts(
+                        VersionControl.CurrentMajor + "." + VersionControl.CurrentMinor,CompatibilityVersion,ClientAbstractionsCompatibility.Version,
+                        AppDomain.CurrentDomain.GetAssemblies().Where(a=>!a.IsDynamic).Select(a=>ManagedAssemblyIdentity.FromAssemblyName(a.GetName())),
+                        hostIds,availableIds,ModLister.AllInstalledMods.Where(m=>m!=null && m.Active).Select(m=>m.PackageIdNonUnique),
+                        hostModuleTypes.Select(type=>new ManagedExtensionHostModule(type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name,type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>())));
+                    managedExtensionRuntime.Start(facts,Settings.DisabledExtensions,hostModuleTypes.SelectMany(type=>type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>()),CancellationToken.None);
+                }
+                catch(Exception error)
+                {
+                    Verse.Log.Warning("[Phinix] ManagedStartupUnavailable; built-in discovery continues. " + error.GetType().Name);
+                    if(Prefs.DevMode) Verse.Log.Warning(error.ToString());
+                    managedExtensionRuntime?.Dispose();
+                }
+
+                // 构建扩展依赖图（纯反射，不实例化模块）——在 DiscoverExtensions 之前就绪
+                // 《插件启用禁用与扩展管理实施方案》§4.7：host 先 ScanCandidateModuleTypes
+                // → Build graph → 构造 policy → 注册服务
+                List<Type> candidateModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes(managedExtensionRuntime);
+                localizationService = new ClientLocalizationService(candidateModuleTypes,
+                    type =>
+                    {
+                        ManagedExtensionPackageSnapshot owner;
+                        if(managedExtensionRuntime != null && managedExtensionRuntime.TryGetOwner(type.Assembly,out owner))
+                            return managedExtensionRuntime.GetLocalization(type.Assembly);
+                        if(ResolveModPackageId(type.Assembly) == null) throw new InvalidOperationException("LocalizationOwnerUnavailable");
+                        return ExtensionLocalizationCatalog.LoadCompanion(type.Assembly.Location,type.Assembly.GetName().Name,CancellationToken.None);
+                    }, () => UnityData.IsInMainThread,
+                    (module,code,file,key) => Verse.Log.Message("[Phinix] " + ClientLocalizationService.AuditJson(module,code,file,key)));
+                localizationGameLanguage=LanguageDatabase.activeLanguage;
+                localizationService.UpdateLanguage(ClientGameLanguage.CurrentLocale());
+                extensionHostContext.AddService<IClientLocalizationService>(localizationService);
+                extensionHostContext.AddService<IExtensionModuleLifecycleObserver>(localizationService);
+                ExtensionDependencyGraph dependencyGraph = ExtensionDependencyGraph.Build(candidateModuleTypes);
+                foreach (string graphWarning in dependencyGraph.BuildWarnings)
+                {
+                    Verse.Log.Warning($"[Phinix] {graphWarning}");
+                }
+
+                // 构造 v1 静态激活策略并注册为服务——DiscoverExtensions 将从 hostContext 解析此策略
+                // 设计哲学 §1.1 插件平权：全部扩展可禁用，host 不硬编码"谁不可禁用"
+                var activationPolicy = new StaticActivationPolicy(Settings.DisabledExtensions, dependencyGraph);
+                extensionHostContext.AddService<IExtensionActivationPolicy>(activationPolicy);
+
+                // 顶层 Tab 由扩展通过 IMainTabProvider 提供；宿主只提供通用扩展管理窗口和设置入口。
+                // 商店被禁用或未安装时，仍可通过 Mod 设置恢复任意扩展。
+                // host 核心的扩展管理设置面板（Mod Settings 页，Order=50）。
+                // 与 ExtensionManagerTab 共用 ExtensionDisplayState 静态计算，勾选后两处显示一致。
+                extensionHostContext.ApiRegistry.RegisterApi<IClientSettingsPanelProvider>(
+                    "builtin.host", new ExtensionControlSettingsPanelProvider((IClientExtensionManagementWindowService)windowService));
+                // 通用 UI 主题同时注册为 API——扩展管理 Tab 等 host UI 通过 ResolveExtensionApis 解析。
+                // 插件仍通过 GetRequiredService&lt;IUiTheme&gt; 使用服务方式，两种通道并存，互不冲突。
+                extensionHostContext.ApiRegistry.RegisterApi<IUiTheme>("builtin.host", uiTheme);
+
+                Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
+                frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
+                managedExtensionRuntime?.RecordLifecycle(frameworkClient.ExtensionResults);
+                Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
+                if (!Settings.Migrated)
+                {
+                    Settings.MigrateLegacySettings(settingsContext, frameworkClient.ResolveExtensionApis<IClientLegacySettingsMigrator>());
+                }
+                // Subscribe to log events (after construction so constructor diagnostics
+                // already went through the hostContext.Log callback above)
+                authenticator.OnLogEntry += ILoggableHandler;
+                userManager.OnLogEntry += ILoggableHandler;
+                frameworkClient.OnLogEntry += ILoggableHandler;
+                // Connect to the server set in the config
+                Connect(Settings.ServerAddress, Settings.ServerPort);
+
+                // Show warning notification if extensions had issues during loading
+                if (frameworkClient.HasWarnings)
+                {
+                    Verse.Log.Warning($"[Phinix] {frameworkClient.WarningCount} extension warning(s) during startup:");
+                    foreach (string warning in frameworkClient.ExtensionWarnings)
+                    {
+                        Verse.Log.Warning($"  [Phinix] {warning}");
+                    }
+                }
+
+                // 清晰呈现每个扩展的运行状态，便于用户分辨"某功能（如红包）没接入 / 被禁用 / 加载失败(BUG)"。
+                LogExtensionStatusSummary();
+            }
+            catch(Exception error)
+            {
+                Verse.Log.Error("[Phinix] ExtensionStartupFailed: " + error);
+            }
         }
 
         /// <summary>
@@ -455,10 +538,13 @@ namespace PhinixClient
                             listing.Gap(6f);
                         }
 
-                        // SectionId 可能直接是翻译键（如扩展管理面板），先 Translate 再展示；
-                        // 非键值（如 "chat.display"）Translate 原样返回，行为不变。
-                        TaggedString sectionLabel = panel.SectionId.ToString().Translate();
-                        listing.Label(sectionLabel, -1f, TaggedString.Empty);
+                        // Technical IDs are for registration; panels render their own localized title.
+                        // Preserve host headings for providers that explicitly use a Verse translation key.
+                        string sectionId = panel.SectionId.ToString();
+                        if (Translator.CanTranslate(sectionId))
+                        {
+                            listing.Label(sectionId.Translate(), -1f, TaggedString.Empty);
+                        }
                         panel.DrawSettings(listing, settingsContext);
                     }
                     catch (Exception ex)
@@ -528,6 +614,11 @@ namespace PhinixClient
                 }
             }
             mainThreadDispatcher?.DrainPendingActions();
+            if(localizationService != null && !ReferenceEquals(localizationGameLanguage,LanguageDatabase.activeLanguage))
+            {
+                localizationGameLanguage=LanguageDatabase.activeLanguage;
+                localizationService.UpdateLanguage(ClientGameLanguage.CurrentLocale());
+            }
         }
 
         /// <summary>
@@ -598,16 +689,18 @@ namespace PhinixClient
 
             if (!string.IsNullOrEmpty(clientAssemblyDirectory))
             {
-                // 正常路径：行为完全不变
+                // 主体程序集定位公共引用目录及随包插件根。
                 yield return clientAssemblyDirectory;
                 yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Assemblies"));
-                yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions"));
+                foreach(string directory in ExtensionBundleDirectories.GetProbeDirectories(Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions")),
+                    (message,level)=>Verse.Log.Warning("[Phinix] "+message))) yield return directory;
             }
             else if (!string.IsNullOrEmpty(modRootDir))
             {
                 // 降级路径：从 ModContentPack.RootDir 直接推导
                 yield return Path.Combine(modRootDir, "Common", "Assemblies");
-                yield return Path.Combine(modRootDir, "Common", "Extensions");
+                foreach(string directory in ExtensionBundleDirectories.GetProbeDirectories(Path.Combine(modRootDir, "Common", "Extensions"),
+                    (message,level)=>Verse.Log.Warning("[Phinix] "+message))) yield return directory;
             }
 
             if (!string.IsNullOrEmpty(appBaseDirectory))
@@ -641,7 +734,7 @@ namespace PhinixClient
                 {
                     string rootDir = mod.RootDir?.FullName ?? mod.RootDir?.ToString();
                     if (!string.IsNullOrEmpty(rootDir) &&
-                        assemblyPath.StartsWith(rootDir, StringComparison.OrdinalIgnoreCase))
+                        ClientPathOwnership.Contains(rootDir,assemblyPath))
                     {
                         return mod.PackageId;
                     }

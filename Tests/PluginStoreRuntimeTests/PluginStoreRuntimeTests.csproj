@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Fixtures/ManagedPayload/**/*.cs" />
+    <Compile Remove="Fixtures/ManagedAdapterPayload/**/*.cs" />
+    <ProjectReference Include="Fixtures/ManagedAdapterPayload/ManagedAdapterPayload.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" AdditionalProperties="TargetFramework=net472" />
+    <Compile Remove="Fixtures/RepositoryMonoSmoke/**/*.cs" />
+    <Compile Remove="Fixtures/ManagedExtensionMonoSmoke/**/*.cs" />
+    <ProjectReference Include="Fixtures/ManagedPayload/ManagedPayload.csproj" ReferenceOutputAssembly="false" />
+    <!-- Compile the actual net472 planning sources without game dependencies. -->
+    <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PackageVersion.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PackageModels.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/CatalogReader.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryCache.cs" Link="Production/PluginStore/ManagedRepositoryCache.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryPayloadTransport.cs" Link="Production/PluginStore/ManagedRepositoryPayloadTransport.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryAccess.cs" Link="Production/PluginStore/ManagedRepositoryAccess.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/GitHubRepositoryAccess.cs" Link="Production/PluginStore/GitHubRepositoryAccess.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedPayloadTransfer.cs" Link="Production/PluginStore/ManagedPayloadTransfer.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreProgress.cs" Link="Production/PluginStore/ManagedStoreProgress.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreUpdates.cs" Link="Production/PluginStore/ManagedStoreUpdates.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/ManagedStorePayloadValidator.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreInstallationInput.cs" Link="Production/ManagedStoreInstallationInput.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PayloadValidator.cs" Link="Production/PayloadValidator.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedInstallation.cs" Link="Production/ManagedInstallation.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/DependencyPlanner.cs" Link="Production/DependencyPlanner.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/StoreEnvironmentAdapter.cs" Link="Production/StoreEnvironmentAdapter.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/StoreBrowserController.cs" Link="Production/StoreBrowserController.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs" Link="Production/ClientEnvironmentSnapshot.cs" />
+    <Compile Include="../../Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryTransport.cs" Link="Production/RepositoryTransport.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryPayloadTransport.cs" Link="Production/RepositoryPayloadTransport.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryDiagnostics.cs" Link="Production/RepositoryDiagnostics.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/RepositoryCache.cs" Link="Production/RepositoryCache.cs" />
+    <None Include="../../docs/branch-local/dev/plugin-store/metadata-protocol-v1/**/*.json" Link="Fixtures/RepositoryProtocol/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/branch-local/dev/plugin-store/managed-extension-protocol-v1/*.json" Link="Fixtures/ManagedProtocol/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CopyManagedPayloadFixture" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/Fixtures/ManagedPayload/bin/$(Configuration)/net10.0/Fixture.Plugin.dll" DestinationFolder="$(TargetDir)Fixtures" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/Fixtures/ManagedAdapterPayload/bin/$(Configuration)/net472/Fixture.Plugin.dll" DestinationFolder="$(TargetDir)AdapterFixtures" />
+  </Target>
+</Project>

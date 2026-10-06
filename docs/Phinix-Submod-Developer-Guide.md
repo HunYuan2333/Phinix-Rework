@@ -165,7 +165,7 @@ PhinixMod/
     Assemblies/           ← Client-specific host (13-PhinixClient.dll)
   Common/
     Assemblies/           ← Framework base DLLs (01-10, including LiteNetLib, Protobuf, Utils, Connections, Auth, UserManagement, ClientExtensionAbstractions)
-    Extensions/           ← Official built-in plugin DLLs (08-16, including Chat, Trade, LegacyAdapter, RedPacket, TalentTrade, and their Client implementations)
+    Extensions/           ← Bundled Chat, Trade, Inventory, LegacyAdapter and PluginStore DLLs; RedPacket/TalentTrade install separately
 ```
 
 #### Two Distribution and Deployment Methods for Third-Party Submods
@@ -271,7 +271,7 @@ The framework manages extensions across four phases (see the `DiscoverExtensions
   - `DependencyDisabled`: Enabled itself, but a parent extension it depends on was disabled, cascading to skip.
 
 - **Host Built-in Management and Observability**:
-  - The client host provides a built-in `ExtensionManagerTab` (and an "Extension Management" settings panel, Order=50).
+  - The client host provides an Extension management window (reusing `ExtensionManagerTab` content) and an "Extension Management" settings panel, Order=50. The Store extension contributes the main tab and opens host controls through a general service; settings remain available if the store is disabled.
   - Players and developers can inspect the live status, version, originating assembly path, and RimWorld Mod package ID of all extensions, and toggle individual extensions on/off.
   - The host maintains a 300-entry in-memory circular log buffer (with `ExtensionLogVersion` cache invalidation), allowing diagnostic logs to be reviewed directly in this UI.
 
@@ -416,6 +416,16 @@ public void Activate(ExtensionHostContext hostContext)
 **Recommendation**: If the other party provides a Contracts project (as both Chat and Trade do), **directly reference the Contracts project**. The API registry approach is better suited for scenarios where "the other party does not provide a Contracts assembly" or "you only need a weak dependency (the other party may not be present)."
 
 ---
+
+### 5.5 DLL plugin language files (ClientExtensionAbstractions 1.7.0)
+
+The host provides `IClientLocalizationService` before Activate. Acquire `ForModule(this)` during Activate and retain its `IClientLocalizer`; draw with `Text("tab.title")` or `Format("counter.value", count)`. Resolve TabLabel dynamically. Subscribe to main-thread `LanguageChanged` to invalidate layout caches; unsubscribe and Dispose during Shutdown. The host also releases resources after failed activation/shutdown. Binding and language changes require the main thread; text reads use frozen data without Verse translation calls and support background work.
+
+Provide one UTF-8 JSON per language under `Resources/Localization/en-US.json`, `zh-CN.json`, etc., with schemaVersion=1, locale, display (name/summary/optional changelog) and strings (UI key→text). Any one language is enough. Missing fields/keys fall back through game locale, suitable same-language variants, English, author default and available languages. Use numbered `{0}` parameters with the same parameter set across supplied translations. Hardcoded DLL text is not translated automatically. Keys are package-scoped and independent of store activation; Workshop-internal Mod translations remain RimWorld's responsibility.
+
+Managed manifests optionally declare `localization.files`; each file also requires a resources length/SHA-256 declaration. Repeat `--language-file` in the packager, optionally with `--default-locale`. Installation and startup validate data before use, then retain frozen dictionaries. Common/Extensions accepts loose DLLs or one immediate directory per plugin containing DLLs, companions and Resources; resource DLLs are not recursively discovered. Normally discovered bundled DLLs use adjacent `<assembly>.dll.localization.json`; `--bundle-output` emits DLLs, assembly-bound companions and `Resources/<packageId>/Localization/` to avoid collisions. The host accepts only registered module ownership, not caller-selected paths. A missing companion means no language package. See [the author/host contract](branch-local/dev/plugin-store/PluginLanguageFilesAndHostContract.md) and [Playtest](../Extensions/PluginStore/Samples/Playtest/README.md).
+
+Catalog v3 projects only display name/summary/changelog from these files; UI strings stay in the package. The optional packager `--display-output` writes this projection, and `RepositoryAutomation/scripts/catalog.py project` validates it against an existing ZIP. Use `build` for a validated catalog draft. Managed listings have no top-level name/summary, accept a single supplied language, and share per-field fallback with the host. [Catalog format](branch-local/dev/plugin-store/managed-store-protocol-v3/README.md). Draft generation grants no publication or admission authority.
 
 ## 6. The Three Communication Pipelines
 
@@ -879,6 +889,8 @@ public interface IClientSettingsPanelProvider
 
 Registration: `builder.RegisterApi<IClientSettingsPanelProvider>(this)`.
 
+`SectionId` is a stable registration identity, not a player-facing label. Render your localized title inside `DrawSettings` with the module localizer. The Mod settings host displays an extra heading only when `SectionId` is an existing Verse translation key; untranslated IDs are hidden. See the [published Example Plugin](https://github.com/HunYuan2333/Phinix-Example-Plugin) for a localized panel sharing persistent state with a tab.
+
 For complete examples, see Chat's implementation: [ChatSettingsPanelProvider.cs](Extensions/Chat/Client/ChatSettingsPanelProvider.cs) and Trade's implementation: [TradeSettingsPanelProvider.cs](Extensions/Trade/Client/TradeSettingsPanelProvider.cs).
 
 ### 7.6 Settings Migration (Legacy Settings)
@@ -1233,6 +1245,64 @@ public interface IExtensionActivationPolicy
 - Allows extensions at runtime to inspect whether specific peer extensions have been disabled by the user (`DisabledExtensions` collection), in order to trigger graceful degradation or adjust UI options.
 
 ---
+
+### 8.18 IClientEnvironmentService (client abstractions 1.2.0)
+
+Every extension can resolve this general service in `Activate`, then call `Capture()` during an explicit main-thread operation after host discovery finishes. Do not scan during per-frame `Draw` or call game APIs from worker threads.
+
+```csharp
+IClientEnvironmentService environment = hostContext.GetRequiredService<IClientEnvironmentService>();
+// After host startup, capture on the main thread before starting background work.
+ClientEnvironmentSnapshot snapshot = environment.Capture();
+if (!snapshot.IsComplete) return; // Surface Diagnostics; do not guess missing facts.
+string dataDirectory = snapshot.Paths.GetExtensionDataDirectory("my.extension.id");
+```
+
+The contract is defined in [ClientEnvironmentSnapshot.cs](../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs). Snapshots contain RimWorld major.minor, declared Phinix/client abstraction compatibility versions, the standard local Mods and SaveData roots, installed mods including disabled copies, loaded assembly identities and module states. CLR versions, mod enablement and directory names are not verified package versions or source evidence. Collections are copied into read-only snapshots. Unavailable paths or module ownership produce unknown facts and Diagnostics; the store adapter consequently blocks planning.
+
+New data paths use `<SaveData>/Phinix/ExtensionData/<extensionId>`, outside the local Mods root and independent of the current working directory. Allocating a path creates no directory, proves no write access and resolves no symlinks. Consumers still own filesystem verification, persistence and recovery. Existing `hostContext.GetStoragePath` and old module data locations are unchanged. Resolving the service in Activate is supported, but capturing before discovery finishes produces `ExtensionDiscoveryNotReady`; capture again after startup.
+
+This additive API was introduced in client abstractions 1.2.0; the current version is 1.6.0 with the management service in §8.19 and managed paths/runtime ownership in §8.20. Consumers must use an updated host and abstraction DLL, without distributing a second framework copy. Actual game loading and filesystem installation remain consumer acceptance work.
+
+### 8.19 IClientExtensionManagementWindowService (client abstractions 1.3.0)
+
+Resolve this general host service during activation. Call it from a main-thread UI action:
+
+```csharp
+var management = hostContext.GetRequiredService<IClientExtensionManagementWindowService>();
+management.OpenExtensionManagerWindow();
+```
+
+The host opens one management window at a time, showing discovered extensions, runtime states, dependencies, recent logs and restart-pending changes. This includes built-in and official extensions under the same policy. No server login or store implementation reference is required. Host mod settings retain an independent entry for recovery if the store is disabled. Extension toggles save the existing disabled-ID settings and require a game restart; they neither unload assemblies nor edit RimWorld's enabled-mod list.
+
+The additive interface preserves existing window-service members; its introduction raised the abstraction version to 1.3.0. The current version is 1.6.0 with §8.20–8.21. Consumers must ship with the updated host and abstraction DLL, without bundling a second framework copy.
+
+### 8.20 Managed extension static contracts (client abstractions 1.4.0)
+
+`ClientEnvironmentPaths.ManagedExtensions` exposes absolute `ManagedExtensionPaths` under the game's save-data directory, separate from local Mods and the main package. Path allocation creates no directories. `Utils.Framework.ManagedExtensions` provides immutable manifests, version/range declarations, desired package state and `ManagedExtensionInventoryReader.Read(paths, cancellationToken)`.
+
+The inventory reads installed receipts, exact owned bytes and source/package/manifest-bound desired state. It performs no networking, assembly loading or module registration. `ContentVerified` does not certify CLR identity/references, compatibility or activation. Missing/corrupt state never defaults to enabled. Module activation remains distinct from package loading intent. Do not ship a second Utils or ClientExtensionAbstractions DLL.
+
+`ManagedExtensionMetadataReader.ReadIdentity(bytes)` performs bounded, execution-free CLR identity inspection for local name collisions without interpreting plugin attributes or entry types. It does not approve a downloaded package. `ManagedExtensionMetadataReader.Read(bytes)` remains the strict downloaded-plugin inspection of identity/references and entry declarations. `ManagedExtensionPayloadInspector.Inspect(...)` freezes and verifies bytes; `ManagedExtensionCandidatePlanner.Plan(...)` returns compatibility/dependency/collision outcomes with correlated audit data. These static APIs perform no loading or state mutation. The generic host runtime now recovers pending removals, freezes approved DLL bytes, checks the combined host/managed module graph, and loads dependency-first through the same discovery/Register/Activate/Shutdown lifecycle. CLR references require exact full identity and must resolve to already loaded host objects or approved managed objects; the managed directory is never a legacy probe directory.
+
+In abstraction version 1.5.0, loaded assembly/module snapshots add `ManagedSourceId`, `ManagedPackageId` and `ManagedPackageRoot`; existing constructors remain available. Managed ownership is tracked by actual Assembly object, including byte-loaded assemblies with empty Location. `SourceModRoot` stays null and InstalledMods contains only actual RimWorld mods. The host registers the read-only `Utils.Framework.ManagedExtensions.IManagedExtensionInventoryService`; its Snapshot reports startup inventory, diagnostics and whether bytes loaded, separately from current module activation.
+
+Discovery/activation now runs through the main-thread dispatcher after mod loading finishes; automatic server connection follows framework initialization. Startup holds an exclusive managed-store lease until shutdown. Pending-removal replay checks exact receipt/state/journal ownership and reverse dependencies, preserves changed/unknown files, and never removes ExtensionData or saves. Logs include UTC time, per-startup sequence, stable stage/code and package/hash/transaction correlation; detailed exception diagnostics are internal and enabled by DevMode in the client.
+
+The host also registers the additive Common/Utils `IManagedExtensionManagementService`. `Refresh(disabledModules, token)` returns fresh desired-state/ownership rows alongside immutable startup facts; `ChangeDesiredState(expected, desired, disabledModules, token)` rechecks identity/content/dependencies and atomically saves intent under the existing lifetime lease. Capture module settings on the UI thread before background work. Stale state/provenance is refused; package and module intent do not change current activation. The host manager shows unloaded packages, action refusal codes and restart requirements. Removal is recovered next startup and preserves business data; unknown transactions block writes. Managed downloading/installation now has a store candidate; public/game acceptance is tracked below. Reuse the host coordinator; do not acquire a competing lease or mutate installed code in-session. DLL bytes cannot be hot-unloaded; restart is required. The runtime is not a code sandbox. .NET 10/macOS locking is explicitly unsupported; Windows/macOS game-platform acceptance is pending. See [branch-local progress](branch-local/dev/plugin-store/ManagedDllImplementation.md) for validation and remaining game acceptance. This API addition alone is not a downloadable-route announcement.
+
+
+### 8.21 Host-coordinated installation (client abstractions 1.6.0)
+
+`ClientEnvironmentSnapshot.DisabledModuleIds` and an additive constructor capture current settings on the main thread; the previous constructor remains available. Capture environment/settings before background work. Version 1.6.0 requires matching host/framework DLLs; exact managed CLR references are checked separately from semantic compatibility ranges.
+
+The host registers Common/Utils `IManagedExtensionInstallationService`. `ManagedExtensionInstallPackage` freezes raw manifest, declared file bytes and provenance; `ManagedExtensionInstallRequest` bounds one-source/snapshot batches to 32 packages / 256 MiB expanded. `Install(request, disabledModules, token)` uses the lifetime host lease, rechecks metadata, inventory, loaded identities and combined graphs, and stages new packages only. This does not authenticate a publisher or perform networking: consumers must validate the download chain, freshness and user confirmation themselves. Do not acquire a competing lease or overwrite installed packages.
+
+The durable preparing journal authorizes exact staging cleanup; committing authorizes forward completion before next-start loading. Cancellation is honored before the commit decision; after it, completion/recovery takes precedence. Changed/unknown bytes preserve evidence and close managed writes/loading. Results distinguish saved installation, refusal and recovery-required/uncertain storage. Successful installation never registers or loads DLLs in-session; package enable/disable/removal also applies at restart. Removal retains settings, business data and saves. Reuse this generic service regardless of whether the bundled shop is enabled. The same ordinary lifecycle applies to the shop and downloaded modules.
+
+CLR reference refusals carry `ManagedExtensionAssemblyReferenceFailure` through candidate/install results and startup/install audit: referencing assembly, required full identity and available same-name identities. These are diagnostic evidence only; they do not permit rebinding, loading a missing assembly or bypassing exact-version checks. The packaging tool can check repeated `--host-assembly` inputs before writing a ZIP. Compile against the intended actual game build; the RimWorld major/minor label alone is insufficient for an exact `Assembly-CSharp` reference.
+
+Catalog v3/managed ZIP and the bundled shop are connected to the controlled test source. Publication/game/platform acceptance remains tracked in [the first-release checklist](branch-local/dev/plugin-store/StoreFirstRelease.md). Minimal packaging tooling reads real PE declarations without executing DLLs; it is not approval of arbitrary plugin code or a remote publication authority.
 
 ## 9. Inter-Plugin Collaboration
 
@@ -1873,16 +1943,19 @@ RimWorld's `ModAssemblyHandler` loads assemblies in filename string order. Curre
 | 08 | ChatExtension | `Common/Extensions/` | Official Chat domain Contracts |
 | 09 | TradeExtension | `Common/Extensions/` | Official Trade domain Contracts |
 | 10 | LegacyAdapter.Client | `Common/Extensions/` | Protocol adapter client for legacy servers |
+| 10 | InventoryExtension | `Common/Extensions/` | Inventory contracts |
+| 11 | InventoryExtension.Client | `Common/Extensions/` | Inventory client implementation |
 | 11 | ChatExtension.Client | `Common/Extensions/` | Official Chat client extension implementation |
 | 12 | TradeExtension.Client | `Common/Extensions/` | Official Trade client extension implementation |
-| 13 | LegacyRedPacketExtension | `Common/Extensions/` | Official Red Packet extension contracts |
-| 14 | LegacyRedPacketExtension.Client | `Common/Extensions/` | Official Red Packet client extension implementation |
-| 15 | LegacyTalentTradeExtension | `Common/Extensions/` | Official Talent/Ability Trade extension contracts |
-| 16 | LegacyTalentTradeExtension.Client | `Common/Extensions/` | Official Talent/Ability Trade client extension implementation |
 | 13 | PhinixClient | `1.6/Assemblies/` | Client host (version-isolated) |
-| 17+ | Third-party Submods (when placed in Extensions) | `Common/Extensions/` | Must use 17 or higher prefix, loaded after all official plugins |
+| 17 | PluginStore.Client | `Common/Extensions/` | Bundled plugin store |
+| 18+ | Third-party loose DLLs | `Common/Extensions/` | Load after bundled extensions |
 
 > **Tip**: If distributing via **Option A (Independent Mod)**, your DLL resides in an independent mod's `Assemblies/`. RimWorld loads all Phinix assemblies before loading your mod's assemblies, so numeric prefixes are generally unnecessary; however, if your mod contains multiple interdependent DLLs, alphabetical ordering rules still apply among them.
+
+RedPacket/TalentTrade are no longer bundled. Install the complete independent package (both owned DLLs and language resources), without old flat `13`–`16` copies. Replace the old Mod folder when upgrading the main package; overwriting files leaves removed DLLs behind. Preserve settings/saves/managed installations. Assembly/module/Scribe identities remain; missing-package resave recovery is not accepted, so back up Talent saves and reinstall the plugin before loading/saving them.
+
+Managed references to host libraries permit same-major upgrades: required Harmony `2.3.6.0` may use the already loaded `2.4.1.0`. A new major, downgrade, or changed name/culture/public-key token is refused. Exact identity wins; otherwise exactly one compatible host is required. Preflight, startup binding and packaging share the policy. Bindings use only declared assemblies loaded before startup, with `ManagedHostReferenceUpgraded` audit entries. Owned/dependency package DLL identities, content hashes and compatibility ranges remain locked. Same-major acceptance is not complete API compatibility verification.
 
 ### 12.8 Debugging Tips
 
@@ -1891,7 +1964,7 @@ RimWorld's `ModAssemblyHandler` loads assemblies in filename string order. Curre
 - **Type load exception** (`ReflectionTypeLoadException`): Usually a dependent DLL is missing or has a version mismatch — check that all ProjectReferences have been placed in the corresponding probe directory.
 - **Activate not called**: Confirm that the module implements both `IPhinixExtensionModule` and `IActivatablePhinixExtensionModule`.
 - **UI not showing**: Confirm that `RegisterApi<IMainTabProvider>` is called in `Register()`; check whether `TabOrder` conflicts with another Tab.
-- **Extension disabled**: Check the in-game Extension Management tab (`ExtensionManagerTab`) or settings panel to ensure the extension was not manually disabled or placed in `DependencyDisabled` due to missing parent dependencies.
+- **Extension disabled**: Check the in-game Extension management window (`ExtensionManagerTab` content) or settings panel to ensure the extension was not manually disabled or placed in `DependencyDisabled` due to missing parent dependencies.
 
 ---
 
@@ -1927,6 +2000,12 @@ RimWorld's `ModAssemblyHandler` loads assemblies in filename string order. Curre
 
 > **Status symbols**: ✅ = Fully available | ⚠️ = Half-finished/transitional | 🔮 = Planned
 
+## Managed assembly occupancy
+
+Managed packages reserve CLR, game, and framework assembly names. Business extension names such as `ChatExtension` and `TradeExtension` are ordinary package identities; they are not permanently reserved because they are official extensions. The client checks each declared assembly identity and its DLL filename alias against assemblies discovered in the host and other installed or selected packages. An occupied identity still prevents installation. Do not bundle host or game DLLs to satisfy references.
+
+The index validator uses a pinned subset of static parsers. Maintainers can check that subset with `scripts/validator_snapshot.py check`; comparing or refreshing it requires an explicitly supplied trusted main source checkout. Candidate plugin source is never executed or used to refresh the validator. See the [client coupling acceptance](branch-local/dev/plugin-store/StoreClientCouplingAcceptance.md) for verification and the remaining remote synchronization work.
+
 ## Appendix B: ExtensionHostContext Complete Service Quick Reference
 
 The following services are obtained in `Activate()` via `hostContext.GetRequiredService<T>()`:
@@ -1938,6 +2017,8 @@ The following services are obtained in `Activate()` via `hostContext.GetRequired
 | `IClientDisplayMessageStore` | Message persistent storage | [IClientExtensionAbstractions.cs:41-50](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L41-L50) |
 | `IClientDisplayMessageFeed` | Message stream event subscription | [IClientExtensionAbstractions.cs:52-55](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L52-L55) |
 | `IFrameworkClientLifecycle` | Compatibility mode and negotiation | [IClientExtensionAbstractions.cs:67-72](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L67-L72) |
+| `IClientEnvironmentService` | Main-thread environment facts and stable new data paths | [ClientEnvironmentSnapshot.cs](../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs) |
+| `IClientExtensionManagementWindowService` | Open host-owned extension management from main-thread UI | [IClientExtensionManagementWindowService.cs](../Client/ClientExtensionAbstractions/Framework/IClientExtensionManagementWindowService.cs) |
 | `IClientSessionContext` | Current session state | [IClientExtensionAbstractions.cs:74-83](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L74-L83) |
 | `IClientSettingsContext` | Read/write settings | [IClientExtensionAbstractions.cs:85-100](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L85-L100) |
 | `IClientUserDirectory` | User info query | [IClientExtensionAbstractions.cs:102-109](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L102-L109) |

@@ -53,7 +53,7 @@ dotnet run --project Tests/ResponsiveUiGeometryTests/ResponsiveUiGeometryTests.c
 dotnet build Phinix.sln --configuration "Release 1.6" --no-incremental
 ```
 
-The full client build depends on compile-only RimWorld/Unity assemblies described in `.github/workflows/mono.yml` and `docs/CI.md`. Do not claim in-game validation from a successful compile or from the game-independent test harnesses.
+The full client build requires compile-only RimWorld/Unity assemblies in `GameDlls/1.6` and is a manual developer check. GitHub Actions only builds and publishes the server Docker image; see `.github/workflows/docker.yml` and `docs/CI.md`. Do not claim in-game validation from a successful compile or from the game-independent test harnesses.
 
 Tests are console applications and report failures through a non-zero exit code. When changing geometry/layout helpers, add deterministic assertions to `ResponsiveUiGeometryTests`. When changing framework runtime behavior, update the closest runtime regression harness. Game-dependent legacy trade tests have additional MSBuild/runtime instructions in `docs/Compatibility-Boundaries.md`.
 

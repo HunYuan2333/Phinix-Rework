@@ -1,0 +1,9 @@
+<ModMetaData>
+  <name>Phinix Store Playtest</name>
+  <author>Phinix PoC</author>
+  <packageId>phinix.poc.playtest</packageId>
+  <supportedVersions><li>1.6</li></supportedVersions>
+  <modDependencies><li><packageId>hunyuan2333.phinixrework</packageId><displayName>Phinix Rework</displayName></li></modDependencies>
+  <loadAfter><li>hunyuan2333.phinixrework</li></loadAfter>
+  <description>Test-only extension: a public API tab, click counter, and a confirmed action that places 100 silver near the current map center. Use a test save. Install, enable and restart; disable and restart before uninstalling. No network or persistent component.</description>
+</ModMetaData>

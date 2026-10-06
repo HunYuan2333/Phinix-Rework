@@ -27,16 +27,21 @@ if ($IncludeClient) {
         "$client/Common/Extensions/11-ChatExtension.Client.dll",
         "$client/Common/Extensions/11-InventoryExtension.Client.dll",
         "$client/Common/Extensions/12-TradeExtension.Client.dll",
-        "$client/Common/Extensions/13-LegacyRedPacketExtension.dll",
-        "$client/Common/Extensions/14-LegacyRedPacketExtension.Client.dll",
-        "$client/Common/Extensions/15-LegacyTalentTradeExtension.dll",
-        "$client/Common/Extensions/16-LegacyTalentTradeExtension.Client.dll"
+        "$client/Common/Extensions/17-PluginStore.Client.dll",
+        "$client/Languages/English/Keyed/PluginStore.xml",
+        "$client/Languages/ChineseSimplified (简体中文)/Keyed/PluginStore.xml"
     )
 }
 foreach ($path in $required) {
     if (!(Test-Path $path -PathType Leaf)) { throw "Missing build artifact: $path" }
 }
 if ($IncludeClient) {
+    # Optional business plugins must never reappear in a main distribution.
+    $retiredFiles = Get-ChildItem $client -Recurse -File | Where-Object {
+        $_.Name -match '^(?:[0-9]+-)?Legacy(?:RedPacket|TalentTrade)Extension(?:\.Client)?(?:\.dll(?:\.localization\.json)?|\.pdb|\.xml)$' -or
+        $_.FullName -match '[\\/]Resources[\\/]Legacy(?:RedPacket|TalentTrade)[\\/]'
+    }
+    if ($retiredFiles) { throw "Optional plugins found in main client artifacts: $($retiredFiles.FullName -join ', ')" }
     [xml]$loadFolders = Get-Content "$client/LoadFolders.xml" -Raw
     $folders = @($loadFolders.loadFolders.'v1.6'.li)
     if (($folders -join ',') -ne '/,Common,1.6') { throw 'Unexpected RimWorld 1.6 load folders' }

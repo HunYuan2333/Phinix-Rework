@@ -1,0 +1,1 @@
+{"schemaVersion":1,"packageIds":["phinix.poc.playtest"],"reason":"Pre-release cleanup: Playtest is a developer fixture kept in its standalone repository, not a player-facing official index entry. Preserve approved artifacts and audit locks."}

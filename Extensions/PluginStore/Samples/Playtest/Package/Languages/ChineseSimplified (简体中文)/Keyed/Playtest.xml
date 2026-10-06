@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LanguageData>
+  <Phinix_playtest_tab>商店测试</Phinix_playtest_tab>
+  <Phinix_playtest_intro>这个 Tab 用于验证通用扩展发现、注册和激活。仅供测试：白银操作会改变当前存档；插件本身不保存数据。</Phinix_playtest_intro>
+  <Phinix_playtest_click>测试注册：点击计数</Phinix_playtest_click>
+  <Phinix_playtest_silver>在当前地图生成 100 白银</Phinix_playtest_silver>
+  <Phinix_playtest_confirm>在当前地图中心附近生成 100 白银？这会改变殖民地，保存游戏后会保留。请使用测试存档。</Phinix_playtest_confirm>
+  <Phinix_playtest_mapRequired>生成白银需要已加载地图。没有地图时也可以测试点击计数。</Phinix_playtest_mapRequired>
+  <Phinix_playtest_given>已在地图中心附近放置 100 白银。可查看 Playtest 操作日志。</Phinix_playtest_given>
+  <Phinix_playtest_failed>白银放置失败，请查看 Playtest 操作日志。</Phinix_playtest_failed>
+</LanguageData>

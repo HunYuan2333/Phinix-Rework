@@ -14,6 +14,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Compile Include="Program.cs" />
+    <Compile Include="ChatImageDownloadScenarios.cs" />
     <ProjectReference Include="..\..\Extensions\Chat\Client\ChatExtension.Client.csproj" />
     <ProjectReference Include="..\..\Extensions\Chat\Contracts\ChatExtension.csproj" />
     <ProjectReference Include="..\..\Client\Source\Client.csproj" />

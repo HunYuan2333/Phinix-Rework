@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "example.source",
+  "packageId": "example.extension",
+  "manifestSha256": "ca9a89205b76a70a64c99cae0af6d12920adf040a72961665df0f32b2faa8603",
+  "operationId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "desiredState": "disabled"
+}
