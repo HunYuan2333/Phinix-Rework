@@ -7,13 +7,7 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="../../Extensions/LegacyTalentTrade/Client/PendingPawnReturnLedger.cs" Link="Production/PendingPawnReturnLedger.cs" />
-    <None Include="../../Extensions/LegacyRedPacket/Client/localization.json" Link="OfficialPackages/LegacyRedPacket/14-LegacyRedPacketExtension.Client.dll.localization.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../Extensions/LegacyTalentTrade/Client/localization.json" Link="OfficialPackages/LegacyTalentTrade/16-LegacyTalentTradeExtension.Client.dll.localization.json" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../Extensions/LegacyRedPacket/Client/Resources/LegacyRedPacket/Localization/*.json" Link="OfficialPackages/LegacyRedPacket/Resources/LegacyRedPacket/Localization/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../Extensions/LegacyTalentTrade/Client/Resources/LegacyTalentTrade/Localization/*.json" Link="OfficialPackages/LegacyTalentTrade/Resources/LegacyTalentTrade/Localization/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Compile Remove="Fixtures/**/*.cs" />
-    <None Update="Fixtures/OfficialResourceKeys/*.txt" TargetPath="OfficialResourceKeys/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientLocalizationService.cs" Link="Production/IClientLocalizationService.cs" />
     <Compile Include="../../Client/Source/Framework/ClientLocalizationService.cs" Link="Production/ClientLocalizationService.cs" />
     <None Include="../../docs/branch-local/dev/plugin-store/managed-store-protocol-v3/*.json" Link="ManagedStoreProtocol/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

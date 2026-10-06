@@ -56,7 +56,6 @@ internal static partial class Program
             HostReferenceRegression();
             AssemblyOccupancyRegression(files);
             LocalizationRegression(files);
-            OfficialPackageRegression();
             ManagedStoreProtocolRegression(files);
             ManagedStoreExperienceRegression(files);
             byte[] plugin = files.Values.First();

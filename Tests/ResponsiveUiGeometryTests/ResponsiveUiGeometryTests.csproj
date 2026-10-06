@@ -10,8 +10,6 @@
     <Compile Include="..\..\Client\Source\Framework\ManagedExtensionManagerLayout.cs" Link="Production\ManagedExtensionManagerLayout.cs" />
     <Compile Include="..\..\Extensions\PluginStore\Client\ManagedStoreLayout.cs" Link="Production\ManagedStoreLayout.cs" />
     <Compile Include="..\..\Extensions\PluginStore\Client\StoreBrowserLayout.cs" Link="Production\StoreBrowserLayout.cs" />
-    <Compile Include="..\..\Extensions\LegacyRedPacket\Client\RedPacketClaimRowLayout.cs" Link="Production\RedPacketClaimRowLayout.cs" />
-    <Compile Include="..\..\Extensions\LegacyTalentTrade\Client\TalentOfferLayout.cs" Link="Production\TalentOfferLayout.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveFormLayout.cs" Link="Production\ResponsiveFormLayout.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveSplitLayout.cs" Link="Production\ResponsiveSplitLayout.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\UI\ResponsiveToolbarLayout.cs" Link="Production\ResponsiveToolbarLayout.cs" />

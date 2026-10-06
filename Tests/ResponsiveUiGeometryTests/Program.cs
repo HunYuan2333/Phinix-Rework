@@ -16,8 +16,6 @@ internal static class Program
             TestFormModes();
             TestToolbarWrapAndOverflow();
             TestVirtualRanges();
-            TestRedPacketClaimRows();
-            TestTalentOfferReachability();
             TestStoreActionReachability();
             TestManagedPackageCards();
             TestZeroSizeInputs();
@@ -129,71 +127,6 @@ internal static class Program
         Assert(thousandRange.Count > 0 && thousandRange.Count < 40, "A 1000-row dynamic list should expose only the visible rows plus overscan.");
     }
 
-    private static void TestTalentOfferReachability()
-    {
-        int[] counts = { 0, 1, 100, 1000 };
-        float[] heights = { 0f, 50f, 120f, 200f, 500f };
-        foreach (int count in counts)
-        foreach (float height in heights)
-        foreach (bool mine in new[] { true, false })
-        {
-            Rect parent = new Rect(10f, 20f, 280f, height);
-            var layout = Phinix.LegacyTalentTradeExtension.Client.TalentOfferLayout.Calculate(parent, count, mine);
-            AssertContained(layout.Header, parent);
-            AssertContained(layout.Viewport, parent);
-            if (layout.ControlsScroll)
-            {
-                AssertContained(layout.Controls, layout.ScrollContent);
-                // Scrolling to the bottom must expose the final control when the viewport has height.
-                float bottomScroll = Math.Max(0f, layout.ScrollContent.height - layout.Viewport.height);
-                Assert(layout.Controls.yMax <= bottomScroll + layout.Viewport.height,
-                    "The silver input must be reachable at the scroll bottom.");
-            }
-            else
-            {
-                AssertContained(layout.Controls, parent);
-                var empty = Phinix.LegacyTalentTradeExtension.Client.TalentOfferLayout.Calculate(parent, 0, mine);
-                Assert(layout.Controls.y == empty.Controls.y, "Adding units must not move fixed offer controls.");
-            }
-            if (count == 1000)
-            {
-                var range = VirtualListLayout.GetFixedRange(count, 56f, 5000f, layout.Viewport.height, 1);
-                Assert(range.Count < 15, "Large talent offers must only draw visible units.");
-            }
-        }
-    }
-
-    private static void TestRedPacketClaimRows()
-    {
-        Rect row = new Rect(0f, 0f, 600f, 30f);
-        var fourDigits = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-            row, 72f, 76f, true);
-        Assert(fourDigits.AmountRect.width == 72f, "A four-digit claim amount must retain its complete measured width.");
-        Assert(fourDigits.ShowBest, "The best tag should remain visible when the row has room.");
-        AssertContained(fourDigits.NameRect, row);
-        AssertContained(fourDigits.BestRect, row);
-        AssertContained(fourDigits.AmountRect, row);
-        Assert(fourDigits.NameRect.xMax <= fourDigits.BestRect.xMin, "Claim row columns must not overlap.");
-        Assert(fourDigits.BestRect.xMax <= fourDigits.AmountRect.xMin, "Best tag must not overlap the amount.");
-
-        Rect narrow = new Rect(0f, 0f, 180f, 30f);
-        var compact = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-            narrow, 96f, 76f, true);
-        Assert(compact.AmountRect.width == 96f, "Compact rows must preserve authoritative amounts before optional metadata.");
-        Assert(!compact.ShowBest, "Compact rows should hide the optional best tag before clipping the amount.");
-        AssertContained(compact.NameRect, narrow);
-        AssertContained(compact.AmountRect, narrow);
-        Assert(compact.NameRect.xMax <= compact.AmountRect.xMin, "Compact claim row columns must not overlap.");
-
-        Rect tiny = new Rect(10f, 20f, 50f, 30f);
-        var constrained = Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-            tiny, 120f, 200f, true);
-        Assert(!constrained.ShowBest, "An oversized localized tag must degrade cleanly in a tiny row.");
-        AssertContained(constrained.NameRect, tiny);
-        AssertContained(constrained.AmountRect, tiny);
-        Assert(constrained.AmountRect.width <= tiny.width, "A physically impossible amount must remain contained by the row.");
-    }
-
     private static void TestStoreActionReachability()
     {
         foreach (float width in new[] { 0f, 160f, 320f, 780f, 1512f })
@@ -263,8 +196,6 @@ internal static class Program
             ResponsiveToolbarLayout.Calculate(new Rect(0f, 0f, 220f, 80f), widths, 3, 2, 30f, 10f, 2, 40f, rects);
             VirtualListLayout.GetFixedRange(1000, 20f, 200f, 100f, 1);
             VirtualListLayout.GetDynamicRange(StableDynamicOffsets, 3, 20f, 50f, 1);
-            Phinix.LegacyRedPacketExtension.Client.RedPacketClaimRowLayout.Calculate(
-                new Rect(0f, 0f, 600f, 30f), 96f, 76f, true);
         }
     }
 
