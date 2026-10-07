@@ -2,6 +2,7 @@ using PhinixClient;
 using PhinixClient.Framework;
 using Utils.Framework;
 using Utils.Framework.ManagedExtensions;
+using Verse;
 
 namespace Phinix.PluginStore
 {
@@ -14,6 +15,9 @@ namespace Phinix.PluginStore
         private ManagedStoreController managedController;
         private IClientLocalizer localizer;
         private StoreBadgeIcons badgeIcons;
+        private StoreReleaseNotice releaseNotice;
+        private Dialog_MessageBox releaseNoticeWindow;
+        private IClientMainThreadDispatcher noticeDispatcher;
         public string ExtensionId => "phinix.plugin-store";
 
         public void Register(IExtensionBuilder builder)
@@ -25,6 +29,7 @@ namespace Phinix.PluginStore
 
         public void Activate(ExtensionHostContext hostContext)
         {
+            StopReleaseNotice();
             tab.Stop();
             panel.Stop();
             updateBanner.Stop();
@@ -49,9 +54,24 @@ namespace Phinix.PluginStore
                 line=>hostContext.Log("Plugin store audit: "+line,Utils.LogLevel.INFO));
             System.Func<ManagedPluginStoreView> createView=()=>new ManagedPluginStoreView(managedController,environment,settings,management,localizer,theme,links,maintainers,badgeIcons);
             tab.Initialize(createView());
-            panel.Initialize(hostContext.GetRequiredService<IClientWindowService>(),
+            var windows=hostContext.GetRequiredService<IClientWindowService>();
+            panel.Initialize(windows,
                 dispatcher,createView);
             updateBanner.Initialize(managedController,panel.Open);
+            noticeDispatcher=dispatcher;
+            releaseNotice=new StoreReleaseNotice(
+                ()=>settings.Get(StoreReleaseNotice.SettingsKey,false),
+                ()=>settings.Set(StoreReleaseNotice.SettingsKey,true),
+                dispatcher.Enqueue,
+                ()=> {
+                    releaseNoticeWindow=new Dialog_MessageBox(
+                        "Phinix_store2_optionalPluginsNotice".Translate(),
+                        "Phinix_store_open".Translate(),panel.Open,
+                        "Phinix_store2_noticeUnderstood".Translate(),null,
+                        "Phinix_store2_optionalPluginsNoticeTitle".Translate());
+                    windows.Open(releaseNoticeWindow);
+                },message=>hostContext.Log(message,Utils.LogLevel.WARNING));
+            releaseNotice.Start();
             // Capture game/translation-sensitive facts now, before any background work.
             var endpoint=new RepositoryEndpoint(RepositoryProfile.Official,
                 settings.Get("plugin-store.officialAccessMethod","github")=="cloudflare"?RepositoryAccessMethod.Cloudflare:RepositoryAccessMethod.GitHub);
@@ -59,6 +79,13 @@ namespace Phinix.PluginStore
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
-        { tab.Stop(); panel.Stop(); updateBanner.Stop(); managedController?.Dispose(); managedController=null; localizer?.Dispose(); localizer=null; badgeIcons?.Dispose(); badgeIcons=null; }
+        { StopReleaseNotice(); tab.Stop(); panel.Stop(); updateBanner.Stop(); managedController?.Dispose(); managedController=null; localizer?.Dispose(); localizer=null; badgeIcons?.Dispose(); badgeIcons=null; }
+        private void StopReleaseNotice()
+        {
+            releaseNotice?.Stop(); releaseNotice=null;
+            var closing=releaseNoticeWindow; releaseNoticeWindow=null;
+            if(closing!=null) noticeDispatcher?.Enqueue(()=>closing.Close());
+            noticeDispatcher=null;
+        }
     }
 }

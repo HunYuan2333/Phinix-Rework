@@ -183,4 +183,11 @@
   <Phinix_store2_gameBrowserRequested>Requested the Steam overlay browser.</Phinix_store2_gameBrowserRequested>
   <Phinix_store2_externalBrowserRequested>Requested the system browser; the Steam overlay is unavailable.</Phinix_store2_externalBrowserRequested>
   <Phinix_store2_linkUnavailable>Could not open the browser. Check your Steam overlay or system browser settings.</Phinix_store2_linkUnavailable>
+  <Phinix_store2_optionalPluginsNoticeTitle>Red packets and Talent trade are now separate plugins</Phinix_store2_optionalPluginsNoticeTitle>
+  <Phinix_store2_optionalPluginsNotice>This update no longer bundles Red packets and Talent trade with the main mod. To keep using them, open Plugin store and install the plugins separately, then restart the game.
+
+This change does not delete your plugin settings or save files. If you already installed the standalone plugins, no reinstall is needed. The store offers Phinix-managed DLL plugins; Steam Workshop mods are subscribed to separately.
+
+If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceleration".</Phinix_store2_optionalPluginsNotice>
+  <Phinix_store2_noticeUnderstood>Got it</Phinix_store2_noticeUnderstood>
 </LanguageData>

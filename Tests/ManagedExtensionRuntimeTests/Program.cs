@@ -59,6 +59,7 @@ internal static partial class Program
             ManagedStoreProtocolRegression(files);
             ManagedStoreExperienceRegression(files);
             StoreMaintainerRegression(files);
+            StoreReleaseNoticeRegression();
             byte[] plugin = files.Values.First();
             var metadata = ManagedExtensionMetadataReader.Read(plugin);
             Assert(metadata.Identity.FullName == "Fixture.Managed.Plugin, Version=1.2.3.4, Culture=neutral, PublicKeyToken=null", "Exact CLR identity");

@@ -183,4 +183,11 @@
   <Phinix_store2_gameBrowserRequested>已请求打开 Steam 游戏内浏览器。</Phinix_store2_gameBrowserRequested>
   <Phinix_store2_externalBrowserRequested>Steam 覆盖层不可用，已请求打开系统浏览器。</Phinix_store2_externalBrowserRequested>
   <Phinix_store2_linkUnavailable>无法打开浏览器，请检查 Steam 覆盖层或系统浏览器设置。</Phinix_store2_linkUnavailable>
+  <Phinix_store2_optionalPluginsNoticeTitle>红包和人才贸易已改为独立插件</Phinix_store2_optionalPluginsNoticeTitle>
+  <Phinix_store2_optionalPluginsNotice>本次更新不再随主 Mod 内置红包和人才贸易。需要继续使用时，请打开插件商店，分别安装这两个插件，然后重启游戏。
+
+本次拆分不会主动删除插件设置或存档文件；如果已经安装过独立版，无需重新安装。这里下载的是 Phinix 托管 DLL 插件，不需要另去工坊订阅。
+
+若无法连接 GitHub，可在商店点击“GitHub 直连”，切换到“CF 加速”后重试。</Phinix_store2_optionalPluginsNotice>
+  <Phinix_store2_noticeUnderstood>知道了</Phinix_store2_noticeUnderstood>
 </LanguageData>

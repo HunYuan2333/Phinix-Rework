@@ -35,6 +35,7 @@
     <Compile Include="ManagedStoreLayout.cs" />
     <Compile Include="StoreMaintainerRegistry.cs" />
     <Compile Include="StoreBadgeIcons.cs" />
+    <Compile Include="StoreReleaseNotice.cs" />
     <Compile Include="ManagedStorePayloadValidator.cs" />
     <Compile Include="ManagedStoreInstallationInput.cs" />
     <Compile Include="RepositoryMetadata.cs" />
