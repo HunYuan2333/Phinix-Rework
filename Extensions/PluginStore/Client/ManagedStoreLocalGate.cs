@@ -47,10 +47,7 @@ namespace Phinix.PluginStore
                                 foreach(var item in XDocument.Load(reader).Descendants("li"))
                                 {
                                     if(++count>128) throw Error("LocalLimit");
-                                    string folder=item.Value.Trim().TrimStart('/');
-                                    if(folder.Length>256 || folder.Contains("\\") || folder.Contains(":") || folder.Split('/').Any(p=>p==".." || p==".")) throw Detail("LocalIdentityUncertain",mod,load,"LocalLoadFolderInvalid");
-                                    string path=Path.GetFullPath(Path.Combine(mod.RootDirectory,folder));
-                                    if(!ClientPathOwnership.Contains(mod.RootDirectory,path)) throw Detail("LocalIdentityUncertain",mod,load,"LocalLoadFolderInvalid"); folders.Add(path);
+                                    folders.Add(ResolveLoadFolder(mod,load,item.Value));
                                 }
                             }
                         }
@@ -83,6 +80,23 @@ namespace Phinix.PluginStore
                 catch(Exception ex) when(ex is IOException || ex is UnauthorizedAccessException)
                 { throw Detail("LocalIdentityUncertain",mod,currentPath,"LocalFileUnavailable",ex); }
             }
+        }
+        private static string ResolveLoadFolder(ClientInstalledModSnapshot mod,string load,string value)
+        {
+            // Normalize local separators and dot segments before containment checks.
+            // This also lets Unix checks inspect Windows-style relative subdirectories.
+            string folder=value.Trim().Replace('\\','/');
+            if(folder.Length>256 || folder.Contains(":") || folder.StartsWith("//",StringComparison.Ordinal) || folder.Split('/').Any(p=>p==".."))
+                throw Detail("LocalIdentityUncertain",mod,load,"LocalLoadFolderInvalid");
+            folder=string.Join("/",folder.TrimStart('/').Split('/').Where(p=>p.Length!=0 && p!="."));
+            try
+            {
+                string path=Path.GetFullPath(Path.Combine(mod.RootDirectory,folder.Replace('/',Path.DirectorySeparatorChar)));
+                if(!ClientPathOwnership.Contains(mod.RootDirectory,path)) throw Detail("LocalIdentityUncertain",mod,load,"LocalLoadFolderInvalid");
+                return path;
+            }
+            catch(Exception ex) when(ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
+            { throw Detail("LocalIdentityUncertain",mod,load,"LocalLoadFolderInvalid",ex); }
         }
         private static StoreValidationException Detail(string code,ClientInstalledModSnapshot mod,string path,string reason,Exception inner=null)
         { return new StoreValidationException(code,"Local mod identity verification: "+code,inner) {LocalIdentity=Diagnostic(mod,path,reason)}; }
