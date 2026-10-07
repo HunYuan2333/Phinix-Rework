@@ -53,7 +53,7 @@ internal static class Program
 
         var module = new BuiltInChatClientExtension();
         bool missing = false;
-        try { module.Register(builder); } catch (InvalidOperationException) { missing = true; }
+        try { module.Compose(builder); } catch (InvalidOperationException) { missing = true; }
         Assert(missing && apiRegistry.ResolveAll<IMainTabProvider>().Count == 0,
             "Chat must reject an unprepared host before publishing APIs.");
         using (var composition = new ClientCompositionFactory(() => true, error => { throw error; }))
@@ -70,7 +70,7 @@ internal static class Program
             builder.HostContext.AddService<IClientMainThreadDispatcher>(host);
             builder.HostContext.AddService<IFrameworkClientTransport>(host);
             builder.HostContext.AddService<IUiTheme>(host);
-            module.Register(builder);
+            module.Compose(builder);
             Assert(host.SubscriptionCount == 0,
                 "The actual complete Chat graph must construct without starting host subscriptions.");
             Assert(apiRegistry.ResolveAll<IMainTabProvider>().Count == 1,

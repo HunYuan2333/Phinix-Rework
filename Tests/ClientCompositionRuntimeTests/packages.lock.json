@@ -105,6 +105,12 @@
           "Utils": "[1.0.0, )"
         }
       },
+      "Fixture.ClientAuthorEntry": {
+        "type": "Project",
+        "dependencies": {
+          "ClientExtensionAbstractions": "[1.0.0, )"
+        }
+      },
       "google.protobuf": {
         "type": "Project",
         "dependencies": {

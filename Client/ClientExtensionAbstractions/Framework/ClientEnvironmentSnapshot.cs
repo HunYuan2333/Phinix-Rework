@@ -16,7 +16,7 @@ namespace PhinixClient.Framework
     public static class ClientAbstractionsCompatibility
     {
         // A declared API compatibility version, separate from a package or CLR version.
-        public const string Version = "1.8.0";
+        public const string Version = "1.9.0";
     }
 
     /// <summary>Absolute game paths. Allocating a path does not create or certify a directory.</summary>

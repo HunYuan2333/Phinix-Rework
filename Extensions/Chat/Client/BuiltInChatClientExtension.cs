@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Phinix.ChatExtension.Client
 {
     [PhinixExtension("builtin.chat")]
-    public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientOutgoingCommandHandler
+    public class BuiltInChatClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientOutgoingCommandHandler
     {
         private IClientCompositionScope composition;
         private volatile bool active;
@@ -44,11 +44,11 @@ namespace Phinix.ChatExtension.Client
         private Action<string, LogLevel> hostLog;
         private ChatSettingsPanelProvider settingsPanelProvider;
 
-        public string ExtensionId => "builtin.chat";
+        public override string ExtensionId => "builtin.chat";
 
         public int Priority => 1000;
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
             if (composition != null) throw new InvalidOperationException("Chat is already composed.");
             ExtensionHostContext host = builder.HostContext;

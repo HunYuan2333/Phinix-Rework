@@ -11,6 +11,8 @@
     <GenerateDependencyFile>true</GenerateDependencyFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Fixtures/**/*.cs" />
+    <ProjectReference Include="Fixtures/AuthorEntry/AuthorEntry.csproj" />
     <ProjectReference Include="../../Client/Composition/Phinix.ClientComposition.csproj" />
     <ProjectReference Include="../../Extensions/Chat/Contracts/ChatExtension.csproj" />
     <Compile Include="../../Extensions/Chat/Client/FrameworkClientChatServiceAdapter.cs" Link="Production/FrameworkClientChatServiceAdapter.cs" />

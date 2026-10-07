@@ -23,6 +23,7 @@ internal static partial class Program
                     Assembly.LoadFrom(Path.Combine(args[1], name + ".dll"));
                 }
             }
+            ProbeClientAuthorEntry();
             ProbeProductionComposition();
             ProbeModuleComposition();
             ProbeChatServices();

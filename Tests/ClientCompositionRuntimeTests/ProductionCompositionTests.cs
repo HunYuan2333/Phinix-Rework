@@ -170,14 +170,14 @@ internal static partial class Program
     }
 
     [PhinixExtension("composition.healthy")]
-    public class ComposedModule : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    public class ComposedModule : ClientExtensionModule, IActivatablePhinixExtensionModule
     {
         internal static BorrowedApi Events;
         private IClientCompositionScope scope;
         private PluginService service;
-        public virtual string ExtensionId => "composition.healthy";
+        public override string ExtensionId => "composition.healthy";
         public int Priority => 0;
-        public virtual void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
             scope = builder.HostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
             {
@@ -202,7 +202,7 @@ internal static partial class Program
     public sealed class RegisterFailureModule : ComposedModule
     {
         public override string ExtensionId => "composition.register-failure";
-        public override void Register(IExtensionBuilder builder) { base.Register(builder); throw new Exception("register"); }
+        public override void Compose(IExtensionBuilder builder) { base.Compose(builder); throw new Exception("register"); }
     }
     [PhinixExtension("composition.activate-failure")]
     public sealed class ActivationFailureModule : ComposedModule
