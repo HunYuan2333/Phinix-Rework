@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 
-from bot import INDEX, SOURCE, GitHub, Rejected, require, strict_json, encode, digest, candidate_body, inspect
+from bot import INDEX, SOURCE, GitHub, Rejected, require, strict_json, encode, digest, candidate_body, inspect, is_workshop, revision, static_matches, inspection_notice
 
 REPOSITORY_ID = '1402564805'
 OWNER_ID = '64630568'
@@ -43,6 +43,10 @@ def index(api):
 
 
 def policy(package):
+    if is_workshop(package):
+        return dict(schemaVersion=1, packageId=package['id'], mode='manual-only',
+                    channel='steam-workshop', management='rimworld-mod',
+                    origin=dict(workshopId=package['workshopId'], rimWorldPackageId=package['rimWorldPackageId']))
     artifact = package['artifact']; manifest = package['manifest']
     return dict(schemaVersion=1, packageId=package['id'], mode='manual-only',
                 origin={key: artifact[key] for key in ('repository', 'repositoryId', 'ownerId')},
@@ -75,7 +79,7 @@ def prepare(args, api):
     body = issue.get('body') or ''; package = candidate_body(body)
     candidate = dict(schemaVersion=1, package=package)
     require(digest(encode(candidate)) == args.candidate_sha256, 'CandidateFingerprintMismatch')
-    event('admission.candidate_started', issueNumber=args.issue_number, packageId=package['id'], version=package['manifest']['version'])
+    event('admission.candidate_started', issueNumber=args.issue_number, packageId=package['id'], version=revision(package))
     with tempfile.TemporaryDirectory() as temporary:
         static = inspect(args, package, Path(temporary), api)
     current = api.json(issue_path)
@@ -92,7 +96,7 @@ def prepare(args, api):
     for name, value in (('candidate.json', candidate), ('review.json', record), ('policy.json', scope)):
         (args.output / name).write_bytes(encode(value))
     event('admission.prepared', candidateSha256=args.candidate_sha256, issueNumber=args.issue_number,
-          packageId=package['id'], version=package['manifest']['version'])
+          packageId=package['id'], version=revision(package))
 
 
 def read_bundle(root):
@@ -112,6 +116,8 @@ def read_bundle(root):
                 {'actor', 'actorId', 'runId', 'trustedCommit', 'workflow', 'attempt',
                  'method', 'baseCandidateSha256', 'updatePolicySha256'}), 'ApprovalRecordMismatch')
     fingerprint = digest(encode(candidate))
+    require(not is_workshop(package) or (review['approval']['workflow'] in (WORKFLOW, '.github/workflows/plugin-label-admission.yml') and
+            'includeUpdatePolicy' not in review['approval']), 'WorkshopPolicyRejected')
     require((review['approval']['workflow'] == WORKFLOW and len(review['approval']) == 6) or
             (review['approval']['workflow'] == '.github/workflows/plugin-label-admission.yml' and
              len(review['approval']) in (11, 12)) or
@@ -122,9 +128,7 @@ def read_bundle(root):
     require(review['candidateSha256'] == fingerprint and review['sourceId'] == SOURCE and
             review['policySha256'] == digest(encode(scope)) and scope == policy(package) and
             review['staticSha256'] == digest(encode(review['static'])) and
-            review['static']['packageId'] == package['id'] and
-            review['static']['version'] == package['manifest']['version'] and
-            review['static']['sha256'] == package['artifact']['sha256'], 'ApprovalRecordMismatch')
+            static_matches(package, review['static']), 'ApprovalRecordMismatch')
     return values
 
 
@@ -154,9 +158,9 @@ def open_pr(args, api):
     api.json(PREFIX + '/git/refs', 'POST', dict(ref='refs/heads/' + branch, sha=sha))
     # Exactly three metadata files. Do not check out candidate code or change workflows.
     pull = api.json(PREFIX + '/pulls', 'POST', dict(head=branch, base='main',
-        title='Admit ' + package['id'] + ' ' + package['manifest']['version'],
+        title='Admit ' + package['id'] + ' ' + revision(package),
         body='Exact candidate SHA-256: `' + fingerprint + '`\n\nIssue #' + str(review['issueNumber']) +
-             '. Trusted ZIP/PE checks passed without executing plugin code.\n\n'
+             '. ' + inspection_notice(package) + '\n\n'
              'Review the candidate, permanent static report and manual-only identity policy. '
              'Merge approves this version for the separately invoked controlled publisher. '
              'No stable pointer or automatic update scope changes in this PR.'))

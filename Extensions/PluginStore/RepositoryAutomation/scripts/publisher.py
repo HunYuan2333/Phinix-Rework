@@ -8,7 +8,7 @@ import re
 import subprocess
 import tempfile
 
-from bot import SOURCE, INDEX, GitHub, Rejected, require, strict_json, encode, digest, inspect, validator
+from bot import SOURCE, INDEX, GitHub, Rejected, require, strict_json, encode, digest, inspect, validator, is_workshop, revision, publication_lock
 from admission import PREFIX, REPOSITORY_ID, OWNER_ID, WORKFLOW, event, maintainer, index, paths, read_bundle, commit
 import label_admission
 import source_updates
@@ -103,10 +103,8 @@ def proof_record(candidate, review, scope):
 def locks_for(records):
     result = {}
     for candidate, review, scope in records:
-        package = candidate['package']; key = digest(package['id'].encode())
-        path = 'publication-locks/' + key + '/' + digest(package['manifest']['version'].encode()) + '.json'
-        raw = encode(dict(schemaVersion=1, packageId=package['id'], version=package['manifest']['version'],
-                          candidateSha256=review['candidateSha256'], artifactSha256=package['artifact']['sha256']))
+        path, value = publication_lock(candidate['package'], review['candidateSha256'])
+        raw = encode(value)
         require(path not in result, 'AcceptedVersionConflict')
         result[path] = raw
     return result
@@ -140,6 +138,23 @@ def player_records(root, records, old_locks):
     return visible
 
 
+def workshop_revisions(records):
+    """One manually approved listing per ID, with every prior proof/lock retained."""
+    latest = {}; result = []
+    for candidate, review, scope in records:
+        package = candidate['package']
+        if not is_workshop(package):
+            result.append((candidate, review, scope)); continue
+        previous = latest.get(package['id'])
+        if previous:
+            old = previous[0]['package']
+            require(old['workshopId'] == package['workshopId'] and old['rimWorldPackageId'] == package['rimWorldPackageId'], 'WorkshopIdentityChanged')
+            require(previous[1]['approvedAt'] != review['approvedAt'], 'WorkshopRevisionConflict')
+        if previous is None or review['approvedAt'] > previous[1]['approvedAt']:
+            latest[package['id']] = (candidate, review, scope)
+    return result + list(latest.values())
+
+
 def collect(args, api, snapshot):
     candidates = files(args.root, 'packages'); reviews = files(args.root, 'reviews'); scopes = files(args.root, 'policies')
     require(candidates and len(candidates) <= MAX_RECORDS, 'NoApprovedPackages')
@@ -153,7 +168,7 @@ def collect(args, api, snapshot):
     require(set(reviews) == expected_reviews and set(scopes) == expected_scopes, 'OrphanApprovalRecord')
     locks = locks_for(records); old_locks = files(args.root, 'publication-locks'); continuity(old_locks, locks)
     published = {strict_json(v)['candidateSha256'] for v in old_locks.values()}
-    require(sum(c['package']['artifact']['sizeBytes'] for c, r, _ in records if r['candidateSha256'] not in published) <= 512 * 1024 * 1024, 'PublicationPayloadLimit')
+    require(sum(c['package']['artifact']['sizeBytes'] for c, r, _ in records if not is_workshop(c['package']) and r['candidateSha256'] not in published) <= 512 * 1024 * 1024, 'PublicationPayloadLimit')
     for candidate, review, scope in records:
         package = candidate['package']
         event('publication.approval_started', packageId=package['id'], candidateSha256=review['candidateSha256'])
@@ -165,12 +180,12 @@ def collect(args, api, snapshot):
             current = api.json(PREFIX + '/issues/' + str(review['issueNumber']))
             require('pull_request' not in current and
                     digest((current.get('body') or '').encode()) == review['issueBodySha256'], 'SubmissionChanged')
-        event('publication.candidate_started', packageId=package['id'], version=package['manifest']['version'],
+        event('publication.candidate_started', packageId=package['id'], version=revision(package),
               candidateSha256=review['candidateSha256'])
         with tempfile.TemporaryDirectory() as temporary:
             actual = inspect(args, package, Path(temporary), api)
         require(encode(actual) == encode(review['static']), 'StaticReportChanged')
-        event('publication.candidate_verified', packageId=package['id'], version=package['manifest']['version'])
+        event('publication.candidate_verified', packageId=package['id'], version=revision(package))
     return records, locks, old_locks
 
 
@@ -307,9 +322,9 @@ def publish(args, api):
     require(all(source_updates.receipt_path(r) in receipts for _, r, _ in records if r['approval']['workflow'] == source_updates.WORKFLOW), 'ApprovalRecordMissing')
     require(source_trigger is None or 'source-update-approvals/' + source_trigger + '.json' in receipts, 'PublicationTriggerRejected')
     continuity(old_update_locks, update_locks)
-    visible = player_records(args.root, records, old_locks)
+    visible = workshop_revisions(player_records(args.root, records, old_locks))
     raw = encode(dict(schemaVersion=3, sourceId=SOURCE, snapshotId=snapshot,
-                      packages=[c['package'] for c, _, _ in sorted(visible, key=lambda r: (r[0]['package']['id'], r[0]['package']['manifest']['version']))]))
+                      packages=[c['package'] for c, _, _ in sorted(visible, key=lambda r: (r[0]['package']['id'], revision(r[0]['package'])))]))
     require(len(raw) <= 2 * 1024 * 1024, 'DocumentLimit')
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / 'catalog.json'; path.write_bytes(raw)
@@ -335,7 +350,8 @@ def publish(args, api):
     changes.update({path: data for path, data in proof_locks.items() if path not in old_proof_locks})
     for candidate, review, scope in records:
         if review['candidateSha256'] not in {strict_json(v)['candidateSha256'] for v in old_locks.values()}:
-            api.verify_origin(candidate['package']['artifact'])
+            if not is_workshop(candidate['package']):
+                api.verify_origin(candidate['package']['artifact'])
             current = api.json(PREFIX + '/issues/' + str(review['issueNumber']))
             require('pull_request' not in current and
                     digest((current.get('body') or '').encode()) == review['issueBodySha256'], 'SubmissionChanged')

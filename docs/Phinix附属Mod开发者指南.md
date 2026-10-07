@@ -1303,6 +1303,21 @@ CLR 引用拒绝通过 `ManagedExtensionAssemblyReferenceFailure` 传递至候�
 
 目录 v3/托管 ZIP 与内置商店已经接通测试来源；公开发布、游戏/平台验收见[首版清单](branch-local/dev/plugin-store/商店首版交付与验收.md)。最小打包工具静态读取真实 PE 声明，不执行 DLL；不能把打包成功当作任意代码获准或远端发布授权。
 
+### 8.22 IClientLinkService（客户端抽象 1.8.0）
+
+激活时获取这个通用服务；在主线程调用 `Open`，后台回调通过 `IClientMainThreadDispatcher` 调度。仅接受无用户名密码的绝对 HTTP(S) 地址。默认在 Steam 与覆盖层可用时请求游戏内浏览器，不可用或原生调用抛错时回退系统浏览器。
+
+```csharp
+var links = hostContext.GetRequiredService<IClientLinkService>();
+var result = links.Open("https://steamcommunity.com/sharedfiles/filedetails/?id=3735269431");
+// Explicit external-browser preference is also supported:
+// links.Open("https://github.com/", ClientLinkOpenPreference.ExternalBrowser);
+```
+
+使用这个服务的插件应在 manifest 中声明 `clientAbstractions` 为 `>=1.8.0 <2.0.0`；只使用旧 API 的插件无需修改版本要求。`GameBrowserRequested`、`ExternalBrowserRequested` 表示已发出打开请求，不代表页面加载成功。`Unavailable` 表示两种方式都未能发出请求，此时界面应给出可操作的提示。日志只包含结果／异常类型和目标域名，不记录路径、查询参数或异常消息。官方和第三方插件使用同一服务；插件契约不需要依赖商店或 Steamworks。
+
+商店分别显示维护方与安装方式标识。内嵌的 `Extensions/PluginStore/Client/Assets/maintainers.json` 先核对索引源、仓库 ID、所有者 ID 和发布分支，再按发行仓库／所有者身份或工坊条目／模组身份匹配官方维护项；名称、作者显示文字和标签不能授予标识。GitHub 与 CF 共用身份。`Assets/Badges/` 中保留 SVG 原稿，生成的 PNG 内嵌到商店 DLL，不向网关请求图片。
+
 ## 9. 插件间协作
 
 ### 9.1 推荐方式：直接引用 Contracts 程序集
@@ -2025,6 +2040,7 @@ RimWorld 的 `ModAssemblyHandler` 按文件名字符串序加载程序集。当�
 | `IClientMainThreadDispatcher` | 主线程封送 | [IClientExtensionAbstractions.cs:122-125](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L122-L125) |
 | `IClientWindowService` | 打开窗口 | [IClientExtensionAbstractions.cs:127-132](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L127-L132) |
 | `IClientSoundService` | 播放音效 | [IClientExtensionAbstractions.cs:134-137](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L134-L137) |
+| `IClientLinkService` | 主线程请求 Steam 覆盖层／系统浏览器 | [IClientLinkService.cs](../Client/ClientExtensionAbstractions/Framework/IClientLinkService.cs) |
 | `ILegacyModuleTransport` | 原始模块通信 | [IClientExtensionAbstractions.cs:162-173](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L162-L173) |
 | `IDisplayMessageSink` | 注入显示消息 | [IClientExtensionAbstractions.cs:178-182](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L178-L182) |
 | `IUiTheme` | 统一 UI 主题与配色令牌 | [IUiTheme.cs](Client/ClientExtensionAbstractions/UI/IUiTheme.cs) |

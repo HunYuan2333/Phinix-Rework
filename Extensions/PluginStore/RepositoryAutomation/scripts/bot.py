@@ -64,11 +64,76 @@ def candidate_body(body):
     return submission(strict_json(section.encode('utf-8')))
 
 
+def is_workshop(package):
+    return package.get('channel') == 'steam-workshop'
+
+
+def revision(package):
+    return 'workshop' if is_workshop(package) else package['manifest']['version']
+
+
+def workshop_static(package):
+    return dict(schemaVersion=1, packageId=package['id'], channel='steam-workshop',
+                workshopId=package['workshopId'], rimWorldPackageId=package['rimWorldPackageId'],
+                listingSha256=digest(encode(package)), scope='listing-metadata-only', files=0)
+
+
+def static_matches(package, report):
+    if is_workshop(package):
+        return report == workshop_static(package)
+    return (report.get('packageId') == package['id'] and report.get('version') == revision(package) and
+            report.get('sha256') == package['artifact']['sha256'])
+
+
+def publication_lock(package, fingerprint):
+    key = digest(package['id'].encode())
+    if is_workshop(package):
+        # Approved metadata revisions are immutable; Steam owns content versions.
+        slot = 'workshop-' + fingerprint
+        value = dict(schemaVersion=1, packageId=package['id'], channel='steam-workshop',
+                     workshopId=package['workshopId'], candidateSha256=fingerprint,
+                     listingSha256=digest(encode(package)))
+    else:
+        slot = digest(revision(package).encode())
+        value = dict(schemaVersion=1, packageId=package['id'], version=revision(package),
+                     candidateSha256=fingerprint, artifactSha256=package['artifact']['sha256'])
+    return 'publication-locks/' + key + '/' + slot + '.json', value
+
+
+def inspection_notice(package):
+    return ('Workshop listing metadata checked only; no mod code, files or future Steam updates were inspected. '
+            '仅校验工坊收录元数据，未检查 Mod 代码、文件或后续 Steam 更新。' if is_workshop(package) else
+            'Trusted ZIP/PE checks passed without executing plugin code.')
+
+
+def workshop_submission(package):
+    required = {'id', 'name', 'author', 'license', 'summary', 'tags', 'state', 'channel', 'management',
+                'rimWorldPackageId', 'workshopId', 'rimWorldVersions'}
+    require(set(package) == required, 'WorkshopFieldsRejected')
+    require(package['management'] == 'rimworld-mod' and package['state'] == 'active', 'UnsupportedRoute')
+    for key in ('id', 'rimWorldPackageId'):
+        require(type(package[key]) is str and len(package[key]) <= 128 and
+                re.fullmatch(r'[a-z0-9]+(?:[._-][a-z0-9]+)*', package[key]), 'InvalidIdentifier')
+    for key, maximum in (('name', 160), ('author', 160), ('license', 128), ('summary', 1024)):
+        require(type(package[key]) is str and 0 < len(package[key]) <= maximum and package[key].strip(), 'InvalidText')
+    require(type(package['workshopId']) is str and re.fullmatch(r'[1-9][0-9]{0,19}', package['workshopId']) and
+            int(package['workshopId']) <= 2**64 - 1, 'InvalidWorkshopId')
+    tags = package['tags']; versions = package['rimWorldVersions']
+    require(type(tags) is list and len(tags) <= 8 and all(type(t) is str and len(t) <= 32 and
+            re.fullmatch(r'[a-z0-9]+(?:[._-][a-z0-9]+)*', t) for t in tags) and len(set(tags)) == len(tags), 'InvalidTags')
+    require(type(versions) is list and 0 < len(versions) <= 16 and all(type(v) is str and len(v) <= 32 and
+            re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', v) for v in versions) and
+            len(set(versions)) == len(versions), 'InvalidCompatibility')
+    return package
+
+
 def submission(value):
     require(type(value) is dict and set(value) == {'schemaVersion', 'package'} and
             type(value['schemaVersion']) is int and value['schemaVersion'] == 1, 'SubmissionEnvelope')
     package = value['package']
     require(type(package) is dict, 'InvalidPackage')
+    if is_workshop(package):
+        return workshop_submission(package)
     require(package.get('channel') == 'github-release' and package.get('management') == 'phinix-dll' and
             package.get('state') == 'active', 'UnsupportedRoute')
     artifact = package.get('artifact')
@@ -202,9 +267,13 @@ def validator(args, command):
 
 
 def inspect(args, package, out, api):
-    catalog = {'schemaVersion': 3, 'sourceId': SOURCE, 'snapshotId': package['artifact']['sourceCommit'], 'packages': [package]}
+    catalog = {'schemaVersion': 3, 'sourceId': SOURCE, 'snapshotId': digest(encode(package))[:40] if is_workshop(package) else package['artifact']['sourceCommit'], 'packages': [package]}
     catalog_path = out / 'catalog.json'; catalog_path.write_bytes(encode(catalog))
     validator(args, ['catalog', SOURCE, str(catalog_path)])
+    if is_workshop(package):
+        report = workshop_static(package)
+        (out / 'static.json').write_bytes(encode(report))
+        return report
     api.verify_origin(package['artifact'])
     payload = out / 'payload.zip'
     try:
@@ -238,8 +307,12 @@ def check(args):
             current = api.json('/repos/' + INDEX + '/issues/' + str(args.issue_number))
             require(current.get('updated_at') == issue['updated_at'] and
                     digest((current.get('body') or '').encode('utf-8')) == report['issueBodySha256'], 'SubmissionChanged')
-        report.update(status='passed', code='StaticCandidateVerified', packageId=static['packageId'],
-                      version=static['version'], artifactSha256=static['sha256'], files=static['files'])
+        report.update(status='passed', packageId=static['packageId'], files=static['files'])
+        if is_workshop(package):
+            report.update(code='WorkshopListingVerified', channel='steam-workshop',
+                          scope='listing-metadata-only', workshopId=static['workshopId'], listingSha256=static['listingSha256'])
+        else:
+            report.update(code='StaticCandidateVerified', version=static['version'], artifactSha256=static['sha256'])
     except Rejected as error:
         report['code'] = str(error)
     except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired, RecursionError):
@@ -264,7 +337,10 @@ def failure_hint(code):
     if code in ('IssueBodyLimit', 'DocumentLimit', 'PayloadLimit'):
         return '正文、JSON 或 ZIP 超过大小限制，请缩减后重新提交。 / Reduce the oversized submission/document/ZIP.'
     if code == 'UnsupportedRoute':
-        return 'DLL 申请需使用 github-release / phinix-dll / active；工坊条目使用独立路线。 / Use the supported managed-DLL route.'
+        return 'DLL 使用 github-release / phinix-dll；工坊使用 steam-workshop / rimworld-mod，申请状态须为 active。 / Choose the managed DLL or Workshop listing route.'
+    if code in ('WorkshopFieldsRejected', 'InvalidWorkshopId', 'InvalidIdentifier', 'InvalidText', 'InvalidTags', 'InvalidCompatibility'):
+        return ('请核对工坊名称、简介、作者、标签、游戏版本、Mod packageId 和纯数字字符串工坊 ID；'
+                '工坊申请不包含 manifest、artifact 或本地化文件。 / Check the Workshop metadata; omit DLL payload fields.')
     if code in ('CheckUnavailable', 'OriginUnavailable', 'OriginBudget'):
         return '检查服务或上游暂不可用，维护者可重试并查看运行日志。 / A check/origin is unavailable; retry and inspect the run log.'
     return ('请按错误代码核对 v3 包清单、文件摘要、程序集、本地化及固定 GitHub 资产；修正申请会重新检查。 / '
@@ -285,7 +361,7 @@ def post(args):
     fingerprint = report.get('candidateSha256')
     require(fingerprint is None or re.fullmatch(r'[0-9a-f]{64}', fingerprint), 'InvalidFingerprint')
     body = ('### Phinix candidate check / 候选检查\n\n' +
-            ('静态检查通过 / Static checks passed.' if report['status'] == 'passed' else '检查未通过 / Check did not pass.') +
+            (('工坊收录信息校验通过 / Workshop listing metadata checks passed.' if report.get('channel') == 'steam-workshop' else '静态检查通过 / Static checks passed.') if report['status'] == 'passed' else '检查未通过 / Check did not pass.') +
             '\n\nCode: `' + report['code'] + '`\n\nCandidate SHA-256: `' + (fingerprint or 'unavailable') +
             '`\n\n本报告不代表首次批准、源码与 DLL 一致性证明或游戏验收。当前 A1 只检查与报告，不自动上架。' +
             '\nThis report is not first-time approval, proof of source/binary correspondence, or in-game acceptance. A1 does not publish packages.')
@@ -297,6 +373,8 @@ def post(args):
         run = os.environ.get('GITHUB_RUN_ID', '')
         if re.fullmatch(r'[1-9][0-9]*', run):
             body += '\n\n[运行日志 / Run log](https://github.com/' + INDEX + '/actions/runs/' + run + ')'
+    elif report.get('channel') == 'steam-workshop':
+        body += '\n\n仅检查收录元数据，不代表 Mod 代码审核。订阅、下载和更新由 Steam 管理。 / Listing metadata only; Steam manages subscriptions, downloads and updates.'
     else:
         body += ('\n\n维护者批准后，标准版本资产名可启用同一作者/仓库、相同程序集/模块/依赖范围内的同主版本自动检查。'
                  '身份、范围及主版本变化须重新审核；客户端不会自动更新。 / '

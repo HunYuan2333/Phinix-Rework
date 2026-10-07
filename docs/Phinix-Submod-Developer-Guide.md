@@ -1304,6 +1304,21 @@ CLR reference refusals carry `ManagedExtensionAssemblyReferenceFailure` through 
 
 Catalog v3/managed ZIP and the bundled shop are connected to the controlled test source. Publication/game/platform acceptance remains tracked in [the first-release checklist](branch-local/dev/plugin-store/StoreFirstRelease.md). Minimal packaging tooling reads real PE declarations without executing DLLs; it is not approval of arbitrary plugin code or a remote publication authority.
 
+### 8.22 IClientLinkService (client abstractions 1.8.0)
+
+Resolve this general service during activation; call `Open` from the main thread or through `IClientMainThreadDispatcher`. It accepts credential-free absolute HTTP(S) URLs. By default the host requests the Steam overlay browser when Steam and the overlay are available, then falls back to the system browser when unavailable or a native call throws.
+
+```csharp
+var links = hostContext.GetRequiredService<IClientLinkService>();
+var result = links.Open("https://steamcommunity.com/sharedfiles/filedetails/?id=3735269431");
+// Explicit external-browser preference is also supported:
+// links.Open("https://github.com/", ClientLinkOpenPreference.ExternalBrowser);
+```
+
+Plugins using this service declare `clientAbstractions` as `>=1.8.0 <2.0.0` in their manifest. Existing plugins that only use earlier APIs do not need a version bump. `GameBrowserRequested` and `ExternalBrowserRequested` describe launch requests, not successful page loads. `Unavailable` means neither request could be made. Show an actionable message in that case. Diagnostics contain a result/error type and destination host, without URL paths, queries or exception messages. Official and third-party plugins resolve the same service; no Store or Steamworks dependency belongs in plugin contracts.
+
+The Store presents separate maintainer and installation-route badges. Its embedded `Extensions/PluginStore/Client/Assets/maintainers.json` binds official maintenance to the configured index source, repository ID, owner ID and publication branch, then to each release repository/owner or Workshop item/package identity. Names, author labels and tags do not grant a badge. GitHub and CF access retain the same identity. SVG originals and generated PNGs under `Assets/Badges/` are local assets embedded in the Store DLL; there are no image requests to the gateway.
+
 ## 9. Inter-Plugin Collaboration
 
 ### 9.1 Recommended Approach: Direct Contracts Assembly Reference
@@ -2026,6 +2041,7 @@ The following services are obtained in `Activate()` via `hostContext.GetRequired
 | `IClientMainThreadDispatcher` | Main thread marshaling | [IClientExtensionAbstractions.cs:122-125](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L122-L125) |
 | `IClientWindowService` | Open windows | [IClientExtensionAbstractions.cs:127-132](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L127-L132) |
 | `IClientSoundService` | Play sound effects | [IClientExtensionAbstractions.cs:134-137](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L134-L137) |
+| `IClientLinkService` | Main-thread Steam overlay / external browser requests | [IClientLinkService.cs](../Client/ClientExtensionAbstractions/Framework/IClientLinkService.cs) |
 | `ILegacyModuleTransport` | Raw module communication | [IClientExtensionAbstractions.cs:162-173](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L162-L173) |
 | `IDisplayMessageSink` | Inject display messages | [IClientExtensionAbstractions.cs:178-182](Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs#L178-L182) |
 | `IUiTheme` | Unified UI theme and palette tokens | [IUiTheme.cs](Client/ClientExtensionAbstractions/UI/IUiTheme.cs) |

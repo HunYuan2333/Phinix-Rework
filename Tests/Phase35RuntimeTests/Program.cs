@@ -11,7 +11,7 @@ using ServerRuntime;
 using PhinixClient.Framework;
 using System.Threading;
 
-internal static class Program
+internal static partial class Program
 {
     private static int Main()
     {
@@ -23,6 +23,7 @@ internal static class Program
             AssertExtensionStorageCannotEscapeRoot();
             AssertClientEnvironmentCaptureRequiresMainThread();
             AssertExtensionManagementWindowLifecycle();
+            AssertClientLinkOpening();
             AssertApiOwnerRevocationAndProviderPolicy();
             AssertStructuredExtensionLoggerPreservesContext();
             AssertPreHandleInterceptorCanRewriteMessageBeforeDefaultHandler();

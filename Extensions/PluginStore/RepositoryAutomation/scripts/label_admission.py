@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 
-from bot import INDEX, SOURCE, ERROR_LABEL, GitHub, Rejected, require, strict_json, encode, digest, candidate_body, inspect
+from bot import INDEX, SOURCE, ERROR_LABEL, GitHub, Rejected, require, strict_json, encode, digest, candidate_body, inspect, is_workshop, revision, publication_lock, inspection_notice
 from admission import PREFIX, REPOSITORY_ID, OWNER_ID, event, maintainer, index, policy, paths, read_bundle, commit
 
 LABEL = 'plugin-approved'
@@ -110,11 +110,10 @@ def reuse(api, parent, package, fingerprint, candidate, scope):
     require(tree.get('truncated') is False, 'IndexTreeLimit')
     names = paths(package, fingerprint); present = {entry['path'] for entry in tree['tree']}
     key = digest(package['id'].encode())
-    lock = 'publication-locks/' + key + '/' + digest(package['manifest']['version'].encode()) + '.json'
+    lock, expected_lock = publication_lock(package, fingerprint)
     if lock in present:
         value = strict_json(read_at(api, lock, parent))
-        require(value == dict(schemaVersion=1, packageId=package['id'], version=package['manifest']['version'],
-            candidateSha256=fingerprint, artifactSha256=package['artifact']['sha256']), 'AcceptedVersionChanged')
+        require(value == expected_lock, 'AcceptedVersionChanged')
         require(all(name in present for name in names) and read_at(api, names[0], parent) == encode(candidate) and
                 read_at(api, names[2], parent) == encode(scope), 'AcceptedVersionChanged')
         return True
@@ -124,7 +123,11 @@ def reuse(api, parent, package, fingerprint, candidate, scope):
     require(len(pending) <= 8, 'PublicationRecordLimit')
     for name in pending:
         other = strict_json(read_at(api, name, parent))['package']
-        require(other['manifest']['version'] != package['manifest']['version'], 'AcceptedVersionConflict')
+        require(is_workshop(other) == is_workshop(package), 'AcceptedVersionConflict')
+        if is_workshop(package):
+            require(other['workshopId'] == package['workshopId'] and other['rimWorldPackageId'] == package['rimWorldPackageId'], 'WorkshopIdentityChanged')
+        else:
+            require(revision(other) != revision(package), 'AcceptedVersionConflict')
     return False
 
 
@@ -220,10 +223,10 @@ def admit(args, api):
     branch = 'codex/admission-' + approval['runId']
     api.json(PREFIX + '/git/refs', 'POST', dict(ref='refs/heads/' + branch, sha=sha))
     pull = api.json(PREFIX + '/pulls', 'POST', dict(head=branch, base='main',
-        title='Admit ' + candidate['package']['id'] + ' ' + candidate['package']['manifest']['version'],
+        title='Admit ' + candidate['package']['id'] + ' ' + revision(candidate['package']),
         body='Maintainer approved Issue #' + str(issue['number']) + ' with `' + LABEL + '`.\n\n'
              'Candidate SHA-256: `' + review['candidateSha256'] + '`. Label event: ' + approval['labelEventId'] +
-             '. Trusted ZIP/PE checks passed without executing plugin code.\n\n'
+             '. ' + inspection_notice(candidate['package']) + '\n\n'
              'This metadata-only evidence PR is merged automatically; publication rechecks the evidence.'))
     event('label_admission.pr_created', issueNumber=issue['number'], number=pull['number'], url=pull['html_url'], head=sha)
     Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('Admission PR: ' + pull['html_url'] + '\n', encoding='utf-8')

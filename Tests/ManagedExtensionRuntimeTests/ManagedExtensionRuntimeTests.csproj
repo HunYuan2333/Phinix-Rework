@@ -23,6 +23,8 @@
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/StoreMaintainerRegistry.cs" Link="Production/PluginStore/StoreMaintainerRegistry.cs" />
+    <None Include="../../Extensions/PluginStore/Client/Assets/maintainers.json" Link="StorePresentation/maintainers.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreListing.cs" Link="Production/PluginStore/ManagedStoreListing.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryCache.cs" Link="Production/PluginStore/ManagedRepositoryCache.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryPayloadTransport.cs" Link="Production/PluginStore/ManagedRepositoryPayloadTransport.cs" />

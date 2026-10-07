@@ -41,7 +41,7 @@ Network layer (NetClient)
 Extension discovery & lifecycle (PhinixExtensionRegistry, IExtensionActivationPolicy)
 General services (IClientSessionContext, IClientSettingsContext, IClientUserDirectory,
            IClientUserEventStream, IClientMainThreadDispatcher, IClientWindowService,
-           IClientSoundService, IClientEnvironmentService, IClientLocalizationService, IClientExtensionManagementWindowService, IUiTheme, IDisplayMessageSink)
+           IClientSoundService, IClientLinkService, IClientEnvironmentService, IClientLocalizationService, IClientExtensionManagementWindowService, IUiTheme, IDisplayMessageSink)
 ServerTab (general shell, collects IMainTabProvider / IServerSidebarProvider / INoticeBannerProvider / IUiAcceptKeyHandler for dynamic rendering)
 Basic UI (SettingsWindow, CredentialsWindow, ExtensionManagerWindow/ExtensionManagerTab, ExtensionControlSettingsPanelProvider)
 ```

@@ -133,7 +133,7 @@ Phinix Rework distinguishes between core built-in features and independently man
 
 - **.NET 10 SDK** (server and test harnesses)
 - **.NET Framework 4.7.2** targeting pack (client compilation)
-- **RimWorld 1.6 Managed Assemblies**: Place references in `GameDlls/1.6/` (`Assembly-CSharp.dll`, `UnityEngine*.dll`) or provide path via `-p:GameReferenceDirectory=<path>`. Never redistribute game DLLs.
+- **RimWorld 1.6 Managed Assemblies**: Place references in `GameDlls/1.6/` (`Assembly-CSharp.dll`, the required `UnityEngine*.dll` modules including `UnityEngine.ImageConversionModule.dll`, and `com.rlabrecque.steamworks.net.dll`). For a full build against another directory, set both `-p:GameReferenceDirectory=<path>` and `-p:RimWorldDepDir=<path>`. Never redistribute game DLLs.
 
 ### Developer Build
 

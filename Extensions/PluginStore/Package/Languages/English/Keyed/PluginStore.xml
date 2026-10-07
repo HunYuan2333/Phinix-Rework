@@ -157,4 +157,29 @@
   <Phinix_store2_updateConfirmation>Update these packages? Changes take effect after restarting. Plugin settings are retained; this does not migrate or roll back plugin data.</Phinix_store2_updateConfirmation>
   <Phinix_store2_downgradeUnavailable>Installing an older version over this package is unavailable.</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>Enable this package before updating; packages awaiting removal cannot be updated.</Phinix_store2_enableBeforeUpdate>
+  <Phinix_store2_accessExplanation>GitHub and CF show the same catalog. Switch access if the connection is slow.</Phinix_store2_accessExplanation>
+  <Phinix_store2_filter0>All plugins</Phinix_store2_filter0>
+  <Phinix_store2_filter1>Installed</Phinix_store2_filter1>
+  <Phinix_store2_filter2>Updates</Phinix_store2_filter2>
+  <Phinix_store2_about>About this plugin</Phinix_store2_about>
+  <Phinix_store2_compatibility>Requirements</Phinix_store2_compatibility>
+  <Phinix_store2_backToList>‹ Back to plugins</Phinix_store2_backToList>
+  <Phinix_store2_manageInstalled>Manage installed plugin ▾</Phinix_store2_manageInstalled>
+  <Phinix_store2_restartHint>Changes take effect after restarting the game.</Phinix_store2_restartHint>
+  <Phinix_store2_workshopFooter>Subscribe and manage this mod in Steam Workshop.</Phinix_store2_workshopFooter>
+  <Phinix_store2_updateBadge>Update available</Phinix_store2_updateBadge>
+  <Phinix_store2_resultCount>{0} plugins</Phinix_store2_resultCount>
+  <Phinix_store2_stateSaved>Changes saved. Restart the game to apply them.</Phinix_store2_stateSaved>
+  <Phinix_store2_optional>optional</Phinix_store2_optional>
+  <Phinix_store2_installation>Local installation</Phinix_store2_installation>
+  <Phinix_store2_tags>Tags</Phinix_store2_tags>
+  <Phinix_store2_availability>Availability</Phinix_store2_availability>
+  <Phinix_store2_officialBadge>Phinix maintained</Phinix_store2_officialBadge>
+  <Phinix_store2_officialBadgeTip>Maintained by the Phinix team.</Phinix_store2_officialBadgeTip>
+  <Phinix_store2_managedBadge>Phinix managed</Phinix_store2_managedBadge>
+  <Phinix_store2_managedBadgeTip>Install, enable and remove this DLL plugin through Phinix. Changes take effect after restarting the game.</Phinix_store2_managedBadgeTip>
+  <Phinix_store2_workshopBadgeTip>This is a full RimWorld mod. Subscribe and manage it through Steam Workshop and the game mod list.</Phinix_store2_workshopBadgeTip>
+  <Phinix_store2_gameBrowserRequested>Requested the Steam overlay browser.</Phinix_store2_gameBrowserRequested>
+  <Phinix_store2_externalBrowserRequested>Requested the system browser; the Steam overlay is unavailable.</Phinix_store2_externalBrowserRequested>
+  <Phinix_store2_linkUnavailable>Could not open the browser. Check your Steam overlay or system browser settings.</Phinix_store2_linkUnavailable>
 </LanguageData>

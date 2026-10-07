@@ -2,6 +2,21 @@
 
 [English](GitHubBotGuide.md)。作者在自己的公开仓库发布源码及固定 DLL ZIP，再向正式索引提交元数据。GitHub Actions 完成检查和发布，无需作者提供 token，也无需独立机器人服务器。
 
+## 工坊条目收录
+
+进入 Issues → New issue → **Workshop listing / 工坊收录**，复制 [workshop-submission.json](examples/workshop-submission.json)。填写 `channel: steam-workshop`、`management: rimworld-mod`、工坊 ID、Mod packageId、名称、简介、作者、许可证说明、标签和支持的 RimWorld 版本。示例指向 Phinix Rework 本体，**仅供工坊收录流程测试**；申请自己的 Mod 时应替换这些字段。
+
+无需 GitHub 仓库、Release、ZIP、DLL manifest 或包内语言文件。机器人只检查收录元数据，不检查工坊 Mod 的代码，也不认证后续 Steam 更新。维护者加 `plugin-approved` 后，沿用证据 PR、自动发布、异常标签和成功关闭申请的流程。订阅、下载、启用、前置依赖和内容更新由 Steam / RimWorld 管理；GitHub 和 CF 只分发相同的目录元数据。
+
+修改简介等收录信息仍需新申请和人工批准。玩家目录展示最新批准的元数据修订，历史候选、报告和发布锁保留且不可变。同一条目 ID 不允许悄悄换成另一个工坊 ID 或 Mod packageId；GitHub DLL 的来源版本监控不适用于工坊条目。
+
+本地仅元数据校验：
+
+```sh
+python3 scripts/bot.py check --input examples/workshop-submission.json --validator Validator/bin/Release/net10.0/Validator.dll --output workshop-check
+python3 scripts/catalog.py project --candidate examples/workshop-submission.json --validator Validator/bin/Release/net10.0/Validator.dll --output workshop-record.json
+```
+
 ## 提交插件
 
 进入 Issues → New issue → Plugin submission。复制[当前候选示例](examples/managed-submission.json)，把所有身份、源码提交、版本、资产 ID、长度和摘要替换成自己的正式发布。schema-v3 目录支持多语言名称、简介和 changelog；插件 UI 的语言 JSON 放在 ZIP 内，并受文件摘要校验保护。

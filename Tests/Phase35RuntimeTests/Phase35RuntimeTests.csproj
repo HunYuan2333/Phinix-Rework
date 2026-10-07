@@ -11,6 +11,8 @@
   <ItemGroup>
     <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\ClientEnvironmentSnapshot.cs" Link="ClientEnvironmentSnapshot.cs" />
     <Compile Include="..\..\Client\Source\Framework\ClientEnvironmentService.cs" Link="ClientEnvironmentService.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientLinkService.cs" Link="IClientLinkService.cs" />
+    <Compile Include="..\..\Client\Source\Framework\ClientLinkService.cs" Link="ClientLinkService.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientExtensionManagementWindowService.cs" Link="IClientExtensionManagementWindowService.cs" />
     <Compile Include="..\..\Client\Source\Framework\ClientExtensionManagementWindowService.cs" Link="ClientExtensionManagementWindowService.cs" />
     <Compile Include="..\..\Common\Connections\NetClient.cs" Link="NetClient.cs" />

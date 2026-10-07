@@ -18,6 +18,12 @@ namespace Phinix.PluginStore
 
     internal static class ManagedStoreListing
     {
+        internal static ManagedStoreRecord RestoreSelection(ManagedStoreCatalogSnapshot catalog, ManagedStoreRecord previous)
+        {
+            if(catalog==null || previous==null) return null;
+            return catalog.Packages.FirstOrDefault(p=>p.Id==previous.Id &&
+                (p.IsWorkshop ? previous.IsWorkshop : !previous.IsWorkshop && p.Manifest.Version.CompareTo(previous.Manifest.Version)==0));
+        }
         internal static ManagedStoreGroup[] Build(ManagedStoreCatalogSnapshot catalog,string search,string locale)
         {
             return (catalog?.Packages??Enumerable.Empty<ManagedStoreRecord>()).GroupBy(p=>p.Id,StringComparer.Ordinal)

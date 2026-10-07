@@ -52,8 +52,16 @@ def write_new(path, raw):
 def project(candidate, payload, validator):
     require(type(candidate) is dict and set(candidate) == {'schemaVersion', 'package'} and type(candidate['schemaVersion']) is int and candidate['schemaVersion'] == 1, 'SubmissionEnvelope')
     package = copy.deepcopy(candidate['package'])
+    if package.get('channel') == 'steam-workshop':
+        require(payload is None, 'UnexpectedPayload')
+        with tempfile.TemporaryDirectory() as temporary:
+            record = {'schemaVersion': 3, 'sourceId': 'author.draft', 'snapshotId': hashlib.sha256(encode(package)).hexdigest()[:40], 'packages': [package]}
+            path = Path(temporary) / 'catalog.json'; path.write_bytes(encode(record))
+            validate(validator, ['catalog', 'author.draft', str(path)])
+        return {'schemaVersion': 1, 'package': package}
     require(package.get('channel') == 'github-release' and package.get('management') == 'phinix-dll', 'UnsupportedRoute')
     require('name' not in package and 'summary' not in package, 'UnexpectedField')
+    require(payload is not None, 'PayloadRequired')
     artifact = package['artifact']; manifest = package['manifest']
     require(payload.is_file() and not payload.is_symlink() and payload.stat().st_size == artifact['sizeBytes'] and 0 < artifact['sizeBytes'] <= 128 * 1024 * 1024, 'PayloadSizeMismatch')
     digest = hashlib.sha256()
@@ -112,7 +120,7 @@ def build(records, source, snapshot, validator):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    p = commands.add_parser('project'); p.add_argument('--candidate', type=Path, required=True); p.add_argument('--zip', type=Path, required=True)
+    p = commands.add_parser('project'); p.add_argument('--candidate', type=Path, required=True); p.add_argument('--zip', type=Path)
     p = commands.add_parser('build'); p.add_argument('--record', type=Path, action='append', default=[]); p.add_argument('--source-id', required=True); p.add_argument('--snapshot', required=True)
     for p in commands.choices.values():
         p.add_argument('--validator', type=Path, required=True); p.add_argument('--output', type=Path, required=True)

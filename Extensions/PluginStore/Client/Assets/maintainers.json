@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "phinix.official",
+  "indexRepositoryId": "1402564805",
+  "indexOwnerId": "64630568",
+  "publicationBranch": "main",
+  "managedOrigins": [
+    { "repositoryId": "1406005374", "ownerId": "64630568" },
+    { "repositoryId": "1406928176", "ownerId": "64630568" },
+    { "repositoryId": "1406928729", "ownerId": "64630568" }
+  ],
+  "workshopOrigins": [
+    { "workshopId": "3735269431", "rimWorldPackageId": "hunyuan2333.phinixrework" }
+  ]
+}

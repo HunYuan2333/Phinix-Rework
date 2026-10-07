@@ -190,6 +190,11 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientSettingsWindowService>((IClientSettingsWindowService)windowService);
             extensionHostContext.AddService<IClientExtensionManagementWindowService>((IClientExtensionManagementWindowService)windowService);
             extensionHostContext.AddService<IClientSoundService>(soundService);
+            extensionHostContext.AddService<IClientLinkService>(new ClientLinkService(
+                () => UnityData.IsInMainThread,
+                () => Verse.Steam.SteamManager.Initialized && Steamworks.SteamUtils.IsOverlayEnabled(),
+                url => Steamworks.SteamFriends.ActivateGameOverlayToWebPage(url), Application.OpenURL,
+                message => extensionHostContext.Log?.Invoke("Client link: " + message, LogLevel.INFO)));
             extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
             extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
             // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信

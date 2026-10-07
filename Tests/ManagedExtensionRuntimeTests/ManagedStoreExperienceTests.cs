@@ -20,6 +20,14 @@ internal static partial class Program
         Assert(ManagedStoreListing.Build(catalog,"absent","en").Length==0,"Search excludes unrelated groups");
         Assert(ManagedStoreListing.Build(null,"","en").Length==0,"No catalog has an empty safe listing");
         var root=groups[0].Preferred;
+        var refreshed=ManagedStoreCatalogReader.Read(Utf8(ManagedCatalog(newest,listing,newer)),ManagedSource);
+        var restored=ManagedStoreListing.RestoreSelection(refreshed,root);
+        Assert(restored!=root && restored.Manifest.Version.CompareTo(root.Manifest.Version)==0,
+            "Refreshing rebuilt records retains the exact selected version rather than resetting or selecting latest");
+        Assert(ManagedStoreListing.RestoreSelection(ManagedStoreCatalogReader.Read(Utf8(ManagedCatalog(listing)),ManagedSource),root)==null,
+            "A version removed from the catalog cannot retain stale action controls");
+        Assert(ManagedStoreListing.RestoreSelection(null,root)==null && ManagedStoreListing.RestoreSelection(refreshed,null)==null,
+            "Empty catalogs and no selection remain safe");
         var plan=new ManagedStorePlan(catalog,root,new[]{new ManagedStorePlanItem(root,null)});
         Func<ManagedStoreState,ManagedStoreCatalogSnapshot,ManagedStorePlan,ManagedStoreSnapshot> state=(s,c,p)=>new ManagedStoreSnapshot(1,s,c,null,p,null,null);
         var intent=new ManagedStoreInstallIntent(catalog,root);

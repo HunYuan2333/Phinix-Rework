@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "package": {
+    "id": "phinix.workshop.rework",
+    "name": "Phinix Rework · Test listing / 测试条目",
+    "author": "HunYuan2333",
+    "license": "See Workshop page",
+    "summary": "仅供测试工坊索引收录、目录展示和链接跳转。该条目指向 Phinix Rework 本体；已经启用本体的玩家无需重复订阅。商店不下载此 Mod，订阅、依赖和更新由 Steam / RimWorld 管理。For testing Workshop listing, catalog display and link navigation only. This is the Phinix Rework host mod; existing users do not need to subscribe again. Steam and RimWorld manage the mod.",
+    "tags": [
+      "test",
+      "multiplayer"
+    ],
+    "state": "active",
+    "channel": "steam-workshop",
+    "management": "rimworld-mod",
+    "rimWorldPackageId": "hunyuan2333.phinixrework",
+    "workshopId": "3735269431",
+    "rimWorldVersions": [
+      "1.6"
+    ]
+  }
+}

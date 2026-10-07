@@ -157,4 +157,29 @@
   <Phinix_store2_updateConfirmation>更新以下插件？重启后生效，保留插件设置；此操作不迁移或回退插件业务数据。</Phinix_store2_updateConfirmation>
   <Phinix_store2_downgradeUnavailable>暂不支持直接覆盖安装旧版本。</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>更新前请先启用此插件；待卸载的插件不能更新。</Phinix_store2_enableBeforeUpdate>
+  <Phinix_store2_accessExplanation>GitHub 与 CF 提供同一目录，连接较慢时可切换访问方式。</Phinix_store2_accessExplanation>
+  <Phinix_store2_filter0>全部插件</Phinix_store2_filter0>
+  <Phinix_store2_filter1>已安装</Phinix_store2_filter1>
+  <Phinix_store2_filter2>可更新</Phinix_store2_filter2>
+  <Phinix_store2_about>插件简介</Phinix_store2_about>
+  <Phinix_store2_compatibility>运行要求</Phinix_store2_compatibility>
+  <Phinix_store2_backToList>‹ 返回插件列表</Phinix_store2_backToList>
+  <Phinix_store2_manageInstalled>管理已安装插件 ▾</Phinix_store2_manageInstalled>
+  <Phinix_store2_restartHint>安装、更新和启停在重启游戏后生效。</Phinix_store2_restartHint>
+  <Phinix_store2_workshopFooter>请在创意工坊订阅和管理此模组。</Phinix_store2_workshopFooter>
+  <Phinix_store2_updateBadge>有可用更新</Phinix_store2_updateBadge>
+  <Phinix_store2_resultCount>{0} 个插件</Phinix_store2_resultCount>
+  <Phinix_store2_stateSaved>设置已保存，重启游戏后生效。</Phinix_store2_stateSaved>
+  <Phinix_store2_optional>可选</Phinix_store2_optional>
+  <Phinix_store2_installation>本地安装</Phinix_store2_installation>
+  <Phinix_store2_tags>标签</Phinix_store2_tags>
+  <Phinix_store2_availability>上架状态</Phinix_store2_availability>
+  <Phinix_store2_officialBadge>Phinix 维护</Phinix_store2_officialBadge>
+  <Phinix_store2_officialBadgeTip>由 Phinix 团队维护。</Phinix_store2_officialBadgeTip>
+  <Phinix_store2_managedBadge>Phinix 托管</Phinix_store2_managedBadge>
+  <Phinix_store2_managedBadgeTip>DLL 插件由 Phinix 下载、启停和卸载；变更在重启游戏后生效。</Phinix_store2_managedBadgeTip>
+  <Phinix_store2_workshopBadgeTip>完整 RimWorld 模组；通过 Steam 工坊订阅，并在游戏 Mod 列表管理。</Phinix_store2_workshopBadgeTip>
+  <Phinix_store2_gameBrowserRequested>已请求打开 Steam 游戏内浏览器。</Phinix_store2_gameBrowserRequested>
+  <Phinix_store2_externalBrowserRequested>Steam 覆盖层不可用，已请求打开系统浏览器。</Phinix_store2_externalBrowserRequested>
+  <Phinix_store2_linkUnavailable>无法打开浏览器，请检查 Steam 覆盖层或系统浏览器设置。</Phinix_store2_linkUnavailable>
 </LanguageData>

@@ -11,7 +11,7 @@ import tempfile
 import urllib.parse
 import zipfile
 
-from bot import SOURCE, INDEX, GitHub, Rejected, require, strict_json, encode, digest, inspect
+from bot import SOURCE, INDEX, GitHub, Rejected, require, strict_json, encode, digest, inspect, is_workshop
 from admission import PREFIX, REPOSITORY_ID, WORKFLOW as MANUAL_WORKFLOW, event, maintainer, index, paths, read_bundle, commit, policy
 import catalog
 import label_admission as labels
@@ -41,7 +41,10 @@ def validate_policy(value):
 
 
 def default_policy(candidate, review):
-    p = candidate['package']; text = p['manifest']['version']; name = p['artifact']['assetName']
+    p = candidate['package']
+    if is_workshop(p):
+        return None
+    text = p['manifest']['version']; name = p['artifact']['assetName']
     # Existing accepted records stay unchanged. Standard stable asset names allow
     # a new first-time label approval to carry its explicit source-update scope.
     if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', text) or not name.endswith(text + '.zip'):

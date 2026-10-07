@@ -133,7 +133,7 @@ Phinix Rework 明确区分核心内置功能与独立托管插件：
 
 - **.NET 10 SDK**（服务端与自动化测试工具）
 - **.NET Framework 4.7.2** 目标包（客户端编译支持）
-- **RimWorld 1.6 程序集引用**：将引用 DLL 放置于 `GameDlls/1.6/`（`Assembly-CSharp.dll`、`UnityEngine*.dll`），或在构建时通过 `-p:GameReferenceDirectory=<path>` 指定。严禁将游戏程序集提交或分发。
+- **RimWorld 1.6 程序集引用**：将引用 DLL 放置于 `GameDlls/1.6/`（`Assembly-CSharp.dll`、所需的 `UnityEngine*.dll` 模块，包括 `UnityEngine.ImageConversionModule.dll`，以及 `com.rlabrecque.steamworks.net.dll`）。完整构建使用其他引用目录时，同时指定 `-p:GameReferenceDirectory=<path>` 和 `-p:RimWorldDepDir=<path>`。严禁将游戏程序集提交或分发。
 
 ### 开发者构建
 

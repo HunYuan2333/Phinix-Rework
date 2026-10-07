@@ -33,6 +33,8 @@
     <Compile Include="ManagedStoreUpdates.cs" />
     <Compile Include="ManagedPluginStoreView.cs" />
     <Compile Include="ManagedStoreLayout.cs" />
+    <Compile Include="StoreMaintainerRegistry.cs" />
+    <Compile Include="StoreBadgeIcons.cs" />
     <Compile Include="ManagedStorePayloadValidator.cs" />
     <Compile Include="ManagedStoreInstallationInput.cs" />
     <Compile Include="RepositoryMetadata.cs" />
@@ -48,6 +50,9 @@
     <Compile Include="PluginStoreWindow.cs" />
     <Compile Include="PluginStoreMainTabProvider.cs" />
     <Compile Include="PluginStoreUpdateBanner.cs" />
+    <EmbeddedResource Include="Assets/maintainers.json"><LogicalName>Phinix.PluginStore.Assets.maintainers.json</LogicalName></EmbeddedResource>
+    <EmbeddedResource Include="Assets/Badges/*.png"><LogicalName>Phinix.PluginStore.Assets.Badges.%(Filename)%(Extension)</LogicalName></EmbeddedResource>
+    <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameReferenceDirectory)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
@@ -58,6 +63,10 @@
     <ProjectReference Include="../../../Common/Utils/Utils.csproj"><Private>false</Private><SetTargetFramework>TargetFramework=net472</SetTargetFramework></ProjectReference>
   </ItemGroup>
   <!-- Bundled plugin uses ordinary discovery; no host reference to store implementation. -->
+  <Target Name="ValidateStoreGameReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(GameReferenceDirectory)/UnityEngine.ImageConversionModule.dll')"
+      Text="Missing compile-only RimWorld reference: $(GameReferenceDirectory)/UnityEngine.ImageConversionModule.dll. Copy it from your RimWorld 1.6 Managed directory into the game reference directory, or set GameReferenceDirectory. Do not distribute game DLLs." />
+  </Target>
   <Target Name="BuildBundledStore" AfterTargets="Build">
     <PropertyGroup><BundledRoot>$(MSBuildThisFileDirectory)../../../Output/phinix-rework</BundledRoot></PropertyGroup>
     <MakeDir Directories="$(BundledRoot)/Common/Extensions" />

@@ -48,7 +48,7 @@ if ($IncludeClient) {
 }
 # Game reference assemblies are compiler inputs, never part of a distributable mod/server.
 $gameDlls = Get-ChildItem $artifactRoots -Recurse -File | Where-Object {
-    $_.Name -like 'Assembly-CSharp*.dll' -or $_.Name -like 'Unity*.dll' -or $_.Name -eq 'mscorlib.dll'
+    $_.Name -like 'Assembly-CSharp*.dll' -or $_.Name -like 'Unity*.dll' -or $_.Name -eq 'mscorlib.dll' -or $_.Name -eq 'com.rlabrecque.steamworks.net.dll'
 }
 if ($gameDlls) { throw "Game reference assemblies found in artifacts: $($gameDlls.FullName -join ', ')" }
 Write-Host 'Required host and extension artifacts are present; no game reference assemblies are packaged.'

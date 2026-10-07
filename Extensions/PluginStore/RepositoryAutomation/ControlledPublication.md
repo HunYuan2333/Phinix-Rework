@@ -4,6 +4,8 @@ Pre-launch cleanup: the official index does not list Playtest. Maintainers own `
 
 [中文](ControlledPublication.zh-CN.md). 2026-10-05. The normal path is one maintainer approval label followed by automatic A2/A4. A3 version monitoring remains disabled.
 
+Workshop candidates follow the same human label and evidence flow. Their reports, policies and locks bind only listing metadata and the Workshop/Mod IDs; they have no ZIP/PE checks or DLL auto-update policy. Publication includes only the latest approved metadata revision for each fixed Workshop identity and retains all prior evidence.
+
 ## Maintainer action
 
 1. Review the submission, source and Plugin intake report. Static checks do not prove code safety or source/binary correspondence.

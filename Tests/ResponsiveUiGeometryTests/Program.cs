@@ -17,6 +17,8 @@ internal static class Program
             TestToolbarWrapAndOverflow();
             TestVirtualRanges();
             TestStoreActionReachability();
+            TestManagedStoreNavigation();
+            TestStoreBadges();
             TestManagedPackageCards();
             TestZeroSizeInputs();
             TestStableGeometryDoesNotAllocate();
@@ -44,6 +46,23 @@ internal static class Program
             }
             Assert(layout.Toggle.xMax<=layout.Removal.x+0.01f,"Managed intent actions do not overlap");
             if(width>=320f && height>=148f) Assert(layout.Toggle.height==30f && layout.Removal.height==30f && layout.ModuleButton.width>=60f,"Managed package/module actions remain reachable");
+        }
+    }
+
+    private static void TestStoreBadges()
+    {
+        foreach(float width in new[]{0f,1f,20f,56f,100f,220f,480f})
+        foreach(bool official in new[]{false,true})
+        foreach(float labelWidth in new[]{0f,90f,240f})
+        {
+            var bounds=new Rect(10,20,width,24);
+            var layout=Phinix.PluginStore.ManagedStoreBadgeLayout.Calculate(bounds,official,labelWidth,labelWidth);
+            AssertContained(layout.Official,bounds); AssertContained(layout.Route,bounds);
+            Assert(layout.Official.width>=0 && layout.Route.width>=0,"Badge widths never become negative.");
+            Assert(layout.Official.xMax<=layout.Route.x,"Maintainer and distribution badges do not overlap.");
+            if(!official) Assert(layout.Official.width==0 && !layout.OfficialText,"No maintainer badge is fabricated.");
+            if(width==480 && labelWidth==90 && official) Assert(layout.OfficialText && layout.RouteText,"Wide badges retain visible captions.");
+            if(width==220 && labelWidth==90 && official) Assert(!layout.OfficialText && layout.RouteText,"Compact badges prioritize the installation route caption.");
         }
     }
 
@@ -157,6 +176,42 @@ internal static class Program
             "Empty and large catalog heights must stay bounded.");
     }
 
+    private static void TestManagedStoreNavigation()
+    {
+        foreach(float width in new[] { 0f, 1f, 160f, 320f, 719f, 720f, 1024f, 1512f })
+        foreach(float height in new[] { 0f, 1f, 30f, 32f, 100f, 120f, 240f, 480f, 859f })
+        foreach(bool selected in new[] { false, true })
+        {
+            var bounds = new Rect(17f, 23f, width, height);
+            var layout = Phinix.PluginStore.ManagedStoreLayout.Calculate(bounds, selected);
+            AssertContained(layout.List, bounds);
+            AssertContained(layout.Detail, bounds);
+            Assert(layout.Compact == (width < 720f), "Store switches to full-pane navigation below its usable split width.");
+            if(layout.Compact)
+            {
+                Rect visible = selected ? layout.Detail : layout.List;
+                Rect hidden = selected ? layout.List : layout.Detail;
+                Assert(visible.width == width && visible.height == height, "Compact list and detail each use all available space.");
+                Assert(hidden.width == 0f && hidden.height == 0f, "Compact navigation does not leave an unusable second pane.");
+            }
+            var regions = Phinix.PluginStore.ManagedStoreLayout.DetailRegions(layout.Detail, layout.Compact, selected);
+            AssertContained(regions.Back, layout.Detail);
+            AssertContained(regions.Content, layout.Detail);
+            AssertContained(regions.Actions, layout.Detail);
+            Assert(regions.Back.yMax <= regions.Content.yMin && regions.Content.yMax <= regions.Actions.yMin,
+                "Navigation, scrolling prose and fixed actions must never overlap.");
+            if(selected && layout.Detail.height >= 32f)
+                Assert(regions.Actions.height >= 32f, "Long descriptions must never displace the primary action.");
+            if(selected && layout.Compact && height >= 144f)
+                Assert(regions.Back.height == 32f, "Compact detail retains a back button independently of scrolling prose.");
+            if(selected && layout.Detail.height >= 240f)
+                Assert(regions.Content.height >= 88f && regions.Actions.height == 112f,
+                    "Normal windows retain usable prose space and complete fixed action controls.");
+        }
+        var fixedActions = Phinix.PluginStore.ManagedStoreLayout.DetailRegions(new Rect(0,0,500,480), false, true).Actions;
+        Assert(fixedActions.yMax == 480f, "Actions stay anchored to the detail bottom, regardless of description length.");
+    }
+
     private static void TestZeroSizeInputs()
     {
         Rect empty = new Rect(10f, 20f, 0f, 0f);
@@ -195,6 +250,8 @@ internal static class Program
             ResponsiveFormLayout.Calculate(new Rect(0f, 0f, 600f, 200f), 120f, 200f, 80f, 30f, 10f, 20f);
             ResponsiveToolbarLayout.Calculate(new Rect(0f, 0f, 220f, 80f), widths, 3, 2, 30f, 10f, 2, 40f, rects);
             VirtualListLayout.GetFixedRange(1000, 20f, 200f, 100f, 1);
+            var store = Phinix.PluginStore.ManagedStoreLayout.Calculate(new Rect(0f, 0f, 1024f, 480f), true);
+            Phinix.PluginStore.ManagedStoreLayout.DetailRegions(store.Detail, store.Compact, true);
             VirtualListLayout.GetDynamicRange(StableDynamicOffsets, 3, 20f, 50f, 1);
         }
     }

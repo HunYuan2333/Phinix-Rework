@@ -2,6 +2,21 @@
 
 [中文](GitHubBotGuide.zh-CN.md). Authors publish their source and a fixed managed DLL ZIP in their own public repository, then submit metadata to the official index. GitHub Actions performs checks and publication; no author token or separate bot server is needed.
 
+## Workshop listings
+
+Use Issues → New issue → **Workshop listing** and copy [workshop-submission.json](examples/workshop-submission.json). Provide `channel: steam-workshop`, `management: rimworld-mod`, `workshopId`, `rimWorldPackageId`, name, summary, author, license, tags and supported RimWorld versions. The example points to Phinix Rework **for listing tests only**; replace its fields for your own submission.
+
+No GitHub repository, release, ZIP, DLL manifest or package language files are needed. The bot checks listing metadata only: it does not inspect Workshop mod code or certify future Steam updates. A maintainer adds `plugin-approved`; the existing evidence PR, automatic publication, error label and Issue closure apply. Steam and RimWorld own subscription, download, activation, dependencies and updates. GitHub and CF distribute the same catalog metadata.
+
+Changes to listing metadata require a new submission and maintainer approval. The newest approved revision is visible; historical candidate bytes, reports and locks remain immutable. The same listing ID cannot silently switch its Workshop ID or Mod packageId. GitHub DLL source monitoring does not apply to Workshop listings.
+
+Local metadata-only validation:
+
+```sh
+python3 scripts/bot.py check --input examples/workshop-submission.json --validator Validator/bin/Release/net10.0/Validator.dll --output workshop-check
+python3 scripts/catalog.py project --candidate examples/workshop-submission.json --validator Validator/bin/Release/net10.0/Validator.dll --output workshop-record.json
+```
+
 ## Submit a plugin
 
 Use Issues → New issue → Plugin submission. Copy [the current candidate example](examples/managed-submission.json), replacing every identity, commit, version, asset ID, length and digest with your own release values. The schema-v3 catalog uses localized name, summary and changelog; language JSON for the plugin UI is included and hashed inside the ZIP.

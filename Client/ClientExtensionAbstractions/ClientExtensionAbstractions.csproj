@@ -68,6 +68,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Framework\IClientLinkService.cs" />
     <Compile Include="Framework\IClientLocalizationService.cs" />
     <Compile Include="Framework\IClientExtensionAbstractions.cs" />
     <Compile Include="Framework\IClientExtensionManagementWindowService.cs" />

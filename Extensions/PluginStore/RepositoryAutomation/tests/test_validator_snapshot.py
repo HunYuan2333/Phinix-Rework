@@ -24,8 +24,8 @@ class ValidatorSnapshotTests(unittest.TestCase):
         self.assertGreater(snapshot.check(ROOT), 0)
 
     def test_main_source_consistency_when_source_checkout_is_available(self):
-        source = ROOT.parents[2]
-        if not (source / 'Common/Utils/Utils.csproj').is_file():
+        source = next((parent for parent in ROOT.parents if (parent / 'Common/Utils/Utils.csproj').is_file()), None)
+        if source is None:
             self.skipTest('Standalone index has no main source checkout; integrity is checked separately')
         self.assertGreater(snapshot.check(ROOT, source), 0)
 

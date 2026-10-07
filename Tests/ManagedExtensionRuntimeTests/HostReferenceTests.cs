@@ -23,5 +23,9 @@ internal static partial class Program
         Assert(ManagedAssemblyIdentity.SelectHostReference(required,new[]{newer,identity("0Harmony, Version=2.5.0.0, Culture=neutral, PublicKeyToken=null")})==null,"Ambiguous compatible hosts rejected");
         Assert(ReferenceEquals(ManagedAssemblyIdentity.SelectHostReference(required,new[]{required,newer}),required),"Exact host takes precedence over upgrade");
         Assert(ManagedAssemblyIdentity.SelectHostReference(required,new[]{required,required})==null,"Duplicate exact host facts rejected");
+        var oldClient=identity("ClientExtensionAbstractions, Version=1.7.0.0, Culture=neutral, PublicKeyToken=null");
+        var newClient=identity("ClientExtensionAbstractions, Version=1.8.0.0, Culture=neutral, PublicKeyToken=null");
+        Assert(ReferenceEquals(ManagedAssemblyIdentity.SelectHostReference(oldClient,new[]{newClient}),newClient),
+            "Existing localization plugins compiled against 1.7 can use the additive 1.8 host API.");
     }
 }

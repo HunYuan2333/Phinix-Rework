@@ -90,6 +90,10 @@
     <Reference Include="0Harmony, Version=2.3.6.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\..\.nuget\Lib.Harmony.2.3.6\lib\net472\0Harmony.dll</HintPath>
     </Reference>
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>$(RimWorldDepDir)\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RimWorldDepDir)\Assembly-CSharp.dll</HintPath>
     </Reference>
@@ -144,6 +148,7 @@
     <Compile Include="Framework\ClientSessionContextAdapter.cs" />
     <Compile Include="Framework\ClientSoundService.cs" />
     <Compile Include="Framework\ClientUserEventStream.cs" />
+    <Compile Include="Framework\ClientLinkService.cs" />
     <Compile Include="Framework\ClientWindowService.cs" />
     <Compile Include="Framework\ClientExtensionManagementWindowService.cs" />
 
@@ -241,6 +246,10 @@
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <Target Name="ValidateClientSteamReference" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(RimWorldDepDir)/com.rlabrecque.steamworks.net.dll')"
+      Text="Missing compile-only RimWorld reference: $(RimWorldDepDir)/com.rlabrecque.steamworks.net.dll. Copy it from your RimWorld 1.6 Managed directory into the game reference directory, or set RimWorldDepDir. Do not distribute game DLLs." />
+  </Target>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\Packaging\ClientPackageLayout.targets" />
   <Target Name="Clean">
