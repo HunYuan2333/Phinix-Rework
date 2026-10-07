@@ -114,6 +114,7 @@ namespace PhinixClient
 
         private PhinixFrameworkClient frameworkClient;
         private EventHandler processExitHandler;
+        private Action quittingHandler;
         private ManagedExtensionRuntime managedExtensionRuntime;
         private ClientLocalizationService localizationService;
         private object localizationGameLanguage;
@@ -214,10 +215,22 @@ namespace PhinixClient
             LongEventHandler.ExecuteWhenFinished(() => mainThreadDispatcher.Enqueue(() => InitializeExtensions(modRoot, extensionHostContext)));
             processExitHandler = (_, __) =>
             {
-                try { frameworkClient?.Shutdown(); managedExtensionRuntime?.RecordLifecycle(frameworkClient?.ExtensionResults); }
-                finally { localizationService?.Dispose(); managedExtensionRuntime?.Dispose(); }
+                // ProcessExit can run after Unity's main thread has stopped. Only
+                // release game-independent host resources here.
+                try { localizationService?.Dispose(); }
+                finally { managedExtensionRuntime?.Dispose(); }
             };
             AppDomain.CurrentDomain.ProcessExit += processExitHandler;
+            quittingHandler = () =>
+            {
+                try { StopExtensions(); }
+                finally
+                {
+                    Application.quitting -= quittingHandler;
+                    AppDomain.CurrentDomain.ProcessExit -= processExitHandler;
+                }
+            };
+            Application.quitting += quittingHandler;
             #region Module Event Handlers
             // Subscribe to connection events
             netClient.OnDisconnect += (sender, args) =>
@@ -395,6 +408,7 @@ namespace PhinixClient
 
                 Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
                 frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
+                frameworkClient.Start();
                 managedExtensionRuntime?.RecordLifecycle(frameworkClient.ExtensionResults);
                 Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
                 if (!Settings.Migrated)
@@ -424,7 +438,27 @@ namespace PhinixClient
             }
             catch(Exception error)
             {
+                StopExtensions();
                 Verse.Log.Error("[Phinix] ExtensionStartupFailed: " + error);
+            }
+        }
+
+        private void StopExtensions()
+        {
+            if (!UnityData.IsInMainThread) throw new InvalidOperationException("Extension shutdown requires the main thread.");
+            authenticator.OnLogEntry -= ILoggableHandler;
+            userManager.OnLogEntry -= ILoggableHandler;
+            if (frameworkClient != null) frameworkClient.OnLogEntry -= ILoggableHandler;
+            try
+            {
+                frameworkClient?.Shutdown();
+                managedExtensionRuntime?.RecordLifecycle(frameworkClient?.ExtensionResults);
+            }
+            catch (Exception error) { Verse.Log.Error("[Phinix] ExtensionShutdownFailed: " + error); }
+            finally
+            {
+                try { localizationService?.Dispose(); }
+                finally { managedExtensionRuntime?.Dispose(); }
             }
         }
 

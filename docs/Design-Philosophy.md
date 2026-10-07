@@ -124,6 +124,8 @@ Component lifecycles must correctly respond to game host sessions (loading save,
 
 **Judgment criterion**: After 5 consecutive rounds of "load save → return to main menu → load new save", is memory usage stable and are event handlers triggered only once?
 
+The client framework constructor only establishes dependencies; the host explicitly calls `Start()` after preparing its services on the game main thread. Repeated Start is harmless while running, and Stop/Shutdown/Dispose are terminal and idempotent. Registry cleanup also calls module `Shutdown` after partial Register/Activate failure, so cleanup must tolerate incomplete initialization. Consumers stop before providers, module registrations are revoked, and borrowed host services or cross-plugin APIs are never disposed by the consumer. Normal game shutdown runs through Unity’s main-thread quitting event; ProcessExit only releases game-independent host resources.
+
 ### 2.6 Principle of Least Intrusion and Ecosystem Isolation
 
 As a plugin running in a complex environment alongside hundreds of other mods, actively minimize disruption to the host environment:

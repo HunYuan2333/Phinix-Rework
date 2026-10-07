@@ -20,6 +20,7 @@ internal static partial class Program
             AssertLegacyApisRemoved();
             AssertClientKeyGenerationStillWorks();
             AssertExtensionDependencyValidationAndLifecycle();
+            AssertClientExtensionRuntimeLifecycle();
             AssertExtensionStorageCannotEscapeRoot();
             AssertClientEnvironmentCaptureRequiresMainThread();
             AssertExtensionManagementWindowLifecycle();
@@ -186,6 +187,9 @@ internal static partial class Program
     {
         LifecycleEvents.Clear();
         ExtensionHostContext host = new ExtensionHostContext { HostKind = "runtime-test" };
+        host.AddService<IExtensionDiscoveryPolicy>(new TypeSetDiscoveryPolicy(typeof(BaseModule), typeof(DependentModule),
+            typeof(RegisterFailureModule), typeof(RegisterDependentModule), typeof(ActivateFailureModule),
+            typeof(ActivateDependentModule), typeof(MissingDependencyModule), typeof(CycleAModule), typeof(CycleBModule)));
         DiscoveredPhinixExtensions discovered = PhinixExtensionRegistry.DiscoverExtensions(host);
 
         AssertState(discovered, "tests.missing", ExtensionModuleState.Failed);
@@ -202,14 +206,36 @@ internal static partial class Program
         AssertState(discovered, "tests.activate-failure", ExtensionModuleState.Failed);
         AssertState(discovered, "tests.activate-dependent", ExtensionModuleState.Failed);
         Assert(!host.TryResolveApi<IActivateFailureApi>(out _), "Activation failure must revoke registered APIs.");
+        Assert(LifecycleEvents.IndexOf("shutdown:activate-dependent") >= 0 &&
+            LifecycleEvents.IndexOf("shutdown:activate-dependent") < LifecycleEvents.IndexOf("shutdown:activate-failure"),
+            "Activation rollback must clean registered consumers before their failed provider.");
         Assert(LifecycleEvents.IndexOf("register:base") < LifecycleEvents.IndexOf("register:dependent"), "Dependencies must register first.");
         Assert(LifecycleEvents.IndexOf("activate:base") < LifecycleEvents.IndexOf("activate:dependent"), "Dependencies must activate first.");
+
+        int lifecycleEventsAfterStart = LifecycleEvents.Count;
+        PhinixExtensionRegistry.ActivateExtensions(discovered, host);
+        Assert(LifecycleEvents.Count == lifecycleEventsAfterStart, "Repeated activation must not activate modules twice.");
 
         PhinixExtensionRegistry.ShutdownExtensions(discovered, host);
         Assert(LifecycleEvents.IndexOf("shutdown:dependent") < LifecycleEvents.IndexOf("shutdown:base"), "Active modules must shut down in reverse dependency order.");
         AssertState(discovered, "tests.base", ExtensionModuleState.Shutdown);
         AssertState(discovered, "tests.dependent", ExtensionModuleState.Shutdown);
         Assert(!host.TryResolveApi<IBaseApi>(out _), "Shutdown must revoke APIs owned by the stopped extension.");
+        int lifecycleEventsAfterStop = LifecycleEvents.Count;
+        PhinixExtensionRegistry.ShutdownExtensions(discovered, host);
+        Assert(LifecycleEvents.Count == lifecycleEventsAfterStop, "Repeated shutdown must not stop modules twice.");
+
+        DisabledProbeModule.ConstructorCount = 0;
+        ExtensionHostContext disabledHost = new ExtensionHostContext();
+        var disabledProbePolicy = new DisabledProbeActivationPolicy();
+        disabledHost.AddService<IExtensionActivationPolicy>(disabledProbePolicy);
+        disabledHost.AddService<IExtensionDiscoveryPolicy>(disabledProbePolicy);
+        var disabledRuntime = new ClientExtensionRuntime(disabledHost, () => true);
+        disabledRuntime.Start();
+        DiscoveredPhinixExtensions disabled = disabledRuntime.Extensions;
+        AssertState(disabled, "tests.disabled-probe", ExtensionModuleState.Disabled);
+        Assert(DisabledProbeModule.ConstructorCount == 0, "Disabled modules must not be constructed during discovery.");
+        disabledRuntime.Stop();
     }
 
     private static void AssertExtensionStorageCannotEscapeRoot()
@@ -663,6 +689,28 @@ internal static partial class Program
 
     private static readonly List<string> LifecycleEvents = new List<string>();
 
+    private sealed class DisabledProbeActivationPolicy : IExtensionActivationPolicy, IExtensionDiscoveryPolicy
+    {
+        public IReadOnlyCollection<string> DisabledExtensions => new[] { "tests.disabled-probe" };
+        public bool ShouldScanAssembly(System.Reflection.Assembly assembly) => assembly == typeof(DisabledProbeModule).Assembly;
+        public bool ShouldDiscoverType(Type type) => type == typeof(DisabledProbeModule);
+        public bool ShouldActivate(string extensionId, out string reason)
+        {
+            bool enabled = !string.Equals(extensionId, "tests.disabled-probe", StringComparison.OrdinalIgnoreCase);
+            reason = enabled ? null : "disabled for lifecycle regression test";
+            return enabled;
+        }
+    }
+
+    [PhinixExtension("tests.disabled-probe")]
+    public sealed class DisabledProbeModule : IPhinixExtensionModule
+    {
+        public static int ConstructorCount;
+        public DisabledProbeModule() { ConstructorCount++; }
+        public string ExtensionId => "tests.disabled-probe";
+        public void Register(IExtensionBuilder builder) { }
+    }
+
     private interface IBaseApi { }
     private interface IRegisterFailureApi { }
     private interface IActivateFailureApi { }
@@ -715,7 +763,7 @@ internal static partial class Program
         public string ExtensionId => "tests.activate-failure";
         public void Register(IExtensionBuilder builder) { builder.RegisterApi<IActivateFailureApi>(this); }
         public void Activate(ExtensionHostContext hostContext) { throw new InvalidOperationException("activate failure"); }
-        public void Shutdown(ExtensionHostContext hostContext) { }
+        public void Shutdown(ExtensionHostContext hostContext) { LifecycleEvents.Add("shutdown:activate-failure"); }
     }
 
     [PhinixExtension("tests.activate-dependent", DependsOn = new[] { "tests.activate-failure" })]
@@ -724,7 +772,7 @@ internal static partial class Program
         public string ExtensionId => "tests.activate-dependent";
         public void Register(IExtensionBuilder builder) { }
         public void Activate(ExtensionHostContext hostContext) { throw new InvalidOperationException("must be skipped"); }
-        public void Shutdown(ExtensionHostContext hostContext) { }
+        public void Shutdown(ExtensionHostContext hostContext) { LifecycleEvents.Add("shutdown:activate-dependent"); }
     }
 
     [PhinixExtension("tests.missing", DependsOn = new[] { "tests.absent" })]

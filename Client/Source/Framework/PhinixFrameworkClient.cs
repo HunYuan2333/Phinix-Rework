@@ -41,96 +41,132 @@ namespace PhinixClient.Framework
         private readonly ClientAuthenticator authenticator;
         private readonly ClientUserManager userManager;
         private readonly ExtensionHostContext extensionHostContext;
-        private readonly DiscoveredPhinixExtensions discoveredExtensions;
-        private readonly string[] capabilities;
+        private Action<string, LogLevel> originalHostLog;
+        private Action<HostLogEntry> originalStructuredHostLog;
+        private readonly ClientExtensionRuntime extensionRuntime;
+        private DiscoveredPhinixExtensions discoveredExtensions => extensionRuntime.Extensions;
+        private string[] capabilities = Array.Empty<string>();
         private readonly HashSet<string> remoteCapabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly List<FrameworkDisplayMessage> displayMessages = new List<FrameworkDisplayMessage>();
         private const int MaxDisplayMessages = 1000;
         private readonly object displayMessagesLock = new object();
-        private readonly Timer negotiationTimer;
-        private readonly ElapsedEventHandler negotiationElapsedHandler;
-        private readonly EventHandler disconnectHandler;
+        private Timer negotiationTimer;
+        private ElapsedEventHandler negotiationElapsedHandler;
+        private EventHandler disconnectHandler;
         private const int MaxExtensionLogEntries = 300;
         private readonly object extensionLogLock = new object();
         private readonly List<FrameworkLogEntry> extensionLog = new List<FrameworkLogEntry>();
         private int extensionLogVersion;
         private int displayMessageCountAtLastCheck;
-        private bool disposed;
+        private bool started;
+        private bool starting;
+        private bool hostBindingsAttached;
+        private volatile bool disposed;
 
         public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
             this.authenticator = authenticator;
             this.userManager = userManager;
-            this.extensionHostContext = extensionHostContext ?? ExtensionHostContext.Empty;
-            Action<string, LogLevel> originalLog = this.extensionHostContext.Log;
-            Action<HostLogEntry> originalStructuredLog = this.extensionHostContext.StructuredLog;
-            this.extensionHostContext.Log = (message, level) =>
+            this.extensionHostContext = extensionHostContext ?? new ExtensionHostContext();
+            extensionRuntime = new ClientExtensionRuntime(this.extensionHostContext, () => UnityData.IsInMainThread);
+        }
+
+        /// <summary>
+        /// Registers host services, discovers extensions, and activates them after the
+        /// host has finished preparing its service context. Safe to call repeatedly.
+        /// </summary>
+        public void Start()
+        {
+            if (disposed) throw new ObjectDisposedException(nameof(PhinixFrameworkClient));
+            extensionRuntime.RequireMainThread();
+            if (starting) throw new InvalidOperationException("Framework startup is already in progress.");
+            if (started) return;
+            starting = true;
+
+            originalHostLog = extensionHostContext.Log;
+            originalStructuredHostLog = extensionHostContext.StructuredLog;
+            hostBindingsAttached = true;
+            extensionHostContext.Log = (message, level) =>
             {
                 appendExtensionLog(message, level);
-                originalLog?.Invoke(message, level);
+                originalHostLog?.Invoke(message, level);
             };
-            this.extensionHostContext.StructuredLog = entry =>
+            extensionHostContext.StructuredLog = entry =>
             {
                 if (entry == null) return;
                 appendExtensionLog(entry.ToDisplayMessage(), entry.Level);
-                originalStructuredLog?.Invoke(entry);
-                originalLog?.Invoke(entry.ToDisplayMessage(), entry.Level);
+                originalStructuredHostLog?.Invoke(entry);
+                originalHostLog?.Invoke(entry.ToDisplayMessage(), entry.Level);
             };
-            this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
-            this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
-            this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
-            this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
-            this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
-            this.extensionHostContext.AddService<IDisplayMessageSink>(this);
-            this.extensionHostContext.AddService<IItemCodecProvider>(this);
-            this.discoveredExtensions = PhinixExtensionRegistry.DiscoverExtensions(this.extensionHostContext);
-            PhinixExtensionRegistry.ActivateExtensions(discoveredExtensions, this.extensionHostContext);
-            this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
-            this.negotiationTimer = new Timer
+
+            try
             {
-                AutoReset = false,
-                Enabled = false,
-                Interval = 3000
-            };
-            negotiationElapsedHandler = (_, __) => enterLegacyMode();
-            this.negotiationTimer.Elapsed += negotiationElapsedHandler;
+                this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
+                this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
+                this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
+                this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
+                this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
+                this.extensionHostContext.AddService<IDisplayMessageSink>(this);
+                this.extensionHostContext.AddService<IItemCodecProvider>(this);
+                extensionRuntime.Start();
+                this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
+                negotiationTimer = new Timer
+                {
+                    AutoReset = false,
+                    Enabled = false,
+                    Interval = 3000
+                };
+                negotiationElapsedHandler = (_, __) => enterLegacyMode();
+                this.negotiationTimer.Elapsed += negotiationElapsedHandler;
 
-            netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
-            disconnectHandler = (_, __) => reset();
-            netClient.OnDisconnect += disconnectHandler;
+                disconnectHandler = (_, __) => reset();
+                netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
+                netClient.OnDisconnect += disconnectHandler;
+                started = true;
 
-            string summary = $"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities.";
-            this.extensionHostContext.Log?.Invoke(summary, LogLevel.INFO);
+                string summary = $"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities.";
+                this.extensionHostContext.Log?.Invoke(summary, LogLevel.INFO);
 
-            if (discoveredExtensions.Modules.Count > 0)
-            {
-                string moduleSummary =
-                    $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
-                    $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}, " +
-                    $"client item handlers={discoveredExtensions.ClientIncomingItemHandlers.Count}, client outgoing item handlers={discoveredExtensions.ClientOutgoingItemHandlers.Count}.";
-                this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
+                if (discoveredExtensions.Modules.Count > 0)
+                {
+                    string moduleSummary =
+                        $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
+                        $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}, " +
+                        $"client item handlers={discoveredExtensions.ClientIncomingItemHandlers.Count}, client outgoing item handlers={discoveredExtensions.ClientOutgoingItemHandlers.Count}.";
+                    this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
+                }
+
+                // Settings panels summary: concise copyable machine-readable format
+                IReadOnlyList<IClientSettingsPanelProvider> settingsPanels = GetSettingsPanels();
+                if (settingsPanels.Count > 0)
+                {
+                    string panelSummary = "SettingsPanels=" + string.Join(",", settingsPanels.OrderBy(p => p.Order).Select(p =>
+                        $"{{SectionId:{p.SectionId},Order:{p.Order}}}"));
+                    this.extensionHostContext.Log?.Invoke(panelSummary, LogLevel.DEBUG);
+                    // Also emit a human-readable version
+                    string humanSummary = $"Settings panels ({settingsPanels.Count}): {string.Join(" | ", settingsPanels.OrderBy(p => p.Order).Select(p => p.SectionId))}";
+                    this.extensionHostContext.Log?.Invoke(humanSummary, LogLevel.INFO);
+                }
+
+                foreach (string diagnostic in discoveredExtensions.Diagnostics)
+                {
+                    this.extensionHostContext.Log?.Invoke(diagnostic, LogLevel.DEBUG);
+                }
+                foreach (string warning in discoveredExtensions.Warnings)
+                {
+                    this.extensionHostContext.Log?.Invoke(warning, LogLevel.WARNING);
+                }
             }
-
-            // Settings panels summary: concise copyable machine-readable format
-            IReadOnlyList<IClientSettingsPanelProvider> settingsPanels = GetSettingsPanels();
-            if (settingsPanels.Count > 0)
+            catch
             {
-                string panelSummary = "SettingsPanels=" + string.Join(",", settingsPanels.OrderBy(p => p.Order).Select(p =>
-                    $"{{SectionId:{p.SectionId},Order:{p.Order}}}"));
-                this.extensionHostContext.Log?.Invoke(panelSummary, LogLevel.DEBUG);
-                // Also emit a human-readable version
-                string humanSummary = $"Settings panels ({settingsPanels.Count}): {string.Join(" | ", settingsPanels.OrderBy(p => p.Order).Select(p => p.SectionId))}";
-                this.extensionHostContext.Log?.Invoke(humanSummary, LogLevel.INFO);
+                starting = false;
+                Shutdown();
+                throw;
             }
-
-            foreach (string diagnostic in discoveredExtensions.Diagnostics)
+            finally
             {
-                this.extensionHostContext.Log?.Invoke(diagnostic, LogLevel.DEBUG);
-            }
-            foreach (string warning in discoveredExtensions.Warnings)
-            {
-                this.extensionHostContext.Log?.Invoke(warning, LogLevel.WARNING);
+                starting = false;
             }
         }
 
@@ -176,7 +212,7 @@ namespace PhinixClient.Framework
 
         public void BeginNegotiation()
         {
-            if (disposed) return;
+            if (disposed || !started) return;
 
             reset();
 
@@ -844,7 +880,7 @@ namespace PhinixClient.Framework
 
         private void addDisplayMessage(FrameworkDisplayMessage message)
         {
-            if (message == null)
+            if (disposed || message == null)
             {
                 return;
             }
@@ -918,7 +954,7 @@ namespace PhinixClient.Framework
 
         private void sendPacket(FrameworkPacket packet)
         {
-            if (packet == null) return;
+            if (disposed || packet == null) return;
             if (!netClient.Connected)
             {
                 RaiseLogEntry(new LogEventArgs($"[Phinix] Dropping packet type={packet.MessageType} — netClient not connected", LogLevel.WARNING));
@@ -957,6 +993,7 @@ namespace PhinixClient.Framework
 
         private void enterLegacyMode()
         {
+            if (disposed || !started) return;
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
             if (CompatibilityMode != FrameworkCompatibilityMode.Unknown) return;
 
@@ -1034,30 +1071,69 @@ namespace PhinixClient.Framework
                 return;
             }
 
+            if (starting) throw new InvalidOperationException("Framework startup is still in progress.");
+            if (hostBindingsAttached) extensionRuntime.RequireMainThread();
             disposed = true;
 
             try
             {
-                negotiationTimer.Stop();
-                negotiationTimer.Elapsed -= negotiationElapsedHandler;
-                negotiationTimer.Dispose();
+                if (negotiationTimer != null)
+                {
+                    negotiationTimer.Stop();
+                    if (negotiationElapsedHandler != null) negotiationTimer.Elapsed -= negotiationElapsedHandler;
+                    negotiationTimer.Dispose();
+                    negotiationTimer = null;
+                }
             }
             catch (Exception ex)
             {
-                RaiseLogEntry(new LogEventArgs($"Failed to dispose framework negotiation timer: {ex}", LogLevel.ERROR));
+                reportShutdownWarning($"Failed to dispose framework negotiation timer: {ex}");
             }
 
             try
             {
-                netClient.UnregisterPacketHandler(FrameworkProtocol.ModuleName);
-                netClient.OnDisconnect -= disconnectHandler;
+                if (disconnectHandler != null)
+                {
+                    netClient.UnregisterPacketHandler(FrameworkProtocol.ModuleName);
+                    netClient.OnDisconnect -= disconnectHandler;
+                    disconnectHandler = null;
+                }
             }
             catch (Exception ex)
             {
-                RaiseLogEntry(new LogEventArgs($"Failed to unregister framework client handlers: {ex}", LogLevel.ERROR));
+                reportShutdownWarning($"Failed to unregister framework client handlers: {ex}");
             }
 
-            PhinixExtensionRegistry.ShutdownExtensions(discoveredExtensions, extensionHostContext);
+            int previousWarnings = discoveredExtensions.Warnings.Count;
+            extensionRuntime.Stop();
+            for (int index = previousWarnings; index < discoveredExtensions.Warnings.Count; index++)
+            {
+                reportShutdownWarning(discoveredExtensions.Warnings[index]);
+            }
+            extensionHostContext.RemoveService<IFrameworkClientTransport>(this);
+            extensionHostContext.RemoveService<IFrameworkClientCommandTransport>(this);
+            extensionHostContext.RemoveService<IFrameworkClientLifecycle>(this);
+            extensionHostContext.RemoveService<IClientDisplayMessageStore>(this);
+            extensionHostContext.RemoveService<IClientDisplayMessageFeed>(this);
+            extensionHostContext.RemoveService<IDisplayMessageSink>(this);
+            extensionHostContext.RemoveService<IItemCodecProvider>(this);
+            if (hostBindingsAttached)
+            {
+                extensionHostContext.Log = originalHostLog;
+                extensionHostContext.StructuredLog = originalStructuredHostLog;
+                hostBindingsAttached = false;
+            }
+            started = false;
+        }
+
+        private void reportShutdownWarning(string message)
+        {
+            appendExtensionLog(message, LogLevel.WARNING);
+            try { originalHostLog?.Invoke(message, LogLevel.WARNING); }
+            catch (Exception error)
+            {
+                appendExtensionLog("Shutdown log callback failed: " + error.Message, LogLevel.WARNING);
+            }
         }
 
         public void Dispose()

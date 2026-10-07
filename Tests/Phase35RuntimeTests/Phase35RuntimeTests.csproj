@@ -9,6 +9,7 @@
   <!-- Client endpoint projects target net472. Compile the same game-independent
        sources here so their existing regression tests can run on .NET 10. -->
   <ItemGroup>
+    <Compile Include="..\..\Client\Source\Framework\ClientExtensionRuntime.cs" Link="ClientExtensionRuntime.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\ClientEnvironmentSnapshot.cs" Link="ClientEnvironmentSnapshot.cs" />
     <Compile Include="..\..\Client\Source\Framework\ClientEnvironmentService.cs" Link="ClientEnvironmentService.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientLinkService.cs" Link="IClientLinkService.cs" />
