@@ -37,6 +37,8 @@ namespace Phinix.PluginStore
         private readonly List<DetailSection> sections = new List<DetailSection>();
         private sealed class DetailSection { internal string Title, Body; internal float Height; }
         private float cardWidth = -1, toolbarWidth = -1, statusWidth = -1, statusHeight;
+        private float guidanceWidth=-1, guidanceHeight;
+        private string measuredGuidance;
         private string measuredStatus, nameLine, authorLine;
         private float nameHeight;
         private object toolbarLanguage;
@@ -83,6 +85,7 @@ namespace Phinix.PluginStore
                 if (width <= 0 || rect.height < 32) return;
                 DrawToolbar(new Rect(rect.x, y, width, Mathf.Max(0, rect.yMax-y)), snapshot, enabled, out float toolbarHeight);
                 y += toolbarHeight + 8;
+                y += DrawAccessGuidance(new Rect(rect.x,y,width,Mathf.Max(0,rect.yMax-y)));
                 if (rect.yMax-y < 24) return;
                 y += DrawStatus(new Rect(rect.x, y, width, Mathf.Max(0, rect.yMax-y)), snapshot, enabled) + 8;
                 if (rect.yMax-y < 32) return;
@@ -129,8 +132,9 @@ namespace Phinix.PluginStore
             for(int i=0;i<bar.VisibleActionCount;i++)
             {
                 string text=T(i==0?"refresh":i==1?(accessMethod==RepositoryAccessMethod.GitHub?"accessGithub":"accessCloudflare"):"management");
+                if(i==1) text+=" ▾";
                 if(Widgets.ButtonText(toolbarRects[i],text)) ToolbarAction(i);
-                TooltipHandler.TipRegion(toolbarRects[i],i==1?T("accessExplanation"):text);
+                TooltipHandler.TipRegion(toolbarRects[i],i==1?T("accessExplanation")+(accessMethod==RepositoryAccessMethod.GitHub?"\n"+T("githubAccessGuidance"):""):text);
             }
             if(bar.HasOverflow && Widgets.ButtonText(bar.OverflowButtonRect,"⋯"))
             {
@@ -139,6 +143,25 @@ namespace Phinix.PluginStore
                 Find.WindowStack.Add(new FloatMenu(options));
             }
             GUI.enabled=enabled;
+        }
+        private float DrawAccessGuidance(Rect rect)
+        {
+            if(accessMethod!=RepositoryAccessMethod.GitHub || rect.width<=16 || rect.height<=168) return 0;
+            var font=Text.Font;
+            try
+            {
+                Text.Font=GameFont.Tiny;
+                string text=T("githubAccessGuidance");
+                float width=rect.width-16;
+                if(guidanceWidth!=width || measuredGuidance!=text)
+                { guidanceWidth=width; measuredGuidance=text; guidanceHeight=Text.CalcHeight(text,width); }
+                // Keep room for status, search and plugin actions in short windows.
+                if(guidanceHeight+8>rect.height-168) return 0;
+                var label=new Rect(rect.x+8,rect.y,width,guidanceHeight);
+                Label(label,text,theme.SecondaryText); TooltipHandler.TipRegion(label,text);
+                return guidanceHeight+8;
+            }
+            finally { Text.Font=font; }
         }
         private void ToolbarAction(int action)
         {

@@ -158,6 +158,7 @@
   <Phinix_store2_downgradeUnavailable>Installing an older version over this package is unavailable.</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>Enable this package before updating; packages awaiting removal cannot be updated.</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub and CF show the same catalog. Switch access if the connection is slow.</Phinix_store2_accessExplanation>
+  <Phinix_store2_githubAccessGuidance>If you cannot reach GitHub, for example from mainland China, click "GitHub direct" above and select "CF acceleration" to try again.</Phinix_store2_githubAccessGuidance>
   <Phinix_store2_filter0>All plugins</Phinix_store2_filter0>
   <Phinix_store2_filter1>Installed</Phinix_store2_filter1>
   <Phinix_store2_filter2>Updates</Phinix_store2_filter2>
