@@ -1,128 +1,171 @@
 <h1 align="center">Phinix Rework</h1>
-<h4 align="center"><i>A RimWorld multiplayer mod — chat, trade, and extensible plugin framework</i></h4>
+<h4 align="center"><i>A RimWorld 1.6 multiplayer mod — cross-colony chat, asynchronous trade, and managed plugin framework</i></h4>
 
-> Draft README. 中文版：[README.zh-CN.md](./README.zh-CN.md)
+<p align="center">
+  English · <a href="./README.zh-CN.md">简体中文</a>
+</p>
 
-# About
+---
 
-Phinix Rework adds multiplayer chat and item trading to RimWorld via a dedicated external server. It is a ground-up rebuild of the original Phinix mod, built on a plugin-oriented framework — Chat and Trade themselves are plugins, not built-in special cases.
+## About
 
-- In-game chat between colonies (rich text support, colourable names and messages)
-- Asynchronous item trading (no simultaneous online required)
-- Dedicated server with authentication and user management
-- Extensible plugin system — third-party submods have the same status as official extensions
+Phinix Rework adds multiplayer communication and economic interaction to RimWorld via an external dedicated server. It connects distinct player colonies while keeping the core game engine independent.
 
-# Quick Start
+- **In-Game Chat**: Cross-colony text messaging with rich text formatting, customizable colors, and channel support.
+- **Asynchronous Trading**: Trade items and silver between colonies without requiring both players to be online simultaneously.
+- **Unified Inventory**: Shared item staging pipeline supporting trade settlements and item management.
+- **Dedicated Server**: Lightweight standalone server supporting user authentication and permission management.
+- **Plugin Store & Extensible Runtime**: First-party and third-party extensions share identical runtime lifecycles. Browse and install managed plugins directly in game.
 
-## Client
+> [!NOTE]
+> Phinix Rework provides chat, trade, and plugin interoperability between independent colonies. It does **not** synchronize world map simulation, in-game ticks, or lockstep pawn construction across players.
 
-1. Download the client package from [Releases](https://github.com/HunYuan2333/Phinix-Rework/releases).
-2. Extract into RimWorld's `Mods` directory.
-3. Enable Phinix in the in-game Mods menu, restart RimWorld.
-4. Load a save, click the Phinix button in the bottom toolbar, go to Settings, enter the server address and port, then Connect.
+---
 
-Currently only supports RimWorld 1.6.
+## Installation
 
-## Server (Docker, recommended)
+### Client (RimWorld 1.6)
+
+#### Option A: Steam Workshop (Recommended)
+
+1. Subscribe to [Phinix Rework on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3735269431). Steam will automatically download and update the mod.
+2. Launch RimWorld, navigate to **Mods** in the main menu, enable **Phinix Rework**, and restart the game.
+
+#### Option B: Manual Installation
+
+1. Obtain the release package from [GitHub Releases](https://github.com/HunYuan2333/Phinix-Rework/releases) (or build from source following [Developer Build](#developer-build)).
+2. Extract the mod directory into your RimWorld `Mods` folder, for example:
+   `<path-to-RimWorld>/Mods/Phinix-Rework/`
+3. Launch RimWorld, navigate to **Mods**, enable **Phinix Rework**, and restart the game.
+
+### Server (Dedicated)
+
+The server can be hosted via Docker (recommended) or compiled with .NET 10 SDK.
+
+#### Option A: Docker (Recommended)
 
 ```bash
 docker pull hunyuan23333/phinix-rework:latest
+
 docker run -d \
-  --name phinix \
+  --name phinix-server \
   --restart unless-stopped \
   -p 16200:16200/udp \
   -v ./server_data:/data \
   hunyuan23333/phinix-rework:latest
 
-# View logs
-docker logs -f phinix
+# View server logs
+docker logs -f phinix-server
 ```
 
-Or use [docker-compose.yml](../docker-compose.yml):
+Or deploy with `docker-compose.yml`:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-## Server (manual build)
-
-Requires .NET 10 SDK. Server project is in `Server/`, shared projects in `Common/`.
+#### Option B: Manual Build (.NET 10 SDK)
 
 ```bash
 dotnet build Server/Server.csproj -c Release -o out
 dotnet out/PhinixServer.dll
 ```
 
-Configure via `server.conf` (defaults: port 16200, auth type ClientKey). Console commands include `help`, `version`, `exit`.
+Configuration defaults to port `16200` (UDP) and `ClientKey` authentication via `server.conf`. The interactive console supports `help`, `version`, and `exit` commands.
 
-# Known Issues
+---
 
-- **Translation errors in log**: RimWorld's `Translate()` may produce `No active language` red-text errors when called from network callback threads. This does not affect functionality — failed translations fall back to the key name itself (e.g. `Phinix_framework_systemDisplayName`). This is a thread-safety issue and will be resolved in a future release. These log red-text lines are harmless and can be ignored.
+## First Connection
 
-# Architecture
+1. Load an existing save or start a new colony.
+2. Click the **Phinix** button in the bottom navigation toolbar.
+3. In the Phinix window, open **Settings** (`设置`).
+4. Enter the server IP address, port (default `16200`), and your authentication key or display name.
+5. Click **Connect** (`连接`).
+6. Upon successful connection, the status bar displays connection health, and Chat, Trade, Inventory, and Store tabs become available.
 
-Phinix Rework uses a layered, plugin-first architecture. See [Design-Philosophy.md](./Design-Philosophy.md) for the full design guide:
+### Connection Troubleshooting
 
+- **Connection timed out**: Ensure UDP port `16200` is open on the server host and firewall.
+- **Authentication failed**: Verify that your client key matches server registration records.
+- **Protocol version mismatch**: Ensure client and server run compatible builds of Phinix Rework.
+
+---
+
+## Plugin Store & Extensions
+
+Phinix Rework includes an in-game plugin store allowing players to extend features without manually editing mod directories.
+
+1. **Browsing the Store**:
+   - Open the Phinix window and switch to the **Store** (`商店`) tab.
+   - Browse reviewed packages from the official catalog.
+2. **Installing Plugins**:
+   - Select a plugin, click **Install** (`安装`).
+   - **Restart RimWorld** for the game engine to load newly installed assemblies.
+3. **Managing Installed Extensions**:
+   - Open **Extension Manager** (`扩展管理`) to inspect installed plugins.
+   - Toggle plugins **Enabled** or **Disabled**, or click **Uninstall** (`卸载`).
+   - Status changes take effect upon the next full game restart.
+4. **Network Acceleration Switch**:
+   - In Phinix settings, toggle between **GitHub Direct** (`GitHub 直连`) and **CF Acceleration** (`CF 加速`).
+   - Both routes fetch the exact same immutable metadata and release assets from the official index; switch to Cloudflare acceleration if direct GitHub access is slow or restricted.
+
+---
+
+## Bundled Features vs. Managed Plugins
+
+Phinix Rework distinguishes between core built-in features and independently managed plugins:
+
+| Category | Modules | Delivery Route | Lifecycle |
+| :--- | :--- | :--- | :--- |
+| **Bundled Core** | Chat, Trade, Inventory, PluginStore | Shipped directly inside the Phinix Mod package (`Common/Extensions/`) | Managed with main mod updates |
+| **Managed Plugins** | Talent Trade, Red Packet, third-party plugins | Installed via the Plugin Store into `SaveData/Phinix/ManagedExtensions/packages/` | Managed, enabled, or uninstalled in-game |
+| **Workshop Mods** | External RimWorld submods | Subscribed via Steam Workshop or placed in `Mods/` | Handled by RimWorld's native mod manager |
+
+> [!NOTE]
+> Legacy Talent Trade (`Phinix-Legacy-TalentTrade`) and Red Packet (`Phinix-Legacy-RedPacket`) have been decoupled from the core mod. They are distributed as standalone managed plugins and can be installed on demand through the Plugin Store.
+
+---
+
+## Developer Guide
+
+### Environment Requirements
+
+- **.NET 10 SDK** (server and test harnesses)
+- **.NET Framework 4.7.2** targeting pack (client compilation)
+- **RimWorld 1.6 Managed Assemblies**: Place references in `GameDlls/1.6/` (`Assembly-CSharp.dll`, `UnityEngine*.dll`) or provide path via `-p:GameReferenceDirectory=<path>`. Never redistribute game DLLs.
+
+### Developer Build
+
+```bash
+# Build server
+dotnet build Server/Server.csproj --configuration Release
+
+# Run core framework regression tests
+dotnet run --project Tests/Phase35RuntimeTests/Phase35RuntimeTests.csproj --configuration Release
+
+# Run responsive layout regression tests
+dotnet run --project Tests/ResponsiveUiGeometryTests/ResponsiveUiGeometryTests.csproj --configuration Release
+
+# Run managed extension runtime tests
+dotnet run --project Tests/ManagedExtensionRuntimeTests/ManagedExtensionRuntimeTests.csproj --configuration Release --framework net10.0
+
+# Run plugin store tests
+dotnet run --project Tests/PluginStoreRuntimeTests/PluginStoreRuntimeTests.csproj --configuration Release
+
+# Full client/server build (requires RimWorld 1.6 reference DLLs)
+dotnet build Phinix.sln --configuration "Release 1.6" --no-incremental
 ```
-Plugins (Extensions/Chat, Extensions/Trade, third-party)
-  → Shared contracts (ClientExtensionAbstractions)
-    → Host (Client / Server)
-      → Infrastructure (Common: networking, auth, user management)
-```
 
-Key principles:
+### Documentation & References
 
-- **Plugin parity** — Chat and Trade are just plugins. Third-party submods use the exact same discovery → registration → activation path.
-- **Three pipelines** — Communication flows through `message` (display, ✅), `command` (control, ✅), and `item` (payload, ⚠️ in-progress) lanes.
-- **Dynamic UI** — Tabs, sidebars, and badges are contributed by plugins via `IMainTabProvider` / `IServerSidebarProvider` / `IBadgeProvider`.
+- [Architecture & Design Philosophy](../docs/Design-Philosophy.md) — Plugin boundaries, communication pipelines, and lifecycle models.
+- [Submod Developer Guide](../docs/Phinix-Submod-Developer-Guide.md) — Step-by-step guide to writing custom submods.
+- [Phinix-Example-Plugin](https://github.com/HunYuan2333/Phinix-Example-Plugin) — Official minimal plugin example featuring tabs, settings, and dual-language localization.
+- [Phinix-Plugin-Index](https://github.com/HunYuan2333/Phinix-Plugin-Index) — Official plugin catalog and submission repository.
 
-# Roadmap
+---
 
-The current release covers the core foundation: one-click Docker deployment, stable chat and trading on the client.
+## Credits & License
 
-- **Short term**: Fix remaining thread-safety issues and UI performance bottlenecks.
-- **Medium term**: Complete the Item pipeline; fully decouple Chat and Trade from "built-in" to "officially shipped plugins".
-- **Long term**: Hot-loadable Mods directory (drop in to enable), plugin marketplace, web admin panel.
-
-# Developers
-
-## Environment Setup
-
-The client project depends on RimWorld assemblies. Place the required DLLs in `GameDlls/`: `Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`, `UnityEngine.IMGUIModule.dll`, `UnityEngine.InputLegacyModule.dll`, `UnityEngine.TextRenderingModule.dll`. Version-specific subdirectories under `GameDlls/` are supported.
-
-## Building
-
-`Phinix.sln` contains client, common, server, and extension projects. A `TravisCI` build profile is available for builds that don't need game assemblies.
-
-- **Client**: .NET Framework 4.7.2 (Unity/Mono ecosystem)
-- **Common projects**: multi-target `net472;net10.0`
-- **Server**: .NET 10.0
-
-## Extension Development
-
-Plugins implement `IPhinixExtensionModule` and register handlers and APIs through `IExtensionBuilder`:
-
-```csharp
-[PhinixExtension("my.extension")]
-public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
-{
-    public string ExtensionId => "my.extension";
-
-    public void Register(IExtensionBuilder builder)
-    {
-        builder.AddClientMessageHandler(this);
-        builder.RegisterApi<IMyService>(this);
-    }
-
-    public void Activate(ExtensionHostContext ctx) { /* acquire services, subscribe events */ }
-    public void Shutdown(ExtensionHostContext ctx) { /* unsubscribe, release resources */ }
-}
-```
-
-Full guides:
-- [设计哲学.md](./设计哲学.md) (Chinese) / [Design-Philosophy.md](./Design-Philosophy.md) — architecture principles, boundaries, anti-patterns
-- [Phinix附属Mod开发者指南.md](./Phinix附属Mod开发者指南.md) (Chinese) / [Phinix-Submod-Developer-Guide.md](./Phinix-Submod-Developer-Guide.md) — step-by-step submod development tutorial
-
-# Credit
-
-Special thanks to the original Phinix creators and contributors, and to [Longwelwind's Phi mod](https://github.com/longwelwind/phi) for the earlier foundation.
+Phinix Rework builds upon the vision of the original Phinix mod by the Phinix Team and draws inspiration from Longwelwind's [Phi mod](https://github.com/longwelwind/phi).
