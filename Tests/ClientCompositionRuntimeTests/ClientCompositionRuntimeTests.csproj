@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <!-- Runs the actual client-owned composition implementation on a net472 binary. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(RestoreLockedMode)' == ''">true</RestoreLockedMode>
+    <GenerateDependencyFile>true</GenerateDependencyFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Client/Composition/Phinix.ClientComposition.csproj" />
+    <ProjectReference Include="../../Extensions/Chat/Contracts/ChatExtension.csproj" />
+    <Compile Include="../../Extensions/Chat/Client/FrameworkClientChatServiceAdapter.cs" Link="Production/FrameworkClientChatServiceAdapter.cs" />
+    <Compile Include="../../Extensions/Chat/Client/ChatUiHostContext.cs" Link="Production/ChatUiHostContext.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientExtensionRuntime.cs" Link="Production/ClientExtensionRuntime.cs" />
+  </ItemGroup>
+</Project>

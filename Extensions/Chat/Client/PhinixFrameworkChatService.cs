@@ -16,9 +16,14 @@ namespace Phinix.ChatExtension.Client
     {
         /// <summary>
         /// 框架日志回调（设计哲学 §3.8：插件日志必须走 hostContext.Log，不得绕过框架机制）。
-        /// 由 BuiltInChatClientExtension 在 Register 阶段注入。
+        /// 由模块装配入口通过构造参数注入。
         /// </summary>
-        public Action<string, LogLevel> Log { get; set; }
+        public Action<string, LogLevel> Log { get; }
+
+        public PhinixFrameworkChatService(Action<string, LogLevel> log)
+        {
+            Log = log ?? throw new ArgumentNullException(nameof(log));
+        }
 
         /// <summary>
         /// 系统消息通用占位用户，延迟初始化避免静态构造阶段访问翻译系统。

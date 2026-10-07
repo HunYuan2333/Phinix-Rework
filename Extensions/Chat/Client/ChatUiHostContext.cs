@@ -9,7 +9,7 @@ using Utils.Framework;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class ChatUiHostContext : IChatUiHostContext
+    internal sealed class ChatUiHostContext : IChatUiHostContext, IDisposable
     {
         private sealed class ReadOnlyBlockedUserSet : ISet<string>
         {
@@ -119,18 +119,18 @@ namespace Phinix.ChatExtension.Client
         }
 
         private readonly IClientChatService chatService;
-        private IClientSessionContext session;
-        private IClientSettingsContext settings;
-        private IClientUserEventStream userEvents;
+        private readonly IClientSessionContext session;
+        private readonly IClientSettingsContext settings;
+        private readonly IClientUserEventStream userEvents;
         private readonly HashSet<string> blockedUsers = new HashSet<string>();
         private readonly object blockedUsersLock = new object();
         private readonly ISet<string> blockedUsersView;
-        private Action<string> createTrade;
-        private Action<LogEventArgs> log;
-        private IFrameworkChatClientApi chatApi;
-        private IFrameworkClientTransport transport;
-        private IClientUserDirectory userDirectory;
-        private bool started;
+        private readonly Action<string> createTrade;
+        private readonly Action<LogEventArgs> log;
+        private readonly IFrameworkChatClientApi chatApi;
+        private readonly IFrameworkClientTransport transport;
+        private readonly IClientUserDirectory userDirectory;
+        private volatile bool started;
         private event EventHandler disconnected;
         private event EventHandler usersChanged;
         private event EventHandler<UserDisplayNameChangedEventArgs> userDisplayNameChanged;
@@ -139,51 +139,51 @@ namespace Phinix.ChatExtension.Client
         public UIChatMessage ReplyTarget { get; private set; }
         public event EventHandler ReplyTargetChanged;
 
-        public ChatUiHostContext(IClientChatService chatService)
-        {
-            this.chatService = chatService;
-            this.blockedUsersView = new ReadOnlyBlockedUserSet(this);
-        }
-
-        internal void Initialize(
+        public ChatUiHostContext(
+            IClientChatService chatService,
             IClientSessionContext session,
             IClientSettingsContext settings,
             IClientUserEventStream userEvents,
             Action<string> createTrade,
             Action<LogEventArgs> log,
-            IFrameworkChatClientApi chatApi = null,
-            IFrameworkClientTransport transport = null,
-            IClientUserDirectory userDirectory = null)
+            IFrameworkChatClientApi chatApi,
+            IFrameworkClientTransport transport,
+            IClientUserDirectory userDirectory)
         {
-            this.session = session;
-            this.settings = settings;
-            this.userEvents = userEvents;
-            this.createTrade = createTrade;
-            this.log = log;
-            this.chatApi = chatApi;
-            this.transport = transport;
-            this.userDirectory = userDirectory;
-            refreshBlockedUsers();
+            this.chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
+            this.session = session ?? throw new ArgumentNullException(nameof(session));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.userEvents = userEvents ?? throw new ArgumentNullException(nameof(userEvents));
+            this.createTrade = createTrade ?? throw new ArgumentNullException(nameof(createTrade));
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.chatApi = chatApi ?? throw new ArgumentNullException(nameof(chatApi));
+            this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
+            this.userDirectory = userDirectory ?? throw new ArgumentNullException(nameof(userDirectory));
+            blockedUsersView = new ReadOnlyBlockedUserSet(this);
         }
+
+        public void Dispose() { Stop(); }
 
         internal void Start()
         {
             if (started) return;
+            refreshBlockedUsers();
+            started = true;
             userEvents.Disconnected += onDisconnected;
             userEvents.UsersChanged += onUsersChanged;
             userEvents.UserDisplayNameChanged += onUserDisplayNameChanged;
             userEvents.BlockedUsersChanged += onBlockedUsersChanged;
-            started = true;
         }
 
         internal void Stop()
         {
             if (!started) return;
+            started = false;
+            ReplyTarget = null;
             userEvents.Disconnected -= onDisconnected;
             userEvents.UsersChanged -= onUsersChanged;
             userEvents.UserDisplayNameChanged -= onUserDisplayNameChanged;
             userEvents.BlockedUsersChanged -= onBlockedUsersChanged;
-            started = false;
         }
 
         public IClientChatService ChatService => chatService;
@@ -264,7 +264,7 @@ namespace Phinix.ChatExtension.Client
 
         public void SendChatMessage(string text, IEnumerable<string> mentionedUuids)
         {
-            if (chatApi == null || transport == null) return;
+            if (!started) return;
             if (string.IsNullOrWhiteSpace(text)) return;
 
             // 设计哲学 §3.7：优先走 handler 管线。
@@ -317,15 +317,16 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
-        private void onDisconnected(object sender, EventArgs args) => disconnected?.Invoke(sender, args);
+        private void onDisconnected(object sender, EventArgs args) { if (started) disconnected?.Invoke(sender, args); }
 
-        private void onUsersChanged(object sender, EventArgs args) => usersChanged?.Invoke(sender, args);
+        private void onUsersChanged(object sender, EventArgs args) { if (started) usersChanged?.Invoke(sender, args); }
 
-        private void onUserDisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args) =>
-            userDisplayNameChanged?.Invoke(sender, args);
+        private void onUserDisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args)
+        { if (started) userDisplayNameChanged?.Invoke(sender, args); }
 
         private void onBlockedUsersChanged(object sender, UserBlockStateChangedEventArgs args)
         {
+            if (!started) return;
             refreshBlockedUsers();
             blockedUsersChanged?.Invoke(sender, args);
         }

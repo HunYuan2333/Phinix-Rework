@@ -8,7 +8,7 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class NoticeSidebarProvider : IServerSidebarProvider, IResponsiveSidebarProvider
+    internal sealed class NoticeSidebarProvider : IServerSidebarProvider, IResponsiveSidebarProvider, IDisposable
     {
         private readonly List<NoticeEntry> notices = new List<NoticeEntry>();
         private readonly object noticesLock = new object();
@@ -48,6 +48,11 @@ namespace Phinix.ChatExtension.Client
         {
             this.hostContext = hostContext;
             disconnectHandler = (_, __) => Clear();
+        }
+
+        internal void Start()
+        {
+            hostContext.OnDisconnect -= disconnectHandler;
             hostContext.OnDisconnect += disconnectHandler;
         }
 
@@ -81,12 +86,15 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
+        public void Dispose() { Shutdown(); }
+
         public void Shutdown()
         {
             if (hostContext != null && disconnectHandler != null)
             {
                 hostContext.OnDisconnect -= disconnectHandler;
             }
+            Clear();
         }
 
         public void Draw(Rect inRect)

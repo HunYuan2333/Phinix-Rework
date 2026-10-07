@@ -15,6 +15,9 @@ namespace Phinix.ChatExtension.Client
     [PhinixExtension("builtin.chat")]
     public class BuiltInChatClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientOutgoingCommandHandler
     {
+        private IClientCompositionScope composition;
+        private volatile bool active;
+        private int callbackGeneration;
         private IFrameworkChatClientApi chatApi;
         private IClientChatService chatService;
         private ChatUiHostContext chatUiHostContext;
@@ -47,15 +50,48 @@ namespace Phinix.ChatExtension.Client
 
         public void Register(IExtensionBuilder builder)
         {
-            PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService ?? new PhinixFrameworkChatService();
-            chatApi = chatModule;
-            chatService = chatService ?? new FrameworkClientChatServiceAdapter(chatApi);
-            chatUiHostContext = chatUiHostContext ?? new ChatUiHostContext(chatService);
-            chatTabContent = chatTabContent ?? new ChatMessageList(chatUiHostContext);
-            chatSidebarProvider = chatSidebarProvider ?? new ChatSidebarProvider(chatUiHostContext);
-            chatMainTabProvider = chatMainTabProvider ?? new ChatMainTabProvider(chatUiHostContext, chatTabContent);
-            noticeBannerProvider = noticeBannerProvider ?? new NoticeBannerProvider();
-            noticeSidebarProvider = noticeSidebarProvider ?? new NoticeSidebarProvider(chatUiHostContext);
+            if (composition != null) throw new InvalidOperationException("Chat is already composed.");
+            ExtensionHostContext host = builder.HostContext;
+            composition = host.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+            {
+                local.Borrow(host.GetRequiredService<IClientDisplayMessageFeed>());
+                local.Borrow(host.GetRequiredService<IClientDisplayMessageStore>());
+                local.Borrow(host.GetRequiredService<IClientSessionContext>());
+                local.Borrow(host.GetRequiredService<IClientSettingsContext>());
+                local.Borrow(host.GetRequiredService<IClientUserDirectory>());
+                local.Borrow(host.GetRequiredService<IClientUserEventStream>());
+                local.Borrow(host.GetRequiredService<IClientSettingsWindowService>());
+                local.Borrow(host.GetRequiredService<IClientMainThreadDispatcher>());
+                local.Borrow(host.GetRequiredService<IUiTheme>());
+                local.Borrow<Action<string, LogLevel>>((message, level) => host.Log?.Invoke(message, level));
+                local.Borrow(host.GetRequiredService<IFrameworkClientTransport>());
+                local.Borrow<Action<string>>(uuid =>
+                {
+                    if (active && host.TryResolveApi<ITradeRequestApi>(out var api)) api.CreateTrade(uuid);
+                });
+                local.Borrow<Action<LogEventArgs>>(args => host.Log?.Invoke(args.Message, args.LogLevel));
+                local.Register<IFrameworkChatClientApi, PhinixFrameworkChatService>();
+                local.Register<IClientChatService, FrameworkClientChatServiceAdapter>();
+                local.Register<IChatUiHostContext, ChatUiHostContext>();
+                local.Register<IChatTabContent, ChatMessageList>();
+                local.Register<UserList, UserList>();
+                local.Register<ChatSidebarProvider, ChatSidebarProvider>();
+                local.Register<ChatMainTabProvider, ChatMainTabProvider>();
+                local.Register<NoticeBannerProvider, NoticeBannerProvider>();
+                local.Register<NoticeSidebarProvider, NoticeSidebarProvider>();
+                local.Register<IClientMessageHandler, ChatMessageHandler>();
+                local.Register<IClientCommandHandler, ChatCommandHandler>();
+                local.Register<IMessageRenderer, ChatMessageRenderer>();
+                local.Register<ChatSettingsPanelProvider, ChatSettingsPanelProvider>();
+            });
+            chatApi = composition.Resolve<IFrameworkChatClientApi>();
+            chatService = composition.Resolve<IClientChatService>();
+            chatUiHostContext = composition.Resolve<ChatUiHostContext>();
+            chatTabContent = composition.Resolve<IChatTabContent>();
+            chatSidebarProvider = composition.Resolve<ChatSidebarProvider>();
+            chatMainTabProvider = composition.Resolve<ChatMainTabProvider>();
+            noticeBannerProvider = composition.Resolve<NoticeBannerProvider>();
+            noticeSidebarProvider = composition.Resolve<NoticeSidebarProvider>();
 
             builder.RegisterApi(chatApi);
             builder.RegisterApi(chatService);
@@ -66,20 +102,21 @@ namespace Phinix.ChatExtension.Client
             builder.RegisterApi<INoticeBannerProvider>(noticeBannerProvider);
             builder.RegisterApi<IServerSidebarProvider>(noticeSidebarProvider);
             builder.AddCapabilityProvider(this);
-            messageHandler = messageHandler ?? new ChatMessageHandler(chatApi);
-            commandHandler = commandHandler ?? new ChatCommandHandler(chatApi);
-            messageRenderer = messageRenderer ?? new ChatMessageRenderer(chatApi);
+            messageHandler = composition.Resolve<IClientMessageHandler>();
+            commandHandler = composition.Resolve<IClientCommandHandler>();
+            messageRenderer = composition.Resolve<IMessageRenderer>();
             builder.AddClientMessageHandler(messageHandler);
             builder.AddClientCommandHandler(commandHandler);
             builder.AddMessageRenderer(messageRenderer);
 
-            settingsPanelProvider = settingsPanelProvider ?? new ChatSettingsPanelProvider();
+            settingsPanelProvider = composition.Resolve<ChatSettingsPanelProvider>();
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
             builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
         }
 
         public void Activate(ExtensionHostContext hostContext)
         {
+            if (active) return;
             if (chatApi == null || hostContext == null)
             {
                 return;
@@ -91,7 +128,6 @@ namespace Phinix.ChatExtension.Client
             RegisterThemeDefaults(theme);
             theme.Reload();
             ChatTheme.Refresh(theme);
-            settingsPanelProvider?.InitializeTheme(theme);
 
             frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
             commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
@@ -102,16 +138,18 @@ namespace Phinix.ChatExtension.Client
             dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
             userDirectory = hostContext.GetRequiredService<IClientUserDirectory>();
 
-            EnsureActivationServices(hostContext);
+            active = true;
             (chatService as FrameworkClientChatServiceAdapter)?.Start();
             chatUiHostContext?.Start();
-            (chatTabContent as ChatMessageList)?.InitializeImages(dispatcher);
+            (chatSidebarProvider as ChatSidebarProvider)?.Start();
+            noticeSidebarProvider?.Start();
             (chatTabContent as ChatMessageList)?.Start();
 
             if (chatNotificationHandler == null)
             {
                 chatNotificationHandler = (_, args) =>
                 {
+                    if (!active || args?.Message == null) return;
                     if (chatService.ShouldPlayNotification(
                         args.Message,
                         sessionContext.Uuid,
@@ -140,8 +178,12 @@ namespace Phinix.ChatExtension.Client
                         string snippet = Utils.TextHelper.StripRichText(args.Message.Message ?? "");
                         if (snippet.Length > 100) snippet = snippet.Substring(0, 100) + "...";
 
+                        int generation = System.Threading.Volatile.Read(ref callbackGeneration);
+                        Game game = Current.Game;
                         dispatcher.Enqueue(() =>
                         {
+                            if (!active || generation != System.Threading.Volatile.Read(ref callbackGeneration)
+                                || !ReferenceEquals(Current.Game, game)) return;
                             try
                             {
                                 // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
@@ -170,6 +212,7 @@ namespace Phinix.ChatExtension.Client
             {
                 disconnectHandler = (_, __) =>
                 {
+                    System.Threading.Interlocked.Increment(ref callbackGeneration);
                     noticeBannerProvider?.Clear();
                     noticeSidebarProvider?.Clear();
                 };
@@ -183,6 +226,7 @@ namespace Phinix.ChatExtension.Client
             {
                 compatibilityChangedHandler = (_, args) =>
                 {
+                    if (!active) return;
                     connectionEstablishedTime = Time.realtimeSinceStartup;
 
                     if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
@@ -199,8 +243,12 @@ namespace Phinix.ChatExtension.Client
                     }
                     else if (args.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
                     {
+                        int generation = System.Threading.Volatile.Read(ref callbackGeneration);
+                        Game game = Current.Game;
                         dispatcher.Enqueue(() =>
                         {
+                            if (!active || generation != System.Threading.Volatile.Read(ref callbackGeneration)
+                                || !ReferenceEquals(Current.Game, game)) return;
                             try
                             {
                                 // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
@@ -233,67 +281,35 @@ namespace Phinix.ChatExtension.Client
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            active = false;
+            System.Threading.Interlocked.Increment(ref callbackGeneration);
             if (lifecycle != null && compatibilityChangedHandler != null)
             {
-                lifecycle.CompatibilityModeChanged -= compatibilityChangedHandler;
+                Cleanup(() => lifecycle.CompatibilityModeChanged -= compatibilityChangedHandler, hostContext);
             }
 
             if (chatService != null && chatNotificationHandler != null)
             {
-                chatService.OnChatMessageReceived -= chatNotificationHandler;
+                Cleanup(() => chatService.OnChatMessageReceived -= chatNotificationHandler, hostContext);
             }
 
             if (disconnectHandler != null && hostContext != null
                 && hostContext.TryGetService<IClientUserEventStream>(out var userEventStream))
             {
-                userEventStream.Disconnected -= disconnectHandler;
+                Cleanup(() => userEventStream.Disconnected -= disconnectHandler, hostContext);
             }
 
-            if (noticeSidebarProvider != null)
-            {
-                noticeSidebarProvider.Shutdown();
-            }
-
-            (chatTabContent as ChatMessageList)?.Stop();
-            chatUiHostContext?.Stop();
-            (chatService as FrameworkClientChatServiceAdapter)?.Stop();
+            composition?.Dispose();
+            composition = null;
         }
 
-        private void EnsureActivationServices(ExtensionHostContext hostContext)
+        private static void Cleanup(Action cleanup, ExtensionHostContext host)
         {
-            PhinixFrameworkChatService chatModule = chatApi as PhinixFrameworkChatService;
-            if (chatModule != null && chatModule.Log == null)
+            try { cleanup(); }
+            catch (Exception error)
             {
-                chatModule.Log = (message, level) => hostContext.Log?.Invoke(message, level);
+                try { host?.Log?.Invoke("Chat cleanup failed: " + error, LogLevel.WARNING); } catch { }
             }
-
-            FrameworkClientChatServiceAdapter chatServiceAdapter = chatService as FrameworkClientChatServiceAdapter;
-            chatServiceAdapter?.Initialize(
-                hostContext.GetRequiredService<IClientDisplayMessageFeed>(),
-                hostContext.GetRequiredService<IClientDisplayMessageStore>(),
-                userDirectory,
-                settingsContext);
-            chatUiHostContext?.Initialize(
-                sessionContext,
-                settingsContext,
-                hostContext.GetRequiredService<IClientUserEventStream>(),
-                uuid =>
-                {
-                    if (hostContext.TryResolveApi<ITradeRequestApi>(out var tradeRequestApi))
-                    {
-                        tradeRequestApi.CreateTrade(uuid);
-                    }
-                },
-                args => hostContext.Log?.Invoke(args.Message, args.LogLevel),
-                chatApi,
-                frameworkClient,
-                userDirectory);
-            (chatSidebarProvider as ChatSidebarProvider)?.Initialize(
-                sessionContext,
-                userDirectory,
-                settingsContext,
-                hostContext.GetRequiredService<IClientSettingsWindowService>());
-            (chatMainTabProvider as ChatMainTabProvider)?.InitializeUserDirectory(userDirectory);
         }
 
         private static void RegisterThemeDefaults(IUiTheme theme)

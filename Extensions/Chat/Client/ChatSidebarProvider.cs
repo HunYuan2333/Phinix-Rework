@@ -18,8 +18,8 @@ namespace Phinix.ChatExtension.Client
         private static readonly Color OfflineStatusColor = new Color(0.6f, 0.6f, 0.6f, 1f);
 
         private readonly IChatUiHostContext hostContext;
-        private IClientSessionContext sessionContext;
-        private IClientSettingsWindowService settingsWindowService;
+        private readonly IClientSessionContext sessionContext;
+        private readonly IClientSettingsWindowService settingsWindowService;
         private UserList userList;
         private string userSearch = string.Empty;
         private bool wasOnline;
@@ -29,21 +29,17 @@ namespace Phinix.ChatExtension.Client
         private string cachedStatusText;
         private string cachedSettingsLabel;
 
-        public ChatSidebarProvider(IChatUiHostContext hostContext)
-        {
-            this.hostContext = hostContext;
-        }
-
-        internal void Initialize(
-            IClientSessionContext sessionContext,
-            IClientUserDirectory userDirectory,
-            IClientSettingsContext settingsContext,
+        public ChatSidebarProvider(IChatUiHostContext hostContext,
+            IClientSessionContext sessionContext, UserList userList,
             IClientSettingsWindowService settingsWindowService)
         {
+            this.hostContext = hostContext;
             this.sessionContext = sessionContext;
             this.settingsWindowService = settingsWindowService;
-            userList = userList ?? new UserList(hostContext, userDirectory, settingsContext);
+            this.userList = userList;
         }
+
+        internal void Start() { userList.Start(); }
 
         public float Order => 0f;
 

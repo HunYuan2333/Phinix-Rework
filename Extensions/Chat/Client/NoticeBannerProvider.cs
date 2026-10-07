@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using PhinixClient;
 using PhinixClient.Framework;
@@ -6,7 +7,7 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class NoticeBannerProvider : INoticeBannerProvider
+    internal sealed class NoticeBannerProvider : INoticeBannerProvider, IDisposable
     {
         private readonly List<ActiveNotice> activeNotices = new List<ActiveNotice>();
         private readonly object noticesLock = new object();
@@ -51,6 +52,8 @@ namespace Phinix.ChatExtension.Client
                 layoutDirty = true;
             }
         }
+
+        public void Dispose() { Clear(); }
 
         public void Clear()
         {

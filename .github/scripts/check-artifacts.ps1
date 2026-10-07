@@ -12,9 +12,15 @@ $required = @(
     "$server/Extensions/TradeExtension.Server.dll"
 )
 $artifactRoots = @($server)
+$compositionRuntimeNames = @(
+    "Phinix.ClientComposition", "Autofac", "Microsoft.Bcl.AsyncInterfaces",
+    "System.Diagnostics.DiagnosticSource", "System.Memory", "System.Runtime.CompilerServices.Unsafe",
+    "System.Buffers", "System.Numerics.Vectors", "System.Threading.Tasks.Extensions"
+)
 if ($IncludeClient) {
     $client = 'Output/phinix-rework'
     $artifactRoots += $client
+    $required += @($compositionRuntimeNames | ForEach-Object { "$client/Common/Assemblies/$_.dll" })
     $required += @(
         "$client/About/About.xml",
         "$client/LoadFolders.xml",
@@ -36,6 +42,17 @@ foreach ($path in $required) {
     if (!(Test-Path $path -PathType Leaf)) { throw "Missing build artifact: $path" }
 }
 if ($IncludeClient) {
+    # Composition owns one copy of each runtime asset. Compare actual build bytes;
+    # filenames and a successful host compile alone do not prove coordinated upgrades.
+    foreach ($name in $compositionRuntimeNames) {
+        $copies = @(Get-ChildItem $client -Recurse -File -Filter "$name.dll")
+        if ($copies.Count -ne 1) { throw "Expected one host-owned runtime asset: $name" }
+        $source = "Client/Composition/bin/Release/net472/$name.dll"
+        if (!(Test-Path $source -PathType Leaf)) { throw "Missing composition build asset: $source" }
+        if ((Get-FileHash $source -Algorithm SHA256).Hash -ne (Get-FileHash $copies[0].FullName -Algorithm SHA256).Hash) {
+            throw "Packaged composition asset differs from build: $name"
+        }
+    }
     # Optional business plugins must never reappear in a main distribution.
     $retiredFiles = Get-ChildItem $client -Recurse -File | Where-Object {
         $_.Name -match '^(?:[0-9]+-)?Legacy(?:RedPacket|TalentTrade)Extension(?:\.Client)?(?:\.dll(?:\.localization\.json)?|\.pdb|\.xml)$' -or

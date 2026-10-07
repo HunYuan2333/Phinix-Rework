@@ -15,7 +15,7 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    public class ChatMessageList : IChatTabContent
+    public class ChatMessageList : IChatTabContent, IDisposable
     {
         private const float SCROLLBAR_WIDTH = 16f;
         private const float NAME_LINE_HEIGHT = 18f;
@@ -115,35 +115,38 @@ namespace Phinix.ChatExtension.Client
             public float DisplayHeight;
         }
 
-        public ChatMessageList(IChatUiHostContext hostContext)
+        public ChatMessageList(IChatUiHostContext hostContext, IClientMainThreadDispatcher dispatcher)
         {
             this.hostContext = hostContext;
+            imageDispatcher = dispatcher;
             imageDownloads = new ChatImageDownloadQueue<Texture2D>(StartImageDownload,
                 ex => hostContext.Log(new LogEventArgs("Image download callback failed: " + ex.Message, LogLevel.WARNING)));
         }
 
-        internal void InitializeImages(IClientMainThreadDispatcher dispatcher)
-        {
-            imageDispatcher = dispatcher;
-        }
+        public void Dispose() { Stop(); }
 
         internal void Start()
         {
             if (started) return;
+            started = true;
             hostContext.ChatService.OnChatMessageReceived += ChatMessageReceivedEventHandler;
             hostContext.OnUserDisplayNameChanged += UserChangedEventHandler;
             hostContext.OnBlockedUsersChanged += BlockedUsersChangedEventHandler;
             hostContext.OnDisconnect += DisconnectEventHandler;
             ReplaceWithBuffer();
-            started = true;
         }
 
         internal void Stop()
         {
-            if (!started) return;
+            started = false;
             imageDownloads.CancelAll();
             while (imageCompletions.TryDequeue(out _)) { }
             messageImageStates.Clear();
+            foreach (Texture2D texture in imageTextureCache.Values)
+                if (texture != null) UnityEngine.Object.Destroy(texture);
+            imageTextureCache.Clear();
+            imageCacheOrder.Clear();
+            Clear();
             imageDispatcher = null;
             hostContext.ChatService.OnChatMessageReceived -= ChatMessageReceivedEventHandler;
             hostContext.OnUserDisplayNameChanged -= UserChangedEventHandler;
@@ -327,6 +330,7 @@ namespace Phinix.ChatExtension.Client
 
         private void ChatMessageReceivedEventHandler(object sender, UIChatMessageEventArgs args)
         {
+            if (!started) return;
             lock (messagesLock)
             {
                 messages.Add(args.Message);
@@ -341,6 +345,7 @@ namespace Phinix.ChatExtension.Client
 
         private void UserChangedEventHandler(object sender, UserDisplayNameChangedEventArgs args)
         {
+            if (!started) return;
             lock (messagesLock)
             {
                 foreach (UIChatMessage chatMessage in messages.Where(m => m.User.Uuid == args.Uuid))
@@ -352,7 +357,8 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
-        private void BlockedUsersChangedEventHandler(object sender, UserBlockStateChangedEventArgs args) => ReplaceWithBuffer();
+        private void BlockedUsersChangedEventHandler(object sender, UserBlockStateChangedEventArgs args)
+        { if (started) ReplaceWithBuffer(); }
 
         private void DisconnectEventHandler(object sender, EventArgs args) => Clear();
 

@@ -13,12 +13,20 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(RimWorldDepDir)/UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
     <Compile Include="Program.cs" />
     <Compile Include="ChatImageDownloadScenarios.cs" />
     <ProjectReference Include="..\..\Extensions\Chat\Client\ChatExtension.Client.csproj" />
     <ProjectReference Include="..\..\Extensions\Chat\Contracts\ChatExtension.csproj" />
     <ProjectReference Include="..\..\Client\Source\Client.csproj" />
+    <ProjectReference Include="..\..\Client\Common\Connections.Client\Connections.Client.csproj" />
+    <ProjectReference Include="..\..\Client\Common\Authentication.Client\Authentication.Client.csproj" />
+    <ProjectReference Include="..\..\Client\Common\UserManagement.Client\UserManagement.Client.csproj" />
     <ProjectReference Include="..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj" />
+    <ProjectReference Include="..\..\Client\Composition\Phinix.ClientComposition.csproj" />
+    <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj" />
     <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

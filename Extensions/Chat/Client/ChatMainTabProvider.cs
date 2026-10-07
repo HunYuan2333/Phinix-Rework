@@ -34,7 +34,7 @@ namespace Phinix.ChatExtension.Client
 
         private readonly IChatUiHostContext hostContext;
         private readonly IChatTabContent chatMessageList;
-        private IClientUserDirectory userDirectory;
+        private readonly IClientUserDirectory userDirectory;
 
         private string message = "";
         private string lastAutocompleteText = "";
@@ -69,17 +69,13 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
-        public ChatMainTabProvider(IChatUiHostContext hostContext, IChatTabContent chatMessageList, IClientUserDirectory userDirectory = null)
+        public ChatMainTabProvider(IChatUiHostContext hostContext, IChatTabContent chatMessageList, IClientUserDirectory userDirectory)
         {
             this.hostContext = hostContext;
             this.chatMessageList = chatMessageList;
             this.userDirectory = userDirectory;
         }
 
-        internal void InitializeUserDirectory(IClientUserDirectory value)
-        {
-            userDirectory = value;
-        }
 
         public void Draw(Rect inRect)
         {

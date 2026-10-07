@@ -4,51 +4,49 @@ using PhinixClient.Framework;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class FrameworkClientChatServiceAdapter : IClientChatService
+    internal sealed class FrameworkClientChatServiceAdapter : IClientChatService, System.IDisposable
     {
         private readonly IFrameworkChatClientApi chatApi;
-        private IClientDisplayMessageFeed messageFeed;
-        private IClientDisplayMessageStore messageStore;
-        private IClientUserDirectory userDirectory;
-        private IClientSettingsContext settingsContext;
+        private readonly IClientDisplayMessageFeed messageFeed;
+        private readonly IClientDisplayMessageStore messageStore;
+        private readonly IClientUserDirectory userDirectory;
+        private readonly IClientSettingsContext settingsContext;
         private readonly object unreadCacheLock = new object();
         private readonly HashSet<string> cachedBlockedUsers = new HashSet<string>();
         private int messageVersion;
         private int cachedMessageVersion = -1;
         private int cachedRawUnread = -1;
         private int cachedFilteredUnread;
-        private bool started;
+        private volatile bool started;
 
         public FrameworkClientChatServiceAdapter(
-            IFrameworkChatClientApi chatApi)
-        {
-            this.chatApi = chatApi;
-        }
-
-        public void Initialize(
+            IFrameworkChatClientApi chatApi,
             IClientDisplayMessageFeed messageFeed,
             IClientDisplayMessageStore messageStore,
             IClientUserDirectory userDirectory,
             IClientSettingsContext settingsContext)
         {
-            this.messageFeed = messageFeed;
-            this.messageStore = messageStore;
-            this.userDirectory = userDirectory;
-            this.settingsContext = settingsContext;
+            this.chatApi = chatApi ?? throw new System.ArgumentNullException(nameof(chatApi));
+            this.messageFeed = messageFeed ?? throw new System.ArgumentNullException(nameof(messageFeed));
+            this.messageStore = messageStore ?? throw new System.ArgumentNullException(nameof(messageStore));
+            this.userDirectory = userDirectory ?? throw new System.ArgumentNullException(nameof(userDirectory));
+            this.settingsContext = settingsContext ?? throw new System.ArgumentNullException(nameof(settingsContext));
         }
+
+        public void Dispose() { Stop(); }
 
         public void Start()
         {
-            if (started || messageFeed == null) return;
-            messageFeed.DisplayMessageReceived += onDisplayMessageReceived;
+            if (started) return;
             started = true;
+            messageFeed.DisplayMessageReceived += onDisplayMessageReceived;
         }
 
         public void Stop()
         {
-            if (!started || messageFeed == null) return;
-            messageFeed.DisplayMessageReceived -= onDisplayMessageReceived;
+            if (!started) return;
             started = false;
+            messageFeed.DisplayMessageReceived -= onDisplayMessageReceived;
         }
 
         public event System.EventHandler<UIChatMessageEventArgs> OnChatMessageReceived;
@@ -129,6 +127,7 @@ namespace Phinix.ChatExtension.Client
 
         private void onDisplayMessageReceived(object sender, FrameworkDisplayMessageEventArgs args)
         {
+            if (!started) return;
             // Even a blocked message can evict an older unread message at capacity.
             System.Threading.Interlocked.Increment(ref messageVersion);
             if (args?.Message == null)

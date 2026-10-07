@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
 using Phinix.ChatExtension;
 using Phinix.ChatExtension.Client;
 using PhinixClient;
 using PhinixClient.Framework;
 using Utils.Framework;
+using UserManagement;
+using UnityEngine;
 
 internal static class Program
 {
@@ -18,7 +19,7 @@ internal static class Program
     {
         try
         {
-            AssertRegistrationDoesNotRequireHostServices();
+            AssertRegistrationRequiresPreparedHost();
             AssertReplayDoesNotRepeatNotifications();
             AssertMessageIdentityIsSourceScoped();
             AssertEvictionKeepsReadCursorAndAllowsReplay();
@@ -38,7 +39,7 @@ internal static class Program
         }
     }
 
-    private static void AssertRegistrationDoesNotRequireHostServices()
+    private static void AssertRegistrationRequiresPreparedHost()
     {
         var discovered = new DiscoveredPhinixExtensions();
         var apiRegistry = new ExtensionApiRegistry();
@@ -50,11 +51,89 @@ internal static class Program
             new object[] { "builtin.chat", new ExtensionHostContext { HostKind = "client-test" }, discovered, apiRegistry, null },
             null);
 
-        new BuiltInChatClientExtension().Register(builder);
-        Assert(apiRegistry.ResolveAll<IMainTabProvider>().Count == 1,
-            "Chat registration must expose its main tab before Activate.");
-        Assert(discovered.ClientMessageHandlers.Count == 1 && discovered.MessageRenderers.Count == 1,
-            "Chat registration must expose its handlers before Activate.");
+        var module = new BuiltInChatClientExtension();
+        bool missing = false;
+        try { module.Register(builder); } catch (InvalidOperationException) { missing = true; }
+        Assert(missing && apiRegistry.ResolveAll<IMainTabProvider>().Count == 0,
+            "Chat must reject an unprepared host before publishing APIs.");
+        using (var composition = new ClientCompositionFactory(() => true, error => { throw error; }))
+        {
+            builder.HostContext.AddService<IClientCompositionFactory>(composition);
+            var host = new RegistrationHost();
+            builder.HostContext.AddService<IClientDisplayMessageFeed>(host);
+            builder.HostContext.AddService<IClientDisplayMessageStore>(host);
+            builder.HostContext.AddService<IClientSessionContext>(host);
+            builder.HostContext.AddService<IClientSettingsContext>(host);
+            builder.HostContext.AddService<IClientUserDirectory>(host);
+            builder.HostContext.AddService<IClientUserEventStream>(host);
+            builder.HostContext.AddService<IClientSettingsWindowService>(host);
+            builder.HostContext.AddService<IClientMainThreadDispatcher>(host);
+            builder.HostContext.AddService<IFrameworkClientTransport>(host);
+            builder.HostContext.AddService<IUiTheme>(host);
+            module.Register(builder);
+            Assert(host.SubscriptionCount == 0,
+                "The actual complete Chat graph must construct without starting host subscriptions.");
+            Assert(apiRegistry.ResolveAll<IMainTabProvider>().Count == 1,
+                "Chat registration must expose its main tab before Activate.");
+            Assert(discovered.ClientMessageHandlers.Count == 1 && discovered.MessageRenderers.Count == 1,
+                "Chat registration must expose its handlers before Activate.");
+            module.Shutdown(builder.HostContext);
+            module.Shutdown(builder.HostContext);
+            Assert(host.SubscriptionCount == 0, "Stopping an unactivated complete Chat graph must be safe.");
+        }
+    }
+
+    private sealed class RegistrationHost : IClientDisplayMessageFeed, IClientDisplayMessageStore,
+        IClientSessionContext, IClientSettingsContext, IClientUserDirectory, IClientUserEventStream,
+        IClientSettingsWindowService, IClientMainThreadDispatcher, IFrameworkClientTransport, IUiTheme
+    {
+        public event EventHandler<FrameworkDisplayMessageEventArgs> DisplayMessageReceived;
+        public event EventHandler Disconnected;
+        public event EventHandler UsersChanged;
+        public event EventHandler<UserDisplayNameChangedEventArgs> UserDisplayNameChanged;
+        public event EventHandler<UserBlockStateChangedEventArgs> BlockedUsersChanged;
+        public event Action<string, object> OnSettingChanged { add { } remove { } }
+        internal int SubscriptionCount => Count(DisplayMessageReceived) + Count(Disconnected) + Count(UsersChanged)
+            + Count(UserDisplayNameChanged) + Count(BlockedUsersChanged);
+        private static int Count(Delegate handler) => handler == null ? 0 : handler.GetInvocationList().Length;
+        public bool Authenticated => false;
+        public bool LoggedIn => false;
+        public string SessionId => "test";
+        public string Uuid => "test-user";
+        public int UnreadMessages => 0;
+        public void MarkAsRead() { }
+        public FrameworkDisplayMessage[] GetUnreadDisplayMessages(bool markAsRead = true) => new FrameworkDisplayMessage[0];
+        public FrameworkDisplayMessage[] GetDisplayMessages() => new FrameworkDisplayMessage[0];
+        public ImmutableUser[] GetUsers(bool loggedIn = false) => new ImmutableUser[0];
+        public bool TryGetUser(string uuid, out ImmutableUser user) { user = default(ImmutableUser); return false; }
+        public T Get<T>(string key, T defaultValue = default(T)) => defaultValue;
+        public void Set<T>(string key, T value) { }
+        public IEnumerable<string> BlockedUsers => new string[0];
+        public bool CollapseBlockedUsers { get; set; }
+        public void BlockUser(string uuid) { }
+        public void UnBlockUser(string uuid) { }
+        public bool HasRemoteCapability(string capability) => false;
+        public void SendFrameworkPacket(FrameworkPacket packet) { throw new Exception("Unexpected registration send"); }
+        public bool TryHandleOutgoingMessage(string rawMessage) => false;
+        public bool TryHandleOutgoingItem(FrameworkItemPayload payload) => false;
+        public void OpenSettingsWindow() { throw new Exception("Unexpected registration window"); }
+        public void Enqueue(Action action) { throw new Exception("Unexpected registration dispatch"); }
+        public Color PrimaryText => default(Color);
+        public Color SecondaryText => default(Color);
+        public Color Background => default(Color);
+        public Color Surface => default(Color);
+        public Color Separator => default(Color);
+        public Color HoverHighlight => default(Color);
+        public Color Pending => default(Color);
+        public Color Error => default(Color);
+        public Color Success => default(Color);
+        public Color Warning => default(Color);
+        public void RegisterColor(string key, Color color) { throw new Exception("Unexpected registration theme"); }
+        public Color GetColor(string key) => default(Color);
+        public bool TryGetColor(string key, out Color color) { color = default(Color); return false; }
+        public void RegisterFloat(string key, float value) { throw new Exception("Unexpected registration theme"); }
+        public float GetFloat(string key, float value = 0f) => value;
+        public void Reload() { throw new Exception("Unexpected registration theme reload"); }
     }
 
     private static void AssertReplayDoesNotRepeatNotifications()
@@ -103,7 +182,7 @@ internal static class Program
 
     private static void AssertReplyLookupToleratesDuplicates()
     {
-        var service = new PhinixFrameworkChatService();
+        var service = new PhinixFrameworkChatService((_, __) => { });
         var original = Message("original");
         original.Text = "first delivery";
         original.ReplyToMessageId = "earlier";
@@ -119,7 +198,7 @@ internal static class Program
 
     private static void AssertMissingReplyIsSafe()
     {
-        var service = new PhinixFrameworkChatService();
+        var service = new PhinixFrameworkChatService((_, __) => { });
         UIChatMessage result;
         Assert(!service.TryGetUiMessage(null, "missing", null, out result) && result == null, "Missing history must return false.");
         Assert(!service.TryGetUiMessage(new[] { Message("other") }, "missing", null, out result) && result == null, "Evicted originals must return false.");
@@ -177,15 +256,8 @@ internal static class Program
     {
         // Exercise the real store and event path without starting networking,
         // discovering plugins, or initializing RimWorld/Unity in a test process.
-        var client = (PhinixFrameworkClient)FormatterServices.GetUninitializedObject(typeof(PhinixFrameworkClient));
-        SetField(client, "displayMessages", new List<FrameworkDisplayMessage>());
-        SetField(client, "displayMessagesLock", new object());
-        SetField(client, "discoveredExtensions", new DiscoveredPhinixExtensions());
-        return client;
+        return new PhinixFrameworkClient(null, null, null);
     }
-
-    private static void SetField(object target, string name, object value) => target.GetType()
-        .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
 
     private static void Assert(bool condition, string message)
     {

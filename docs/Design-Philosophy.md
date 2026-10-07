@@ -312,6 +312,16 @@ Mod data persistence (such as `ExposeData` / serialization) must follow the "sav
 
 ---
 
+### 3.12 Client module composition
+
+The client host supplies `IClientCompositionFactory` through `IExtensionBuilder.HostContext`. Every module, including third-party modules, may create one owned `IClientCompositionScope` in Register. Module discovery and parameterless module construction remain unchanged; required dependencies of ordinary services move to constructors. The neutral `IClientCompositionBuilder` offers typed `Register<TService, TImplementation>()` and `Borrow<T>(instance)` only. Resolve service/API/UI instances at this composition boundary and publish them through the existing builder; business services and per-frame UI do not resolve from the container.
+
+Client/Composition owns Autofac 8.4.0 and its locked dependency graph. Common, plugin contracts and plugin implementation projects do not reference Autofac. Each registration is a local single instance; construction stays passive. Activate explicitly starts subscriptions/work. Shutdown first invalidates module callbacks and detaches module-level handlers, then disposes the scope. Owned resources must provide synchronous IDisposable cleanup; async-only owned types are rejected before construction. Owned IDisposable services stop/cancel their own work; guarded releases report each cleanup error and continue releasing dependencies. Borrowed host services and cross-plugin APIs are never disposed. Create, register, resolve and dispose require the game main thread; disposed scopes/factories are terminal. The host releases any remaining scopes after registry shutdown as a fallback.
+
+Chat is the first adopter. Its feed adapter, UI context, user list and notice sidebar subscribe only at explicit Start and unsubscribe at disposal, including partial Start failure. Queued mention/legacy notifications verify module state, connection generation and captured game identity before delivery. Chat shutdown cancels image requests and releases its cached textures on the main thread. Optional Trade resolution remains a borrowed, deferred action at the module composition boundary. Other modules retain their existing assembly paths until their individual migration.
+
+The main package owns one copy of Phinix.ClientComposition and all eight support DLLs in Common/Assemblies. Memory/Unsafe/Vectors compile references and packaged versions must agree. Managed packages must not redistribute these host assets. Deploy or roll back the full matching host/abstractions/Utils/Chat/runtime package; an isolated Chat DLL replacement is insufficient. Existing abstraction assembly version 1.8.0.0 is retained for these additive contracts; modules using them require the corresponding host build. Compile and console regression success do not certify Unity loading or compatibility with other mods.
+
 ## 4. Boundary Rules
 
 ### 4.1 Reference Direction

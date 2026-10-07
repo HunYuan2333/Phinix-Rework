@@ -10,7 +10,7 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class UserList
+    internal sealed class UserList : IDisposable
     {
         private const float ScrollbarWidth = 16f;
         private const float BlockedSpacerPaddingTop = 7f;
@@ -45,18 +45,40 @@ namespace Phinix.ChatExtension.Client
         private string searchText = string.Empty;
         private Vector2 scrollPos;
 
+        private volatile bool started;
+
         public UserList(IChatUiHostContext hostContext, IClientUserDirectory userDirectory, IClientSettingsContext settingsContext)
         {
             this.hostContext = hostContext;
             this.userDirectory = userDirectory;
             this.settingsContext = settingsContext;
+        }
 
-            hostContext.OnUsersChanged += (_, __) => refreshUserLists();
-            hostContext.OnBlockedUsersChanged += (_, __) => refreshUserLists();
-            hostContext.OnDisconnect += (_, __) => onDisconnect();
-
+        internal void Start()
+        {
+            if (started) return;
+            started = true;
+            hostContext.OnUsersChanged += UsersChanged;
+            hostContext.OnBlockedUsersChanged += BlockedChanged;
+            hostContext.OnDisconnect += Disconnected;
             refreshUserLists();
         }
+
+        public void Dispose()
+        {
+            started = false;
+            hostContext.OnUsersChanged -= UsersChanged;
+            hostContext.OnBlockedUsersChanged -= BlockedChanged;
+            hostContext.OnDisconnect -= Disconnected;
+            onDisconnect();
+        }
+
+        private void UsersChanged(object sender, EventArgs args)
+        { if (started) refreshUserLists(); }
+        private void BlockedChanged(object sender, UserBlockStateChangedEventArgs args)
+        { if (started) refreshUserLists(); }
+        private void Disconnected(object sender, EventArgs args)
+        { if (started) onDisconnect(); }
 
         public int OnlineCount
         {

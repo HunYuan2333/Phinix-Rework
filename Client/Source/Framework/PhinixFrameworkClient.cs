@@ -41,6 +41,7 @@ namespace PhinixClient.Framework
         private readonly ClientAuthenticator authenticator;
         private readonly ClientUserManager userManager;
         private readonly ExtensionHostContext extensionHostContext;
+        private ClientCompositionFactory compositionFactory;
         private Action<string, LogLevel> originalHostLog;
         private Action<HostLogEntry> originalStructuredHostLog;
         private readonly ClientExtensionRuntime extensionRuntime;
@@ -109,6 +110,9 @@ namespace PhinixClient.Framework
                 this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
                 this.extensionHostContext.AddService<IDisplayMessageSink>(this);
                 this.extensionHostContext.AddService<IItemCodecProvider>(this);
+                compositionFactory = new ClientCompositionFactory(() => UnityData.IsInMainThread,
+                    error => reportShutdownWarning("Client composition cleanup failed: " + error));
+                extensionHostContext.AddService<IClientCompositionFactory>(compositionFactory);
                 extensionRuntime.Start();
                 this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
                 negotiationTimer = new Timer
@@ -1109,6 +1113,12 @@ namespace PhinixClient.Framework
             for (int index = previousWarnings; index < discoveredExtensions.Warnings.Count; index++)
             {
                 reportShutdownWarning(discoveredExtensions.Warnings[index]);
+            }
+            if (compositionFactory != null)
+            {
+                compositionFactory.Dispose();
+                extensionHostContext.RemoveService<IClientCompositionFactory>(compositionFactory);
+                compositionFactory = null;
             }
             extensionHostContext.RemoveService<IFrameworkClientTransport>(this);
             extensionHostContext.RemoveService<IFrameworkClientCommandTransport>(this);
