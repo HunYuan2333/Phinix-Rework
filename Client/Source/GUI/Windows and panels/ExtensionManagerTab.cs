@@ -300,7 +300,7 @@ namespace PhinixClient
             rows.Clear();
             ExtensionDependencyGraph graph = framework?.ExtensionDependencyGraph;
             IReadOnlyCollection<string> disabled = settings?.DisabledExtensions;
-            List<ExtensionDiscoveryResult> sorted = new List<ExtensionDiscoveryResult>(results);
+            List<ExtensionDiscoveryResult> sorted = ExtensionDisplayState.IncludeDisabledSettings(results, disabled);
             sorted.Sort(CompareResults);
             int active = 0;
             int disabledCount = 0;
@@ -337,6 +337,7 @@ namespace PhinixClient
                 }
                 string tooltip = id + "\n" + (result.DisplayName ?? "") + "\n" +
                     (result.SourcePackageId ?? result.AssemblyName ?? "") + "\n" + dependencies;
+                if (result.AssemblyName == null) tooltip += "\n" + "Phinix_extensions_disabledSettingRecovery".Translate();
                 if (!string.IsNullOrEmpty(pendingText)) tooltip += "\n" + pendingText;
                 if (!string.IsNullOrEmpty(result.StateDetail)) tooltip += "\n" + result.StateDetail;
 

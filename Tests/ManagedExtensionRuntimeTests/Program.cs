@@ -202,6 +202,8 @@ internal static partial class Program
             InstallationRuntimeRegression(files);
             ReplacementRuntimeRegression(files);
             ManagedStoreFlowRegression(files);
+            ManagedStoreOperationRegression(files);
+            DisabledSettingReinstallRegression(files);
             ManagementControllerRegression(files);
             Console.WriteLine("Managed extension metadata/preflight/startup passed: " + assertions + " assertions."); return 0;
         }

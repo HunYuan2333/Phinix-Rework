@@ -109,6 +109,7 @@ namespace PhinixClient.Framework
         }
         private void Rebuild(float width)
         {
+            var settings=Client.Instance?.Settings;
             refreshLabel="Phinix_managed_refresh".Translate(); empty="Phinix_managed_empty".Translate();
             moduleLabel="Phinix_managed_moduleActions".Translate();
             confirm="Phinix_managed_confirmRemoval"; confirmTitle="Phinix_managed_remove".Translate();
@@ -125,6 +126,8 @@ namespace PhinixClient.Framework
                 string title=Safe(p.Manifest?.Name??p.PackageId??p.RecordKey??"?")+" · "+Safe(p.Version??"?")+" · "+Safe(p.SourceId??"?");
                 string current=model.Current?.AssembliesLoaded==true?"Phinix_managed_loaded".Translate().ToString():"Phinix_managed_unloaded".Translate().ToString();
                 string state="Phinix_managed_state".Translate(current,Desired(p.DesiredState)).ToString()+(model.RestartPending || model.ModulesRestartPending?" · "+"Phinix_managed_restartPending".Translate().ToString():"");
+                int disabledCount=p.Manifest?.Modules.Count(m=>settings?.IsExtensionDisabled(m.Id)==true)??0;
+                state+=" · "+"Phinix_managed_moduleIntent".Translate(disabledCount,p.Manifest?.Modules.Count??0);
                 string modules=p.Manifest==null?"":string.Join(", ",p.Manifest.Modules.Select(m=>m.Id));
                 string diagnostic=p.DiagnosticCode??model.Current?.DiagnosticCode;
                 string diagnosticText=diagnostic==null?"Phinix_managed_verified".Translate().ToString():Reason(diagnostic);

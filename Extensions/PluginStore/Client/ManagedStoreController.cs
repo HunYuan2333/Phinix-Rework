@@ -10,7 +10,6 @@ using Utils.Framework.ManagedExtensions;
 
 namespace Phinix.PluginStore
 {
-    internal enum ManagedStoreState { Idle, Reading, Ready, Planning, PlanReady, Downloading, Verified, Installing, Installed, Managing, Failed, Canceled, Stopped }
     internal sealed class ManagedStoreSnapshot
     {
         internal ManagedStoreSnapshot(long revision,ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,
@@ -27,7 +26,7 @@ namespace Phinix.PluginStore
         internal LocalIdentityDiagnostic LocalIdentity { get; }
         internal ManagedExtensionAssemblyReferenceFailure ReferenceFailure { get; }
         internal ManagedStoreProgress Progress { get; }
-        internal bool Busy => State==ManagedStoreState.Reading || State==ManagedStoreState.Planning || State==ManagedStoreState.Downloading || State==ManagedStoreState.Installing || State==ManagedStoreState.Managing;
+        internal bool Busy => ManagedStoreOperation.IsBusy(State);
     }
     internal sealed class ManagedStoreController : IDisposable
     {
@@ -36,6 +35,7 @@ namespace Phinix.PluginStore
         private readonly IManagedExtensionInstallationService installation;
         private readonly Action<string> log;
         private ManagedStoreSnapshot snapshot=new ManagedStoreSnapshot(0,ManagedStoreState.Idle,null,null,null,null,null);
+        private readonly ManagedStoreOperation operation=new ManagedStoreOperation();
         private CancellationTokenSource running;
         private bool disposed;
         private long lastProgressTicks;
@@ -97,10 +97,14 @@ namespace Phinix.PluginStore
         {
             lock(gate)
             {
-                if(running!=null) throw Error("StoreBusy");
+                if(disposed) throw new ObjectDisposedException(nameof(ManagedStoreController));
+                if(operation.Busy) throw Error("StoreBusy");
                 updateEnvironment=environment;
                 if(snapshot.Repository!=null && (snapshot.Repository.Endpoint.IdentityKey!=endpoint.IdentityKey || snapshot.Repository.Endpoint.AccessKey!=endpoint.AccessKey))
-                    snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,ManagedStoreState.Idle,null,null,null,snapshot.Inventory,null);
+                {
+                    operation.ResetRepository();
+                    snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,null,null,null,snapshot.Inventory,null);
+                }
             }
             return Run(ManagedStoreState.Reading,async token=>
             {
@@ -180,7 +184,7 @@ namespace Phinix.PluginStore
                         if(!result.Succeeded) throw new StoreValidationException(result.Code,"Managed installation refused.") {ReferenceFailure=result.ReferenceFailure};
                         inventory=Inventory(environment,CancellationToken.None);
                     }
-                    return Result(install?ManagedStoreState.Installed:ManagedStoreState.Verified,before.Catalog,new RepositoryBrowseInfo(endpoint,DateTime.UtcNow,false,false),expected,inventory,install?"ManagedInstallSaved":"ManagedPayloadsVerified");
+                    return Result(install?ManagedStoreState.Installed:ManagedStoreState.Verified,before.Catalog,new RepositoryBrowseInfo(endpoint,DateTime.UtcNow,false,false),expected,inventory,install?"ManagedInstallSaved":"ManagedPayloadsVerified",committed:install);
                 }
             });
         }
@@ -198,36 +202,54 @@ namespace Phinix.PluginStore
             {
                 var result=management.ChangeDesiredState(expected,state,environment.DisabledModuleIds,token);
                 if(!result.Succeeded) throw Error(result.Code);
-                return Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,token),"ManagedStateSaved"));
+                return Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,CancellationToken.None),"ManagedStateSaved",committed:true));
             });
         }
-        private Task Run(ManagedStoreState state,Func<CancellationToken,Task<ManagedStoreSnapshot>> work)
+        private Task Run(ManagedStoreState state,Func<CancellationToken,Task<OperationResult>> work)
         {
             lock(gate)
             {
                 if(disposed) throw new ObjectDisposedException(nameof(ManagedStoreController));
-                if(running!=null) throw Error("StoreBusy");
+                if(operation.Busy) throw Error("StoreBusy");
+                long generation=operation.Begin(state);
                 var source=new CancellationTokenSource(); running=source;
                 lastProgressTicks=0;
-                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,state,snapshot.Catalog,snapshot.Repository,snapshot.Plan,snapshot.Inventory,null);
+                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,snapshot.Catalog,snapshot.Repository,snapshot.Plan,snapshot.Inventory,null);
                 return Task.Run(async ()=>
                 {
-                    ManagedStoreSnapshot result;
-                    try { result=await work(source.Token).ConfigureAwait(false); }
-                    catch(OperationCanceledException) { result=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled"); }
+                    OperationResult outcome;
+                    try
+                    {
+                        source.Token.ThrowIfCancellationRequested();
+                        outcome=await work(source.Token).ConfigureAwait(false);
+                    }
+                    catch(OperationCanceledException) { outcome=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled"); }
                     catch(Exception ex)
                     {
                         var validation=ex as StoreValidationException;
                         string code=validation?.Code??(ex as ManagedExtensionValidationException)?.Code??"ManagedStoreFailed";
                         var referenceFailure=validation?.ReferenceFailure??(ex as ManagedExtensionValidationException)?.ReferenceFailure;
                         new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId).Event("managed.operation_failed","ManagedStore",code,validation?.RequestId,localIdentity:validation?.LocalIdentity,referenceFailure:referenceFailure);
-                        result=Result(ManagedStoreState.Failed,null,null,null,null,code,validation?.RequestId,validation?.LocalIdentity,referenceFailure);
+                        outcome=Result(ManagedStoreState.Failed,null,null,null,null,code,validation?.RequestId,validation?.LocalIdentity,referenceFailure);
                     }
                     lock(gate)
                     {
-                        if(!disposed) snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,result.State,result.Catalog??snapshot.Catalog,result.Repository??snapshot.Repository,
-                            result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure);
-                        running=null; source.Dispose();
+                        try
+                        {
+                            var result=outcome.Snapshot;
+                            // Cancellation and completion linearize under the same gate.
+                            // Durable confirmations win; transient late results do not.
+                            if(operation.CancellationRequested && !outcome.Committed && result.State!=ManagedStoreState.Failed && result.State!=ManagedStoreState.Canceled)
+                                result=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled").Snapshot;
+                            if(ReferenceEquals(running,source) && operation.Complete(generation,result.State))
+                                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,result.Catalog??snapshot.Catalog,result.Repository??snapshot.Repository,
+                                    result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure);
+                        }
+                        finally
+                        {
+                            if(ReferenceEquals(running,source)) running=null;
+                            source.Dispose();
+                        }
                     }
                 });
             }
@@ -237,7 +259,7 @@ namespace Phinix.PluginStore
             lock(gate)
             {
                 // A timed-out adapter may finish late, after cancellation or even a new operation.
-                if(disposed || running==null || running.Token!=token || token.IsCancellationRequested) return;
+                if(running==null || !operation.AcceptsProgress(operation.Generation) || running.Token!=token || token.IsCancellationRequested) return;
                 long ticks=Stopwatch.GetTimestamp(); var previous=snapshot.Progress;
                 if(previous!=null && (progress.Index<previous.Index || progress.Received<previous.Received)) return;
                 bool boundary=previous==null || previous.Stage!=progress.Stage || previous.Package!=progress.Package || progress.Received==progress.Total;
@@ -257,10 +279,42 @@ namespace Phinix.PluginStore
                 deadline.Cancel(); return await task.ConfigureAwait(false);
             }
         }
-        internal void Cancel() { lock(gate) { if(!disposed) running?.Cancel(); } }
-        public void Dispose() { lock(gate) { if(disposed) return; disposed=true; running?.Cancel(); snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,ManagedStoreState.Stopped,snapshot.Catalog,snapshot.Repository,null,snapshot.Inventory,"ManagedStoreStopped"); } }
-        private static ManagedStoreSnapshot Result(ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,ManagedExtensionManagementSnapshot inventory,string code,string request=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null)
-        { return new ManagedStoreSnapshot(0,state,catalog,repository,plan,inventory,code,request,localIdentity,referenceFailure); }
+        internal void Cancel()
+        {
+            lock(gate)
+            {
+                if(running!=null && operation.RequestCancel(operation.Generation)) CancelRunning();
+            }
+        }
+        public void Dispose()
+        {
+            lock(gate)
+            {
+                if(disposed) return;
+                disposed=true;
+                operation.Stop();
+                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,snapshot.Catalog,snapshot.Repository,null,snapshot.Inventory,"ManagedStoreStopped");
+                CancelRunning();
+            }
+        }
+        private void CancelRunning()
+        {
+            try { running?.Cancel(); }
+            catch(Exception)
+            {
+                // Cancellation marks the token before invoking callbacks; a throwing
+                // callback/logger must not prevent terminal stop or other cleanup.
+                new RepositoryDiagnostics(log,snapshot.Repository?.Endpoint.SourceId).Event("managed.cancel_callback_failed","ManagedStore","ManagedStoreFailed");
+            }
+        }
+        private sealed class OperationResult
+        {
+            internal OperationResult(ManagedStoreSnapshot snapshot,bool committed) { Snapshot=snapshot; Committed=committed; }
+            internal ManagedStoreSnapshot Snapshot { get; }
+            internal bool Committed { get; }
+        }
+        private static OperationResult Result(ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,ManagedExtensionManagementSnapshot inventory,string code,string request=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,bool committed=false)
+        { return new OperationResult(new ManagedStoreSnapshot(0,state,catalog,repository,plan,inventory,code,request,localIdentity,referenceFailure),committed); }
         private static StoreValidationException Error(string code) { return new StoreValidationException(code,"Managed shop operation: "+code); }
     }
 }

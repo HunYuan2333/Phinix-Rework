@@ -190,4 +190,7 @@ This change does not delete your plugin settings or save files. If you already i
 
 If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceleration".</Phinix_store2_optionalPluginsNotice>
   <Phinix_store2_noticeUnderstood>Got it</Phinix_store2_noticeUnderstood>
+  <Phinix_store2_disabledModulesRecovery>All modules are disabled in Phinix settings. Open Extensions and enable the saved module entries before retrying installation.</Phinix_store2_disabledModulesRecovery>
+  <Phinix_store2_disabledPackageRecovery>The installed package is disabled or pending removal. Check Extensions → Packages and restart to complete removal before reinstalling.</Phinix_store2_disabledPackageRecovery>
+  <Phinix_store2_assemblyConflictRecovery>An assembly identity is still occupied. Restart after uninstalling, then retry; check for another copy if the conflict remains.</Phinix_store2_assemblyConflictRecovery>
 </LanguageData>

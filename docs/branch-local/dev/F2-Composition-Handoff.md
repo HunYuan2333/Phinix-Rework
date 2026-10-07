@@ -72,3 +72,7 @@ git diff --check
 4. 在测试配置禁用 Chat 后重启，确认没有 Chat 页签/激活；重新启用并重启，确认聊天恢复。保持现有“重启后生效”策略。
 
 User acceptance update (2026-10-07): the user reported “F2 pass”. Record F2 game acceptance as passed without inventing individually confirmed steps or clean-log evidence. F2 remains uncommitted on dev/702981b. Next: commit the F2 source/tests/lock files/docs as one batch on dev, excluding other drafts/generated output, then proceed to the F3 store-operation transition baseline and Stateless pilot. This acceptance-record turn does not repeat tests, commit or push.
+
+## Commit record (2026-10-07)
+
+User acceptance: F2 pass. Committed directly on dev as `58c043e`, 37 files; no push or new branch. Parallel changes were excluded. Earlier uncommitted statements describe the original handoff.

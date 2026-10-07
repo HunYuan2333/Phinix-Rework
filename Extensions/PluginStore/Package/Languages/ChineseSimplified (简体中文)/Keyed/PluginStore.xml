@@ -190,4 +190,7 @@
 
 若无法连接 GitHub，可在商店点击“GitHub 直连”，切换到“CF 加速”后重试。</Phinix_store2_optionalPluginsNotice>
   <Phinix_store2_noticeUnderstood>知道了</Phinix_store2_noticeUnderstood>
+  <Phinix_store2_disabledModulesRecovery>模块在 Phinix 设置中全部禁用。请打开“扩展”，启用保留的模块条目后再重试安装。</Phinix_store2_disabledModulesRecovery>
+  <Phinix_store2_disabledPackageRecovery>已安装包处于禁用或待删除状态。请检查“扩展 → 安装包”，待删除时先重启完成卸载，再重新安装。</Phinix_store2_disabledPackageRecovery>
+  <Phinix_store2_assemblyConflictRecovery>程序集身份仍被占用。卸载后重启再重试；若仍冲突，请检查其他重复副本。</Phinix_store2_assemblyConflictRecovery>
 </LanguageData>

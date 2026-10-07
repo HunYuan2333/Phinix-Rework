@@ -18,10 +18,10 @@ internal static partial class Program
             var declaration=ManagedExtensionManifestReader.Read(Utf8(json.Replace("Fixture.Managed.Helper",name)));
             Assert(declaration.Assemblies.Any(a=>a.Name==name),"Business identity is format-neutral: "+name);
         }
-        foreach(string name in new[]{"Utils","Assembly-CSharp","System.Private.CoreLib","UnityEngine.CoreModule","Phinix.ClientComposition","Autofac","Microsoft.Bcl.AsyncInterfaces"})
+        foreach(string name in new[]{"Utils","Assembly-CSharp","System.Private.CoreLib","UnityEngine.CoreModule","Phinix.ClientComposition","Autofac","Microsoft.Bcl.AsyncInterfaces","Stateless"})
             Failure("ProtectedAssembly",()=>ManagedExtensionManifestReader.Read(Utf8(json.Replace("Fixture.Managed.Helper",name))));
         Failure("ProtectedAssembly",()=>ManagedExtensionManifestReader.Read(Utf8(json.Replace("Assemblies/Fixture.Managed.Helper.dll","Assemblies/0Harmony.dll"))));
-        foreach (string name in new[] { "Phinix.ClientComposition", "Autofac", "Microsoft.Bcl.AsyncInterfaces" })
+        foreach (string name in new[] { "Phinix.ClientComposition", "Autofac", "Microsoft.Bcl.AsyncInterfaces", "Stateless" })
             Failure("ProtectedAssembly", () => ManagedExtensionManifestReader.Read(Utf8(json.Replace("Assemblies/Fixture.Managed.Helper.dll", "Assemblies/" + name + ".dll"))));
 
         var aliasFiles=files.ToDictionary(p=>p.Key=="Assemblies/Fixture.Managed.Helper.dll"?"Assemblies/Host.Discovered.Feature.dll":p.Key,p=>p.Value);
@@ -57,7 +57,7 @@ internal static partial class Program
                 var endpoint=new RepositoryEndpoint("https://gateway.test","test.source");
                 Assert(new ManagedStorePlanner(catalog,FlowEnvironment(runtimePaths,facts),runtime.Refresh(new string[0],CancellationToken.None),endpoint).Plan(catalog.Packages.Single(),CancellationToken.None).Items.Count==1,
                     "Store planning accepts an unoccupied ordinary filename alias");
-                StoreReject("ManagedDependencyConflict",()=>new ManagedStorePlanner(catalog,FlowEnvironment(runtimePaths,occupied),runtime.Refresh(new string[0],CancellationToken.None),endpoint).Plan(catalog.Packages.Single(),CancellationToken.None));
+                StoreReject("CandidateAssemblyConflict",()=>new ManagedStorePlanner(catalog,FlowEnvironment(runtimePaths,occupied),runtime.Refresh(new string[0],CancellationToken.None),endpoint).Plan(catalog.Packages.Single(),CancellationToken.None));
             }
 
             var collision=files.ToDictionary(p=>p.Key=="Assemblies/Fixture.Managed.Plugin.dll"?"Assemblies/PluginAlias.dll":"Assemblies/Fixture.Managed.Plugin.dll",p=>p.Value);

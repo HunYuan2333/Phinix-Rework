@@ -94,7 +94,7 @@
   <Phinix_managed_moduleActions>Modules</Phinix_managed_moduleActions>
   <Phinix_managed_loaded>Bytes loaded</Phinix_managed_loaded>
   <Phinix_managed_unloaded>Not loaded</Phinix_managed_unloaded>
-  <Phinix_managed_state>This startup: {0}; desired: {1}</Phinix_managed_state>
+  <Phinix_managed_state>This startup: {0}; package intent: {1}</Phinix_managed_state>
   <Phinix_managed_restartPending>Restart pending</Phinix_managed_restartPending>
   <Phinix_managed_verified>Owned files verified.</Phinix_managed_verified>
   <Phinix_managed_restartExplanation>Package loading and module activation are separate. Changes apply after restart; module switches are available through Modules.</Phinix_managed_restartExplanation>
@@ -116,4 +116,6 @@
   <Phinix_managed_missingDependency>A required package or module is missing, disabled or unavailable.</Phinix_managed_missingDependency>
   <Phinix_managed_incompatible>Incompatible with the current game or host version.</Phinix_managed_incompatible>
   <Phinix_managed_writeUncertain>The write outcome is uncertain. Refresh to check desired state and inspect logs.</Phinix_managed_writeUncertain>
+  <Phinix_extensions_disabledSettingRecovery>Not loaded: this saved disable setting can be cleared here, including after uninstall. Enabling an installed module takes effect after restart.</Phinix_extensions_disabledSettingRecovery>
+  <Phinix_managed_moduleIntent>modules disabled: {0}/{1}</Phinix_managed_moduleIntent>
 </LanguageData>

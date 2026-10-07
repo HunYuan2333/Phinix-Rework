@@ -35,16 +35,17 @@ namespace Phinix.PluginStore
         private readonly RepositoryEndpoint endpoint;
         private CancellationToken token;
         private int steps;
+        private StoreValidationException rejection;
         private readonly bool replace;
         internal ManagedStorePlanner(ManagedStoreCatalogSnapshot catalog,ClientEnvironmentSnapshot environment,ManagedExtensionManagementSnapshot inventory,RepositoryEndpoint endpoint,bool replace=false)
         { this.catalog=catalog; this.environment=environment; this.inventory=inventory; this.endpoint=endpoint; this.replace=replace; }
         internal ManagedStorePlan Plan(ManagedStoreRecord root,CancellationToken cancellation)
         {
-            token=cancellation; token.ThrowIfCancellationRequested();
+            token=cancellation; steps=0; rejection=null; token.ThrowIfCancellationRequested();
             if(environment==null || !environment.IsComplete || inventory==null || inventory.Diagnostics.Count!=0 || inventory.Packages.Any(p=>p.Package.DiagnosticCode!=null)) throw Error("IncompleteEnvironment");
             if(root==null || !catalog.Packages.Contains(root) || root.IsWorkshop || root.State!="active") throw Error("PackageUnavailable");
             var selected=new Dictionary<string,ManagedStoreRecord>();
-            if(!Search(root,selected)) throw Error("ManagedDependencyConflict");
+            if(!Search(root,selected)) throw rejection??Error("ManagedDependencyConflict");
             var ordered=new List<ManagedStoreRecord>(); var seen=new HashSet<string>(); var stack=new HashSet<string>();
             Visit(root.Id,selected,seen,stack,ordered);
             var items=ordered.Select(p=>new ManagedStorePlanItem(p,Local(p))).ToList();
@@ -65,11 +66,11 @@ namespace Phinix.PluginStore
             if(next==null)
             {
                 try { var ordered=new List<ManagedStoreRecord>(); Visit(root.Id,selected,new HashSet<string>(),new HashSet<string>(),ordered); CheckIdentities(ordered); return true; }
-                catch(StoreValidationException) { return false; }
+                catch(StoreValidationException ex) { rejection=ex; return false; }
             }
             foreach(var candidate in catalog.Packages.Where(p=>p.Id==next && !p.IsWorkshop && p.State=="active" && required[next].All(r=>r.Contains(p.Manifest.Version))).OrderByDescending(p=>p.Manifest.Version))
             {
-                try { Compatible(candidate); Local(candidate); } catch(StoreValidationException) { continue; }
+                try { Compatible(candidate); Local(candidate); } catch(StoreValidationException ex) { rejection=ex; continue; }
                 selected.Add(next,candidate); if(Search(root,selected)) return true; selected.Remove(next);
             }
             return false;

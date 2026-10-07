@@ -42,9 +42,10 @@ Defer server features, server DI and legacy-client compatibility. Repository ext
 | F4 Adoption, old-entry deprecation and contract freeze | DI across Chat → Inventory → Trade → Store/LegacyAdapter; useful internal state slices; necessary HTTP/tests; update example and affected validators | Author-facing lifecycle/composition APIs and runtime distribution are stable; old client author entry is Deprecated with a declared removal version (section 4.1); superseded duplicate paths removed | Incremental store/example/inventory/trade checks; not a claim that historical recovery defects are repaired |
 | F5 Shared-source rehearsal | Extract in independent temporary checkouts; both consumers pin the same initial gitlink; separate mixed tests; verify nested protobuf and Directory.Build behavior | Fresh recursive acquisition builds without neighboring old directories or duplicate runtime assets | New main package loads example; existing server image builds/starts |
 | F6 Physical repositories | Extract Client/Server, history/branches as needed, tests, package paths, Docker workflow and developer entry points; pin a matching version set | Independent checkouts validate; remote shared commits and rollback are available; release ownership is clear | Main package/store/example and existing connection/chat/trade smoke |
+| F6-S Plugin signatures and trust | Define Phinix signing/trusted-key policy and verify signatures/payload integrity before executing plugin code | Missing/invalid signatures and tampering reject loading; migration and key revocation rules are explicit | Valid/missing/invalid signatures, tampering, offline startup and migration |
 | F7 Author experience | Refresh example/templates/guides, environment/build/publication tooling, then thin AGENTS/Skill | A new author can build/package/apply against one stable workflow; no-Git/gh path honors fixed gitlinks | Real example creation and normal submission |
 
-Default order: F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7. Pure library environment probes can run independently. Keep DI, state rules, HTTP, persistent formats and physical source moves in reviewable separate changes.
+Default order: F0 → F1 → F2 → F3 → F4 → F5 → F6 → F6-S → F7. Pure library environment probes can run independently. Keep DI, state rules, HTTP, persistent formats and physical source moves in reviewable separate changes.
 
 If container deployment fails, retain the useful lifecycle work and record evidence before selecting an alternative. HTTP and external RedPacket work do not block extraction. Changed contracts and runtime dependencies cannot be omitted from consumers to make extraction appear complete.
 
@@ -68,6 +69,28 @@ The user explicitly requires the original plugin registration entry to be Deprec
 - **Migration coverage**: migrate official client Chat → Inventory → Trade → Store/LegacyAdapter and maintained third-party examples, templates, author documentation and affected index/validator configuration. Independent RedPacket/TalentTrade repositories schedule their own migrations; their old entry is not promised permanent compatibility either.
 - **Temporary compatibility and removal gate**: retain the old entry only as a migration adapter; new features must not depend on it. F4 declares the deprecation version, replacement entry and intended removal version. After maintained modules/examples migrate and rollback/ownership regression and game acceptance pass, explicitly remove it or record remaining migration work. F5/F6 must not claim contract freeze and completed extraction while concealing retained dual entries.
 - **Versions and rollback**: breaking removal upgrades the applicable abstractions/host, publishes migration instructions and synchronizes plugins/examples/validator configuration. Roll back a matching version set. Old plugins require upgrades to load after removal; immutable historical assets, player settings and saves stay intact.
+
+### 4.2 F4 batches and acceptance gates (2026-10-07)
+
+The user reported “没问题了”, accepting the extension-management blocker repair in game. No full per-step log was supplied; do not infer that every F3 fault timing was reproduced in game. Retain existing automated F3/repair evidence. Before F4, establish an explicit dev rollback baseline for accepted F3/repair changes, excluding parallel edits; no push/new branch. This update only splits the plan: no commit or F4 implementation was performed.
+
+Current entry inspection: Chat uses a scope through old Register; Inventory implements six API families plus registries, ledger/journal, GameComponent binding and Harmony; Trade manually builds pipeline/services/adapters/UI and borrows Inventory APIs; Store constructs controller/UI during Activate; LegacyAdapter owns endpoint/connection subscriptions. Use these boundaries for small batches.
+
+| Batch | Deliverable | Validation and game focus |
+| --- | --- | --- |
+| F4-A New author entry + Chat | Establish neutral client composition/legacy adapter boundaries; migrate Chat to the new entry and declare deprecation/removal version proposal. Keep ordinary discovery/activation/stop and server Register unchanged; do not freeze yet | New/old entry once, disabled zero-instance, partial failure and cleanup; chat, reconnect, disable/restore |
+| F4-B Example and Playtest | Migrate both maintained client samples and minimal author guidance; update necessary build/validator slices | Actual sample build/manifest/contracts; install, disable, restore, uninstall/reinstall; no historical release rewrites |
+| F4-C Inventory composition | Scope ordinary dependencies and UI/settings, retaining necessary module/game façade, API identity and codec registration behavior | Partial construction, borrowed API ownership, single instances; inventory open/deposit/extraction/disable |
+| F4-D Inventory save lifetime | Make ledger/journal/save attachment ownership and cleanup explicit; retain game ownership of game objects and existing persistent/domain formats | Two test saves, menu/reentry, stale callbacks/subscriptions; reservation/rollback/restart consistency |
+| F4-E Trade composition | Scope pipeline/services/legacy façades/UI; borrow Inventory APIs and retain explicit connection Start/Stop | Framework/legacy trade regression; offer/refusal/cancel/ACK/reconnect; unchanged conversion/ownership |
+| F4-F Store composition | Scope controller/services/views while retaining F3 transitions and original transaction service | Cancel/retry/repository switch/install/module recovery/uninstall/reinstall/exit; unchanged protocols/recovery |
+| F4-F2 Narrow local mod checks | Separate batch after Store composition acceptance: prioritize loaded assemblies/effective folders; distinguish proven collision from inability to inspect, rather than automatically vetoing on unrelated folder errors | Active/inactive mods, version/conditional folders, true collisions, unreadable/malformed XML, links/traversal and precommit recheck; explicit unknown-case policy |
+| F4-G LegacyAdapter composition | Scope endpoint construction and connection subscription ownership | Legacy/framework endpoint selection/reconnect/disable/stop; full legacy trade regression |
+| F4-H Deprecation and freeze | Apply section 4.1 Obsolete to the distinct old client author entry; diagnostics only for enabled old modules. Align guides/templates/affected validators and declare external repository migration/version gates | Official/third-party parity, no maintained internal old callers, server unaffected; full build/distribution and combined game smoke |
+
+Each batch: inspect latest/parallel edits, implement, narrow regression/affected build, report game steps, obtain acceptance, then commit independently on dev. Split further when useful without committing half of a nonbuilding contract/consumer update. Do not bundle the next plugin into a failing batch. Propose versions in F4-A; freeze only after F4-H migration/distribution checks. Explicitly track unmet old-entry removal gates and independent RedPacket/TalentTrade migrations.
+
+Additional HTTP/state-machine work requires a concrete benefit/defect and its own batch. Persistent formats, physical moves and F5/F6 extraction retain their original stage boundaries.
 
 ## 5. Stateless target
 
@@ -98,6 +121,15 @@ Validate the new Server image workflow before retiring the old repository publis
 F5 checks SolutionDir/MSBuildThisFileDirectory, Directory.Build import boundaries, explicit/conditional Compile items, legal game references, copy paths, numbered client DLLs, protobuf paths, mixed Phase35-style linked tests, Docker contexts and validator source roots. The new Server must build without a neighboring Rework directory. Keep deployment/image names and connection behavior stable; provision workflow credentials separately without committing them.
 
 Index/Gateway/Example/RedPacket/TalentTrade remain independent. DI does not change repository access protocols. Update affected fixed validator snapshots/host manifests from real artifacts and specified input commits when required; retain immutable release/catalog history.
+
+### 6.1 F6-S Plugin signatures and trust (outline only, 2026-10-07)
+
+Include this in the current F stages after F6 delivery and before F7 plugin tooling/author workflow. Record an outline only: no implementation, algorithm selection or frozen format yet. It does not block current repair retesting or F4 batches.
+
+1. Define trusted-signature requirements for Phinix plugins. Initially evaluate our signing workflow; decide later whether trusted third-party author keys are supported. Ordinary RimWorld mods are outside this requirement.
+2. Design a signed manifest covering manifest content and all payload hashes; verify trusted key, signature and bytes before executing plugin code. Preserve compatibility, identity, path and transaction checks. Signatures are not code safety certification.
+3. Plan existing official/sample/third-party migrations and actionable rejection messages. Detail key custody, rotation, revocation and offline checks later; private keys never ship or enter the repository. Never silently execute unsigned plugins or delete installed packages/player data.
+4. Verify valid/missing/invalid signatures, tampering, key changes and offline startup. After acceptance, F7 integrates the established signing/submission steps into tools, templates and author guides.
 
 ## 7. Validation and completion
 
@@ -385,3 +417,17 @@ Full commands, source ownership, scope semantics (including rejection of async-o
 ### 11.5 F2 user acceptance (2026-10-07)
 
 The user explicitly reported “F2 pass”; F2 game acceptance is recorded as passed. No per-step results or complete log were supplied, so do not invent individually confirmed reconnect/save/quit checks, blanket mod compatibility or fixes to historical business issues. F2 has no remaining game-acceptance gate. Current dev/702981b still has uncommitted F2 production work and preserved parallel edits. This turn records acceptance only; no repeated tests, commit or push. Next: commit F2 as a separate batch on dev, then enter the F3 store-operation baseline and Stateless pilot. F4 retains the old-entry deprecation policy in section 4.1.
+
+### 11.6 F2 commit and F3 implementation (2026-10-07)
+
+Accepted F2 was committed directly on dev as `58c043e` (37 files); no push or new branch. Parallel interface/IDE/fixture/output/draft edits are preserved. F3 implements the Store operation transition pilot, pinned Stateless 5.20.1, generation/cancellation/terminal-stop rules and deterministic controller/transaction-boundary tests. Existing durable transaction and protocol services are unchanged. Full evidence and game checklist: [F3 handoff](F3-Store-State-Handoff.md). F3 game acceptance remains pending; do not proceed to F4 or commit F3 on inferred acceptance. Section 4.1 old-entry deprecation remains an F4 requirement.
+
+### 11.7 Deferred extension-management issues (2026-10-07)
+
+User requested diagnosis and deferred repair only. Track OPEN EM-01 (disabled managed module vanishes from discovery-based settings list; package desired state remains Enabled) and EM-02 (reinstallation planning collapses module-disabled or other candidate conflicts into ManagedDependencyConflict). Source paths, confirmed facts, alternative causes and future acceptance: [known issues](ExtensionManagement-Known-Issues.md). No behavior changes or tests in this audit. F3 game acceptance remains pending; do not count this report as F3 pass. Repair scheduling is deferred pending user instruction.
+
+### Extension management unblock implementation (2026-10-07)
+
+The user authorized fixing EM-01/EM-02 before F3 acceptance. Both management lists now expose missing saved disabled IDs as UI recovery entries; package and module intent are separated. Planner retains the actual candidate rejection and Store provides actionable recovery text. Disable preferences are never silently cleared; explicit restore permits reinstallation after completed removal. Existing transaction/assembly gates remain. Verification and game steps: [issue record](ExtensionManagement-Known-Issues.md). F3 and this fix still await game acceptance; no commit/push.
+
+2026-10-07 priority update: repair EM-03 local LoadFolders path normalization and deliver a complete package before F4-A. Evidence and uncertainty are recorded in ExtensionManagement-Known-Issues.md. F4-A has not started; resume after the package is retested against the actual mod list.

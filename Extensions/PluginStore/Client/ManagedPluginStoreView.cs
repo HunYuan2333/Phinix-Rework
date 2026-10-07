@@ -555,6 +555,9 @@ namespace Phinix.PluginStore
         }
         private static string FailureMessage(ManagedStoreSnapshot snapshot)
         {
+            if(snapshot.Code=="ManagedAllModulesDisabled") return T("disabledModulesRecovery");
+            if(snapshot.Code=="ManagedDependencyDisabled") return T("disabledPackageRecovery");
+            if(snapshot.Code=="CandidateAssemblyConflict") return T("assemblyConflictRecovery");
             if(snapshot.Code=="RepositoryRateLimited") return T("rateLimitedFriendly");
             if(snapshot.Code=="RepositoryUnavailable" || snapshot.Code=="RepositoryTimeout") return T("networkFriendly");
             if(snapshot.ReferenceFailure!=null || snapshot.LocalIdentity!=null) return T("compatibilityFriendly");

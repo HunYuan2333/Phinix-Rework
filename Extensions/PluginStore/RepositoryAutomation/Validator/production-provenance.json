@@ -46,7 +46,7 @@
     {
       "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionManifestReader.cs",
       "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionManifestReader.cs",
-      "sha256": "c79968ee9d930e21fa1d716803e5c55b7f2fde963e1a32af383d7078962754c8"
+      "sha256": "5953ae23038f881ecfe0ae9d4a3a5dec4ce424083f6f673e9fd68d86e822605c"
     },
     {
       "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionMetadata.cs",

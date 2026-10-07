@@ -6,7 +6,12 @@
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
+  <PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(RestoreLockedMode)' == '' and Exists('$(MSBuildProjectDirectory)/packages.lock.json')">true</RestoreLockedMode>
+  </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Stateless" Version="[5.20.1]" />
     <Compile Remove="Fixtures/**/*.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientLocalizationService.cs" Link="Production/IClientLocalizationService.cs" />
     <Compile Include="../../Client/Source/Framework/ClientLocalizationService.cs" Link="Production/ClientLocalizationService.cs" />
@@ -22,6 +27,7 @@
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/PluginStore/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreOperation.cs" Link="Production/PluginStore/ManagedStoreOperation.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/StoreMaintainerRegistry.cs" Link="Production/PluginStore/StoreMaintainerRegistry.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/StoreReleaseNotice.cs" Link="Production/PluginStore/StoreReleaseNotice.cs" />

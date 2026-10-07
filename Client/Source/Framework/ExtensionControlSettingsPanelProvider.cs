@@ -44,7 +44,7 @@ namespace PhinixClient.Framework
 
         public bool IsVisible(IClientSettingsContext settings)
         {
-            return Client.Instance?.FrameworkClient?.ExtensionResults?.Count > 0;
+            return Client.Instance?.FrameworkClient?.ExtensionResults?.Count > 0 || Client.Instance?.Settings?.DisabledExtensions?.Count > 0;
         }
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
@@ -137,7 +137,7 @@ namespace PhinixClient.Framework
             cachedManagementLabel = "Phinix_extensions_management".Translate();
             IReadOnlyCollection<string> disabledIds = hostSettings?.DisabledExtensions;
 
-            cachedSortedResults = new List<ExtensionDiscoveryResult>(results);
+            cachedSortedResults = ExtensionDisplayState.IncludeDisabledSettings(results, disabledIds);
             cachedSortedResults.Sort((a, b) => string.Compare(a.ExtensionId, b.ExtensionId, StringComparison.OrdinalIgnoreCase));
 
             int count = cachedSortedResults.Count;
@@ -155,6 +155,8 @@ namespace PhinixClient.Framework
                     : $"{result.DisplayName} ({extensionId})";
 
                 ExtensionDisplayState display = ExtensionDisplayState.Compute(result, disabledIds, dependencyGraph);
+                if (result.AssemblyName == null)
+                    cachedHints[i] = "Phinix_extensions_disabledSettingRecovery".Translate().Colorize(Color.gray);
 
                 if (display.PendingChange == ExtensionPendingChange.WillDisableAfterRestart)
                 {

@@ -322,6 +322,14 @@ Chat is the first adopter. Its feed adapter, UI context, user list and notice si
 
 The main package owns one copy of Phinix.ClientComposition and all eight support DLLs in Common/Assemblies. Memory/Unsafe/Vectors compile references and packaged versions must agree. Managed packages must not redistribute these host assets. Deploy or roll back the full matching host/abstractions/Utils/Chat/runtime package; an isolated Chat DLL replacement is insufficient. Existing abstraction assembly version 1.8.0.0 is retained for these additive contracts; modules using them require the corresponding host build. Compile and console regression success do not certify Unity loading or compatibility with other mods.
 
+### 3.13 Store operation transitions
+
+The bundled Store owns a pinned Stateless dependency behind its internal operation model. Shared contracts, the host and business services do not expose library types. The controller serializes transitions and snapshot publication under one gate; operation generations and token identity reject stale results/progress. Transitions contain no downloads, installation, UI work or persistence writes.
+
+Cancellation keeps an operation busy until its worker exits. Transient completion after cancellation becomes Canceled; an authoritative successful durable installation/state change retains its true result. Dispose publishes terminal Stopped before invoking cancellation callbacks, and late completions cannot revive it. Existing installation journals, recovery and validation remain authoritative. Installed requires a successful installation-service response and a fresh inventory read; full download progress alone is insufficient. Common/Assemblies contains one matching Stateless DLL, protected from managed package replacement. Deploy the complete matching package; console tests do not certify game loading.
+
+Extension management also exposes saved disabled module IDs that were not discovered, including after package removal. These are UI recovery entries only: they never become registry/discovery results or create module instances. Restoring one explicitly changes that module setting; installation still requires enabled module intent and all existing ownership/assembly checks. Package intent and module disable counts are displayed separately.
+
 ## 4. Boundary Rules
 
 ### 4.1 Reference Direction

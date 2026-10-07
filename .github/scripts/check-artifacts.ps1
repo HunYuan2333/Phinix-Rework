@@ -22,6 +22,7 @@ if ($IncludeClient) {
     $artifactRoots += $client
     $required += @($compositionRuntimeNames | ForEach-Object { "$client/Common/Assemblies/$_.dll" })
     $required += @(
+        "$client/Common/Assemblies/Stateless.dll",
         "$client/About/About.xml",
         "$client/LoadFolders.xml",
         "$client/1.6/Assemblies/13-PhinixClient.dll",
@@ -52,6 +53,12 @@ if ($IncludeClient) {
         if ((Get-FileHash $source -Algorithm SHA256).Hash -ne (Get-FileHash $copies[0].FullName -Algorithm SHA256).Hash) {
             throw "Packaged composition asset differs from build: $name"
         }
+    }
+    $stateCopies = @(Get-ChildItem $client -Recurse -File -Filter "Stateless.dll")
+    if ($stateCopies.Count -ne 1) { throw 'Expected one Stateless runtime asset' }
+    $stateSource = 'Extensions/PluginStore/Client/bin/Release/net472/Stateless.dll'
+    if ((Get-FileHash $stateSource -Algorithm SHA256).Hash -ne (Get-FileHash $stateCopies[0].FullName -Algorithm SHA256).Hash) {
+        throw 'Packaged Stateless asset differs from Store build'
     }
     # Optional business plugins must never reappear in a main distribution.
     $retiredFiles = Get-ChildItem $client -Recurse -File | Where-Object {

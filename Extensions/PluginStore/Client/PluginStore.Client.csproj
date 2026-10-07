@@ -8,6 +8,8 @@
     <Version>2.0.0</Version>
     <AssemblyVersion>2.0.0.0</AssemblyVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(RestoreLockedMode)' == '' and Exists('$(MSBuildProjectDirectory)/packages.lock.json')">true</RestoreLockedMode>
     <GameReferenceDirectory Condition="Exists('$(MSBuildThisFileDirectory)../../../GameDlls/1.6')">$(MSBuildThisFileDirectory)../../../GameDlls/1.6</GameReferenceDirectory>
     <GameReferenceDirectory Condition="'$(GameReferenceDirectory)' == ''">$(MSBuildThisFileDirectory)../../../GameDlls</GameReferenceDirectory>
   </PropertyGroup>
@@ -23,6 +25,7 @@
     <Compile Include="ManagedStoreLocalGate.cs" />
     <Compile Include="ManagedStorePlanner.cs" />
     <Compile Include="ManagedStoreController.cs" />
+    <Compile Include="ManagedStoreOperation.cs" />
     <Compile Include="ManagedStoreListing.cs" />
     <Compile Include="ManagedRepositoryCache.cs" />
     <Compile Include="ManagedRepositoryPayloadTransport.cs" />
@@ -60,6 +63,7 @@
     <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(GameReferenceDirectory)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Stateless" Version="[5.20.1]" />
     <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj"><Private>false</Private></ProjectReference>
     <ProjectReference Include="../../../Common/Utils/Utils.csproj"><Private>false</Private><SetTargetFramework>TargetFramework=net472</SetTargetFramework></ProjectReference>
   </ItemGroup>
@@ -71,6 +75,7 @@
   <Target Name="BuildBundledStore" AfterTargets="Build">
     <PropertyGroup><BundledRoot>$(MSBuildThisFileDirectory)../../../Output/phinix-rework</BundledRoot></PropertyGroup>
     <MakeDir Directories="$(BundledRoot)/Common/Extensions" />
+    <Copy SourceFiles="$(TargetDir)Stateless.dll" DestinationFiles="$(BundledRoot)/Common/Assemblies/Stateless.dll" />
     <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(BundledRoot)/Common/Extensions/17-PluginStore.Client.dll" />
     <ItemGroup><BundledLanguage Include="$(MSBuildThisFileDirectory)../Package/Languages/**/*" /></ItemGroup>
     <Copy SourceFiles="@(BundledLanguage)" DestinationFiles="@(BundledLanguage->'$(BundledRoot)/Languages/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />

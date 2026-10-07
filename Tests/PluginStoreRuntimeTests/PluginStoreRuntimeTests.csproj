@@ -5,8 +5,11 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <LangVersion>7.3</LangVersion>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(RestoreLockedMode)' == '' and Exists('$(MSBuildProjectDirectory)/packages.lock.json')">true</RestoreLockedMode>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Stateless" Version="[5.20.1]" />
     <Compile Remove="Fixtures/ManagedPayload/**/*.cs" />
     <Compile Remove="Fixtures/ManagedAdapterPayload/**/*.cs" />
     <ProjectReference Include="Fixtures/ManagedAdapterPayload/ManagedAdapterPayload.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" AdditionalProperties="TargetFramework=net472" />
@@ -20,6 +23,7 @@
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreOperation.cs" Link="Production/PluginStore/ManagedStoreOperation.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryCache.cs" Link="Production/PluginStore/ManagedRepositoryCache.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryPayloadTransport.cs" Link="Production/PluginStore/ManagedRepositoryPayloadTransport.cs" />

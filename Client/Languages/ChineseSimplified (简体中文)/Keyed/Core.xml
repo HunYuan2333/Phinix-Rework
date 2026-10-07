@@ -94,7 +94,7 @@
   <Phinix_managed_moduleActions>模块</Phinix_managed_moduleActions>
   <Phinix_managed_loaded>字节已加载</Phinix_managed_loaded>
   <Phinix_managed_unloaded>未加载</Phinix_managed_unloaded>
-  <Phinix_managed_state>本次启动：{0}；期望：{1}</Phinix_managed_state>
+  <Phinix_managed_state>本次启动：{0}；包期望：{1}</Phinix_managed_state>
   <Phinix_managed_restartPending>待重启</Phinix_managed_restartPending>
   <Phinix_managed_verified>文件归属核验通过。</Phinix_managed_verified>
   <Phinix_managed_restartExplanation>包加载与模块激活是不同状态。启停/卸载重启生效；模块开关可通过“模块”按钮单独管理。</Phinix_managed_restartExplanation>
@@ -116,4 +116,6 @@
   <Phinix_managed_missingDependency>前置包或模块缺失、停用或不可用。</Phinix_managed_missingDependency>
   <Phinix_managed_incompatible>与当前游戏或主体版本不兼容。</Phinix_managed_incompatible>
   <Phinix_managed_writeUncertain>写入结果尚不能确认，请刷新核对期望状态并查看日志。</Phinix_managed_writeUncertain>
+  <Phinix_extensions_disabledSettingRecovery>未加载：可在此恢复保留的禁用设置，卸载后也可恢复。已安装模块启用后需重启生效。</Phinix_extensions_disabledSettingRecovery>
+  <Phinix_managed_moduleIntent>模块禁用：{0}/{1}</Phinix_managed_moduleIntent>
 </LanguageData>

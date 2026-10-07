@@ -17,6 +17,7 @@ internal static partial class Program
     {
         try
         {
+            AssertDisabledSettingRecoveryEntries();
             AssertLegacyApisRemoved();
             AssertClientKeyGenerationStillWorks();
             AssertExtensionDependencyValidationAndLifecycle();
