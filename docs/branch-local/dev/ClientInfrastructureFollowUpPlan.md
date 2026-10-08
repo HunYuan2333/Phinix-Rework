@@ -53,11 +53,14 @@ Defer server features, server DI and legacy-client compatibility. Repository ext
 | F4 Adoption, old-entry deprecation and contract freeze | DI across Chat → Inventory → Trade → Store/LegacyAdapter; useful internal state slices; necessary HTTP/tests; update example and affected validators | Author-facing lifecycle/composition APIs and runtime distribution are stable; old client author entry is Deprecated with a declared removal version (section 4.1); superseded duplicate paths removed | Incremental store/example/inventory/trade checks; not a claim that historical recovery defects are repaired |
 | F5 Shared-source rehearsal | Extract in independent temporary checkouts; both consumers pin the same initial gitlink; separate mixed tests; verify nested protobuf and Directory.Build behavior | Fresh recursive acquisition builds without neighboring old directories or duplicate runtime assets | New main package loads example; existing server image builds/starts |
 | F6 Physical repositories | Extract Client/Server, history/branches as needed, tests, package paths, Docker workflow and developer entry points; pin a matching version set | Independent checkouts validate; remote shared commits and rollback are available; release ownership is clear | Main package/store/example and existing connection/chat/trade smoke |
+| F6-M Management/Store state synchronization | Share package/module state calculation and management commands; invalidate both views by change version or notification; retain restart application | Distinguish package/module and current/next-start states; show partial disable, restart pending and load failure; preserve other module choices | Bidirectional toggles, single/multiple modules, repeated operations, failure recovery and post-restart parity |
 | F7 Author experience | Refresh example/templates/guides, environment/build/publication tooling, then thin AGENTS/Skill | A new author can build/package/apply against one stable workflow; no-Git/gh path honors fixed gitlinks | Real example creation and normal submission |
 
-Default order: F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7. Pure library environment probes can run independently. Keep DI, state rules, HTTP, persistent formats and physical source moves in reviewable separate changes.
+Default order: F0 → F1 → F2 → F3 → F4 → F5 → F6 → F6-M → F7. Pure library environment probes can run independently. Keep DI, state rules, HTTP, persistent formats and physical source moves in reviewable separate changes.
 
-This round does not introduce mandatory plugin signing or trusted-key admission requirements; F7 has no signing-workflow prerequisite. Retain existing hash, payload integrity, compatibility and installation transaction checks.
+User explicitly canceled F6-S (mandatory plugin signing/trusted-key admission) on 2026-10-08. Do not implement it or require it before F7. Retain existing hash, payload integrity, compatibility and installation transaction checks.
+
+Implement F6-M as a separate batch after F6 and accept it before starting F7. Define package/module command semantics first; reuse shared management snapshots and change versions, with no direct calls between views. Marshal callback-driven UI updates through the existing main-thread dispatcher. For commands touching package intent and module settings together, define validation, commit/partial-failure recovery and stale concurrent-snapshot handling. Never display saved next-start intent as current activation. Preserve existing configuration/state readability and dependency checks. Cover operations initiated in either view, single-module recovery, partial multi-module disable, overlapping package/module disable, tab refresh, restart, operation failure and state-read failure. This is future implementation scope; this turn changes documentation only.
 
 If container deployment fails, retain the useful lifecycle work and record evidence before selecting an alternative. HTTP and external RedPacket work do not block extraction. Changed contracts and runtime dependencies cannot be omitted from consumers to make extraction appear complete.
 
@@ -155,7 +158,10 @@ Rollback endpoint implementation, matching Shared gitlink and runtime dependenci
 - [x] F2 Chat production composition and regression coverage (section 11.4).
 - [x] F2 game acceptance: user reported “F2 pass” (section 11.5).
 - [ ] F3 Stateless and F4 adoption, old-entry deprecation and contract freeze.
-- [ ] F5 source rehearsal and F6 physical repositories.
+- [x] F5 local rehearsal and user acceptance: “F5-C passed” on 2026-10-08.
+- [ ] F6 physical repositories and publication cutover.
+- [ ] F6-M Management/Store state synchronization, with bidirectional and restart acceptance before F7.
+- [x] F6-S canceled by user; mandatory signing admission is excluded.
 - [ ] F7 AI author tools and Skill.
 
 References: [older four-part migration](客户端四项基础设施迁移方案.md), [library evaluation](客户端框架与库选型评估.md), [repository extraction details](Repo-Split-Plan.md). Deferred: [SQLite](客户端持久化与SQLite评估.md), [old-client server compatibility](老客户端服务端兼容插件评估.md), [naming](Naming-Consistency-Audit.md), [AI workflow](plugin-store/收尾顺序与AI作者工作流计划.md). Stable constraints: [design philosophy](../../Design-Philosophy.md), [compatibility/recovery](../../Compatibility-Boundaries.md).
@@ -494,3 +500,23 @@ User requested completing Store before combined game validation. Activation scop
 ## F4-G candidate (2026-10-08)
 
 User reported the combined Store test passed; F4-F acceptance is recorded without inventing individual game steps. F4-G uses the ordinary Compose entry and owns adapter construction/subscriptions/registration lifetimes through one private scope; optional Trade APIs and endpoint services remain borrowed. Actual old/new DLL probes pass 58/68 assertions on .NET and Mono, including unchanged early history, mode switches and authoritative trade results. See [F4-G handoff](F4-G-LegacyAdapter-Handoff.md). Game acceptance is pending. No commit/push; preserve parallel edits. Complete F4-H and the tracked F4-F2c whole-mod/theme boundaries before overall F4 completion/F5.
+
+## F5-A local rehearsal authorized and passed (2026-10-08)
+
+User authorized pushing dev and continuing F5 locally. origin/dev is at 328c556. A local Shared core snapshot plus net472 ClientProbe/net10 ServerProbe pin the same gitlink and recursively obtain protobuf from a local mirror; reproduced fresh clones build and run without original source paths. Three runtime runs pass 11 assertions each; 16 isolation/import/ownership checks pass; offline restore uses existing caches. Record original SourceLink local-URL failure and repeated transport Dispose limitation rather than hiding them. See [F5-A evidence](F5-A-Local-Rehearsal-Handoff.md). F5-A complete, full F5 still requires contract separation, full consumer/packaging/mixed test and server-image checks. No new GitHub repositories or main source moves; F6 is not started.
+
+## F5-B contracts/full consumers checkpoint (2026-10-08)
+
+Local Shared owns game-free dual-target Chat/Trade contracts; full client wrappers retain original game interfaces and assembly identities. Fresh complete consumers pin the same Shared commit and build successfully. Four contract pairs match 988 metadata rows and 400 method bodies; 11 isolation and 31 artifact checks pass; isolated actual server startup/exit passes. Acquisition corrections, private legacy NuGet/game references and SourceLink/Docker limits are explicit. See [F5-B evidence](F5-B-Contracts-Full-Consumers-Handoff.md). Mixed test migration, complete acquisition replay, plugin/game acceptance and image gates remain for F5-C; no main source moves/F6.
+
+## F5-C local runtime/acquisition checkpoint (2026-10-08)
+
+Complete generator replay and fresh recursive consumers pass full builds. Phase35 splits by ownership with all 18 original scenarios/117 assertions retained; store 968, managed 3212 per runtime, loader 13 per runtime, client/inventory/trade/store composition 69/77/112/93, legacy 11 scenarios/68 assertions, Chat 17 and Inventory 13 scenarios pass. Actual local server image builds and exits cleanly with isolated data/network. Test-only Phase35 composition-source and classic Chat runtime-copy omissions are corrected in main test projects; production source moves remain local. Contracts/endpoint bytes match, packaging and reference acquisition evidence are recorded in [F5-C handoff](F5-C-Runtime-Acquisition-Handoff.md). Local automatic checkpoint passes; game acceptance, hosted publication and SDK/source-snapshot policy remain explicit gates. No F6 or main commit/push.
+
+## F5 acceptance and F6 naming authorization (2026-10-08)
+
+User reported “F5-C passed” and authorized continuing. Record collective acceptance without inventing separate game-step reports. Exact identities confirmed: retain HunYuan2333/Phinix-Rework for Client; new repositories HunYuan2333/Phinix-Common and HunYuan2333/Phinix-Server. F6 local history/ownership preparation is authorized; local candidates and canonical URLs are not evidence of remote publication or publisher cutover. F6-M follows F6 before F7, and F6-S remains canceled.
+
+## F6-A local history/ownership candidates (2026-10-08)
+
+Prepared confirmed local dev repositories with retained client ancestry and filtered Shared/Server history, exact Shared/protobuf pins and canonical submodule URLs. Fresh full builds, 117 split runtime assertions, Store/managed/DI/legacy regressions and 31 artifact checks pass; 412 source files match accepted F5. Phinix.sln remains available. No remote creation/push or original workspace replacement. Three frozen Index sources are already behind; next batch prepares pinned Client/Shared provenance and validator refresh/tests. Root license policy, independent consumers and publication cutover remain later work. See [F6-A handoff](F6-A-History-Ownership-Handoff.md). Overall F6 is incomplete; F6-M follows and F6-S is canceled.

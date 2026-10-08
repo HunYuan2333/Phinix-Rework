@@ -1,0 +1,50 @@
+# RedPacket stack selection optimization plan / 红包多堆选择与提示优化计划
+
+2026-10-08. Planning only: no production code, contracts, localization resources, package manifests or tests changed; no build/game test run. Preserve current F4 work. Implementation belongs primarily to the independent `Phinix-Legacy-RedPacket` repository, not Store UI or the host DI migration. Complete this defect batch separately from F4.
+
+仅制定计划，未改生产代码、契约、本地化资源、包清单或测试，未构建/运行游戏；保留当前 F4 修改。实现主要属于独立红包仓库，不放进商店界面或宿主 DI 迁移，作为单独缺陷批次。
+
+## Observed mismatch / 已查到的规则差异
+
+The user reports selecting 200 steel and receiving the localized incompatible-stacks exception. `RedPacketTab.RefreshAvailableItems` uses Trade's `StackedThings.GroupThings` (game stackability), while sending pops/despawns physical sources before `RedPacketStackTemplate.Capture` enforces known Thing/ThingComp types, bidirectional stackability and full comparable Scribe state. Multiple physical stacks can therefore appear as one selectable row but fail the stricter send check. Inventory-materialized sources share this template checker and must remain covered.
+
+用户发送 200 个钢铁触发不兼容堆异常。列表使用 Trade 的游戏堆叠归组，发送却在弹出/移除物品后执行更严格的模板检查：已知 Thing/组件、双向堆叠及完整 Scribe 状态一致。列表合并并不代表可以安全共用一个发送模板；库存物化来源也使用同一检查。
+
+The same localized exception covers unsupported types/components, stackability failure, incompatible snapshot/count/codec, and state differences. The supplied stack trace does not identify which branch caused this user's failure, whether the source was map or inventory, or which DLL release was installed. Do not label ordinary steel unsupported, claim a specific XML field caused it, or assume rollback actually restored every item solely from the current log message.
+
+同一个提示覆盖多个拒绝原因，现有日志无法确认本次具体分支、来源及插件版本；不能直接断言钢铁不支持、某个 XML 字段导致错误，或仅凭日志文案确认全部物品恢复成功。
+
+## Batch 1: Diagnosis and predictable rejection / 第一批：诊断与可预期拒绝
+
+1. Record plugin version and source kind; reproduce equivalent vanilla steel across multiple physical stacks, with and without other mods. Inspect actual serialized states and component types. Also inspect the split stack case: partial extraction may change runtime identity/placement independently of transferable state.
+2. Define one structured eligibility result shared by selection and send validation. Reasons distinguish unsupported Thing type, unsupported component, bidirectional stackability mismatch, transferable-state difference, invalid snapshot and count/selection changes. Keep bounded safe fields: Def, selected count, source-stack count, type/component names, reason and differing field paths. Do not log full Scribe XML, payloads, credentials or player information.
+3. Add a read-only physical selection plan and validate before SplitOff/DeSpawn or relay publication. Revalidate selected identities/counts/state at execution to handle game changes; preflight cannot replace the final invariant. Preserve the existing rollback after mutation. Inventory preflight checks metadata where possible; if actual materialization is needed, use existing atomic reservation/restore and destroy only transient previews.
+4. Expected incompatibility becomes a concise localized rejection rather than a full ERROR stack trace. Unexpected serializer/transport/restore faults retain error logs. Report actual restoration outcome; do not say “restored” when restoration is incomplete or the relay outcome is uncertain.
+
+先确认版本、来源与真实状态，补有界诊断并引入统一可发送性结果。物理来源先制定只读选取方案并校验，再拆堆/移除；执行时重新核对，保留变更后的回滚。库存沿既有预留、物化、恢复规则。预期拒绝使用普通提示，意外故障保留错误堆栈；返还文案须反映真实结果，不能将未知发送结果自动返还。
+
+## Batch 2: Align selection and aggregation / 第二批：统一选择与合并
+
+1. Use the same eligibility/state policy in RedPacket-specific grouping and send validation. Display separately the groups that can safely share one template; selectable quantity is the usable quantity of that group. Retain Trade's existing grouping behavior unless a separately reviewed shared abstraction is required. Do not add a Steel-specific path or fork host item conversion.
+2. For a requested quantity that fits a single compatible physical stack, prefer that stack rather than needlessly selecting several smaller sources. Unsupported custom-state objects retain a single-source choice with a clear quantity limit. Never silently choose a different state group or reduce the requested quantity.
+3. Allow equivalent ordinary stacks to aggregate after checking count conservation, bidirectional stackability and complete transferable state. Diagnose differences in canonical state comparison before changing exclusions. Ignore only fields proven to be instance identity or placement/lifecycle metadata, with focused tests; do not blanket-ignore tickDelta, component state, damage, quality, ingredients, quest tags or styles. Custom components require an explicit state-preserving contract/codec before multi-stack support; do not grow a list of per-mod exceptions.
+4. Cache expensive inspection only within a bounded UI refresh/selection lifetime, with invalidation for game changes. Final validation must use current state. Bound XML size, stack count and work per refresh; avoid serializing every map item every GUI frame.
+5. Keep one-template legacy protocol. If heterogeneous states genuinely cannot share a template, reject or offer explicit separate selections. Multiple state templates would require a distinct protocol/recovery plan; do not silently split into several independently published packets.
+
+红包内部统一归组与发送规则，显示可安全发送的状态组及实际可选数量；不顺带改变 Trade。能从单个堆满足数量时优先单堆，未知自定义状态仍提供明确的单堆选项，不暗改数量或状态。普通等价堆继续合并，只有经证据和测试确认的身份/位置字段才可从比较中排除；自定义组件通过保留完整状态的契约支持，不加逐模组例外。预检缓存按刷新寿命限定并失效，最终校验使用当前状态。保持现有单模板协议，不自动拆成多个红包。
+
+## Batch 3: Presentation, regression and delivery / 第三批：提示、回归与发布
+
+- Bilingual UI shows source, usable count, and why a group is limited. Example: “这些钢铁来自不同状态的物品堆，无法放入同一个红包。请选择一个状态组。” Unsupported component and real state mismatch receive distinct messages; selection changes prompt refresh/reselection.
+- Automated cases: equivalent steel totaling 200, different source order, sufficient single large stack, partial-stack extraction, prior 800-silver behavior, identical/different known components, unknown components with single/multiple sources, malformed serializer result, selection changes, map/inventory sources and large-count bounds.
+- Ownership cases: preflight rejection leaves physical objects unchanged; partial extraction failure restores all captured originals; template serialization restores temporary count in finally; inventory reservation restores on definite unpublished failure; uncertain publication stays pending; receiving and expiry preserve claimed + returned quantities with no duplicate refund. Check restore-failure diagnostics.
+- Game acceptance: send 200 steel from equivalent stacks, receive all 200, repeat from inventory, reject genuinely different states without item loss, disconnect/reconnect, and verify counts after partial claim/expiry. Include the affected user's original mod list; console tests do not prove game behavior.
+- Build/package the independent RedPacket plugin; update bilingual resources, declared resource hashes/version and supported host requirements together. Confirm the store catalog refers to the new artifact before claiming the store-distributed plugin is repaired. Do not bundle RedPacket back into the host or publish without the separately required release authorization.
+
+中英提示区分状态不同、自定义组件未支持、数量变化。自动回归覆盖 200 钢铁、单大堆优先、部分拆堆、原 800 白银、多种组件及库存路径，并核查变更/回滚/未决/退款所有权。游戏验证发送、接收、部分领取、过期与原用户模组环境。独立插件构建后同步资源哈希、版本与商店产物锁；修复源码不等于商店已发布新版，不重新内置到宿主。
+
+## Acceptance / 完成条件
+
+Equivalent ordinary steel stacks can send the requested 200 without losing state or items. Incompatible groups are identifiable and selectable restrictions match final validation. Expected rejection does not flood ERROR logs. Original snapshots, reservations, relay authority, idempotency and rollback remain valid. The actual store artifact is verified and the user reports game acceptance. Root-cause attribution remains provisional until real state/branch evidence is collected.
+
+等价普通钢铁多堆可发送 200，完整状态和数量不丢失；不兼容组可识别且列表限制与最终校验一致；预期拒绝不刷 ERROR。模板、预留、中继确认、幂等与回滚语义保留，实际商店产物核对并经游戏验收。收集真实分支/状态证据前，根因保持待确认。

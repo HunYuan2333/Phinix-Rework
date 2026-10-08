@@ -30,4 +30,6 @@
     <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- Classic projects do not copy the SDK composition runtime transitively. -->
+  <Import Project="../ClientCompositionRuntimeCopy.targets" />
 </Project>
