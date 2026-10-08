@@ -38,3 +38,18 @@ dotnet Extensions/PluginStore/Tools/ManagedPackageTool/bin/Release/net10.0/Manag
 No in-game acceptance is invented. Incremental game check: launch main package, load existing save, verify chat after another save load, open Store/download a managed plugin, restart and enable/disable the existing example. No save schema, wire format, ACK or item-ownership semantics changed. Registry publishing does not deploy or restart an existing server.
 
 本批源码/静态回归与真实镜像发布已通过。Client 工具恢复 77cdbba、Server 发布目标修正 42516ec、Index 固定来源 df31c54、Example 路径修正 af0ed15 均已提交推送。Index/Example 仍在原有 codex/docs-user-guide 分支，包含此前独立文档提交；尚未擅自合并到 main，已请求用户选择 PR 审阅或直接合并。因此不能把这两仓默认分支交付伪称完成。保留既有游戏验收记录，不补造本轮游戏实测；F6-M/F7未开始。完整发布证据在 /tmp/phinix-f6-final-publication-evidence.json。
+
+
+## Old Store compatibility and merge pause / 旧 Store 兼容与暂停合并（2026-10-08）
+
+The user revoked pending main merges before they executed, requested old Store compatibility evaluation, and authorized removing the completed documentation branches. Verified remote main remains Index `37a105cd747bf09710fbe23fa292d6b8eea983e3`, Example `24c94aff023af6cc499c67dc1d2100f25450eb2d`; these already contain the original Markdown updates (#31 squash and #1 merge respectively). No F6 merge was pushed. The isolated temporary merges were aborted.
+
+Both independent repositories now preserve their F6 tips on local/remote `codex/f6-repository-split` (Index df31c54, Example af0ed15). Old local/remote `codex/docs-user-guide` branches were deleted only after verifying the replacement references. Main and historical releases remain untouched. F6 default-branch delivery is still paused by user instruction; do not infer permission to merge from these compatibility results alone.
+
+Checks used the pre-update trusted frozen Store parser from Index main and the refreshed parser. The catalog reader and payload validator source files are unchanged; the new provenance schema 2 is maintenance-only and never fetched by client Store. Catalog protocol remains schema 3. stable.json, immutable published metadata, catalog, package artifacts and publisher route/protocol remain unchanged. Updated host profile retains the same graph; hashes are maintainer artifact provenance, not a new client admission protocol.
+
+Downloaded the actual stable catalog release `catalog-v3-f6aff84eed2e50e079348dc72fca9ca6a1336bf7` and verified its size/hash against stable.json (6 entries). Old/new parsers both pass catalog parsing and publication dependency closure with both old and refreshed host profiles. Downloaded all five GitHub-release ZIPs listed in that catalog, verified their exact declared sizes/hashes, and both parsers pass manifest/ZIP/CLR metadata validation: Example 1.0.0/1.0.1/1.0.2, RedPacket 1.0.0, TalentTrade 1.0.1. The sixth entry is metadata-only Workshop and is covered by catalog checks, not DLL ZIP tests.
+
+Evidence: `/tmp/phinix-f6-live-catalog-compatibility/compatibility-results.json`, its fixed `catalog.json` and per-package old/new reports. Pre-update trusted parser built with `dotnet build /tmp/phinix-f6-old-store-check/Validator/Validator.csproj --configuration Release -p:NuGetAudit=false -p:RestoreSources=/tmp/phinix-f5-local-20261008-gslqn8eh/empty-feed -m:1` (zero errors/warnings); each parser ran `catalog phinix.official CATALOG`, `publication phinix.official CATALOG PROFILE`, and `payload phinix.official CATALOG ZIP PACKAGE VERSION REPORT`.
+
+结论：本次 Index 更新对当前旧 Store 的目录协议及既有插件静态校验兼容，无需为了读取商店目录强制升级客户端。该证据不是旧游戏客户端的联网/安装实测，也不承诺旧宿主能运行未来所有新 DI 插件；未来插件仍须声明真实最低宿主/抽象版本，保留版本与依赖检查，不能改写既有版本 ZIP 或审批记录。独立 F6 分支用于保留未合并源码并删除已完成的文档分支，不是创建另一套 catalog 或仓库访问协议。F6-M/F7 未开始。

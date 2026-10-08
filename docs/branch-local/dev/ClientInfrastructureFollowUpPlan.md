@@ -541,3 +541,8 @@ Active three workspaces now use Phinix-Rework / Phinix-Rework-Common / Phinix-Re
 ## F6 actual registry publication (2026-10-08)
 
 User selected new Docker namespace hunyuan2333/phinix-rework. Server 42516ec publishes successfully in run 37778078886; public dev manifest acquisition confirms linux/amd64. Old Rework Docker workflow remains disabled. Client tool restoration 77cdbba and Index df31c54 / Example af0ed15 are pushed. The latter two preserve existing codex/docs-user-guide branches; main merges await user authorization because they include preceding documentation changes. Implementation/validation complete; close default-branch delivery after the chosen review/merge. F6-M/F7 not started.
+
+
+## F6 old Store compatibility and user merge pause (2026-10-08)
+
+User stopped main merges before execution. Latest main already contains prior Markdown updates; F6 code stays on both repositories’ codex/f6-repository-split branches, replacing deleted completed docs branches with all content preserved. Actual stable catalog (6 records) and all 5 immutable GitHub DLL ZIPs verify with both pre-update and refreshed Store parser sources; catalog/closure/payload checks pass, no client-facing protocol switch. New DI packages still require truthful minimum host/abstraction declarations. Do not merge main until user resumes authorization; F6 delivery remains paused. See F6-Final-Verification.md.
