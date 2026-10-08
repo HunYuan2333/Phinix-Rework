@@ -1,5 +1,5 @@
 <h1 align="center">Phinix Rework</h1>
-<h4 align="center"><i>A RimWorld 1.6 multiplayer mod — cross-colony chat, asynchronous trade, and managed plugin framework</i></h4>
+<h4 align="center"><i>A RimWorld 1.6 multiplayer mod client — cross-colony chat, asynchronous trade, and managed plugin framework</i></h4>
 
 <p align="center">
   English · <a href="./README.zh-CN.md">简体中文</a>
@@ -11,81 +11,51 @@
 
 Phinix Rework adds multiplayer communication and economic interaction to RimWorld via an external dedicated server. It connects distinct player colonies while keeping the core game engine independent.
 
+This repository is the **Phinix Rework Client** (`Phinix-Rework`), containing the RimWorld client mod host, in-game UI, and official client plugins.
+
 - **In-Game Chat**: Cross-colony text messaging with rich text formatting, customizable colors, and channel support.
 - **Asynchronous Trading**: Trade items and silver between colonies without requiring both players to be online simultaneously.
-- **Unified Inventory**: Shared item staging pipeline supporting trade settlements and item management.
-- **Dedicated Server**: Lightweight standalone server supporting user authentication and permission management.
-- **Plugin Store & Extensible Runtime**: First-party and third-party extensions share identical runtime lifecycles. Browse and install managed plugins directly in game.
+- **Unified Inventory**: Local staging pipeline supporting trade settlements and item management.
+- **Plugin Store & Extension Management**: First-party and third-party extensions share identical runtime lifecycles. Browse, install, toggle, and uninstall managed plugins directly in game.
 
 > [!NOTE]
 > Phinix Rework provides chat, trade, and plugin interoperability between independent colonies. It does **not** synchronize world map simulation, in-game ticks, or lockstep pawn construction across players.
 
 ---
 
-## Repository Index
+## Repository Index & Architecture
 
-| Repository | Responsibility |
-| :--- | :--- |
-| [Phinix-Rework](https://github.com/HunYuan2333/Phinix-Rework/tree/dev) | RimWorld client host and client plugins; this repository |
-| [Phinix-Rework-Common](https://github.com/HunYuan2333/Phinix-Rework-Common/tree/dev) | Game-independent shared source and contracts |
-| [Phinix-Rework-Server](https://github.com/HunYuan2333/Phinix-Rework-Server/tree/dev) | Dedicated server, server plugins and Docker publication |
+This project is named **Phinix Rework**, distinct from the original Phinix project. The project is split into three repositories:
 
-The mod is **Phinix Rework**, distinct from the original Phinix. Client and Server pin Common at `Dependencies/Phinix.Common`; initialize nested submodules with `git submodule update --init --recursive`. Build instructions for Common and Server are in their respective READMEs.
+| Repository | Role | Responsibility |
+| :--- | :--- | :--- |
+| [Phinix-Rework](https://github.com/HunYuan2333/Phinix-Rework/tree/dev) | Client (this repository) | RimWorld 1.6 client mod host, in-game UI, and client plugins |
+| [Phinix-Rework-Common](https://github.com/HunYuan2333/Phinix-Rework-Common/tree/dev) | Shared Layer | Game-independent networking, encryption, user management, and neutral Chat/Trade contracts |
+| [Phinix-Rework-Server](https://github.com/HunYuan2333/Phinix-Rework-Server/tree/dev) | Dedicated Server | Standalone dedicated server host, server plugins, and Docker publication |
+
+Both the Client and Server repositories pin the Shared layer via a Git submodule at `Dependencies/Phinix.Common` and reference its projects directly during compilation. To preserve ecosystem, save, and network compatibility, repository names do not alter existing assembly names, namespaces, wire protocol identifiers, mod package IDs, persisted storage keys, or the `Dependencies/Phinix.Common` submodule directory name.
 
 ---
 
 ## Installation
 
-### Client (RimWorld 1.6)
+### Client Installation (RimWorld 1.6)
 
 #### Option A: Steam Workshop (Recommended)
 
-1. Subscribe to [Phinix Rework on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3735269431). Steam will automatically download and update the mod.
+1. Subscribe to [Phinix Rework on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3735269431). Steam will automatically handle download and updates.
 2. Launch RimWorld, navigate to **Mods** in the main menu, enable **Phinix Rework**, and restart the game.
 
 #### Option B: Manual Installation
 
-1. Obtain the release package from [GitHub Releases](https://github.com/HunYuan2333/Phinix-Rework/releases) (or build from source following [Developer Build](#developer-build)).
+1. Obtain the release package from [GitHub Releases](https://github.com/HunYuan2333/Phinix-Rework/releases) (or build from source following [Developer Guide](#developer-guide)).
 2. Extract the mod directory into your RimWorld `Mods` folder, for example:
    `<path-to-RimWorld>/Mods/Phinix-Rework/`
 3. Launch RimWorld, navigate to **Mods**, enable **Phinix Rework**, and restart the game.
 
-### Server (Dedicated)
+### Dedicated Server Deployment
 
-The server can be hosted via Docker (recommended) or compiled with .NET 10 SDK.
-
-#### Option A: Docker (Recommended)
-
-```bash
-docker pull hunyuan2333/phinix-rework:dev
-
-docker run -d \
-  --name phinix-server \
-  --restart unless-stopped \
-  -p 16200:16200/udp \
-  -v ./server_data:/data \
-  hunyuan2333/phinix-rework:dev
-
-# View server logs
-docker logs -f phinix-server
-```
-
-Or deploy with `docker-compose.yml` from the [Server repository](https://github.com/HunYuan2333/Phinix-Rework-Server/tree/dev):
-
-```bash
-docker compose up -d
-```
-
-#### Option B: Manual Build (.NET 10 SDK)
-
-```bash
-git clone --branch dev --recurse-submodules https://github.com/HunYuan2333/Phinix-Rework-Server.git
-cd Phinix-Rework-Server
-dotnet build Server/Server.csproj --configuration Release -p:BuildInParallel=false -m:1
-dotnet Server/bin/Release/net10.0/PhinixServer.dll
-```
-
-Configuration defaults to port `16200` (UDP) and `ClientKey` authentication via `server.conf`. The interactive console supports `help`, `version`, and `exit` commands.
+Phinix Rework client connects to a dedicated Phinix Rework server. If you want to host your own dedicated server, refer to the documentation in [Phinix-Rework-Server](https://github.com/HunYuan2333/Phinix-Rework-Server/tree/dev). It provides a prebuilt Docker container image (`hunyuan2333/phinix-rework:dev`) as well as .NET 10 SDK build instructions.
 
 ---
 
@@ -132,8 +102,8 @@ Phinix Rework distinguishes between core built-in features and independently man
 
 | Category | Modules | Delivery Route | Lifecycle |
 | :--- | :--- | :--- | :--- |
-| **Bundled Core** | Chat, Trade, Inventory, PluginStore | Shipped directly inside the Phinix Mod package (`Common/Extensions/`) | Managed with main mod updates |
-| **Managed Plugins** | Talent Trade, Red Packet, third-party plugins | Installed via the Plugin Store into `SaveData/Phinix/ManagedExtensions/packages/` | Managed, enabled, or uninstalled in-game |
+| **Bundled Core** | Chat, Trade, Inventory, PluginStore | Shipped directly inside the main mod package (`Common/Extensions/`) | Managed with main mod updates |
+| **Managed Plugins** | Talent Trade, Red Packet, third-party plugins | Installed via Plugin Store into `SaveData/Phinix/ManagedExtensions/packages/` | Managed, enabled, or uninstalled in game |
 | **Workshop Mods** | External RimWorld submods | Subscribed via Steam Workshop or placed in `Mods/` | Handled by RimWorld's native mod manager |
 
 > [!NOTE]
@@ -145,38 +115,82 @@ Phinix Rework distinguishes between core built-in features and independently man
 
 ### Environment Requirements
 
-- **.NET 10 SDK** (server and test harnesses)
-- **.NET Framework 4.7.2** targeting pack (client compilation)
-- **RimWorld 1.6 Managed Assemblies**: Place references in `GameDlls/1.6/` (`Assembly-CSharp.dll`, the required `UnityEngine*.dll` modules including `UnityEngine.ImageConversionModule.dll`, and `com.rlabrecque.steamworks.net.dll`). For a full build against another directory, set both `-p:GameReferenceDirectory=<path>` and `-p:RimWorldDepDir=<path>`. Never redistribute game DLLs.
+- **.NET 10 SDK** (build runner and tests)
+- **.NET Framework 4.7.2** targeting pack (classic client compilation; enabled on all platforms via `Microsoft.NETFramework.ReferenceAssemblies`)
+- **RimWorld 1.6 Managed Assemblies**: Place references under `GameDlls/1.6/` (`Assembly-CSharp.dll`, required `UnityEngine*.dll` modules including `UnityEngine.ImageConversionModule.dll`, and `com.rlabrecque.steamworks.net.dll`). For external reference paths, specify both `-p:GameReferenceDirectory=<path>` and `-p:RimWorldDepDir=<path>`. Never redistribute game DLLs.
 
-### Developer Build
+### Source Acquisition & Submodules
+
+Clone the repository and recursive submodules:
 
 ```bash
-# Initialize pinned shared source and nested protobuf
-git submodule update --init --recursive
+git clone --branch dev --recurse-submodules https://github.com/HunYuan2333/Phinix-Rework.git
+cd Phinix-Rework
+```
 
-# Run core framework regression tests
+For an existing checkout, recursively initialize and update submodules at their pinned commits:
+
+```bash
+git submodule update --init --recursive
+```
+
+> [!IMPORTANT]
+> The repository pins dependencies using exact gitlinks; **do not use** `git submodule update --remote`. protobuf is a nested submodule inside the shared layer and requires `--recursive`.
+
+### Automated Tests
+
+Run the headless automated regression suites (note: automated tests verify runtime logic and do not replace in-game testing in RimWorld):
+
+```bash
+# Core framework runtime regression
 dotnet run --project Tests/Phase35ClientRuntimeTests/Phase35ClientRuntimeTests.csproj --configuration Release
 
-# Run responsive layout regression tests
+# Responsive layout geometry tests
 dotnet run --project Tests/ResponsiveUiGeometryTests/ResponsiveUiGeometryTests.csproj --configuration Release
 
-# Run managed extension runtime tests
+# Managed extension runtime regression
 dotnet run --project Tests/ManagedExtensionRuntimeTests/ManagedExtensionRuntimeTests.csproj --configuration Release --framework net10.0
 
-# Run plugin store tests
+# Plugin store logic regression
 dotnet run --project Tests/PluginStoreRuntimeTests/PluginStoreRuntimeTests.csproj --configuration Release
+```
 
-# Full client build (requires RimWorld 1.6 reference DLLs)
+### Client Build
+
+Build the full client solution from the repository root:
+
+```bash
 dotnet build Phinix.sln --configuration "Release 1.6" -p:BuildInParallel=false -m:1
 ```
 
-The installable client package is `Output/phinix-rework/`. Replace the complete old mod folder and preserve player data separately.
+> [!NOTE]
+> `Phinix.sln` and `PhinixClient.sln` contain identical project graphs; either can be used as the build entry.
+
+### Output Location & Package Structure
+
+Build artifacts are assembled into `Output/phinix-rework/`:
+
+```text
+Output/phinix-rework/
+├── About/               # Mod metadata and version manifests
+├── Defs/                # RimWorld Def XMLs
+├── Languages/           # Localization files
+├── Textures/            # UI textures and icons
+├── LoadFolders.xml      # Version load folder configurations
+├── Common/
+│   ├── Assemblies/      # Pinned shared assemblies and composition runtime
+│   └── Extensions/      # Bundled extension assemblies (Chat, Trade, Inventory, PluginStore)
+└── 1.6/
+    └── Assemblies/      # RimWorld 1.6 client entry assembly (13-PhinixClient.dll)
+```
+
+This output folder is the complete, installable RimWorld mod. Copy it directly to `<path-to-RimWorld>/Mods/Phinix-Rework/` for local testing.
 
 ### Documentation & References
 
 - [Architecture & Design Philosophy](docs/Design-Philosophy.md) — Plugin boundaries, communication pipelines, and lifecycle models.
-- [Plugin Authoring Example](https://github.com/HunYuan2333/Phinix-Example-Plugin#readme) — Public plugin entry points, packaging and lifecycle example.
+- [Compatibility Boundaries & Recovery Constraints](docs/Compatibility-Boundaries.md) — Network contracts and error recovery boundaries across server versions.
+- [Client Inventory & Recovery Boundaries](docs/Inventory.md) — Inventory staging, ledger, and journal recovery constraints.
 - [Phinix-Example-Plugin](https://github.com/HunYuan2333/Phinix-Example-Plugin) — Official minimal plugin example featuring tabs, settings, and dual-language localization.
 - [Phinix-Plugin-Index](https://github.com/HunYuan2333/Phinix-Plugin-Index) — Official plugin catalog and submission repository.
 
