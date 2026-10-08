@@ -546,3 +546,8 @@ User selected new Docker namespace hunyuan2333/phinix-rework. Server 42516ec pub
 ## F6 old Store compatibility and user merge pause (2026-10-08)
 
 User stopped main merges before execution. Latest main already contains prior Markdown updates; F6 code stays on both repositories’ codex/f6-repository-split branches, replacing deleted completed docs branches with all content preserved. Actual stable catalog (6 records) and all 5 immutable GitHub DLL ZIPs verify with both pre-update and refreshed Store parser sources; catalog/closure/payload checks pass, no client-facing protocol switch. New DI packages still require truthful minimum host/abstraction declarations. Do not merge main until user resumes authorization; F6 delivery remains paused. See F6-Final-Verification.md.
+
+
+## Deferred RedPacket independent repair update (2026-10-08)
+
+User adds sender completion-summary NullReferenceException (ref 21196259, QueueSenderSummary → HandleClaimSafe; relay cursor held for retry) to the existing 200-steel multi-stack selection defect batch. Plan only; no plugin code/test/release change. Investigate unavailable game-letter context and claim/dedup/finalization/cursor ordering without treating the tentative cause as proven or weakening item/ACK recovery. Complete planned infrastructure stages first, then repair/validate and publish a separate immutable RedPacket plugin update through the normal Index route. DI entry migration is a separate concern, not an F6 blocker or a substitute fix. See [independent repair plan](plugin-store/RedPacket-Stack-Selection-Optimization-Plan.md).
