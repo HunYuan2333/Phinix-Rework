@@ -1,17 +1,8 @@
-param([switch]$IncludeClient)
+param([switch]$IncludeClient = $true)
 
 $ErrorActionPreference = 'Stop'
-$server = 'Server/bin/Release/net10.0'
-$required = @(
-    "$server/PhinixServer.dll",
-    "$server/PhinixServer.deps.json",
-    "$server/PhinixServer.runtimeconfig.json",
-    "$server/Extensions/ChatExtension.dll",
-    "$server/Extensions/ChatExtension.Server.dll",
-    "$server/Extensions/TradeExtension.dll",
-    "$server/Extensions/TradeExtension.Server.dll"
-)
-$artifactRoots = @($server)
+$required = @()
+$artifactRoots = @()
 $compositionRuntimeNames = @(
     "Phinix.ClientComposition", "Autofac", "Microsoft.Bcl.AsyncInterfaces",
     "System.Diagnostics.DiagnosticSource", "System.Memory", "System.Runtime.CompilerServices.Unsafe",
