@@ -1,6 +1,6 @@
 # F6-M — Management / Store state synchronization
 
-Date: 2026-10-08. Implementation and automated verification complete; game acceptance pending. F7 remains unstarted. This batch does not resume paused Index/Example main merges or change Common/Server pins.
+Date: 2026-10-08. Implementation, automated verification and user acceptance complete (2026-10-08). F7 remains unstarted. The original implementation batch retained paused Index/Example main merges and Common/Server pins. The user subsequently resumed Index/Example delivery; see the acceptance checkpoint below.
 
 ## Shared command and state boundary
 
@@ -51,3 +51,7 @@ Use the complete freshly built `Output/phinix-rework` folder, restarting the gam
 7. 商店安装/卸载、切页刷新、旧存档读入仍正常；卸载实际生效及重新安装沿用现有重启/事务规则。
 
 Do not deliberately damage live save/configuration files to simulate failures. Use a disposable test configuration if validating storage/read failures.
+
+## User acceptance and remote delivery checkpoint
+
+On 2026-10-08 the user confirmed acceptance and said audit issues are resolved. This records collective acceptance, not invented per-step evidence. Index a77c68d and Example 2235353 are now on remote main after resumed authorization. Their merged builds/static checks pass; published catalog and plugin ZIPs remain unchanged. The requested post-publication Store game check is pending; F7 remains unstarted.
