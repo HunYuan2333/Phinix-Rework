@@ -9,15 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\..\Common\Authentication\ClientAuthenticator.cs">
-      <Link>ClientAuthenticator.cs</Link>
-    </Compile>
+    
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj" />
-    <ProjectReference Include="..\..\..\Common\Authentication\Authentication.csproj" />
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Dependencies/protobuf/csharp/src/Google.Protobuf/Google.Protobuf.csproj" />
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Authentication/Authentication.csproj" />
     <ProjectReference Include="..\Connections.Client\Connections.Client.csproj" />
-    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj" />
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
   </ItemGroup>
 </Project>

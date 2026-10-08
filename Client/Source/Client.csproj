@@ -207,7 +207,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Common\Authentication\Authentication.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Authentication/Authentication.csproj">
       <Project>{E983D5C7-A573-44E4-A8BB-D5A9D78EA538}</Project>
       <Name>Authentication</Name>
     </ProjectReference>
@@ -222,7 +222,7 @@
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\Connections\Connections.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Connections/Connections.csproj">
       <Project>{38cb6bed-e751-42fe-a847-c0ddd482ac62}</Project>
       <Name>Connections</Name>
     </ProjectReference>
@@ -230,7 +230,7 @@
       <Project>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</Project>
       <Name>Connections.Client</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj">
       <Project>{4e8c099f-dcab-418a-a2fe-2705a7065ec3}</Project>
       <Name>UserManagement</Name>
     </ProjectReference>
@@ -238,11 +238,11 @@
       <Project>{C3D4E5F6-A7B8-9012-CDEF-123456789012}</Project>
       <Name>UserManagement.Client</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\Utils\Utils.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj">
       <Project>{b6ff1583-c75a-42c1-9b75-2b16215a0cf7}</Project>
       <Name>Utils</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Dependencies/protobuf/csharp/src/Google.Protobuf/Google.Protobuf.csproj">
       <Project>{d5bbfa59-db31-40f8-a8bf-7333be984316}</Project>
       <Name>Google.Protobuf</Name>
     </ProjectReference>

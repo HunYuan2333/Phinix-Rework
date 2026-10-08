@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <!-- Client endpoint projects target net472. Compile the same game-independent
+       sources here so their existing regression tests can run on .NET 10. -->
+  <ItemGroup>
+    <Compile Include="..\..\Client\Source\Framework\ClientExtensionRuntime.cs" Link="ClientExtensionRuntime.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientComposition.cs" Link="IClientComposition.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\ClientEnvironmentSnapshot.cs" Link="ClientEnvironmentSnapshot.cs" />
+    <Compile Include="..\..\Client\Source\Framework\ClientEnvironmentService.cs" Link="ClientEnvironmentService.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientLinkService.cs" Link="IClientLinkService.cs" />
+    <Compile Include="..\..\Client\Source\Framework\ClientLinkService.cs" Link="ClientLinkService.cs" />
+    <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientExtensionManagementWindowService.cs" Link="IClientExtensionManagementWindowService.cs" />
+    <Compile Include="..\..\Client\Source\Framework\ClientExtensionManagementWindowService.cs" Link="ClientExtensionManagementWindowService.cs" />
+    <Compile Include="..\..\Client\Common\Connections.Client\NetClient.cs" Link="NetClient.cs" />
+    <Compile Include="..\..\Client\Common\Authentication.Client\ClientAuthenticator.cs" Link="ClientAuthenticator.cs" />
+    <Reference Include="LiteNetLib">
+      <HintPath>..\..\Dependencies\Phinix.Common\libs\netstandard2.0\LiteNetLib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Dependencies\Phinix.Common\Common\Authentication\Authentication.csproj" />
+    <ProjectReference Include="..\..\Dependencies\Phinix.Common\Common\Connections\Connections.csproj" />
+    <ProjectReference Include="..\..\Dependencies\Phinix.Common\Common\Utils\Utils.csproj" />
+  </ItemGroup>
+</Project>

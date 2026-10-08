@@ -39,7 +39,7 @@
     <Compile Include="../../Extensions/PluginStore/Client/StoreEnvironmentAdapter.cs" Link="Production/StoreEnvironmentAdapter.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/StoreBrowserController.cs" Link="Production/StoreBrowserController.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs" Link="Production/ClientEnvironmentSnapshot.cs" />
-    <Compile Include="../../Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
+    <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryTransport.cs" Link="Production/RepositoryTransport.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryPayloadTransport.cs" Link="Production/RepositoryPayloadTransport.cs" />

@@ -119,11 +119,11 @@
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\Common\Connections\Connections.csproj">
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Connections/Connections.csproj">
       <Project>{38CB6BED-E751-42FE-A847-C0DDD482AC62}</Project>
       <Name>Connections</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\Common\Utils\Utils.csproj">
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj">
       <Project>{B6FF1583-C75A-42C1-9B75-2B16215A0CF7}</Project>
       <Name>Utils</Name>
     </ProjectReference>
@@ -131,7 +131,7 @@
       <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
       <Name>TradeExtension</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj">
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Dependencies/protobuf/csharp/src/Google.Protobuf/Google.Protobuf.csproj">
       <Project>{D5BBFA59-DB31-40F8-A8BF-7333BE984316}</Project>
       <Name>Google.Protobuf</Name>
     </ProjectReference>

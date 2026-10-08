@@ -1,0 +1,8 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="CopyClientCompositionRuntime" AfterTargets="Build">
+    <ItemGroup>
+      <ClientCompositionRuntime Include="$(MSBuildThisFileDirectory)../Client/Composition/bin/$(Configuration)/net472/Autofac.dll;$(MSBuildThisFileDirectory)../Client/Composition/bin/$(Configuration)/net472/Microsoft.Bcl.AsyncInterfaces.dll;$(MSBuildThisFileDirectory)../Client/Composition/bin/$(Configuration)/net472/System.*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ClientCompositionRuntime)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

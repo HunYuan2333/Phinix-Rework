@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net472</TargetFramework><AssemblyName>Fixture.Managed.Plugin</AssemblyName><AssemblyVersion>1.2.3.4</AssemblyVersion><LangVersion>7.3</LangVersion></PropertyGroup>
-  <ItemGroup><ProjectReference Include="../../../../Common/Utils/Utils.csproj" /><ProjectReference Include="../Helper/Helper.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" /><ProjectReference Include="../Helper/Helper.csproj" /></ItemGroup>
 </Project>

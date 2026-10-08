@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net472</TargetFramework><LangVersion>9.0</LangVersion><AssemblyName>Fixture.Plugin</AssemblyName><AssemblyVersion>1.2.3.4</AssemblyVersion></PropertyGroup>
-  <ItemGroup><Compile Include="../ManagedPayload/Sentinel.cs" Link="Sentinel.cs" /><ProjectReference Include="../../../../Common/Utils/Utils.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../ManagedPayload/Sentinel.cs" Link="Sentinel.cs" /><ProjectReference Include="../../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" /></ItemGroup>
 </Project>

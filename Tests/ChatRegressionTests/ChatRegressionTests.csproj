@@ -26,8 +26,10 @@
     <ProjectReference Include="..\..\Client\Common\UserManagement.Client\UserManagement.Client.csproj" />
     <ProjectReference Include="..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj" />
     <ProjectReference Include="..\..\Client\Composition\Phinix.ClientComposition.csproj" />
-    <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj" />
-    <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- Classic projects do not copy the SDK composition runtime transitively. -->
+  <Import Project="../ClientCompositionRuntimeCopy.targets" />
 </Project>

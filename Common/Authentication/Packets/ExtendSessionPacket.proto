@@ -1,7 +1,0 @@
-syntax = "proto3";
-package Authentication;
-
-message ExtendSessionPacket
-{
-    string SessionId = 1;
-}

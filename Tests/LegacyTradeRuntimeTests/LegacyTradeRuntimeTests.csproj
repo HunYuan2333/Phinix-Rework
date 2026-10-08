@@ -29,10 +29,10 @@
     <ProjectReference Include="..\..\Extensions\LegacyAdapter\Client\PhinixLegacyAdapter.Client.csproj" />
     <ProjectReference Include="..\..\Extensions\Trade\Contracts\TradeExtension.csproj" />
     <ProjectReference Include="..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj" />
-    <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj" />
-    <ProjectReference Include="..\..\Common\Utils\Utils.csproj" />
-    <ProjectReference Include="..\..\Common\Connections\Connections.csproj" />
-    <ProjectReference Include="..\..\Dependencies\protobuf\csharp\src\Google.Protobuf\Google.Protobuf.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Connections/Connections.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Dependencies/protobuf/csharp/src/Google.Protobuf/Google.Protobuf.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="CopyCompositionRuntime" AfterTargets="Build">

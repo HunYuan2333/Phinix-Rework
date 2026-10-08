@@ -11,6 +11,6 @@
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/ManagedStorePayloadValidator.cs" />
-    <Compile Include="../../Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
+    <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

@@ -14,6 +14,6 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>../../../GameDlls/UnityEngine.CoreModule.dll</HintPath></Reference>
     <ProjectReference Include="../../../Extensions/Inventory/Client/InventoryExtension.Client.csproj" />
     <ProjectReference Include="../../../Extensions/Inventory/Contracts/InventoryExtension.csproj" />
-    <ProjectReference Include="../../../Common/Utils/Utils.csproj" />
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
   </ItemGroup>
 </Project>

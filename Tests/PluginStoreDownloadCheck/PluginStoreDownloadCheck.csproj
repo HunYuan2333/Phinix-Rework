@@ -35,6 +35,6 @@
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreProgress.cs" Link="Production/ManagedStoreProgress.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreUpdates.cs" Link="Production/ManagedStoreUpdates.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs" Link="Production/ClientEnvironmentSnapshot.cs" />
-    <Compile Include="../../Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
+    <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

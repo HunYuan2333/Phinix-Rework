@@ -23,7 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="../Contracts/InventoryExtension.csproj" />
     <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
-    <ProjectReference Include="../../../Common/Utils/Utils.csproj" />
+    <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
   </ItemGroup>
   <Target Name="CopyToClientExtensions" AfterTargets="Build">
     <MakeDir Directories="$(SolutionDir)Output/phinix-rework/Common/Extensions" />

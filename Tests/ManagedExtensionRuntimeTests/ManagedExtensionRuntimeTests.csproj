@@ -17,7 +17,7 @@
     <Compile Include="../../Client/Source/Framework/ClientLocalizationService.cs" Link="Production/ClientLocalizationService.cs" />
     <None Include="../../docs/branch-local/dev/plugin-store/managed-store-protocol-v3/*.json" Link="ManagedStoreProtocol/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../Client/Source/Framework/ManagedExtensionManagerController.cs" Link="Production/ManagedExtensionManagerController.cs" />
-    <ProjectReference Include="../../Common/Utils/Utils.csproj" />
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs" Link="Production/ClientEnvironmentSnapshot.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PluginStore/PackageVersion.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PluginStore/PackageModels.cs" />

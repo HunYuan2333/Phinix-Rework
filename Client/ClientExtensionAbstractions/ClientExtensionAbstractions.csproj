@@ -95,11 +95,11 @@
     <Compile Include="UI\VirtualListLayout.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Common\UserManagement\UserManagement.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj">
       <Project>{4E8C099F-DCAB-418A-A2FE-2705A7065EC3}</Project>
       <Name>UserManagement</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Common\Utils\Utils.csproj">
+    <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj">
       <Project>{B6FF1583-C75A-42C1-9B75-2B16215A0CF7}</Project>
       <Name>Utils</Name>
     </ProjectReference>
