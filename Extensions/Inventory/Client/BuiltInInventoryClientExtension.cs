@@ -18,11 +18,14 @@ using Verse;
 namespace Phinix.InventoryExtension.Client
 {
     [PhinixExtension("builtin.inventory")]
-    public sealed class BuiltInInventoryClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule,
+    public sealed class BuiltInInventoryClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule,
         IInventoryApi, IInventoryRegistrationApi, IInventoryDepositApi, IInventoryReadApi, IInventoryExtractionApi,
         IInventoryReservationApi
     {
         private static BuiltInInventoryClientExtension active;
+        private IClientCompositionScope composition;
+        private InventoryTab tab;
+        private InventorySettingsPanel settingsPanel;
         private readonly Dictionary<string, IInventoryCodec> codecs = new Dictionary<string, IInventoryCodec>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, IInventorySourcePresenter> sourcePresenters = new Dictionary<string, IInventorySourcePresenter>(StringComparer.OrdinalIgnoreCase);
         private readonly object registrationLock = new object();
@@ -37,26 +40,45 @@ namespace Phinix.InventoryExtension.Client
         private IClientWindowService windowService;
         private bool deliveryChoiceOpen;
         private volatile int mainThreadId;
+        private int activationGeneration;
         private string fault;
         private Harmony harmony;
 
         public event EventHandler InventoryChanged;
         public event EventHandler AvailabilityChanged;
 
-        public string ExtensionId => "builtin.inventory";
+        public override string ExtensionId => "builtin.inventory";
         internal static bool IsAttached(InventoryGameComponent component) => active != null && active.attachedSave == component;
         internal static string ExportSnapshot() => FrameworkSerialization.SerializePayload(active.ledger.Export());
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
-            InventorySettingsPanel settingsPanel = new InventorySettingsPanel();
+            if (composition != null) throw new InvalidOperationException("Inventory is already composed.");
+            ExtensionHostContext context = builder.HostContext;
+            composition = context.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+            {
+                // The registry owns this facade and the host owns these services.
+                local.Borrow(this);
+                local.Borrow(context.GetRequiredService<IClientSettingsContext>());
+                local.Borrow(context.GetRequiredService<IClientMainThreadDispatcher>());
+                local.Borrow(context.GetRequiredService<IClientShellEventStream>());
+                local.Borrow(context.GetRequiredService<IClientWindowService>());
+                local.Register<InventoryTab, InventoryTab>();
+                local.Register<InventorySettingsPanel, InventorySettingsPanel>();
+            });
+            tab = composition.Resolve<InventoryTab>();
+            settingsPanel = composition.Resolve<InventorySettingsPanel>();
+            settings = composition.Resolve<IClientSettingsContext>();
+            dispatcher = composition.Resolve<IClientMainThreadDispatcher>();
+            shellEvents = composition.Resolve<IClientShellEventStream>();
+            windowService = composition.Resolve<IClientWindowService>();
             builder.RegisterApi<IInventoryApi>(this);
             builder.RegisterApi<IInventoryRegistrationApi>(this);
             builder.RegisterApi<IInventoryDepositApi>(this);
             builder.RegisterApi<IInventoryReadApi>(this);
             builder.RegisterApi<IInventoryExtractionApi>(this);
             builder.RegisterApi<IInventoryReservationApi>(this);
-            builder.RegisterApi<IMainTabProvider>(new InventoryTab(this));
+            builder.RegisterApi<IMainTabProvider>(tab);
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanel);
             builder.RegisterApi<IClientQuickSettingsPanelProvider>(settingsPanel);
         }
@@ -64,17 +86,14 @@ namespace Phinix.InventoryExtension.Client
         public void Activate(ExtensionHostContext hostContext)
         {
             host = hostContext;
-            settings = hostContext.GetRequiredService<IClientSettingsContext>();
             active = this;
+            int generation = Interlocked.Increment(ref activationGeneration);
             harmony = new Harmony("phinix.inventory.save-identity");
             harmony.PatchAll(Assembly.GetExecutingAssembly());
-            dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
-            shellEvents = hostContext.GetRequiredService<IClientShellEventStream>();
-            windowService = hostContext.GetRequiredService<IClientWindowService>();
             shellEvents.MainWindowOpened += OnMainWindowOpened;
             dispatcher.Enqueue(() =>
             {
-                if (!ReferenceEquals(active, this)) return;
+                if (!ReferenceEquals(active, this) || generation != activationGeneration) return;
                 BindGameMainThread();
                 if (Current.Game != null)
                 {
@@ -86,25 +105,45 @@ namespace Phinix.InventoryExtension.Client
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
-            journal?.Dispose();
+            // Invalidate queued work before releasing any owned resource.
+            Interlocked.Increment(ref activationGeneration);
+            if (active == this) active = null;
+            var failures = new List<Exception>();
+            InventoryJournal oldJournal = journal;
             journal = null;
             attachedSave = null;
             attachedIdentity = null;
+            ledger.Restore(new InventoryState());
+            fault = null;
+            Release(() => oldJournal?.Dispose(), failures);
             codecs.Clear();
             sourcePresenters.Clear();
-            harmony?.UnpatchAll("phinix.inventory.save-identity");
+            Harmony oldHarmony = harmony;
             harmony = null;
+            Release(() => oldHarmony?.UnpatchAll("phinix.inventory.save-identity"), failures);
             InventorySaveIdentityPatch.Clear();
-            if (active == this) active = null;
             mainThreadId = 0;
             dispatcher = null;
-            if (shellEvents != null) shellEvents.MainWindowOpened -= OnMainWindowOpened;
+            IClientShellEventStream oldShell = shellEvents;
             shellEvents = null;
+            Release(() => { if (oldShell != null) oldShell.MainWindowOpened -= OnMainWindowOpened; }, failures);
             windowService = null;
             deliveryChoiceOpen = false;
             host = null;
             settings = null;
-            RaiseAvailabilityChanged();
+            Release(RaiseAvailabilityChanged, failures);
+            IClientCompositionScope oldComposition = composition;
+            composition = null;
+            tab = null;
+            settingsPanel = null;
+            Release(() => oldComposition?.Dispose(), failures);
+            if (failures.Count != 0) throw new AggregateException("Inventory shutdown failed.", failures);
+        }
+
+        private static void Release(Action release, List<Exception> failures)
+        {
+            try { release(); }
+            catch (Exception error) { failures.Add(error); }
         }
 
         private void OnMainWindowOpened(object sender, EventArgs args)
@@ -142,12 +181,44 @@ namespace Phinix.InventoryExtension.Client
                 Attach(component);
                 return;
             }
+            int generation = activationGeneration;
             dispatcher.Enqueue(() =>
             {
-                if (!ReferenceEquals(active, this)) return;
+                if (!ReferenceEquals(active, this) || generation != activationGeneration) return;
                 BindGameMainThread();
                 Attach(component);
             });
+        }
+
+        internal static void ObserveGameLifetime()
+        {
+            BuiltInInventoryClientExtension module = active;
+            if (module == null) return;
+            module.BindGameMainThread();
+            Game game = Current.Game;
+            module.SynchronizeGame(game);
+            InventoryGameComponent component = InventoryGameComponent.Current;
+            if (module.attachedSave == null && component != null && component.Initialized &&
+                InventoryGameComponent.BelongsTo(component, game)) module.Attach(component);
+        }
+
+        private void SynchronizeGame(Game game)
+        {
+            if (attachedSave == null || InventoryGameComponent.BelongsTo(attachedSave, game)) return;
+            InventoryJournal oldJournal = journal;
+            journal = null;
+            attachedSave = null;
+            attachedIdentity = null;
+            fault = null;
+            // Durable transactions remain in the old journal; never carry its display state into another game.
+            ledger.Restore(new InventoryState());
+            try { oldJournal?.Dispose(); }
+            catch (Exception error) { host?.Log?.Invoke("[Inventory] Save journal release failed: " + error, LogLevel.ERROR); }
+            finally
+            {
+                RaiseInventoryChanged();
+                RaiseAvailabilityChanged();
+            }
         }
 
         private void BindGameMainThread()
@@ -157,6 +228,7 @@ namespace Phinix.InventoryExtension.Client
 
         private void Attach(InventoryGameComponent component)
         {
+            if (!ReferenceEquals(active, this) || !InventoryGameComponent.BelongsTo(component, Current.Game)) return;
             string identity = ResolveSaveIdentity();
             if (component == null || (component == attachedSave && identity == attachedIdentity && journal != null)) return;
             journal?.Dispose();
@@ -691,9 +763,17 @@ namespace Phinix.InventoryExtension.Client
             return TryExtract(entryId, Math.Min(entry.Quantity, maximumStack), out reason);
         }
 
+        private bool CanReviewRecovery()
+        {
+            return ReferenceEquals(active, this) && mainThreadId != 0 &&
+                Thread.CurrentThread.ManagedThreadId == mainThreadId &&
+                InventoryGameComponent.BelongsTo(attachedSave, Current.Game) &&
+                string.Equals(attachedIdentity, ResolveSaveIdentity(), StringComparison.Ordinal);
+        }
+
         internal bool ApproveRecovery()
         {
-            if (journal == null || journal.Faulted || !journal.HasPendingRecovery) return false;
+            if (!CanReviewRecovery() || journal == null || journal.Faulted || !journal.HasPendingRecovery) return false;
             InventoryState recovered = journal.ApproveRecovery();
             if (recovered == null) return false;
             ledger.Restore(recovered);
@@ -704,7 +784,7 @@ namespace Phinix.InventoryExtension.Client
 
         internal bool RejectRecovery()
         {
-            bool rejected = journal != null && !journal.Faulted && journal.HasPendingRecovery && journal.RejectRecovery();
+            bool rejected = CanReviewRecovery() && journal != null && !journal.Faulted && journal.HasPendingRecovery && journal.RejectRecovery();
             if (rejected) RaiseAvailabilityChanged();
             return rejected;
         }
@@ -744,7 +824,7 @@ namespace Phinix.InventoryExtension.Client
             InventoryStatus status = new InventoryStatus();
             if (active != this || mainThreadId == 0)
                 status.Availability = InventoryAvailability.Inactive;
-            else if (Current.Game == null || attachedSave == null || string.IsNullOrEmpty(attachedIdentity) ||
+            else if (!InventoryGameComponent.BelongsTo(attachedSave, Current.Game) || string.IsNullOrEmpty(attachedIdentity) ||
                 !File.Exists(attachedIdentity))
                 status.Availability = InventoryAvailability.UnsavedGame;
             else if (!string.IsNullOrEmpty(Fault) || journal == null || journal.Faulted)
@@ -826,7 +906,7 @@ namespace Phinix.InventoryExtension.Client
             reason = null;
             if (mainThreadId == 0 || Thread.CurrentThread.ManagedThreadId != mainThreadId)
                 reason = "Inventory operations must run on the game main thread.";
-            else if (Current.Game == null || attachedSave == null || !ReferenceEquals(attachedSave, InventoryGameComponent.Current))
+            else if (Current.Game == null || attachedSave == null || !InventoryGameComponent.BelongsTo(attachedSave, Current.Game))
                 reason = "No inventory save is attached.";
             else if (!string.Equals(attachedIdentity, ResolveSaveIdentity(), StringComparison.Ordinal))
                 reason = "Save file changed; reload before using inventory.";

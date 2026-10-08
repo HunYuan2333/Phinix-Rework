@@ -1,12 +1,12 @@
-# DLL 语言文件 Playtest 1.3.0（已公开测试版）
+# DLL 语言文件 Playtest 1.4.0（已公开测试版）
 
 上线前清理：Playtest 仅作为独立开发测试插件，不出现在正式 index。下文旧测试源说明属于历史记录，新开发测试仅使用 Common/Extensions 直接子文件夹中的完整 bundle；已有托管安装仍由扩展管理操作。
 
 目录补充：支持 `Common/Extensions/<任意插件目录>/DLL + 伴随清单 + Resources`，可以直接复制整个样例文件夹；只发现一级插件目录，不递归载入 Resources/deep 下的 DLL。Resources 中按包 ID 分隔的现有路径保持原样。已展开的旧样例文件不要同时保留。
 
-[English](README.md)。1.3.0 已改用宿主 `IClientLocalizationService`，不再内嵌中英词典。包含 DLL 和 `Resources/Localization/en-US.json`、`zh-CN.json`：文件中的 display 供下一批发布工具提取，strings 已用于 Tab/按钮/确认框/计数结果。任一语言单独存在也合法，缺译按宿主统一规则回退。游戏切换语言时，已有 Tab 使用新语言，无须重装。
+[English](README.md)。1.4.0 已改用宿主 `IClientLocalizationService`，不再内嵌中英词典。包含 DLL 和 `Resources/Localization/en-US.json`、`zh-CN.json`：文件中的 display 供下一批发布工具提取，strings 已用于 Tab/按钮/确认框/计数结果。任一语言单独存在也合法，缺译按宿主统一规则回退。游戏切换语言时，已有 Tab 使用新语言，无须重装。
 
-1.3.0 已公开发布并更新 staging 的 phinix.managed 目录；ZIP 从 GitHub 回读核对通过，远端链路验证见发布记录。原公开 1.2.1 游戏安装到卸载已获用户验收；1.3.0 的游戏语言验证仍待进行。契约程序集已升为 1.7.0，必须重编主体与随包插件；旧 1.2.x 的 1.6.0 CLR 引用不会自动改写。语言文件完整纳入清单长度/SHA-256，安装和启动都校验，单独修改已安装 JSON 会被拒绝。
+1.4.0 已公开发布并更新 staging 的 phinix.managed 目录；ZIP 从 GitHub 回读核对通过，远端链路验证见发布记录。原公开 1.2.1 游戏安装到卸载已获用户验收；1.4.0 的游戏语言验证仍待进行。契约程序集已升为 1.7.0，必须重编主体与随包插件；旧 1.2.x 的 1.6.0 CLR 引用不会自动改写。语言文件完整纳入清单长度/SHA-256，安装和启动都校验，单独修改已安装 JSON 会被拒绝。
 
 ## 构建和打包
 
@@ -22,11 +22,11 @@ dotnet build Extensions/PluginStore/Tools/ManagedPackageTool/ManagedPackageTool.
 
 dotnet Extensions/PluginStore/Tools/ManagedPackageTool/bin/Release/net10.0/ManagedPackageTool.dll \
   --assembly Extensions/PluginStore/Samples/Playtest/bin/Release/net472/Phinix.Store.Playtest.dll \
-  --package-id phinix.poc.playtest --name 'Phinix Store Playtest' --version 1.3.0 \
+  --package-id phinix.poc.playtest --name 'Phinix Store Playtest' --version 1.4.0 --abstractions-range ">=1.9.0 <2.0.0" \
   --language-file Extensions/PluginStore/Samples/Playtest/Resources/Localization/en-US.json \
   --language-file Extensions/PluginStore/Samples/Playtest/Resources/Localization/zh-CN.json \
-  --output /tmp/phinix-managed-playtest-1.3.0.zip \
-  --bundle-output /tmp/phinix-playtest-localization-bundle-1.3.0 \
+  --output /tmp/phinix-managed-playtest-1.4.0.zip \
+  --bundle-output /tmp/phinix-playtest-localization-bundle-1.4.0 \
   --host-assembly "$PHINIX_LOCALIZATION_GAME_REFS/mscorlib.dll" \
   --host-assembly "$PHINIX_LOCALIZATION_GAME_REFS/Assembly-CSharp.dll" \
   --host-assembly "$PHINIX_LOCALIZATION_GAME_REFS/UnityEngine.CoreModule.dll" \
@@ -40,15 +40,15 @@ dotnet Extensions/PluginStore/Tools/ManagedPackageTool/bin/Release/net10.0/Manag
 
 ## 先做本地游戏验证
 
-完整退出游戏。通过扩展管理卸载旧托管 Playtest 并重启确认移除，取走之前的本地 Mod/随包样例；同一模块不能同时存在两份。保持计数/存档数据，无须删除。远端 phinix.managed 现提供 1.3.0。先取走整个手动随包测试目录并重启，再从商店安装，不要保留重复 DLL。
+完整退出游戏。通过扩展管理卸载旧托管 Playtest 并重启确认移除，取走之前的本地 Mod/随包样例；同一模块不能同时存在两份。保持计数/存档数据，无须删除。远端 phinix.managed 现提供 1.4.0。先取走整个手动随包测试目录并重启，再从商店安装，不要保留重复 DLL。
 
 把完整新主体 Output/phinix-rework 部署到实际使用的 Mod 目录。若游戏直接使用这个 Output，以下命令将已准备的普通随包候选复制进去（文件存在就停止）：
 
 ```sh
 cd /home/hunyuan2333/Phinix/Phinix-Rework
 test ! -e Output/phinix-rework/Common/Extensions/Phinix.Store.Playtest.dll && \
-  test ! -e Output/phinix-rework/Common/Extensions/phinix-playtest-localization-bundle-1.3.0 && \
-  cp -R /tmp/phinix-playtest-localization-bundle-1.3.0 Output/phinix-rework/Common/Extensions/
+  test ! -e Output/phinix-rework/Common/Extensions/phinix-playtest-localization-bundle-1.4.0 && \
+  cp -R /tmp/phinix-playtest-localization-bundle-1.4.0 Output/phinix-rework/Common/Extensions/
 ```
 
 1. 中文启动后见“商店测试”，按钮/简介/确认框/计数为中文，计数和 100 白银仍正常；仅用测试存档。
@@ -62,7 +62,7 @@ test ! -e Output/phinix-rework/Common/Extensions/Phinix.Store.Playtest.dll && \
 
 ```sh
 mkdir -p /tmp/phinix-playtest-localization-test-extensions
-cp -R /tmp/phinix-playtest-localization-bundle-1.3.0 /tmp/phinix-playtest-localization-test-extensions/
+cp -R /tmp/phinix-playtest-localization-bundle-1.4.0 /tmp/phinix-playtest-localization-test-extensions/
 dotnet build Extensions/PluginStore/Samples/Playtest/tests/RegistryCheck.csproj --configuration Release -p:BuildInParallel=false -p:NuGetAudit=false -m:1
 MONO_PATH=/usr/lib/mono/4.5:/mnt/data/SteamLibrary/steamapps/common/RimWorld/RimWorldLinux_Data/Managed \
   mono Extensions/PluginStore/Samples/Playtest/tests/bin/Release/net472/RegistryCheck.exe \
@@ -71,6 +71,10 @@ MONO_PATH=/usr/lib/mono/4.5:/mnt/data/SteamLibrary/steamapps/common/RimWorld/Rim
 
 系统 Mono 先用系统 BCL；不能直接把游戏的 mscorlib 优先放入 Mono 搜索路径。检查会真实发现/注册/激活样例，读取中英 JSON、切换并回退、关闭资源；不调用游戏 UI 或白银操作，不能代替游戏验收。详见 [实现验证记录](../../../../docs/branch-local/dev/plugin-store/本地化实现与验证.md)。
 
-## 远端 1.3.0 测试
+## 远端 1.4.0 测试
 
-[Release](https://github.com/HunYuan2333/Phinix-PluginStore-PoC/releases/tag/v1.3.0)。入口 https://plugins-staging.hunyuan2333.com，sourceId phinix.managed，刷新后选择 1.3.0。当前目录仍为 v2，商店多语言简介/changelog 的 v3 展示尚未交付；包内 UI 语言已经通过宿主应用。安装后检查每插件文件夹中的 DLL/两份语言，再重启检查中文/英文/缺译回退、关闭商店后翻译、启停/卸载。
+[Release](https://github.com/HunYuan2333/Phinix-PluginStore-PoC/releases/tag/v1.4.0)。入口 https://plugins-staging.hunyuan2333.com，sourceId phinix.managed，刷新后选择 1.4.0。当前目录仍为 v2，商店多语言简介/changelog 的 v3 展示尚未交付；包内 UI 语言已经通过宿主应用。安装后检查每插件文件夹中的 DLL/两份语言，再重启检查中文/英文/缺译回退、关闭商店后翻译、启停/卸载。
+
+## F4-B Compose 候选
+
+当前源码继承 ClientExtensionModule 并覆写 Compose。模块持有 scope 装配普通服务，构造被动，Activate 开始本地化，Shutdown 释放 scope；宿主设置和日志为借用依赖。最低客户端抽象 1.9，须更新完整匹配主包。设置键、回调代次及游戏操作保留。候选版本 Example 1.0.3 / Playtest 1.4.0，尚未发布；历史 Package/ 及固定发布包不改。打包工具支持 --abstractions-range，本轮新入口应声明 >=1.9.0 <2.0.0。

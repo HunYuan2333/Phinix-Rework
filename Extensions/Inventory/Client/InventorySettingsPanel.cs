@@ -6,6 +6,8 @@ namespace Phinix.InventoryExtension.Client
 {
     internal sealed class InventorySettingsPanel : IClientSettingsPanelProvider, IClientQuickSettingsPanelProvider
     {
+        public InventorySettingsPanel() { }
+
         private float cachedWidth = -1f;
         private object cachedLanguage;
         private string title;

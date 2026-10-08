@@ -6,7 +6,7 @@ using Verse;
 
 namespace Phinix.TradeExtension.Client
 {
-    public class TradeMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider
+    public class TradeMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, System.IDisposable
     {
         private static readonly UiLayoutHints CachedLayoutHints = new UiLayoutHints(
             new Vector2(360f, 260f),
@@ -24,6 +24,8 @@ namespace Phinix.TradeExtension.Client
             this.hostContext = hostContext;
             tradeList = new TradeList(hostContext);
         }
+
+        public void Dispose() { tradeList.Dispose(); }
 
         public void Draw(Rect inRect)
         {

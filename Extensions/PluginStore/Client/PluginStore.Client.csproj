@@ -22,9 +22,9 @@
     <Compile Include="PackageModels.cs" />
     <Compile Include="CatalogReader.cs" />
     <Compile Include="ManagedStoreCatalog.cs" />
-    <Compile Include="ManagedStoreLocalGate.cs" />
     <Compile Include="ManagedStorePlanner.cs" />
     <Compile Include="ManagedStoreController.cs" />
+    <Compile Include="StoreEnvironmentRefresh.cs" />
     <Compile Include="ManagedStoreOperation.cs" />
     <Compile Include="ManagedStoreListing.cs" />
     <Compile Include="ManagedRepositoryCache.cs" />
@@ -50,6 +50,7 @@
     <Compile Include="DependencyPlanner.cs" />
     <Compile Include="StoreEnvironmentAdapter.cs" />
     <Compile Include="PluginStoreClientExtension.cs" />
+    <Compile Include="StoreActivationServices.cs" />
     <Compile Include="PluginStoreSettingsPanel.cs" />
     <Compile Include="PluginStoreWindow.cs" />
     <Compile Include="PluginStoreMainTabProvider.cs" />

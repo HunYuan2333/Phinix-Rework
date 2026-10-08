@@ -19,7 +19,7 @@
 需要 .NET 10、含本地化支持的 Phinix-Rework 开发检出、自备 RimWorld 1.6 参考。1.0.0 基于 Assembly-CSharp 1.6.9676.18020 / ClientExtensionAbstractions 1.7.0，不分发参考 DLL。
 
 ```sh
-python3 pack.py --phinix-root /absolute/Phinix-Rework --game-references /absolute/RimWorld/Managed --output /absolute/new-output/phinix-example-basic-1.0.2.zip
+python3 pack.py --phinix-root /absolute/Phinix-Rework --game-references /absolute/RimWorld/Managed --output /absolute/new-output/phinix-example-basic-1.0.3.zip
 ```
 
 可选 --bundle-output /absolute/new-folder 生成开发文件夹。商店安装前移走手工副本避免重复。包/模块 ID 为 phinix.example.basic，程序集 Phinix.Example.Basic，不迁移旧 Playtest 身份和计数。
@@ -35,3 +35,7 @@ python3 pack.py --phinix-root /absolute/Phinix-Rework --game-references /absolut
 1.0.0 已在正式商店上架，完整正规流程为[申请 #15](https://github.com/HunYuan2333/Phinix-Plugin-Index/issues/15) → [证据 PR #16](https://github.com/HunYuan2333/Phinix-Plugin-Index/pull/16) → [自动发布成功](https://github.com/HunYuan2333/Phinix-Plugin-Index/actions/runs/37335979507)。GitHub 与 CF 下载已核对相同 SHA-256。尚需按照上方清单进行人工游戏验收。
 
 设置区内部 ID 用于注册，示例通过自身本地化服务显示标题；新版 host 不会将未翻译的内部 ID 当作玩家标题。
+
+## F4-B Compose 候选
+
+当前源码继承 ClientExtensionModule 并覆写 Compose。模块持有 scope 装配普通服务，构造被动，Activate 开始本地化，Shutdown 释放 scope；宿主设置和日志为借用依赖。最低客户端抽象 1.9，须更新完整匹配主包。设置键、回调代次及游戏操作保留。候选版本 Example 1.0.3 / Playtest 1.4.0，尚未发布；历史 Package/ 及固定发布包不改。打包工具支持 --abstractions-range，本轮新入口应声明 >=1.9.0 <2.0.0。

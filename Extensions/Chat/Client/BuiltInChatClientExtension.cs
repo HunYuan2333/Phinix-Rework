@@ -227,46 +227,51 @@ namespace Phinix.ChatExtension.Client
                 compatibilityChangedHandler = (_, args) =>
                 {
                     if (!active) return;
-                    connectionEstablishedTime = Time.realtimeSinceStartup;
+                    int callback = System.Threading.Volatile.Read(ref callbackGeneration);
+                    dispatcher.Enqueue(() =>
+                    {
+                        if (!active || callback != System.Threading.Volatile.Read(ref callbackGeneration)) return;
+                        connectionEstablishedTime = Time.realtimeSinceStartup;
 
-                    if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
-                    {
-                        if (sessionContext.Authenticated &&
-                            sessionContext.LoggedIn &&
-                            frameworkClient.HasRemoteCapability(FrameworkChatProtocol.HistoryRequestType))
+                        if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
                         {
-                            FrameworkPacket historyRequest = chatApi.CreateHistoryRequestPacket(
-                                sessionContext.SessionId,
-                                sessionContext.Uuid);
-                            commandTransport.TryHandleOutgoingCommand(historyRequest);
+                            if (sessionContext.Authenticated &&
+                                sessionContext.LoggedIn &&
+                                frameworkClient.HasRemoteCapability(FrameworkChatProtocol.HistoryRequestType))
+                            {
+                                FrameworkPacket historyRequest = chatApi.CreateHistoryRequestPacket(
+                                    sessionContext.SessionId,
+                                    sessionContext.Uuid);
+                                commandTransport.TryHandleOutgoingCommand(historyRequest);
+                            }
                         }
-                    }
-                    else if (args.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
-                    {
-                        int generation = System.Threading.Volatile.Read(ref callbackGeneration);
-                        Game game = Current.Game;
-                        dispatcher.Enqueue(() =>
+                        else if (args.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
                         {
-                            if (!active || generation != System.Threading.Volatile.Read(ref callbackGeneration)
-                                || !ReferenceEquals(Current.Game, game)) return;
-                            try
+                            int generation = System.Threading.Volatile.Read(ref callbackGeneration);
+                            Game game = Current.Game;
+                            dispatcher.Enqueue(() =>
                             {
-                                // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
-                                LetterDef letterDef = DefDatabase<LetterDef>.GetNamedSilentFail("TradeCreated");
-                                if (letterDef != null && Find.LetterStack != null)
+                                if (!active || generation != System.Threading.Volatile.Read(ref callbackGeneration)
+                                    || !ReferenceEquals(Current.Game, game)) return;
+                                try
                                 {
-                                    Find.LetterStack.ReceiveLetter(
-                                        "Phinix_chat_legacyModeLetter_label".Translate(),
-                                        "Phinix_chat_legacyModeLetter_description".Translate(),
-                                        letterDef);
+                                    // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
+                                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamedSilentFail("TradeCreated");
+                                    if (letterDef != null && Find.LetterStack != null)
+                                    {
+                                        Find.LetterStack.ReceiveLetter(
+                                            "Phinix_chat_legacyModeLetter_label".Translate(),
+                                            "Phinix_chat_legacyModeLetter_description".Translate(),
+                                            letterDef);
+                                    }
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                hostLog?.Invoke($"Failed to raise legacy-mode chat letter: {ex.Message}", LogLevel.WARNING);
-                            }
-                        });
-                    }
+                                catch (Exception ex)
+                                {
+                                    hostLog?.Invoke($"Failed to raise legacy-mode chat letter: {ex.Message}", LogLevel.WARNING);
+                                }
+                            });
+                        }
+                    });
                 };
             }
 

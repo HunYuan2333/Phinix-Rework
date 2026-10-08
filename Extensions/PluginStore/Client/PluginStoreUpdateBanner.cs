@@ -5,8 +5,11 @@ using Verse;
 
 namespace Phinix.PluginStore
 {
-    internal sealed class PluginStoreUpdateBanner : INoticeBannerProvider
+    internal sealed class PluginStoreUpdateBanner : INoticeBannerProvider, System.IDisposable
     {
+        public PluginStoreUpdateBanner() { }
+        public void Dispose() { Stop(); }
+
         private ManagedStoreController controller;
         private Action open;
         private bool dismissed;

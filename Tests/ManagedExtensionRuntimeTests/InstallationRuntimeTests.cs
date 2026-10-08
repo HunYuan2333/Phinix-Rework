@@ -53,6 +53,16 @@ internal static partial class Program
                 Assert(audit.Contains("\"requiredReference\":\"Utils, Version=0.9.7.0") && audit.Contains("\"availableReferences\":[\"Utils, Version=0.9.6.0") && !audit.Contains(wrongPaths.RootDirectory),"Host reference audit is correlated and excludes local paths");
             }
 
+            bool pathRejected=false;
+            try { ManagedExtensionInstallationRecovery.ValidateFilePath(Path.Combine(root,new string('a',256)),false); }
+            catch(ManagedExtensionValidationException ex) { pathRejected=ex.Code=="ManagedInstallPathTooLong"; }
+            Assert(pathRejected,"Unsupported filesystem components receive an explicit failure.");
+            var familyFacts=new ManagedExtensionHostFacts("1.6","0.9.7","1.5.0",differentReferences,facts.ModuleIds,facts.ModuleIds,facts.ActiveModIds,
+                null,new[]{new ManagedHostReferenceRule("Utils",ManagedHostReferenceVersionPolicy.SameReleaseFamily)});
+            using(var runtime=EmptyRuntime(new ManagedExtensionPaths(Path.Combine(root,"injected-policy")),familyFacts,logs))
+                Assert(runtime.Install(InstallationRequest(files),new string[0],CancellationToken.None).Succeeded,
+                    "Host-injected reference policy survives installation preflight facts rebuilding.");
+
             var providerFiles=new Dictionary<string,byte[]> {{"Assemblies/Fixture.Managed.Provider.dll",File.ReadAllBytes(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"Fixtures","Fixture.Managed.Provider.dll"))}};
             string providerJson=Manifest(providerFiles,"test.provider");
             providerJson=providerJson.Substring(0,providerJson.IndexOf("\"modules\":[",StringComparison.Ordinal))+"\"modules\":[{\"id\":\"test.provider\",\"assemblyName\":\"Fixture.Managed.Provider\",\"entryType\":\"Fixture.Managed.Provider\",\"dependsOn\":[]}]}";
@@ -127,6 +137,36 @@ internal static partial class Program
                     Assert(!Directory.EnumerateFileSystemEntries(canceled.TransactionsDirectory).Any(),"Clean cancellation/completion leaves no journal at "+point);
                 }
             }
+            foreach(string point in new[]{"package-staged","commit-decided"})
+            {
+                var legacy=new ManagedExtensionPaths(Path.Combine(root,"legacy-layout-"+point)); string operation;
+                using(var runtime=EmptyRuntime(legacy,facts,logs))
+                {
+                    runtime.InstallationFault=p=>{if(p==point) throw new Crash();};
+                    operation=runtime.Install(InstallationRequest(files),new string[0],CancellationToken.None).TransactionId;
+                }
+                string work=Path.Combine(legacy.TransactionsDirectory,"in-"+operation);
+                Directory.Move(Path.Combine(work,"stage","p0"),Path.Combine(work,"stage",ManagedExtensionPaths.PackageKey("test.source","test.package")));
+                string journalPath=work+".json";
+                File.WriteAllText(journalPath,File.ReadAllText(journalPath).Replace("\"schemaVersion\":2","\"schemaVersion\":1"),new System.Text.UTF8Encoding(false));
+                using(var lease=ManagedExtensionLease.Acquire(legacy))
+                {
+                    Assert(ManagedExtensionInstallationRecovery.Recover(legacy,(c,r)=>{},CancellationToken.None).Count==0,"Legacy v1 transaction layout recovers: "+point);
+                    Assert(ManagedExtensionInventoryReader.Read(legacy,CancellationToken.None).Packages.Count==(point=="commit-decided"?1:0),"Legacy decision boundary remains authoritative: "+point);
+                }
+            }
+            // The reported Windows root allows a final path, but the old staged file
+            // exceeds MAX_PATH. Compact v2 staging removes the duplicated 68-char key.
+            string windowsRoot=@"C:\Users\Example User\AppData\LocalLow\Ludeon Studios\RimWorld by Ludeon Studios\Phinix\ManagedExtensions";
+            string tail=@"\Assemblies\LegacyRedPacketExtension.Client.dll";
+            string oldStage=windowsRoot+@"\transactions\in-"+new string('a',32)+@"\stage\pkg-"+new string('b',64)+tail;
+            string newStage=windowsRoot+@"\transactions\in-"+new string('a',32)+@"\stage\p0"+tail;
+            bool windowsRejected=false;
+            try { ManagedExtensionInstallationRecovery.ValidateFilePath(oldStage,true); }
+            catch(ManagedExtensionValidationException ex) { windowsRejected=ex.Code=="ManagedInstallPathTooLong"; }
+            Assert(windowsRejected,"Windows legacy path limit is checked before storage writes.");
+            ManagedExtensionInstallationRecovery.ValidateFilePath(newStage,true);
+            Assert(oldStage.Length>=260 && newStage.Length<260,"Reported Windows path shape fits MAX_PATH with compact staging.");
             foreach(string mode in new[]{"unknown-work","changed-stage","changed-journal","target-conflict"})
             {
                 var guarded=new ManagedExtensionPaths(Path.Combine(root,mode)); string operation;
@@ -138,7 +178,7 @@ internal static partial class Program
                 string work=Path.Combine(guarded.TransactionsDirectory,"in-"+operation);
                 string sentinel=mode=="target-conflict"?Path.Combine(guarded.GetPackageDirectory("test.source","test.package"),"keep.txt"):
                     mode=="changed-journal"?work+".json":mode=="unknown-work"?Path.Combine(work,"unknown.txt"):
-                    Path.Combine(work,"stage",ManagedExtensionPaths.PackageKey("test.source","test.package"),"Assemblies/Fixture.Managed.Plugin.dll");
+                    Path.Combine(work,"stage","p0","Assemblies/Fixture.Managed.Plugin.dll");
                 Directory.CreateDirectory(Path.GetDirectoryName(sentinel)); File.AppendAllText(sentinel,"preserve"); byte[] before=File.ReadAllBytes(sentinel);
                 using(var lease=ManagedExtensionLease.Acquire(guarded))
                 {

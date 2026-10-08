@@ -88,7 +88,7 @@ namespace Phinix.PluginStore
             }, token => { staged.Commit(token); audit.Event("repository.cache_committed"); }, endpoint, true,
                 () => { try { staged?.Dispose(); audit.Event("repository.cleanup_complete"); }
                     catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-                    { audit.Event("repository.cleanup_failed", reason: "CacheCleanupFailed"); } }, audit);
+                    { audit.Failure("repository.cleanup_failed","CacheCleanup",ex,"CacheCleanupFailed"); } }, audit);
         }
 
         public Task ReadCachedRepository(RepositoryEndpoint endpoint, string extensionDataDirectory)
@@ -275,6 +275,8 @@ namespace Phinix.PluginStore
 
         private async Task RunWorker(long ticket, CancellationTokenSource source, Func<CancellationToken, Task<StoreBrowserSnapshot>> work, Action<CancellationToken> commit, Action cleanup, RepositoryDiagnostics audit, int timeout, bool criticalCommit, StoreBrowserState operation)
         {
+            audit=audit??new RepositoryDiagnostics(repositoryLog);
+            audit.Operation=operation.ToString();
             Task<StoreBrowserSnapshot> worker = Task.Run(() => work(source.Token));
             Task deadline = Task.Delay(timeout, source.Token);
             try
@@ -339,19 +341,17 @@ namespace Phinix.PluginStore
                 if (validation == null && (operation == StoreBrowserState.Installing || operation == StoreBrowserState.Managing) &&
                     (ex is IOException || ex is UnauthorizedAccessException))
                     validation = new StoreValidationException("InstallationStorageFailed", "Filesystem operation failed. Use refresh/recovery before retrying; ownership records and uncertain files were preserved.", ex);
-                audit?.Event("repository.task_failed", reason: validation?.Code ?? "StoreOperationFailed", requestId: validation?.RequestId);
+                var failure=audit.Failure("repository.task_failed",operation.ToString(),validation??ex);
                 lock (gate)
                     if (!disposed && generation == ticket)
-                    { running = null; Publish(StoreBrowserState.Failed, snapshot.Catalog, null, validation?.Code ?? "StoreOperationFailed", (validation?.Message ?? ex.Message) + (validation?.RequestId == null ? "" : "\nRequest ID: " + validation.RequestId),
-                        validation?.RequestId == null ? ex.ToString() : validation.Code + " requestId=" + validation.RequestId); }
+                    { running = null; Publish(StoreBrowserState.Failed, snapshot.Catalog, null, failure.Code,failure.Diagnostic,failure.Diagnostic); }
             }
             finally
             {
                 try { cleanup?.Invoke(); }
                 catch (Exception ex)
                 {
-                    var validation = ex as StoreValidationException;
-                    audit?.Event("install.cleanup_failed", reason: validation?.Code ?? "InstallationCleanupFailed");
+                    audit.Failure("install.cleanup_failed",operation.ToString(),ex,"InstallationCleanupFailed");
                     lock (gate) if (!disposed && generation == ticket)
                         Publish(snapshot.State, snapshot.Catalog, snapshot.Plan, "InstallationCleanupRequired",
                             "Temporary cleanup failed; unknown files were preserved. Inspect the installation audit transaction before retrying.", repository: snapshot.Repository);

@@ -19,7 +19,7 @@ Install Phinix Example Plugin from the official store and restart. Open Example,
 Requires .NET 10, a Phinix-Rework development checkout with localization support and your own RimWorld 1.6 references. Release 1.0.0 targets Assembly-CSharp 1.6.9676.18020 and ClientExtensionAbstractions 1.7.0. Never distribute reference DLLs.
 
 ```sh
-python3 pack.py --phinix-root /absolute/Phinix-Rework --game-references /absolute/RimWorld/Managed --output /absolute/new-output/phinix-example-basic-1.0.2.zip
+python3 pack.py --phinix-root /absolute/Phinix-Rework --game-references /absolute/RimWorld/Managed --output /absolute/new-output/phinix-example-basic-1.0.3.zip
 ```
 
 Optional `--bundle-output /absolute/new-folder` produces a developer bundle. Remove manual duplicates before a store installation. Package/module ID: phinix.example.basic; assembly: Phinix.Example.Basic. Old Playtest settings/identity are not migrated.
@@ -35,3 +35,7 @@ Playtest remains a separate developer fixture and is excluded from the official 
 Version 1.0.0 is available from the official store. The complete normal route is [submission #15](https://github.com/HunYuan2333/Phinix-Plugin-Index/issues/15) → [evidence PR #16](https://github.com/HunYuan2333/Phinix-Plugin-Index/pull/16) → [successful automatic publication](https://github.com/HunYuan2333/Phinix-Plugin-Index/actions/runs/37335979507). GitHub and CF downloads were checked against the same SHA-256. Game acceptance remains a manual step; the checklist above covers it.
 
 Technical settings-section IDs identify registrations. This example renders its title through its own localizer; a current host avoids showing untranslated IDs as headings.
+
+## F4-B Compose candidate
+
+This source now derives from ClientExtensionModule and overrides Compose. A module-owned scope registers ordinary services; constructors remain passive, Activate starts localization and Shutdown disposes the scope. Host settings/log services are borrowed. Minimum client abstractions: 1.9; update the complete matching host. Existing settings keys, callback guards and gameplay actions remain unchanged. Candidate versions: Example 1.0.3 / Playtest 1.4.0, not yet published. Historical Package/ files and fixed releases are unchanged. The packager accepts --abstractions-range; specify >=1.9.0 <2.0.0 for these new author entries.

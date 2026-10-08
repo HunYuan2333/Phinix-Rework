@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net472</TargetFramework>
+    <AssemblyName>InventoryRuntimeTests</AssemblyName><LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Run the existing scenarios unchanged with the cross-platform SDK. -->
+    <Compile Include="../Program.cs" Link="Program.cs" />
+    <Compile Include="../InventoryJournalScenarios.cs" Link="InventoryJournalScenarios.cs" />
+    <Reference Include="0Harmony"><HintPath>../../../.nuget/Lib.Harmony.2.3.6/lib/net472/0Harmony.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>../../../GameDlls/Assembly-CSharp.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>../../../GameDlls/UnityEngine.CoreModule.dll</HintPath></Reference>
+    <ProjectReference Include="../../../Extensions/Inventory/Client/InventoryExtension.Client.csproj" />
+    <ProjectReference Include="../../../Extensions/Inventory/Contracts/InventoryExtension.csproj" />
+    <ProjectReference Include="../../../Common/Utils/Utils.csproj" />
+  </ItemGroup>
+</Project>

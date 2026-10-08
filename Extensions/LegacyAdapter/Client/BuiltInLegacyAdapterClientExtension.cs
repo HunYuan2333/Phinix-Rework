@@ -17,7 +17,7 @@ namespace Phinix.LegacyAdapter.Client
     /// </summary>
     [PhinixExtension("builtin.legacy-adapter")]
     public class BuiltInLegacyAdapterClientExtension :
-        IPhinixExtensionModule,
+        ClientExtensionModule,
         IActivatablePhinixExtensionModule,
         IClientMessageHandler,
         IClientCommandHandler,
@@ -34,9 +34,10 @@ namespace Phinix.LegacyAdapter.Client
 
         private LegacyChatProtocolAdapter chatAdapter;
         internal LegacyTradeProtocolAdapter tradeAdapter;
-        private bool legacyHandlersRegistered;
+        private IClientCompositionScope composition;
+        private LegacyAdapterSession session;
 
-        public string ExtensionId => "builtin.legacy-adapter";
+        public override string ExtensionId => "builtin.legacy-adapter";
 
         /// <summary>
         /// Priority=500，高于 Chat(1000) 和 Trade(1100)，
@@ -44,7 +45,7 @@ namespace Phinix.LegacyAdapter.Client
         /// </summary>
         public int Priority => 500;
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
             builder.AddClientMessageHandler(this);
             builder.AddClientCommandHandler(this);
@@ -52,71 +53,59 @@ namespace Phinix.LegacyAdapter.Client
 
         public void Activate(ExtensionHostContext hostContext)
         {
-            legacyTransport = hostContext.GetRequiredService<ILegacyModuleTransport>();
-            lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
-            displaySink = hostContext.GetRequiredService<IDisplayMessageSink>();
-            sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
-            log = hostContext.Log;
-
-            if (!hostContext.ApiRegistry.TryResolve<IFrameworkTradeClientApi>(out tradeApi))
+            if (composition != null) return;
+            try
             {
-                log?.Invoke("[LegacyAdapter] IFrameworkTradeClientApi not registered — legacy trade sync disabled.", LogLevel.WARNING);
-            }
+                legacyTransport = hostContext.GetRequiredService<ILegacyModuleTransport>();
+                lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
+                displaySink = hostContext.GetRequiredService<IDisplayMessageSink>();
+                sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
+                log = hostContext.Log;
 
-            hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeRepositoryApi>(out legacyTradeRepositoryApi);
-            if (!hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeDeliveryApi>(out legacyTradeDeliveryApi))
+                if (!hostContext.ApiRegistry.TryResolve<IFrameworkTradeClientApi>(out tradeApi))
+                {
+                    log?.Invoke("[LegacyAdapter] IFrameworkTradeClientApi not registered — legacy trade sync disabled.", LogLevel.WARNING);
+                }
+
+                hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeRepositoryApi>(out legacyTradeRepositoryApi);
+                if (!hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeDeliveryApi>(out legacyTradeDeliveryApi))
+                {
+                    log?.Invoke("[LegacyAdapter] IFrameworkLegacyTradeDeliveryApi not registered — legacy trade completion disabled.", LogLevel.ERROR);
+                }
+                composition = hostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+                {
+                    local.Borrow(legacyTransport);
+                    local.Borrow(displaySink);
+                    local.Borrow(sessionContext);
+                    local.Borrow(lifecycle);
+                    local.Borrow(new LegacyTradeDependencies
+                    {
+                        Api = tradeApi, Repository = legacyTradeRepositoryApi,
+                        Delivery = legacyTradeDeliveryApi, Log = log
+                    });
+                    local.Register<LegacyAdapterSession, LegacyAdapterSession>();
+                });
+                session = composition.Resolve<LegacyAdapterSession>();
+                chatAdapter = session.Chat;
+                tradeAdapter = session.Trade;
+                session.Start();
+            }
+            catch (Exception error)
             {
-                log?.Invoke("[LegacyAdapter] IFrameworkLegacyTradeDeliveryApi not registered — legacy trade completion disabled.", LogLevel.ERROR);
+                try { Shutdown(hostContext); }
+                catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                throw;
             }
-
-            chatAdapter = new LegacyChatProtocolAdapter(legacyTransport, displaySink, sessionContext);
-            tradeAdapter = new LegacyTradeProtocolAdapter(
-                legacyTransport, displaySink, sessionContext, tradeApi, legacyTradeRepositoryApi, legacyTradeDeliveryApi,
-                lifecycle, hostContext.Log);
-
-            lifecycle.CompatibilityModeChanged += OnCompatibilityModeChanged;
-
-            if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
-                RegisterLegacyHandlers();
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
-            UnregisterLegacyHandlers();
-
-            if (lifecycle != null)
-                lifecycle.CompatibilityModeChanged -= OnCompatibilityModeChanged;
-        }
-
-        private void OnCompatibilityModeChanged(object sender, FrameworkCompatibilityModeChangedEventArgs e)
-        {
-            switch (e.CompatibilityMode)
-            {
-                case FrameworkCompatibilityMode.Legacy:
-                    RegisterLegacyHandlers();
-                    break;
-                default:
-                    UnregisterLegacyHandlers();
-                    break;
-            }
-        }
-
-        private void RegisterLegacyHandlers()
-        {
-            if (legacyHandlersRegistered) return;
-            chatAdapter?.RegisterHandlers();
-            tradeAdapter?.RegisterHandlers();
-            legacyHandlersRegistered = true;
-            log?.Invoke("[LegacyAdapter] Registered legacy protocol handlers (Chat + Trading).", LogLevel.INFO);
-        }
-
-        private void UnregisterLegacyHandlers()
-        {
-            if (!legacyHandlersRegistered) return;
-            chatAdapter?.UnregisterHandlers();
-            tradeAdapter?.UnregisterHandlers();
-            legacyHandlersRegistered = false;
-            log?.Invoke("[LegacyAdapter] Unregistered legacy protocol handlers.", LogLevel.INFO);
+            var owned = composition;
+            composition = null;
+            chatAdapter = null; tradeAdapter = null; session = null;
+            legacyTransport = null; lifecycle = null; displaySink = null; sessionContext = null;
+            tradeApi = null; legacyTradeRepositoryApi = null; legacyTradeDeliveryApi = null; log = null;
+            owned?.Dispose();
         }
 
         // ========== IClientMessageHandler (Chat) ==========
@@ -135,6 +124,8 @@ namespace Phinix.LegacyAdapter.Client
         public ClientOutgoingMessageResult HandleOutgoingText(
             string rawMessage, ClientFrameworkContext context)
         {
+            if (chatAdapter == null)
+                return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Continue };
             log?.Invoke(
                 $"[LegacyAdapter] HandleOutgoingText: sending via legacy Chat protocol, textLen={rawMessage?.Length ?? 0}",
                 LogLevel.DEBUG);

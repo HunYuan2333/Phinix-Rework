@@ -113,6 +113,8 @@ internal static partial class Program
                 Assert(browser.Snapshot.State == StoreBrowserState.CatalogReady && browser.Snapshot.Repository != null && !browser.Snapshot.Repository.Offline, "Remote browser verifies the whole chain and records provenance.");
                 Assert(handler.Paths.Count == 3 && handler.Paths[0] == endpoint.Stable.AbsolutePath && handler.Paths[1] == endpoint.Published(RepositoryMetadata.ReadStable(data.Stable, Source)).AbsolutePath, "First load requests stable, descriptor and catalog through one origin.");
                 Assert(cache.Read(CancellationToken.None).Catalog.Sha256 == Digest(data.Catalog), "Successful background completion persists a fully validated cache.");
+                var initialEntry = cache.Read(CancellationToken.None);
+                CheckCacheStaging(cache.DirectoryPath, cache.FilePath, () => cache.Stage(initialEntry, CancellationToken.None));
                 byte[] acceptedBytes = File.ReadAllBytes(cache.FilePath);
                 CatalogSnapshot accepted = browser.Snapshot.Catalog;
                 var conditional = new MockRepository((r, t) =>

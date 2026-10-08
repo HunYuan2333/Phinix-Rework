@@ -35,6 +35,7 @@ internal static partial class Program
             {
                 var a=await ManagedRepositoryBrowser.Refresh(github,ghCache,gh,CancellationToken.None,true);
                 ghCache.Save(a,CancellationToken.None);
+                CheckCacheStaging(ghCache.DirectoryPath, ghCache.FilePath, () => ghCache.Stage(a, CancellationToken.None));
                 Assert(cfCache.Read(CancellationToken.None).ETag==null,"GitHub ETag is not sent to CF after switching.");
                 var b=await ManagedRepositoryBrowser.Refresh(cf,cfCache,cloud,CancellationToken.None,true);
                 Assert(a.CatalogBytes.SequenceEqual(b.CatalogBytes) && a.PublishedBytes.SequenceEqual(b.PublishedBytes) && a.StableBytes.SequenceEqual(b.StableBytes),"Both adapters return identical publication bytes.");

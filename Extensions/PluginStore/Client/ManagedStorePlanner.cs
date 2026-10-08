@@ -42,14 +42,16 @@ namespace Phinix.PluginStore
         internal ManagedStorePlan Plan(ManagedStoreRecord root,CancellationToken cancellation)
         {
             token=cancellation; steps=0; rejection=null; token.ThrowIfCancellationRequested();
-            if(environment==null || !environment.IsComplete || inventory==null || inventory.Diagnostics.Count!=0 || inventory.Packages.Any(p=>p.Package.DiagnosticCode!=null)) throw Error("IncompleteEnvironment");
+            if(environment==null || !environment.IsComplete) throw Error("IncompleteEnvironment");
+            if(inventory==null) throw Error("ManagedInventoryUnavailable");
+            var uncertain=inventory.Diagnostics.Concat(inventory.Packages.Select(p=>p.Package.DiagnosticCode).Where(c=>c!=null)).ToArray();
+            if(uncertain.Length!=0) throw new StoreValidationException("ManagedInventoryUncertain","Managed ownership records cannot be confirmed.") {ContextReasons=uncertain};
             if(root==null || !catalog.Packages.Contains(root) || root.IsWorkshop || root.State!="active") throw Error("PackageUnavailable");
             var selected=new Dictionary<string,ManagedStoreRecord>();
             if(!Search(root,selected)) throw rejection??Error("ManagedDependencyConflict");
             var ordered=new List<ManagedStoreRecord>(); var seen=new HashSet<string>(); var stack=new HashSet<string>();
             Visit(root.Id,selected,seen,stack,ordered);
             var items=ordered.Select(p=>new ManagedStorePlanItem(p,Local(p))).ToList();
-            ManagedStoreLocalGate.Check(environment,items.Where(i=>i.RequiresDownload).Select(i=>i.Package),token);
             if(items.Count>ManagedExtensionInstallRequest.MaxPackages || items.Where(i=>i.RequiresDownload).Sum(i=>i.Package.Manifest.Assemblies.Sum(a=>a.File.Length)+i.Package.Manifest.Resources.Sum(r=>r.Length)+ManagedExtensionManifestReader.MaxManifestBytes)>ManagedExtensionManifestReader.MaxExpandedBytes) throw Error("ManagedInstallMemoryLimit");
             return new ManagedStorePlan(catalog,root,items);
         }

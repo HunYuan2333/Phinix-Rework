@@ -100,15 +100,15 @@ The client project depends on RimWorld assemblies. Place the required DLLs in `G
 
 ## Extension Development
 
-Plugins implement `IPhinixExtensionModule` and register handlers and APIs through `IExtensionBuilder`:
+Client plugins derive from `ClientExtensionModule` (client abstractions 1.9) and compose handlers/APIs through `IExtensionBuilder`. Direct client Register is deprecated; server Register is unchanged:
 
 ```csharp
 [PhinixExtension("my.extension")]
-public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+public class MyExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
 {
-    public string ExtensionId => "my.extension";
+    public override string ExtensionId => "my.extension";
 
-    public void Register(IExtensionBuilder builder)
+    public override void Compose(IExtensionBuilder builder)
     {
         builder.AddClientMessageHandler(this);
         builder.RegisterApi<IMyService>(this);

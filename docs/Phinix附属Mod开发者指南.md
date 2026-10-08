@@ -8,6 +8,14 @@
 
 ---
 
+## 客户端组合入口（F4 开发更新）
+
+新客户端插件要求 ClientExtensionAbstractions 1.9，继承 `ClientExtensionModule`，覆写 `Compose(IExtensionBuilder)`。基类将共享注册表的 Register 调用转发一次，继续使用普通发现/激活/停止路径。在 Compose/Activate 创建自有作用域，将普通服务依赖放入构造函数，借用宿主/API 服务，Shutdown 释放自有作用域。可参照 `Extensions/PluginStore/Samples` 中维护的 Example 和 Playtest。
+
+F4 开发线已弃用客户端直接 `IPhinixExtensionModule.Register`。可选兼容源适配器 `LegacyClientExtensionModule` 及其 Register 方法带 Obsolete 标记；旧二进制仍经相同注册表加载，每次启动收到一次客户端迁移警告，不为诊断实例化禁用模块。新插件不使用此兼容适配器。服务端共享 Register 契约不弃用。
+
+首个计划稳定弃用版本：宿主 0.9.8；预定移除版本：宿主 1.0 / 客户端抽象 2.0，须先完成独立红包/人才贸易仓库迁移、目录/资源同步、回退验证及游戏验收。当前开发宿主尚未发布为 0.9.8。历史不可变发布资产及玩家存档/设置不覆盖。下文共享 Register 描述注册表机制，客户端作者实现使用 Compose。
+
 ## 目录
 
 1. [架构总览](#1-架构总览)
@@ -224,9 +232,9 @@ public interface IActivatablePhinixExtensionModule : IPhinixExtension
 
 ```csharp
 [PhinixExtension("mymod.myfeature", DependsOn = new[] { "phinix.chat", "phinix.trade" })]
-public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+public class MyExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
 {
-    public string ExtensionId => "mymod.myfeature";
+    public override string ExtensionId => "mymod.myfeature";
     // ...
 }
 ```
@@ -361,7 +369,7 @@ ExtensionHostContext hostCtx = builder.HostContext; // 宿主上下文
 在 `Register()` 中调用 `builder.RegisterApi<T>(implementation)`，你的实现就会进入框架的 API registry：
 
 ```csharp
-public void Register(IExtensionBuilder builder)
+public override void Compose(IExtensionBuilder builder)
 {
     var myFeature = new MyFeatureService(/* ... */);
     builder.RegisterApi<IMyFeatureApi>(myFeature);
@@ -1328,7 +1336,7 @@ Chat 和 Trade 都提供了独立的 Contracts 工程，只包含接口定义和
 // 你的 Submod 中
 using Phinix.TradeExtension;  // 引用 TradeExtension Contracts 程序集
 
-public void Register(IExtensionBuilder builder)
+public override void Compose(IExtensionBuilder builder)
 {
     // 在 Activate 中解析
 }
@@ -1462,7 +1470,7 @@ hostContext.GetRequiredService<IFrameworkClientCommandTransport>()
 ### 11.2 在 Register() 里调用 hostContext.GetRequiredService
 
 ```csharp
-public void Register(IExtensionBuilder builder)
+public override void Compose(IExtensionBuilder builder)
 {
     // ❌ 错误：Register 阶段 host 服务可能尚未就绪
     var session = builder.HostContext.GetRequiredService<IClientSessionContext>();
@@ -1750,7 +1758,7 @@ namespace MyMod.PhinixExtension
 {
     [PhinixExtension("mymod.myfeature")]
     public sealed class MySubmodExtension :
-        IPhinixExtensionModule,
+        ClientExtensionModule,
         IActivatablePhinixExtensionModule,
         IClientMessageHandler
     {
@@ -1766,7 +1774,7 @@ namespace MyMod.PhinixExtension
 
         // ===== IPhinixExtension =====
 
-        public string ExtensionId => "mymod.myfeature";
+        public override string ExtensionId => "mymod.myfeature";
 
         // ===== IMessageHandler =====
 
@@ -1774,7 +1782,7 @@ namespace MyMod.PhinixExtension
 
         // ===== IPhinixExtensionModule =====
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
             // 只做注册——不获取 host 服务
             builder.AddClientMessageHandler(this);

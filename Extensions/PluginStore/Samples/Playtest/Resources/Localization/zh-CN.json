@@ -4,7 +4,7 @@
   "display": {
     "name": "Phinix 商店测试",
     "summary": "验证包内语言文件、Tab 注册、计数和 100 白银操作。仅用于测试存档。",
-    "changelog": "UI 使用宿主翻译服务，支持游戏语言切换与缺译回退。"
+    "changelog": "1.4.0：迁移中立 Compose 入口及 scope 服务装配，保留现有设置和游戏行为。"
   },
   "strings": {
     "tab": "商店测试",

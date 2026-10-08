@@ -34,7 +34,10 @@ internal static partial class Program
             EnvironmentSnapshots();
             BrowserTaskStates();
             Payloads();
+            CacheTemporaryPathShape();
             Repositories();
+            StoreFailureRegression();
+            StoreBrowserFailureRegression();
             RepositoryAudit().GetAwaiter().GetResult();
             PackageDownloads().GetAwaiter().GetResult();
             Installations().GetAwaiter().GetResult();

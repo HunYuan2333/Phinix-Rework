@@ -19,3 +19,14 @@ public sealed class LegacyAuthorFixture : IPhinixExtensionModule, IActivatablePh
     public void Activate(ExtensionHostContext host) {}
     public void Shutdown(ExtensionHostContext host) {Stops++;}
 }
+
+#pragma warning disable 618, 672
+[PhinixExtension("author.legacy-adapter")]
+public sealed class LegacyAdapterAuthorFixture : LegacyClientExtensionModule
+{
+    public static int Constructions, Registrations;
+    public LegacyAdapterAuthorFixture() { Constructions++; }
+    public override string ExtensionId => "author.legacy-adapter";
+    public override void Register(IExtensionBuilder builder) { Registrations++; }
+}
+#pragma warning restore 618, 672

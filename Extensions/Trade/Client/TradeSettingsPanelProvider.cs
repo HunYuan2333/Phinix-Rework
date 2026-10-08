@@ -12,6 +12,8 @@ namespace Phinix.TradeExtension.Client
     /// </summary>
     internal sealed class TradeSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
     {
+        public TradeSettingsPanelProvider() { }
+
         private readonly string[] labels = new string[4];
         private readonly float[] heights = new float[4];
         private float cachedWidth = -1f;

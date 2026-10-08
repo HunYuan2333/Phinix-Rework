@@ -11,8 +11,12 @@ using Verse;
 namespace Phinix.TradeExtension.Client
 {
     [PhinixExtension(FrameworkTradeProtocol.Capability, DependsOn = new[] { "builtin.inventory" })]
-    public sealed class BuiltInTradeClientExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientCommandHandler, IClientOutgoingCommandHandler
+    public sealed class BuiltInTradeClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientCommandHandler, IClientOutgoingCommandHandler
     {
+        private IClientCompositionScope composition;
+        private IClientCompositionScope activationComposition;
+        private volatile bool activated;
+        private int activationGeneration;
         private TradeClientItemPipeline itemPipeline;
         private IFrameworkTradeClientApi tradeApi;
         private FrameworkLegacyTradeClientAdapter legacyTradeAdapter;
@@ -32,24 +36,37 @@ namespace Phinix.TradeExtension.Client
         private EventHandler disconnectedHandler;
         private Action<string, object> settingChangedHandler;
         private Action<string, LogLevel> hostLog;
-        private IDisposable inventoryCodecRegistration;
-        private IDisposable inventorySourceRegistration;
+        private TradeInventoryRegistrations inventoryRegistrations;
         private TradeInventoryDelivery inventoryDelivery;
         private IInventoryReadApi inventoryReadApi;
         private IInventoryReservationApi inventoryReservationApi;
 
-        public string ExtensionId => FrameworkTradeProtocol.Capability;
+        public override string ExtensionId => FrameworkTradeProtocol.Capability;
 
         public int Priority => 1100;
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
+            if (composition != null) throw new InvalidOperationException("Trade is already composed.");
             Action<LogEventArgs> log = args => hostLog?.Invoke(args.Message, args.LogLevel);
-            itemPipeline = itemPipeline ?? new TradeClientItemPipeline(log, FrameworkCompatibilityMode.Unknown);
-            tradeApi = tradeApi ?? new PhinixFrameworkTradeClientService(itemPipeline, null, log);
-            legacyTradeAdapter = legacyTradeAdapter ?? new FrameworkLegacyTradeClientAdapter((PhinixFrameworkTradeClientService)tradeApi);
-            tradeFacade = tradeFacade ?? new FrameworkClientTradeServiceAdapter(tradeApi);
-            tradeUiHostContext = tradeUiHostContext ?? new ClientTradeUiHostContext(tradeFacade);
+            composition = builder.HostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+            {
+                local.Borrow(log);
+                local.Register<ITradeItemPayloadEncoder, TradeClientItemPipeline>();
+                local.Register<IFrameworkTradeClientApi, PhinixFrameworkTradeClientService>();
+                local.Register<FrameworkLegacyTradeClientAdapter, FrameworkLegacyTradeClientAdapter>();
+                local.Register<IClientTradeService, FrameworkClientTradeServiceAdapter>();
+                local.Register<ITradeUiHostContext, ClientTradeUiHostContext>();
+                local.Register<IMainTabProvider, TradeMainTabProvider>();
+                local.Register<TradeSettingsPanelProvider, TradeSettingsPanelProvider>();
+            });
+            itemPipeline = composition.Resolve<TradeClientItemPipeline>();
+            tradeApi = composition.Resolve<IFrameworkTradeClientApi>();
+            legacyTradeAdapter = composition.Resolve<FrameworkLegacyTradeClientAdapter>();
+            tradeFacade = composition.Resolve<IClientTradeService>();
+            tradeUiHostContext = composition.Resolve<ClientTradeUiHostContext>();
+            IMainTabProvider tab = composition.Resolve<IMainTabProvider>();
+            TradeSettingsPanelProvider settingsPanelProvider = composition.Resolve<TradeSettingsPanelProvider>();
 
             builder.RegisterApi(tradeApi);
             builder.RegisterApi<IFrameworkTradeUpdateResultApi>((IFrameworkTradeUpdateResultApi)tradeApi);
@@ -59,10 +76,9 @@ namespace Phinix.TradeExtension.Client
             builder.RegisterApi(tradeFacade);
             builder.RegisterApi<ITradeRequestApi>((ITradeRequestApi)tradeFacade);
             builder.RegisterApi(tradeUiHostContext);
-            builder.RegisterApi<IMainTabProvider>(new TradeMainTabProvider(tradeUiHostContext));
+            builder.RegisterApi<IMainTabProvider>(tab);
             builder.AddCapabilityProvider(this);
             builder.AddClientCommandHandler(this);
-            var settingsPanelProvider = new TradeSettingsPanelProvider();
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
             builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
         }
@@ -74,135 +90,145 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            hostLog = hostContext.Log;
-
-            IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
-            RegisterThemeDefaults(theme);
-            theme.Reload();
-            TradeTheme.Refresh(theme);
-
-            frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
-            commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
-            lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
-            sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
-            settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
-            userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
-            updateAcceptingTrades = hostContext.GetRequiredService<Action<bool>>();
-
-            if (!hostContext.TryResolveApi<IInventoryRegistrationApi>(out IInventoryRegistrationApi inventoryRegistration) ||
-                !hostContext.TryResolveApi<IInventoryDepositApi>(out IInventoryDepositApi inventoryDeposit) ||
-                !hostContext.TryResolveApi<IInventoryReadApi>(out inventoryReadApi) ||
-                !hostContext.TryResolveApi<IInventoryReservationApi>(out inventoryReservationApi))
+            if (activated) return;
+            if (composition == null) throw new InvalidOperationException("Trade must be composed before activation.");
+            int generation = System.Threading.Interlocked.Increment(ref activationGeneration);
+            activated = true;
+            try
             {
-                throw new InvalidOperationException("Inventory registration, deposit, read, and reservation APIs are required by trade.");
-            }
-            inventoryCodecRegistration?.Dispose();
-            inventorySourceRegistration?.Dispose();
-            inventoryCodecRegistration = inventoryRegistration.RegisterCodecScoped(new TradeInventoryCodec(itemPipeline));
-            inventorySourceRegistration = inventoryRegistration.RegisterSourcePresenter(new TradeInventorySourcePresenter());
-            inventoryDelivery = new TradeInventoryDelivery(inventoryDeposit, itemPipeline, () => sessionContext?.Uuid);
+                hostLog = hostContext.Log;
 
-            EnsureActivationServices(hostContext);
-            tradeUiHostContext.Start();
+                IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
+                RegisterThemeDefaults(theme);
+                theme.Reload();
+                TradeTheme.Refresh(theme);
 
-            // 注入框架 registry 收集的所有 Item codec，让 Trade 能消费 Submod 注册的 codec。
-            // 在 Activate 阶段执行，确保所有扩展的 Register() 已完成、codec 列表完整。
-            if (hostContext.TryGetService<IItemCodecProvider>(out IItemCodecProvider codecProvider))
-            {
-                itemPipeline?.SetExtensionCodecs(codecProvider.ItemCodecs);
-            }
+                frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
+                commandTransport = hostContext.GetRequiredService<IFrameworkClientCommandTransport>();
+                lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
+                sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
+                settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
+                userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
+                updateAcceptingTrades = hostContext.GetRequiredService<Action<bool>>();
 
-            if (compatibilityChangedHandler == null)
-            {
+                if (!hostContext.TryResolveApi<IInventoryRegistrationApi>(out IInventoryRegistrationApi inventoryRegistration) ||
+                    !hostContext.TryResolveApi<IInventoryDepositApi>(out IInventoryDepositApi inventoryDeposit) ||
+                    !hostContext.TryResolveApi<IInventoryReadApi>(out inventoryReadApi) ||
+                    !hostContext.TryResolveApi<IInventoryReservationApi>(out inventoryReservationApi))
+                {
+                    throw new InvalidOperationException("Inventory registration, deposit, read, and reservation APIs are required by trade.");
+                }
+                Action<LogEventArgs> log = args => hostLog?.Invoke(args.Message, args.LogLevel);
                 compatibilityChangedHandler = (_, args) =>
                 {
+                    if (!activated || generation != activationGeneration) return;
                     itemPipeline?.SetCompatibilityMode(args.CompatibilityMode);
-                    if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
-                    {
-                        if (sessionContext.Authenticated &&
-                            sessionContext.LoggedIn &&
-                            frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
-                        {
-                            FrameworkPacket snapshotRequest = tradeApi.CreateSnapshotRequestPacket(
-                                sessionContext.SessionId,
-                                sessionContext.Uuid);
-                            commandTransport.TryHandleOutgoingCommand(snapshotRequest);
-                        }
-                    }
+                    if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2 &&
+                        sessionContext.Authenticated && sessionContext.LoggedIn &&
+                        frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
+                        commandTransport.TryHandleOutgoingCommand(tradeApi.CreateSnapshotRequestPacket(sessionContext.SessionId, sessionContext.Uuid));
                 };
-            }
-
-            if (usersChangedHandler == null)
-            {
-                usersChangedHandler = (_, __) => syncAcceptingTrades();
-            }
-
-            if (disconnectedHandler == null)
-            {
-                disconnectedHandler = (_, __) => lastSyncedAcceptingTrades = null;
-            }
-
-            if (settingChangedHandler == null)
-            {
+                usersChangedHandler = (_, __) => { if (activated && generation == activationGeneration) syncAcceptingTrades(); };
+                disconnectedHandler = (_, __) => { if (activated && generation == activationGeneration) lastSyncedAcceptingTrades = null; };
                 settingChangedHandler = (key, _) =>
                 {
-                    if (key == "trade.acceptingTrades")
-                    {
-                        syncAcceptingTrades();
-                    }
+                    if (activated && generation == activationGeneration && key == "trade.acceptingTrades") syncAcceptingTrades();
                 };
+                var callbacks = new TradeClientCallbacks(compatibilityChangedHandler, usersChangedHandler, disconnectedHandler, settingChangedHandler);
+                activationComposition = hostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+                {
+                    local.Borrow(tradeFacade);
+                    local.Borrow(itemPipeline);
+                    local.Borrow(tradeUiHostContext);
+                    local.Borrow(hostContext.GetRequiredService<IClientUserDirectory>());
+                    local.Borrow(hostContext.GetRequiredService<IClientMainThreadDispatcher>());
+                    local.Borrow(hostContext.GetRequiredService<IClientWindowService>());
+                    local.Borrow(settingsContext);
+                    local.Borrow(userEvents);
+                    local.Borrow(lifecycle);
+                    local.Borrow(inventoryRegistration);
+                    local.Borrow(inventoryDeposit);
+                    local.Borrow(inventoryReadApi);
+                    local.Borrow(log);
+                    local.Borrow<Func<string>>(() => sessionContext?.Uuid);
+                    local.Borrow<Action<string, bool>>(acknowledgeCompletion);
+                    local.Borrow(callbacks);
+                    local.Register<TradeInventoryCodec, TradeInventoryCodec>();
+                    local.Register<TradeInventorySourcePresenter, TradeInventorySourcePresenter>();
+                    local.Register<TradeInventoryRegistrations, TradeInventoryRegistrations>();
+                    local.Register<TradeInventoryDelivery, TradeInventoryDelivery>();
+                    local.Register<PhinixDefaultTradeBehaviour, PhinixDefaultTradeBehaviour>();
+                    local.Register<TradeConnectionSubscriptions, TradeConnectionSubscriptions>();
+                });
+                inventoryRegistrations = activationComposition.Resolve<TradeInventoryRegistrations>();
+                inventoryDelivery = activationComposition.Resolve<TradeInventoryDelivery>();
+
+                EnsureActivationServices(hostContext);
+                tradeUiHostContext.Start();
+
+                // 注入框架 registry 收集的所有 Item codec，让 Trade 能消费 Submod 注册的 codec。
+                // 在 Activate 阶段执行，确保所有扩展的 Register() 已完成、codec 列表完整。
+                if (hostContext.TryGetService<IItemCodecProvider>(out IItemCodecProvider codecProvider))
+                {
+                    itemPipeline?.SetExtensionCodecs(codecProvider.ItemCodecs);
+                }
+
+                activationComposition.Resolve<TradeConnectionSubscriptions>();
+
+                if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
+                {
+                    compatibilityChangedHandler(this, new FrameworkCompatibilityModeChangedEventArgs(lifecycle.CompatibilityMode));
+                }
+
+                syncAcceptingTrades();
+                defaultTradeBehaviour?.Start();
             }
-
-            lifecycle.CompatibilityModeChanged -= compatibilityChangedHandler;
-            lifecycle.CompatibilityModeChanged += compatibilityChangedHandler;
-            userEvents.UsersChanged -= usersChangedHandler;
-            userEvents.UsersChanged += usersChangedHandler;
-            userEvents.Disconnected -= disconnectedHandler;
-            userEvents.Disconnected += disconnectedHandler;
-            settingsContext.OnSettingChanged -= settingChangedHandler;
-            settingsContext.OnSettingChanged += settingChangedHandler;
-
-            if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2)
+            catch (Exception error)
             {
-                compatibilityChangedHandler(this, new FrameworkCompatibilityModeChangedEventArgs(lifecycle.CompatibilityMode));
+                try { Shutdown(hostContext); }
+                catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                throw;
             }
-
-            syncAcceptingTrades();
-            defaultTradeBehaviour?.Start();
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
-            if (lifecycle != null && compatibilityChangedHandler != null)
-            {
-                lifecycle.CompatibilityModeChanged -= compatibilityChangedHandler;
-            }
-
-            if (userEvents != null && usersChangedHandler != null)
-            {
-                userEvents.UsersChanged -= usersChangedHandler;
-            }
-
-            if (userEvents != null && disconnectedHandler != null)
-            {
-                userEvents.Disconnected -= disconnectedHandler;
-            }
-
-            if (settingsContext != null && settingChangedHandler != null)
-            {
-                settingsContext.OnSettingChanged -= settingChangedHandler;
-            }
-
-            defaultTradeBehaviour?.Stop();
-            tradeUiHostContext?.Stop();
-            inventorySourceRegistration?.Dispose();
-            inventorySourceRegistration = null;
-            inventoryCodecRegistration?.Dispose();
-            inventoryCodecRegistration = null;
+            activated = false;
+            System.Threading.Interlocked.Increment(ref activationGeneration);
+            var failures = new List<Exception>();
+            TradeLifetimeCleanup.Try(() => (tradeFacade as IDisposable)?.Dispose(), failures);
+            TradeLifetimeCleanup.Try(() => defaultTradeBehaviour?.Stop(), failures);
+            TradeLifetimeCleanup.Try(() => tradeUiHostContext?.Stop(), failures);
+            IClientCompositionScope oldActivation = activationComposition;
+            IClientCompositionScope oldComposition = composition;
+            activationComposition = null;
+            composition = null;
+            TradeLifetimeCleanup.Try(() => oldActivation?.Dispose(), failures);
+            TradeLifetimeCleanup.Try(() => oldComposition?.Dispose(), failures);
+            inventoryRegistrations = null;
             inventoryDelivery = null;
             inventoryReadApi = null;
             inventoryReservationApi = null;
             defaultTradeBehaviour = null;
+            itemPipeline = null;
+            tradeApi = null;
+            legacyTradeAdapter = null;
+            tradeFacade = null;
+            tradeUiHostContext = null;
+            frameworkClient = null;
+            commandTransport = null;
+            lifecycle = null;
+            sessionContext = null;
+            settingsContext = null;
+            userEvents = null;
+            updateAcceptingTrades = null;
+            lastSyncedAcceptingTrades = null;
+            compatibilityChangedHandler = null;
+            usersChangedHandler = null;
+            disconnectedHandler = null;
+            settingChangedHandler = null;
+            hostLog = null;
+            TradeLifetimeCleanup.ThrowIfFailed(failures);
         }
 
         private void EnsureActivationServices(ExtensionHostContext hostContext)
@@ -228,17 +254,7 @@ namespace Phinix.TradeExtension.Client
                 log,
                 inventoryReadApi,
                 inventoryReservationApi);
-            defaultTradeBehaviour = new PhinixDefaultTradeBehaviour(
-                tradeFacade,
-                userDirectory,
-                settingsContext,
-                dispatcher,
-                windowService,
-                tradeUiHostContext,
-                inventoryDelivery,
-                inventoryReadApi,
-                acknowledgeCompletion,
-                log);
+            defaultTradeBehaviour = activationComposition.Resolve<PhinixDefaultTradeBehaviour>();
 
         }
 

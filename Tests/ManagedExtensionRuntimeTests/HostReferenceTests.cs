@@ -27,6 +27,16 @@ internal static partial class Program
         var previousClient=identity("ClientExtensionAbstractions, Version=1.8.0.0, Culture=neutral, PublicKeyToken=null");
         Assert(ReferenceEquals(ManagedAssemblyIdentity.SelectHostReference(previousClient,new[]{composedClient}),composedClient),"Existing 1.8 plugins can bind to the additive 1.9 client host.");
         Assert(ManagedAssemblyIdentity.SelectHostReference(composedClient,new[]{previousClient})==null,"New Compose authors cannot bind to a host lacking 1.9 contracts.");
+        var gameRequired=identity("Assembly-CSharp, Version=1.6.9676.18020, Culture=neutral, PublicKeyToken=null");
+        var gameAvailable=identity("Assembly-CSharp, Version=1.6.9676.17735, Culture=neutral, PublicKeyToken=null");
+        var gameRules=new[]{new ManagedHostReferenceRule(gameRequired.Name,ManagedHostReferenceVersionPolicy.SameReleaseFamily)};
+        Assert(!gameAvailable.CanProvideHostReference(gameRequired),"Default reference policy remains upgrade-only.");
+        Assert(ReferenceEquals(ManagedAssemblyIdentity.SelectHostReference(gameRequired,new[]{gameAvailable},gameRules),gameAvailable),"Same RimWorld 1.6 family admits an older build/revision.");
+        Assert(gameRequired.CanProvideHostReference(gameAvailable,ManagedHostReferenceVersionPolicy.SameReleaseFamily),"Same RimWorld family admits newer revisions too.");
+        foreach(string version in new[]{"1.5.9676.18020","1.7.9676.18020","2.6.9676.18020"})
+            Assert(!identity("Assembly-CSharp, Version="+version+", Culture=neutral, PublicKeyToken=null").CanProvideHostReference(gameRequired,ManagedHostReferenceVersionPolicy.SameReleaseFamily),"Different RimWorld family rejected: "+version);
+        Assert(!identity("Assembly-CSharp, Version=1.6.9676.17735, Culture=en-US, PublicKeyToken=null").CanProvideHostReference(gameRequired,ManagedHostReferenceVersionPolicy.SameReleaseFamily),"Game culture identity remains checked.");
+        Assert(!identity("Assembly-CSharp, Version=1.6.9676.17735, Culture=neutral, PublicKeyToken=b77a5c561934e089").CanProvideHostReference(gameRequired,ManagedHostReferenceVersionPolicy.SameReleaseFamily),"Game signing identity remains checked.");
         var oldClient=identity("ClientExtensionAbstractions, Version=1.7.0.0, Culture=neutral, PublicKeyToken=null");
         var newClient=identity("ClientExtensionAbstractions, Version=1.8.0.0, Culture=neutral, PublicKeyToken=null");
         Assert(ReferenceEquals(ManagedAssemblyIdentity.SelectHostReference(oldClient,new[]{newClient}),newClient),

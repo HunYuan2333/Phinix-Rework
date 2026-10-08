@@ -4,7 +4,7 @@
   "display": {
     "name": "Phinix Example Plugin",
     "summary": "A simple example of plugin tabs, persistent settings and localization. Click the counter to explore the extension API; it does not create items or change your colony.",
-    "changelog": "1.0.2: upgrade acceptance release. Verify the update notice, explicit confirmation, restart activation and retained counter/settings when upgrading from 1.0.1. Example functionality is unchanged; no gameplay actions."
+    "changelog": "1.0.3: migrate to the neutral Compose entry and scoped services; settings and gameplay behavior retained."
   },
   "strings": {
     "tab": "Example",

@@ -32,6 +32,7 @@ namespace PhinixClient.Framework
             try
             {
                 Extensions = PhinixExtensionRegistry.DiscoverExtensions(hostContext);
+                ReportLegacyClientEntries();
                 PhinixExtensionRegistry.ActivateExtensions(Extensions, hostContext);
                 started = true;
             }
@@ -44,6 +45,21 @@ namespace PhinixClient.Framework
             finally
             {
                 starting = false;
+            }
+        }
+
+        private void ReportLegacyClientEntries()
+        {
+            // Only registered instances are inspected. Disabled/failed candidates are never
+            // constructed for diagnostics; the shared server registry has no such policy.
+            foreach (IPhinixExtensionModule module in Extensions.Modules)
+            {
+                if (module is IClientExtensionModule) continue;
+                string warning = "[ClientRegistrationDeprecated] Extension '" + module.ExtensionId +
+                    "' uses legacy client Register. Migrate to ClientExtensionModule.Compose " +
+                    "(client abstractions 1.9). Removal is planned for host 1.0 / abstractions 2.0 " +
+                    "after migration and acceptance gates.";
+                Extensions.Warnings.Add(warning);
             }
         }
 

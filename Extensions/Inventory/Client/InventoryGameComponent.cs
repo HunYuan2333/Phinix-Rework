@@ -10,6 +10,7 @@ namespace Phinix.InventoryExtension.Client
     {
         private string saveId;
         private string snapshotJson;
+        internal bool Initialized { get; private set; }
 
         public static InventoryGameComponent Current { get; private set; }
         public string SaveId => saveId;
@@ -17,6 +18,12 @@ namespace Phinix.InventoryExtension.Client
         public InventoryGameComponent(Game game) : base()
         {
             Current = this;
+        }
+
+        // Membership follows the game's component list, including Scribe-restored instances.
+        internal static bool BelongsTo(InventoryGameComponent component, Game game)
+        {
+            return component != null && game != null && game.components != null && game.components.Contains(component);
         }
 
         internal static InventoryGameComponent EnsureFor(Game game)
@@ -40,6 +47,13 @@ namespace Phinix.InventoryExtension.Client
         {
             if (string.IsNullOrEmpty(saveId)) saveId = Guid.NewGuid().ToString("N");
             Current = this;
+            Initialized = true;
+            BuiltInInventoryClientExtension.AttachSave(this);
+        }
+
+        public override void StartedNewGame()
+        {
+            InventorySaveIdentityPatch.Clear();
             BuiltInInventoryClientExtension.AttachSave(this);
         }
 
@@ -93,5 +107,12 @@ namespace Phinix.InventoryExtension.Client
             __result = typeof(InventoryGameComponent);
             return false;
         }
+    }
+
+    // Owned by Inventory's ordinary activation/shutdown Harmony lease.
+    [HarmonyPatch(typeof(Root), nameof(Root.Update))]
+    internal static class InventoryGameLifetimePatch
+    {
+        private static void Postfix() { BuiltInInventoryClientExtension.ObserveGameLifetime(); }
     }
 }

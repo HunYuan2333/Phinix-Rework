@@ -4,8 +4,11 @@ using Verse;
 
 namespace Phinix.PluginStore
 {
-    internal sealed class PluginStoreMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider
+    internal sealed class PluginStoreMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, System.IDisposable
     {
+        public PluginStoreMainTabProvider() { }
+        public void Dispose() { Stop(); }
+
         private static readonly UiLayoutHints Hints = new UiLayoutHints(
             new Vector2(320f, 260f), new Vector2(820f, 580f), true);
         private ManagedPluginStoreView view;

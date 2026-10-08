@@ -14,6 +14,8 @@ namespace Phinix.PluginStore
         private readonly Action<string> diagnostic;
         private readonly Dictionary<StoreBadgeKind,Texture2D> textures=new Dictionary<StoreBadgeKind,Texture2D>();
         private bool disposed;
+        public StoreBadgeIcons(IClientMainThreadDispatcher dispatcher,StoreActivationDiagnostics diagnostics)
+            : this(dispatcher,diagnostics.Badge) { }
         internal StoreBadgeIcons(IClientMainThreadDispatcher dispatcher,Action<string> diagnostic)
         { this.dispatcher=dispatcher??throw new ArgumentNullException(nameof(dispatcher)); this.diagnostic=diagnostic; }
 
@@ -49,6 +51,7 @@ namespace Phinix.PluginStore
             if(disposed) return;
             disposed=true;
             var owned=new List<Texture2D>(textures.Values); textures.Clear();
+            if(owned.Count==0) return;
             Action release=()=> { foreach(var texture in owned) if(texture!=null) UnityEngine.Object.Destroy(texture); };
             if(UnityData.IsInMainThread) release(); else dispatcher.Enqueue(release);
         }

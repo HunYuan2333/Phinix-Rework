@@ -19,6 +19,8 @@ internal static partial class Program
             {
                 local.Borrow<IFrameworkChatClientApi>(api);
                 local.Borrow<IClientDisplayMessageFeed>(host);
+                local.Borrow<IClientMainThreadDispatcher>(host);
+                local.Borrow<Action<string, LogLevel>>((_, __) => host.Warnings++);
                 local.Borrow<IClientDisplayMessageStore>(host);
                 local.Borrow<IClientUserDirectory>(host);
                 local.Borrow<IClientSessionContext>(host);
@@ -38,22 +40,32 @@ internal static partial class Program
             ui.OnDisconnect += (_, __) => disconnects++;
             adapter.Start(); adapter.Start(); ui.Start(); ui.Start();
             Assert(host.SubscriptionCount == 5, "Actual Chat Start must subscribe once to feed and user events.");
-            host.Publish(); host.Disconnect();
+            host.Publish();
+            Assert(messages == 0, "Chat conversion waits for the main-thread dispatcher.");
+            host.Drain(); host.Disconnect();
             Assert(messages == 1 && disconnects == 1, "Actual Chat services forward events once.");
             ui.SendChatMessage("hello", null);
             Assert(host.Sends == 1, "Actual Chat constructor-injected transport sends via existing capability behavior.");
+            EventHandler<UIChatMessageEventArgs> broken = (_, __) => { throw new Exception("subscriber"); };
+            adapter.OnChatMessageReceived += broken;
+            int later = 0;
+            adapter.OnChatMessageReceived += (_, __) => later++;
+            host.Publish(); host.Drain();
+            Assert(messages == 2 && later == 1 && host.Warnings == 1, "A broken Chat subscriber cannot hide messages from later subscribers.");
+            host.Publish(); // Queued before shutdown; must be discarded after disposal.
             var staleFeed = host.Feed;
             var staleDisconnect = host.DisconnectSnapshot;
             scope.Dispose(); scope.Dispose();
             Assert(host.SubscriptionCount == 0 && !host.Disposed, "Actual Chat disposal unsubscribes all events and keeps borrowed services alive.");
             staleFeed(host, new FrameworkDisplayMessageEventArgs(new FrameworkDisplayMessage()));
             staleDisconnect(host, EventArgs.Empty);
+            host.Drain();
             ui.SendChatMessage("stale", null);
-            Assert(messages == 1 && disconnects == 1 && host.Sends == 1,
+            Assert(messages == 2 && disconnects == 1 && host.Sends == 1,
                 "Captured old Chat callbacks and sends are ignored after shutdown.");
         }
         var partialHost = new ChatHost { FailUserSubscription = true };
-        var partial = new ChatUiHostContext(new FrameworkClientChatServiceAdapter(api, partialHost, partialHost, partialHost, partialHost),
+        var partial = new ChatUiHostContext(new FrameworkClientChatServiceAdapter(api, partialHost, partialHost, partialHost, partialHost, partialHost, (_, __) => { }),
             partialHost, partialHost, partialHost, _ => { }, _ => { }, api, partialHost, partialHost);
         ExpectFailure(partial.Start, "Actual Chat activation failure must remain observable.");
         partial.Dispose();
@@ -62,7 +74,7 @@ internal static partial class Program
 
     private sealed class ChatHost : IClientDisplayMessageFeed, IClientDisplayMessageStore,
         IClientUserDirectory, IClientSessionContext, IClientSettingsContext, IClientUserEventStream,
-        IFrameworkClientTransport, IDisposable
+        IFrameworkClientTransport, IClientMainThreadDispatcher, IDisposable
     {
         internal EventHandler<FrameworkDisplayMessageEventArgs> Feed;
         public event EventHandler<FrameworkDisplayMessageEventArgs> DisplayMessageReceived
@@ -76,7 +88,10 @@ internal static partial class Program
         public event EventHandler<UserBlockStateChangedEventArgs> BlockedUsersChanged;
         public event Action<string, object> OnSettingChanged { add { } remove { } }
         internal bool Disposed, FailUserSubscription;
-        internal int Sends;
+        internal int Sends, Warnings;
+        private readonly Queue<Action> pending = new Queue<Action>();
+        public void Enqueue(Action action) { pending.Enqueue(action); }
+        internal void Drain() { while (pending.Count != 0) pending.Dequeue()(); }
         internal int SubscriptionCount => Count(Feed) + Count(Disconnected) + Count(users)
             + Count(UserDisplayNameChanged) + Count(BlockedUsersChanged);
         private static int Count(Delegate handler) => handler == null ? 0 : handler.GetInvocationList().Length;

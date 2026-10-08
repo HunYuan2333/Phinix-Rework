@@ -19,7 +19,7 @@ if not version:
 subprocess.run(['dotnet', 'build', str(root/'Example.csproj'), '-c', 'Release', '-m:1', '-p:BuildInParallel=false', '-p:PhinixRoot='+str(host), '-p:GameReferences='+str(game)], check=True)
 tool = host/'Extensions/PluginStore/Tools/ManagedPackageTool'
 subprocess.run(['dotnet', 'build', str(tool/'ManagedPackageTool.csproj'), '-c', 'Release', '-m:1', '-p:BuildInParallel=false'], check=True)
-command = ['dotnet', str(tool/'bin/Release/net10.0/ManagedPackageTool.dll'), '--assembly', str(root/'bin/Release/net472/Phinix.Example.Basic.dll'), '--package-id', 'phinix.example.basic', '--name', 'Phinix Example Plugin', '--version', version, '--output', str(a.output.resolve())]
+command = ['dotnet', str(tool/'bin/Release/net10.0/ManagedPackageTool.dll'), '--assembly', str(root/'bin/Release/net472/Phinix.Example.Basic.dll'), '--package-id', 'phinix.example.basic', '--name', 'Phinix Example Plugin', '--version', version, '--abstractions-range', '>=1.9.0 <2.0.0', '--output', str(a.output.resolve())]
 for locale in ['en-US', 'zh-CN']:
     command += ['--language-file', str(root/'Resources/Localization'/ (locale+'.json'))]
 for name in ['mscorlib.dll', 'Assembly-CSharp.dll', 'UnityEngine.CoreModule.dll', 'UnityEngine.TextRenderingModule.dll', 'UnityEngine.IMGUIModule.dll']:

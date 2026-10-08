@@ -19,6 +19,7 @@ internal static class Program
     {
         try
         {
+            AssertCompatibilitySubscriberIsolation();
             AssertRegistrationRequiresPreparedHost();
             AssertReplayDoesNotRepeatNotifications();
             AssertMessageIdentityIsSourceScoped();
@@ -29,7 +30,7 @@ internal static class Program
             AssertAutocompleteRequiresNewOwnedInput();
             AssertCompletionPreservesMessagePrefix();
             ChatImageDownloadScenarios.Run();
-            Console.WriteLine("All 16 chat regression scenarios passed.");
+            Console.WriteLine("All 17 chat regression scenarios passed.");
             return 0;
         }
         catch (Exception exception)
@@ -37,6 +38,24 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void AssertCompatibilitySubscriberIsolation()
+    {
+        var client = CreateMessageStore();
+        int legacyReceivers = 0;
+        client.CompatibilityModeChanged += (_, __) => { throw new Exception("broken plugin"); };
+        client.CompatibilityModeChanged += (_, args) =>
+        {
+            if (args.CompatibilityMode == FrameworkCompatibilityMode.Legacy) legacyReceivers++;
+        };
+        // Even a failing diagnostic observer must not interrupt protocol activation.
+        client.OnLogEntry += (_, __) => { throw new Exception("broken logger"); };
+        var change = typeof(PhinixFrameworkClient).GetMethod("setCompatibilityMode", BindingFlags.NonPublic | BindingFlags.Instance);
+        change.Invoke(client, new object[] { FrameworkCompatibilityMode.Legacy, null, null, new string[0] });
+        change.Invoke(client, new object[] { FrameworkCompatibilityMode.Legacy, null, null, new string[0] });
+        Assert(client.CompatibilityMode == FrameworkCompatibilityMode.Legacy && legacyReceivers == 1,
+            "A failing compatibility subscriber cannot block later protocol registration or repeat an unchanged mode.");
     }
 
     private static void AssertRegistrationRequiresPreparedHost()

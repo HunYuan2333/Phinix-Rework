@@ -4,8 +4,8 @@
     <LangVersion>7.3</LangVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblyName>Phinix.Store.Playtest</AssemblyName>
-    <Version>1.3.0</Version>
-    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+    <Version>1.4.0</Version>
+    <AssemblyVersion>1.4.0.0</AssemblyVersion>
     <PhinixRoot Condition="'$(PhinixRoot)' == ''">$(MSBuildThisFileDirectory)../../../..</PhinixRoot>
     <GameReferences Condition="'$(GameReferences)' == '' and Exists('$(PhinixRoot)/GameDlls/1.6')">$(PhinixRoot)/GameDlls/1.6</GameReferences>
     <GameReferences Condition="'$(GameReferences)' == ''">$(PhinixRoot)/GameDlls</GameReferences>

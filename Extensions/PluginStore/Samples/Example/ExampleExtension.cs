@@ -9,30 +9,40 @@ using Verse;
 namespace Phinix.Example.Basic
 {
     [PhinixExtension("phinix.example.basic")]
-    public sealed class ExampleExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    public sealed class ExampleExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
     {
-        private readonly ExampleState state = new ExampleState();
-        private readonly ExampleTab tab;
-        private readonly ExampleSettingsPanel panel;
-        public ExampleExtension() { tab = new ExampleTab(state); panel = new ExampleSettingsPanel(state); }
-        public string ExtensionId => "phinix.example.basic";
-        public void Register(IExtensionBuilder builder)
+        private IClientCompositionScope scope;
+        private ExampleState state;
+        public override string ExtensionId => "phinix.example.basic";
+        public override void Compose(IExtensionBuilder builder)
         {
-            builder.RegisterApi<IMainTabProvider>(tab);
-            builder.RegisterApi<IClientSettingsPanelProvider>(panel);
+            if (scope != null) throw new InvalidOperationException("Example is already composed.");
+            var host = builder.HostContext;
+            scope = host.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+            {
+                local.Borrow(host.GetRequiredService<IClientSettingsContext>());
+                local.Borrow<Action<string, LogLevel>>((message, level) => host.Log?.Invoke(message, level));
+                local.Register<ExampleState, ExampleState>();
+                local.Register<ExampleTab, ExampleTab>();
+                local.Register<ExampleSettingsPanel, ExampleSettingsPanel>();
+            });
+            state = scope.Resolve<ExampleState>();
+            builder.RegisterApi<IMainTabProvider>(scope.Resolve<ExampleTab>());
+            builder.RegisterApi<IClientSettingsPanelProvider>(scope.Resolve<ExampleSettingsPanel>());
         }
         public void Activate(ExtensionHostContext hostContext)
-        {
-            state.Start(hostContext.GetRequiredService<IClientSettingsContext>(),
-                hostContext.GetRequiredService<IClientLocalizationService>().ForModule(this), hostContext.Log);
-        }
-        public void Shutdown(ExtensionHostContext hostContext) { state.Stop(); }
+        { state.Start(hostContext.GetRequiredService<IClientLocalizationService>().ForModule(this)); }
+        public void Shutdown(ExtensionHostContext hostContext)
+        { scope?.Dispose(); scope = null; state = null; }
     }
 
     // One state shared by the tab and settings provider, with package-prefixed settings keys.
     // The host calls lifecycle/UI methods on the main thread. No game/map/item API is used.
-    internal sealed class ExampleState
+    internal sealed class ExampleState : IDisposable
     {
+        private readonly IClientSettingsContext context;
+        private readonly Action<string, LogLevel> sink;
+        public ExampleState(IClientSettingsContext context, Action<string, LogLevel> sink) { this.context = context; this.sink = sink; }
         private IClientSettingsContext settings;
         private IClientLocalizer localizer;
         private Action<string, LogLevel> log;
@@ -43,7 +53,7 @@ namespace Phinix.Example.Basic
         internal bool ShowHints => settings?.Get("phinix.example.basic.showHints", true) ?? true;
         internal string Text(string key) { return localizer?.Text(key) ?? key; }
         internal string CountText => localizer?.Format("count", Count) ?? Count.ToString();
-        internal void Start(IClientSettingsContext context, IClientLocalizer localization, Action<string, LogLevel> sink)
+        internal void Start(IClientLocalizer localization)
         {
             Stop(); settings = context; localizer = localization; log = sink;
             localizer.LanguageChanged += LanguageChanged;
@@ -53,10 +63,13 @@ namespace Phinix.Example.Basic
         internal void Stop()
         {
             generation++;
-            if (localizer != null) { localizer.LanguageChanged -= LanguageChanged; localizer.Dispose(); localizer = null; }
-            if (Active) log?.Invoke("Example: shutdown; localization subscription and callbacks cleared.", LogLevel.INFO);
-            settings = null; log = null;
+            var previous = localizer; var logger = log; bool wasActive = Active;
+            settings = null; localizer = null; log = null;
+            if (previous != null) { previous.LanguageChanged -= LanguageChanged; previous.Dispose(); }
+            if (wasActive) logger?.Invoke("Example: shutdown; localization subscription and callbacks cleared.", LogLevel.INFO);
         }
+        public void Dispose() { Stop(); }
+
         internal void Click()
         {
             if (!Active) return;
@@ -88,7 +101,7 @@ namespace Phinix.Example.Basic
     {
         private readonly ExampleState state;
         private static readonly UiLayoutHints Hints = new UiLayoutHints(new Vector2(320f, 180f), new Vector2(820f, 320f), true);
-        internal ExampleTab(ExampleState state) { this.state = state; }
+        public ExampleTab(ExampleState state) { this.state = state; }
         public string TabLabel => state.Text("tab");
         public float TabOrder => 998f;
         public UiLayoutHints LayoutHints => Hints;
@@ -124,7 +137,7 @@ namespace Phinix.Example.Basic
     internal sealed class ExampleSettingsPanel : IClientSettingsPanelProvider
     {
         private readonly ExampleState state;
-        internal ExampleSettingsPanel(ExampleState state) { this.state = state; }
+        public ExampleSettingsPanel(ExampleState state) { this.state = state; }
         public string SectionId => "phinix.example.basic.settings";
         public float Order => 190f;
         public bool IsVisible(IClientSettingsContext settings) => state.Active;

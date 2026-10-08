@@ -1,8 +1,19 @@
 # Client infrastructure finishing and three-repository split
 
-Updated: 2026-10-07. Branch: dev. [中文](后续实施计划.md).
+Updated: 2026-10-08. Branch: dev. [中文](后续实施计划.md).
 
 This is the current schedule. It supersedes the earlier P0–P6 sequence that waited for store completion and a server compatibility prototype. Detailed older proposals remain references; current code and this schedule resolve conflicts. This is a plan, not evidence that DI, Stateless or repository extraction is implemented.
+
+## F4 closure by user decision (2026-10-08)
+
+F4 is closed at the user's requested scope checkpoint. This decision supersedes earlier wording that required whole-mod/theme work before F4 closure. F5 remains on hold until the user explicitly authorizes it; no extraction, new phase, commit or publication is implied.
+
+- Cancel the whole-mod ZIP installation direction / F4-F2c whole-mod narrowing proposal. This turn changes documentation only: existing legacy installer code was not removed or disabled. Do not claim a completed code removal or the repair of its known metadata-scan boundary.
+- Move third-party theme selection and store theme downloads to a later enhancement evaluation. Retain current theme behavior for now; no selector, payload kind, catalog support or download capability has been implemented. See [theme evaluation](Theme-Store-Future-Evaluation.md).
+- Official client modules and maintained samples use Compose. F4-H adds an Obsolete client source compatibility adapter and one startup migration warning for registered old modules, without deprecating shared server Register. Author guides/templates and the trusted metadata/validator slice were aligned. See [F4 closure evidence](F4-H-Closure-Handoff.md).
+- Client composition contracts remain 1.9; the first stable deprecation release is planned as host 0.9.8, conditional removal as host 1.0 / abstractions 2.0. No release/version publication occurred. Independent RedPacket/TalentTrade entry migrations and hard-removal gates remain explicitly future work; RedPacket business optimization stays deferred.
+- Closure is a scope/phase decision, not evidence of every manual game test passing. F4-G/F4-H manual checks have no new supplied result. The H slice passed its narrow tests; the later dev checkpoint full build, 31 artifact checks and 14-source validator check also pass. Game validation is still not implied. Existing commits/parallel changes are preserved.
+
 
 ## 1. Scope and baseline
 
@@ -42,10 +53,11 @@ Defer server features, server DI and legacy-client compatibility. Repository ext
 | F4 Adoption, old-entry deprecation and contract freeze | DI across Chat → Inventory → Trade → Store/LegacyAdapter; useful internal state slices; necessary HTTP/tests; update example and affected validators | Author-facing lifecycle/composition APIs and runtime distribution are stable; old client author entry is Deprecated with a declared removal version (section 4.1); superseded duplicate paths removed | Incremental store/example/inventory/trade checks; not a claim that historical recovery defects are repaired |
 | F5 Shared-source rehearsal | Extract in independent temporary checkouts; both consumers pin the same initial gitlink; separate mixed tests; verify nested protobuf and Directory.Build behavior | Fresh recursive acquisition builds without neighboring old directories or duplicate runtime assets | New main package loads example; existing server image builds/starts |
 | F6 Physical repositories | Extract Client/Server, history/branches as needed, tests, package paths, Docker workflow and developer entry points; pin a matching version set | Independent checkouts validate; remote shared commits and rollback are available; release ownership is clear | Main package/store/example and existing connection/chat/trade smoke |
-| F6-S Plugin signatures and trust | Define Phinix signing/trusted-key policy and verify signatures/payload integrity before executing plugin code | Missing/invalid signatures and tampering reject loading; migration and key revocation rules are explicit | Valid/missing/invalid signatures, tampering, offline startup and migration |
 | F7 Author experience | Refresh example/templates/guides, environment/build/publication tooling, then thin AGENTS/Skill | A new author can build/package/apply against one stable workflow; no-Git/gh path honors fixed gitlinks | Real example creation and normal submission |
 
-Default order: F0 → F1 → F2 → F3 → F4 → F5 → F6 → F6-S → F7. Pure library environment probes can run independently. Keep DI, state rules, HTTP, persistent formats and physical source moves in reviewable separate changes.
+Default order: F0 → F1 → F2 → F3 → F4 → F5 → F6 → F7. Pure library environment probes can run independently. Keep DI, state rules, HTTP, persistent formats and physical source moves in reviewable separate changes.
+
+This round does not introduce mandatory plugin signing or trusted-key admission requirements; F7 has no signing-workflow prerequisite. Retain existing hash, payload integrity, compatibility and installation transaction checks.
 
 If container deployment fails, retain the useful lifecycle work and record evidence before selecting an alternative. HTTP and external RedPacket work do not block extraction. Changed contracts and runtime dependencies cannot be omitted from consumers to make extraction appear complete.
 
@@ -121,15 +133,6 @@ Validate the new Server image workflow before retiring the old repository publis
 F5 checks SolutionDir/MSBuildThisFileDirectory, Directory.Build import boundaries, explicit/conditional Compile items, legal game references, copy paths, numbered client DLLs, protobuf paths, mixed Phase35-style linked tests, Docker contexts and validator source roots. The new Server must build without a neighboring Rework directory. Keep deployment/image names and connection behavior stable; provision workflow credentials separately without committing them.
 
 Index/Gateway/Example/RedPacket/TalentTrade remain independent. DI does not change repository access protocols. Update affected fixed validator snapshots/host manifests from real artifacts and specified input commits when required; retain immutable release/catalog history.
-
-### 6.1 F6-S Plugin signatures and trust (outline only, 2026-10-07)
-
-Include this in the current F stages after F6 delivery and before F7 plugin tooling/author workflow. Record an outline only: no implementation, algorithm selection or frozen format yet. It does not block current repair retesting or F4 batches.
-
-1. Define trusted-signature requirements for Phinix plugins. Initially evaluate our signing workflow; decide later whether trusted third-party author keys are supported. Ordinary RimWorld mods are outside this requirement.
-2. Design a signed manifest covering manifest content and all payload hashes; verify trusted key, signature and bytes before executing plugin code. Preserve compatibility, identity, path and transaction checks. Signatures are not code safety certification.
-3. Plan existing official/sample/third-party migrations and actionable rejection messages. Detail key custody, rotation, revocation and offline checks later; private keys never ship or enter the repository. Never silently execute unsigned plugins or delete installed packages/player data.
-4. Verify valid/missing/invalid signatures, tampering, key changes and offline startup. After acceptance, F7 integrates the established signing/submission steps into tools, templates and author guides.
 
 ## 7. Validation and completion
 
@@ -434,4 +437,60 @@ The user authorized fixing EM-01/EM-02 before F3 acceptance. Both management lis
 
 ### F4-A implementation record (2026-10-07)
 
-Accepted F3/management repair committed directly on dev as `1be33dd`, no push. Pending LoadFolders code/tests and parallel edits were excluded; stage docs include the pending diagnosis. F4-A introduces neutral client Compose/base with the internal ordinary Register bridge and migrates Chat. Client API/CLR version is 1.9; static inspection recognizes only the trusted bridge. Evidence: F4-A-Author-Entry-Handoff.md. Local mod check narrowing is a separate F4-F2 batch; signing remains F6-S before author tooling. Do not enter F4-B or claim deprecation complete yet. Version proposal: deprecate old client author adapters in the post-F4 accepted host 0.9.8 release; remove in host 1.0/client abstractions 2.0 only after migration/rollback gates. Confirm/freeze versions in F4-H. Game acceptance and separate F4-A commit remain pending.
+Accepted F3/management repair committed directly on dev as `1be33dd`, no push. Pending LoadFolders code/tests and parallel edits were excluded; stage docs include the pending diagnosis. F4-A introduces neutral client Compose/base with the internal ordinary Register bridge and migrates Chat. Client API/CLR version is 1.9; static inspection recognizes only the trusted bridge. Evidence: F4-A-Author-Entry-Handoff.md. Local mod check narrowing is a separate F4-F2 batch. Do not enter F4-B or claim deprecation complete yet. Version proposal: deprecate old client author adapters in the post-F4 accepted host 0.9.8 release; remove in host 1.0/client abstractions 2.0 only after migration/rollback gates. Confirm/freeze versions in F4-H. Game acceptance and separate F4-A commit remain pending.
+
+### F4-B implementation record (2026-10-07)
+
+Latest package game check accepted; committed EM-03 `c0c8d4e` and F4-A `b339cb6` separately, no push. F4-B migrates both samples to Compose/scopes: Example 1.0.3 and Playtest 1.4.0, minimum abstractions 1.9, preserved settings/gameplay. Actual DLL Mono registry/localization/disable/failure checks and actual ZIP install/removal/recovery/reinstall checks pass. Commands/local test package: [F4-B handoff](F4-B-Samples-Handoff.md). No live candidate publication. Game check and separate commit pending before F4-C.
+
+### Prioritized minimal store/chat repair (2026-10-07)
+
+User requested an immediate working download package. F4-F2 disk-veto removal is implemented ahead of Inventory migration: ordinary mod LoadFolders/DLLs are no longer scanned; actual loaded identity and declared dependency checks remain. Chat callbacks dispatch UI work and isolate subscriber failures. See Store-Chat-Minimal-Fix-Handoff.md and RimWorld-Ownership-Boundary-Audit.md. Game acceptance pending. Full F4-F2 is not complete: fresh environment capture, scoped legacy loading/resolution, and whole-mod installer boundaries remain separate batches. F4-B work is preserved and its samples are excluded from this main repair ZIP.
+
+### F4-F2b owned client loader candidate (2026-10-07)
+
+The store/chat-history repair was accepted by the user. Implemented the next separate boundary batch: client probes only its ModContentPack roots, and a disposable resolver handles owned requesters/declared exact identities. Ordinary game-loaded submods keep the ordinary registry path; legacy server loading remains compatible. 13 loader assertions per runtime, 3108 managed assertions per runtime and the full solution build passed. See F4-F2b-Owned-Loader-Handoff.md; game acceptance pending. Preserve F4-B work, no sample publication. Whole-mod installer metadata and fresh environment capture remain pending.
+
+## Store installation review follow-up (2026-10-07)
+
+Before continuing plugin migration, validate the generic release-family host policy, compact schema 2 installation work paths and readiness diagnostics described in [Store-Install-Flow-Review.md](Store-Install-Flow-Review.md). F4-F2 must then refresh environment facts on the main thread before commit and classify target/dependency failures separately from uncertain global ownership. Unify all shop error presentation and safe diagnostics before F4-F2c; this batch improves key errors but does not complete that broader work.
+
+### Accepted store fixes and environment refresh candidate (2026-10-08)
+
+The user reports successful installation after deployment was corrected. Record acceptance of the preceding store repair; do not imply F4-B sample packages or every manual step were tested. The next F4-F2 batch refreshes environment facts through the main-thread dispatcher before transfer and before installation, with cancellation/deadline handling and immutable host/path checks. See [F4-F2-Environment-Refresh-Handoff.md](F4-F2-Environment-Refresh-Handoff.md). Game validation of this new batch is pending; scope classification and unified shop error presentation remain next. Preserve F4-B and unrelated parallel work.
+
+### Store failure classification candidate (2026-10-08)
+
+The temporary F4-F2 failure-presentation work is implemented and regression-tested; see [F4-F2-Store-Failures-Handoff.md](F4-F2-Store-Failures-Handoff.md). The two shop controllers/views share safe diagnostics and translation classification. Uncertain owned records still block mutation; no per-mod exceptions or ownership bypasses. Game validation remains pending. Return to the F4 composition track, checking F4-B sample acceptance before F4-C Inventory; retain F4-F2c whole-mod and theme boundary work as separate batches.
+
+### F4-C Inventory composition candidate (2026-10-08)
+
+The user accepts the preceding batch and explicitly requests behavior parity before/after DI. Inventory now uses Compose/scope for its ordinary dependencies and UI; six facade APIs, one settings/quick-settings provider, ledger/journal ownership and contract version remain unchanged. The same probe loaded real before/after DLLs: both runtimes produced identical facts, with 24 baseline and 52 new assertions; the unchanged 13 inventory scenarios passed against both DLLs on both runtimes. Details and game steps: [F4-C-Inventory-Composition-Handoff.md](F4-C-Inventory-Composition-Handoff.md). Pending game validation; F4-D save lifecycle remains separate. Existing F4-B/unrelated changes are preserved.
+
+### F4-D1 Inventory lifetime candidate (2026-10-08)
+
+The user accepts F4-C. Split F4-D into D1 attachment/shutdown and D2 menu/reentry lifetime. D1 adds activation generation and current-game component membership checks, and continues cleanup after individual release failures. Actual before/after behavior facts match on both runtimes; 62 candidate assertions and unchanged 13 domain scenarios pass. Full build and distribution checks pass. See [F4-D1 handoff](F4-D1-Inventory-Lifetime-Handoff.md) for exact commands, limits and game steps. Game acceptance remains pending; menu journal release and stale snapshot handling remain D2. Preserve all parallel work.
+
+### F4-D2 menu/reentry candidate (2026-10-08)
+
+User authorized continuation after D1; no detailed game acceptance log supplied. D2 releases journals and clears display state when leaving the current game, supports initialized-component reattachment, resets inherited new-game save paths and guards recovery actions. Persistence/protocol/ownership algorithms unchanged. Candidate 77 assertions, original 13 domain scenarios with before/after actual DLLs on both runtimes, full build and distribution pass; Mono recovery-guard coverage has a reference-assembly limitation. See [F4-D2 handoff](F4-D2-Inventory-Lifetime-Handoff.md). Complete F4-D game checks before F4-E; no commit/push, preserve parallel changes.
+
+### F4-E1 Trade passive composition candidate (2026-10-08)
+
+User authorized continuation after F4-D2; no detailed game acceptance log. Split F4-E into E1 passive composition and E2 activation/connection/Inventory-token lifetime. E1 scopes the seven core/UI implementations and preserves eleven APIs and original activation paths. Adds missing idempotent tab/list eight-event cleanup. Actual baseline/candidate: 23/42 assertions, identical facts on both runtimes; unchanged 10 legacy scenarios pass against both DLLs on both runtimes. Full build and 31 distribution checks pass. See [F4-E1 handoff](F4-E1-Trade-Composition-Handoff.md). E2 and manual F4-D/Trade checks remain; no commit/push, preserve parallel changes.
+
+### F4-E2 Trade lifetime candidate (2026-10-08)
+
+User accepts E1. E2 introduces a private activation scope owning registration/connection leases, delivery helper and default behavior while borrowing Inventory/core/host services. Activation/Start are idempotent; partial failure rolls back, cleanup continues after release errors, queued work and captured module callbacks are invalidated on stop, and stopped facade/UI mutations are rejected. Normal actual-DLL facts match (35 baseline/112 candidate assertions on both runtimes), including startup and completion ACK timing. Original 10 legacy scenarios and full/distribution checks pass. See [F4-E2 handoff](F4-E2-Trade-Lifetime-Handoff.md) for isolated baseline methodology, limits and manual quantity/reconnect steps. F4-E implementation ready for game acceptance; next F4-F Store composition. Preserve parallel work, no commit/push.
+
+### F4-F1 Store providers candidate (2026-10-08)
+
+User accepts E2. Split F4-F into provider composition (this batch) and a later activation/controller/view-factory batch; do not reuse the reserved F4-F2 boundary label. Store uses ordinary Compose/scopes for three providers, with idempotent release and independent shutdown attempts after window/localizer failures. Activate and transaction/state/environment code unchanged. Actual baseline/candidate facts match (6/38 assertions on both runtimes); store 946 and managed 3212 assertions per runtime pass, including 2224 store operations. Full build, 14-source validator snapshot and 31 distribution checks pass. See [F4-F1 handoff](F4-F1-Store-Composition-Handoff.md). Game acceptance and activation migration remain; no commit/push, preserve parallel changes.
+
+### F4-F Store composition implementation complete (2026-10-08)
+
+User requested completing Store before combined game validation. Activation scope now owns localizer/controller leases, icons, independent-view factory and notice lease; endpoint services/providers are borrowed. Repeated activation rebuilds resources with stable APIs; failures roll back and old views/factories/notices become inert. Original controller, F3 flow, environment recapture and install/recovery semantics unchanged. Actual baseline/candidate: 16/93 assertions on both runtimes, identical startup/presentation facts, with an explicitly excluded native-only old icon teardown. Store 946, managed 3212 per runtime, 14-source validator and 31 artifact checks pass. See [Store completion handoff](F4-F-Store-Completion-Handoff.md). F4-F code complete; combined game acceptance pending, then F4-G. No commit/push, preserve parallel work; existing F4-F2 boundary follow-up stays separate.
+
+## F4-G candidate (2026-10-08)
+
+User reported the combined Store test passed; F4-F acceptance is recorded without inventing individual game steps. F4-G uses the ordinary Compose entry and owns adapter construction/subscriptions/registration lifetimes through one private scope; optional Trade APIs and endpoint services remain borrowed. Actual old/new DLL probes pass 58/68 assertions on .NET and Mono, including unchanged early history, mode switches and authoritative trade results. See [F4-G handoff](F4-G-LegacyAdapter-Handoff.md). Game acceptance is pending. No commit/push; preserve parallel edits. Complete F4-H and the tracked F4-F2c whole-mod/theme boundaries before overall F4 completion/F5.

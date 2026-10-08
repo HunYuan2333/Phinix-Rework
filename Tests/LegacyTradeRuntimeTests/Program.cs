@@ -12,10 +12,15 @@ using Utils.Framework;
 
 internal static class Program
 {
-    private static int Main()
+    private static bool baseline;
+    private static int assertions;
+    private static int Main(string[] args)
     {
+        baseline = args.Contains("--baseline");
         try
         {
+            AssertRegistryComposition();
+            AssertEarlyLegacyChatHistory();
             AssertOnlyResponseConfirmsOffer();
             AssertRejectedOfferReportsFailure();
             AssertSendFailureReportsFailure();
@@ -25,7 +30,7 @@ internal static class Program
             AssertEncodingFailureDoesNotReturnPartialItems();
             AssertUnknownSendOutcomeRemainsPending();
             AssertStatefulItemsRoundTripThroughLegacyServerShape();
-            Console.WriteLine("All 9 legacy trade runtime scenarios passed.");
+            Console.WriteLine("All 11 legacy adapter runtime scenarios passed: " + assertions + " assertions; " + (baseline ? "before" : "after"));
             return 0;
         }
         catch (Exception exception)
@@ -33,6 +38,152 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void AssertRegistryComposition()
+    {
+        Type type = typeof(Phinix.LegacyAdapter.Client.BuiltInLegacyAdapterClientExtension);
+        Assert(System.IO.Path.GetFullPath(type.Assembly.Location) ==
+            System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LegacyAdapter.Client.dll"),
+            "Probe must load its isolated requested module DLL.");
+        Console.WriteLine("MODULE " + type.Assembly.Location);
+        var host = new ExtensionHostContext();
+        host.AddService<IExtensionDiscoveryPolicy>(new LegacyDiscovery(type));
+        var disabled = PhinixExtensionRegistry.DiscoverExtensions(host, new DisabledLegacy());
+        Assert(disabled.Modules.Count == 0 && disabled.ExtensionResults.Single().State == ExtensionModuleState.Disabled,
+            "Disabled adapter is discovered without composition services or activation.");
+        using (var factory = new ClientCompositionFactory(() => true, error => { throw error; }))
+        {
+            host.AddService<IClientCompositionFactory>(factory);
+            var found = PhinixExtensionRegistry.DiscoverExtensions(host);
+            Assert(found.Modules.Count == 1 && found.ClientMessageHandlers.Count == 1 && found.ClientCommandHandlers.Count == 1,
+                "Ordinary registry publishes exactly the original handlers.");
+            Assert(((IClientMessageHandler)found.Modules.Single()).Priority == 500,
+                "Legacy adapter priority remains 500.");
+            if (!baseline) Assert(found.Modules.Single() is ClientExtensionModule, "Candidate uses the ordinary Compose bridge.");
+            PhinixExtensionRegistry.ActivateExtensions(found, host);
+            Assert(found.ExtensionResults.Single().State == ExtensionModuleState.Failed,
+                "Missing endpoint service follows ordinary activation failure policy.");
+            PhinixExtensionRegistry.ShutdownExtensions(found, host);
+        }
+    }
+    private sealed class LegacyDiscovery : IExtensionDiscoveryPolicy
+    {
+        private readonly Type type;
+        internal LegacyDiscovery(Type type) { this.type = type; }
+        public bool ShouldScanAssembly(System.Reflection.Assembly assembly) => assembly == type.Assembly;
+        public bool ShouldDiscoverType(Type candidate) => candidate == type;
+    }
+    private sealed class DisabledLegacy : IExtensionActivationPolicy
+    {
+        public IReadOnlyCollection<string> DisabledExtensions => new[] { "builtin.legacy-adapter" };
+        public bool ShouldActivate(string id, out string reason) { reason = "test disabled"; return false; }
+    }
+
+    private static void AssertEarlyLegacyChatHistory()
+    {
+        var transport = new ChatTransport();
+        var lifecycle = new ChatLifecycle();
+        var sink = new ChatSink();
+        var host = new ExtensionHostContext { Log = (_, __) => { } };
+        var cleanupErrors = new List<Exception>();
+        using (var factory = new ClientCompositionFactory(() => true, cleanupErrors.Add))
+        {
+        host.AddService<IClientCompositionFactory>(factory);
+        host.AddService<ILegacyModuleTransport>(transport);
+        host.AddService<IFrameworkClientLifecycle>(lifecycle);
+        host.AddService<IDisplayMessageSink>(sink);
+        host.AddService<IClientSessionContext>(new FakeSession());
+        var module = new Phinix.LegacyAdapter.Client.BuiltInLegacyAdapterClientExtension();
+        module.Activate(host);
+        if (!baseline) module.Activate(host);
+        Assert(transport.Registrations == 1, "Repeated activation does not register twice.");
+        Assert(transport.Handlers.ContainsKey("Chat") && !transport.Handlers.ContainsKey("Trading"), "Unknown mode prepares Chat history without enabling Trade.");
+        var history = new Chat.ChatHistoryPacket();
+        history.ChatMessages.Add(new Chat.ChatMessagePacket { MessageId = "before-negotiation", Uuid = "remote", Message = "old history" });
+        transport.Receive(history);
+        Assert(sink.Messages.Single().MessageId == "before-negotiation", "Login-time history arrives before Legacy negotiation completes.");
+        lifecycle.Change(FrameworkCompatibilityMode.Legacy);
+        lifecycle.Change(FrameworkCompatibilityMode.Legacy);
+        Assert(transport.Handlers.Count == 2 && transport.Registrations == 2, "Legacy transition does not register Chat twice.");
+        lifecycle.Change(FrameworkCompatibilityMode.Unknown);
+        Assert(transport.Handlers.ContainsKey("Chat") && !transport.Handlers.ContainsKey("Trading"), "Reconnect keeps Chat ready for the next login history.");
+        transport.Receive(history);
+        Assert(sink.Messages.Count == 2, "Reconnect login-time history reaches the display sink again.");
+        lifecycle.Change(FrameworkCompatibilityMode.FrameworkV2);
+        Assert(transport.Handlers.Count == 0, "FrameworkV2 relinquishes legacy Chat and Trade handlers.");
+        lifecycle.Change(FrameworkCompatibilityMode.Unknown);
+        Assert(transport.Handlers.ContainsKey("Chat"), "A new negotiation prepares Chat again.");
+        RawPacketHandlerDelegate staleChat = transport.Handlers["Chat"];
+        module.Shutdown(host); module.Shutdown(host);
+        if (!baseline) {
+        staleChat("Chat", "server", ProtobufPacketHelper.Pack(history).ToByteArray());
+        Assert(sink.Messages.Count == 2, "Detached Chat callback cannot publish after shutdown.");
+        Assert(module.HandleOutgoingText("stale", null).Action == MessageHandlingResultAction.Continue,
+            "Stopped module does not swallow or echo outgoing text.");
+        }
+        lifecycle.Change(FrameworkCompatibilityMode.Legacy);
+        Assert(transport.Handlers.Count == 0, "Shutdown removes early Chat and ignores later lifecycle changes.");
+        if (!baseline) {
+        module.Activate(host);
+        Assert(transport.Handlers.Count == 2, "Fresh activation restores the current Legacy mode.");
+        module.Shutdown(host);
+        foreach (string failureModule in new[] { "Chat", "Trading" })
+        {
+            transport.FailRegistrationModule = failureModule;
+            bool failed = false;
+            try { module.Activate(host); } catch (Exception) { failed = true; }
+            Assert(failed && transport.Handlers.Count == 0, "Partial registration failure cleans all handlers: " + failureModule);
+        }
+        transport.FailRegistrationModule = null;
+        module.Activate(host);
+        Assert(transport.Handlers.Count == 2, "Activation can retry after rollback.");
+        Assert(cleanupErrors.Count == 0, "Successful cleanup has no hidden scope failures.");
+        transport.FailUnregistration = true;
+        module.Shutdown(host);
+        Assert(transport.Handlers.Count == 0 && cleanupErrors.Count == 1,
+            "Cleanup continues through both unregister failures and reports the aggregate.");
+        Assert(transport.Disposals == 0 && lifecycle.Disposals == 0,
+            "Scope never disposes borrowed endpoint services.");
+        transport.FailUnregistration = false;
+        module.Shutdown(host);
+        }
+        }
+    }
+
+    private sealed class ChatTransport : ILegacyModuleTransport, IDisposable
+    {
+        internal readonly Dictionary<string, RawPacketHandlerDelegate> Handlers = new Dictionary<string, RawPacketHandlerDelegate>();
+        internal int Registrations;
+        internal string FailRegistrationModule;
+        internal bool FailUnregistration;
+        internal int Disposals;
+        public void Dispose() { Disposals++; }
+        public void RegisterHandler(string module, RawPacketHandlerDelegate handler)
+        {
+            Handlers.Add(module, handler); Registrations++;
+            if (FailRegistrationModule == module) throw new InvalidOperationException("Injected registration failure after add");
+        }
+        public void UnregisterHandler(string module)
+        {
+            Handlers.Remove(module);
+            if (FailUnregistration) throw new InvalidOperationException("Injected unregister failure after removal");
+        }
+        public void Send(string module, byte[] data) { throw new Exception("Unexpected send"); }
+        internal void Receive(IMessage packet) { Handlers["Chat"]("Chat", "server", ProtobufPacketHelper.Pack(packet).ToByteArray()); }
+    }
+    private sealed class ChatLifecycle : IFrameworkClientLifecycle, IDisposable
+    {
+        internal int Disposals;
+        public void Dispose() { Disposals++; }
+        public FrameworkCompatibilityMode CompatibilityMode { get; private set; }
+        public event EventHandler<FrameworkCompatibilityModeChangedEventArgs> CompatibilityModeChanged;
+        internal void Change(FrameworkCompatibilityMode mode) { CompatibilityMode = mode; CompatibilityModeChanged?.Invoke(this, new FrameworkCompatibilityModeChangedEventArgs(mode)); }
+    }
+    private sealed class ChatSink : IDisplayMessageSink
+    {
+        internal readonly List<FrameworkDisplayMessage> Messages = new List<FrameworkDisplayMessage>();
+        public void Enqueue(FrameworkDisplayMessage message) { Messages.Add(message); }
     }
 
     private static void AssertOnlyResponseConfirmsOffer()
@@ -226,6 +377,7 @@ internal static class Program
 
     private static void Assert(bool condition, string message)
     {
+        assertions++;
         if (!condition) throw new InvalidOperationException(message);
     }
 

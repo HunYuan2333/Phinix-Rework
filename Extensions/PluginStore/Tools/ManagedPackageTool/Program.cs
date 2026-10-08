@@ -46,8 +46,8 @@ internal static class Program
                 }
             }
             string[] required={"--package-id","--name","--version","--output"};
-            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output"}).ToArray();
-            if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output and --display-output.");
+            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range"}).ToArray();
+            if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output, --display-output and --abstractions-range.");
             if(languagePaths.Count==0 && options.ContainsKey("--default-locale")) throw new ArgumentException("Default locale needs language files.");
             if(host.Count!=0)
             {
@@ -65,7 +65,7 @@ internal static class Program
             object localization=languagePaths.Count==0?null:new {defaultLocale=options.ContainsKey("--default-locale")?ExtensionLocale.Normalize(options["--default-locale"]):null,files=languagePaths};
             var jsonOptions=new JsonSerializerOptions {DefaultIgnoreCondition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull};
             byte[] manifest=JsonSerializer.SerializeToUtf8Bytes(new {schemaVersion=1,management="phinix-dll",packageId=options["--package-id"],name=options["--name"],version=options["--version"],targetFramework="net472",
-                compatibility=new {rimWorldVersions=new[]{"1.6"},phinixRange=">=0.9.7 <1.0.0",abstractionsRange=">=1.7.0 <2.0.0"},dependencies=new object[0],externalMods=new object[0],resources,localization,assemblies=declarations,modules},jsonOptions);
+                compatibility=new {rimWorldVersions=new[]{"1.6"},phinixRange=">=0.9.7 <1.0.0",abstractionsRange=options.ContainsKey("--abstractions-range")?options["--abstractions-range"]:">=1.7.0 <2.0.0"},dependencies=new object[0],externalMods=new object[0],resources,localization,assemblies=declarations,modules},jsonOptions);
             var parsed=ManagedExtensionManifestReader.Read(manifest);
             if(parsed.Assemblies.SelectMany(ManagedExtensionManifestReader.AssemblyNames).Any(name=>host.Any(a=>string.Equals(a.Name,name,StringComparison.OrdinalIgnoreCase))))
                 throw new ArgumentException("Package assembly conflicts with a supplied host assembly.");

@@ -11,7 +11,7 @@ using Thing = Verse.Thing;
 
 namespace Phinix.TradeExtension.Client
 {
-    internal sealed class ClientTradeUiHostContext : ITradeUiHostContext
+    internal sealed class ClientTradeUiHostContext : ITradeUiHostContext, IDisposable
     {
         private readonly IClientTradeService tradeService;
         private IClientSettingsContext settingsContext;
@@ -21,7 +21,8 @@ namespace Phinix.TradeExtension.Client
         private Action<LogEventArgs> log;
         private IInventoryReadApi inventoryReadApi;
         private IInventoryReservationApi inventoryReservationApi;
-        private bool started;
+        private volatile bool started;
+        private int generation;
         private event EventHandler disconnected;
         private event EventHandler<UserDisplayNameChangedEventArgs> userDisplayNameChanged;
 
@@ -49,26 +50,45 @@ namespace Phinix.TradeExtension.Client
         }
 
         public IClientTradeService TradeService => tradeService;
-        internal IInventoryReadApi InventoryReadApi => inventoryReadApi;
-        internal IInventoryReservationApi InventoryReservationApi => inventoryReservationApi;
+        internal IInventoryReadApi InventoryReadApi => started ? inventoryReadApi : null;
+        internal IInventoryReservationApi InventoryReservationApi => started ? inventoryReservationApi : null;
 
         internal void Start()
         {
             if (started) return;
+            System.Threading.Interlocked.Increment(ref generation);
+            started = true;
             userEvents.Disconnected += onDisconnected;
             userEvents.UserDisplayNameChanged += onUserDisplayNameChanged;
-            started = true;
         }
 
         internal void Stop()
         {
             if (!started) return;
-            userEvents.Disconnected -= onDisconnected;
-            userEvents.UserDisplayNameChanged -= onUserDisplayNameChanged;
             started = false;
+            System.Threading.Interlocked.Increment(ref generation);
+            var failures = new List<Exception>();
+            TradeLifetimeCleanup.Try(() => userEvents.Disconnected -= onDisconnected, failures);
+            TradeLifetimeCleanup.Try(() => userEvents.UserDisplayNameChanged -= onUserDisplayNameChanged, failures);
+            TradeLifetimeCleanup.ThrowIfFailed(failures);
         }
 
-        public bool AllItemsTradable => settingsContext.Get<bool>("trade.allItemsTradable", false);
+        public void Dispose()
+        {
+            try { Stop(); }
+            finally
+            {
+                settingsContext = null;
+                userEvents = null;
+                dispatcher = null;
+                windowService = null;
+                inventoryReadApi = null;
+                inventoryReservationApi = null;
+                log = null;
+            }
+        }
+
+        public bool AllItemsTradable => started && settingsContext.Get<bool>("trade.allItemsTradable", false);
 
         public event EventHandler OnDisconnect
         {
@@ -84,6 +104,7 @@ namespace Phinix.TradeExtension.Client
 
         public LookTargets DropPods(IEnumerable<Thing> verseThings)
         {
+            if (!started) throw new InvalidOperationException("Trade has stopped.");
             Map map = settingsContext.Get("trade.dropCurrentMap", false)
                 ? Find.CurrentMap
                 : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
@@ -97,13 +118,11 @@ namespace Phinix.TradeExtension.Client
 
         public void RunOnMainThread(Action action)
         {
-            if (dispatcher != null)
-            {
-                dispatcher.Enqueue(action);
-                return;
-            }
-
-            action?.Invoke();
+            if (!started || action == null) return;
+            int expected = generation;
+            Action run = () => { if (started && expected == generation) action(); };
+            if (dispatcher != null) dispatcher.Enqueue(run);
+            else run();
         }
 
         public void OpenTradeWindow(ClientTradeSnapshot trade)
@@ -113,9 +132,9 @@ namespace Phinix.TradeExtension.Client
 
         public void Log(LogEventArgs args) => log?.Invoke(args);
 
-        private void onDisconnected(object sender, EventArgs args) => disconnected?.Invoke(sender, args);
+        private void onDisconnected(object sender, EventArgs args) { if (started) disconnected?.Invoke(sender, args); }
 
-        private void onUserDisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args) =>
-            userDisplayNameChanged?.Invoke(sender, args);
+        private void onUserDisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args)
+            { if (started) userDisplayNameChanged?.Invoke(sender, args); }
     }
 }

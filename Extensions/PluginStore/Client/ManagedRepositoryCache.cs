@@ -81,7 +81,7 @@ namespace Phinix.PluginStore
             RepositoryMetadata.VerifyManaged(RepositoryMetadata.ReadManagedStable(entry.StableBytes, endpoint.SourceId), entry.PublishedBytes, entry.CatalogBytes);
             endpoint.Profile?.VerifyPublished(entry.PublishedBytes);
             CheckLinks(); Directory.CreateDirectory(DirectoryPath); CheckLinks();
-            string temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            string temporary = RepositoryCacheWrite.TemporaryPath(DirectoryPath);
             try
             {
                 using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))

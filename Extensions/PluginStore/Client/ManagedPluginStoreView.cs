@@ -44,6 +44,7 @@ namespace Phinix.PluginStore
         private object toolbarLanguage;
         private string locale;
         private string search="",error;
+        private StoreFailureInfo localFailure;
         private RepositoryAccessMethod accessMethod;
         private ManagedStoreRecord selected;
         private ManagedStoreGroup[] rows=new ManagedStoreGroup[0];
@@ -55,6 +56,8 @@ namespace Phinix.PluginStore
         private float detailHeight;
         private float measuredWidth=-1;
         private bool initialized;
+        private bool stopped;
+        internal void Stop() { stopped=true; installIntent=null; }
         internal ManagedPluginStoreView(ManagedStoreController controller,IClientEnvironmentService environment,IClientSettingsContext settings,
             IClientExtensionManagementWindowService management,IClientLocalizer localizer,IUiTheme theme,
             IClientLinkService links,StoreMaintainerRegistry maintainers,StoreBadgeIcons badgeIcons)
@@ -67,6 +70,7 @@ namespace Phinix.PluginStore
         private static string Clean(string value) { return (value??"").Replace("<","‹").Replace(">","›"); }
         internal void Draw(Rect rect)
         {
+            if(stopped) return;
             var font=Text.Font; var anchor=Text.Anchor; var wrap=Text.WordWrap; var color=GUI.color; bool enabled=GUI.enabled;
             try
             {
@@ -176,7 +180,7 @@ namespace Phinix.PluginStore
         {
             bool diagnostic=error!=null || snapshot.State==ManagedStoreState.Failed;
             float actionWidth=diagnostic || snapshot.Busy?Mathf.Min(120,rect.width*.3f):0;
-            string text=error==null?(linkNotice??status):T("failedFriendly");
+            string text=error==null?(linkNotice??status):(localFailure!=null?T(localFailure.MessageKey):(snapshot.State==ManagedStoreState.Failed?status:error));
             float textWidth=Mathf.Max(1,rect.width-actionWidth-24);
             if(measuredStatus!=text || statusWidth!=textWidth)
             { measuredStatus=text; statusWidth=textWidth; statusHeight=Text.CalcHeight(text,textWidth); }
@@ -509,7 +513,7 @@ namespace Phinix.PluginStore
         private void ConfirmInstall(ManagedStorePlan plan)
         {
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(T(plan.ReplacesPackages?"updateConfirmation":"dependencyConfirmation")+"\n\n"+string.Join("\n",plan.Items.Select(i=>Clean(i.Package.DisplayName(locale))+" "+i.Package.Manifest.Version+" · "+T(i.Installed==null?"newPackage":i.RequiresDownload?"updatedPackage":"existingPackage")))+"\n\n"+T("downloadSize")+" "+(plan.DownloadBytes/1024d/1024d).ToString("F2")+" MiB",()=>
-            { if(controller.Snapshot.Plan!=plan || controller.Snapshot.Busy || selected!=plan.Root) { error=T("reviewAgain"); return; } Act(()=>controller.Download(plan,environment.Capture(),true)); }));
+            { if(controller.Snapshot.Plan!=plan || controller.Snapshot.Busy || selected!=plan.Root) { localFailure=null; error=T("reviewAgain"); return; } Act(()=>controller.Download(plan,environment.Capture(),true)); }));
         }
         private RepositoryEndpoint SelectedEndpoint()
         {
@@ -534,18 +538,22 @@ namespace Phinix.PluginStore
         {
             Act(()=> {
                 var result=links.Open(selected.WorkshopUrl);
-                if(result==ClientLinkOpenResult.Unavailable) error=T("linkUnavailable");
+                if(result==ClientLinkOpenResult.Unavailable) { localFailure=null; error=T("linkUnavailable"); }
                 else linkNotice=T(result==ClientLinkOpenResult.GameBrowserRequested?"gameBrowserRequested":"externalBrowserRequested");
             });
         }
-        private void Act(Action action) { try { error=null; linkNotice=null; action(); } catch(Exception ex) { error=T("failed")+" "+((ex as StoreValidationException)?.Code??ex.GetType().Name); } }
+        private void Act(Action action)
+        {
+            try { error=null; localFailure=null; linkNotice=null; action(); }
+            catch(Exception ex) { localFailure=controller.ReportFailure(ex); error=localFailure.Diagnostic; }
+        }
         private bool Owns(ManagedStoreSnapshot snapshot,ManagedExtensionManagementPackage local)
         {
             return snapshot.Inventory.Packages.Count(p=>p.Package.PackageId==selected.Id)==1 &&
                 local.Package.SourceId==snapshot.Catalog.SourceId && local.Package.RepositoryIdentitySha256==snapshot.Repository?.Endpoint.IdentityKey;
         }
         private void Select(ManagedStoreRecord row,ManagedStoreSnapshot snapshot)
-        { installIntent=null; selected=row; cached=null; Rebuild(snapshot); detailScroll=Vector2.zero; error=null; linkNotice=null; }
+        { installIntent=null; selected=row; cached=null; Rebuild(snapshot); detailScroll=Vector2.zero; error=null; localFailure=null; linkNotice=null; }
         private void ChooseVersion(ManagedStoreSnapshot snapshot)
         {
             var versions=snapshot.Catalog.Packages.Where(p=>p.Id==selected.Id).OrderByDescending(p=>p.Manifest.Version);
@@ -555,20 +563,16 @@ namespace Phinix.PluginStore
         }
         private static string FailureMessage(ManagedStoreSnapshot snapshot)
         {
-            if(snapshot.Code=="ManagedAllModulesDisabled") return T("disabledModulesRecovery");
-            if(snapshot.Code=="ManagedDependencyDisabled") return T("disabledPackageRecovery");
-            if(snapshot.Code=="CandidateAssemblyConflict") return T("assemblyConflictRecovery");
-            if(snapshot.Code=="RepositoryRateLimited") return T("rateLimitedFriendly");
-            if(snapshot.Code=="RepositoryUnavailable" || snapshot.Code=="RepositoryTimeout") return T("networkFriendly");
-            if(snapshot.ReferenceFailure!=null || snapshot.LocalIdentity!=null) return T("compatibilityFriendly");
-            return T("failedFriendly");
+            var failure=StoreFailureInfo.FromCode(snapshot.Code,snapshot.RequestId,snapshot.ContextReasons);
+            return T((snapshot.ReferenceFailure!=null || snapshot.LocalIdentity!=null) && failure.Scope==StoreFailureScope.Unexpected?"compatibilityFriendly":failure.MessageKey);
         }
         private string ErrorDetails(ManagedStoreSnapshot snapshot)
         {
-            var b=new StringBuilder(); b.AppendLine(error??snapshot.Code);
-            if(snapshot.LocalIdentity!=null) b.AppendLine(LocalDetail(snapshot.LocalIdentity));
-            if(snapshot.ReferenceFailure!=null) b.AppendLine(ReferenceDetail(snapshot.ReferenceFailure));
-            if(snapshot.RequestId!=null) b.AppendLine(T("request")+" "+snapshot.RequestId);
+            var b=new StringBuilder(); b.AppendLine(error??StoreFailureInfo.FromCode(snapshot.Code,snapshot.RequestId,snapshot.ContextReasons).Diagnostic);
+            var local=localFailure?.LocalIdentity??(error==null?snapshot.LocalIdentity:null);
+            var reference=localFailure?.ReferenceFailure??(error==null?snapshot.ReferenceFailure:null);
+            if(local!=null) b.AppendLine(LocalDetail(local));
+            if(reference!=null) b.AppendLine(ReferenceDetail(reference));
             return b.ToString();
         }
     }

@@ -10,27 +10,41 @@ using Verse;
 namespace Phinix.Store.Playtest
 {
     [PhinixExtension("phinix.poc.playtest")]
-    public sealed class PlaytestExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    public sealed class PlaytestExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
     {
-        private readonly PlaytestTab tab = new PlaytestTab();
-        public string ExtensionId => "phinix.poc.playtest";
-        public void Register(IExtensionBuilder builder) { builder.RegisterApi<IMainTabProvider>(tab); }
+        private IClientCompositionScope scope;
+        private PlaytestTab tab;
+        public override string ExtensionId => "phinix.poc.playtest";
+        public override void Compose(IExtensionBuilder builder)
+        {
+            if (scope != null) throw new InvalidOperationException("Playtest is already composed.");
+            var host = builder.HostContext;
+            scope = host.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+            {
+                local.Borrow(host.GetRequiredService<IClientSettingsContext>());
+                local.Borrow<Action<string, LogLevel>>((message, level) => host.Log?.Invoke(message, level));
+                local.Register<PlaytestTab, PlaytestTab>();
+            });
+            tab = scope.Resolve<PlaytestTab>();
+            builder.RegisterApi<IMainTabProvider>(tab);
+        }
         public void Activate(ExtensionHostContext hostContext)
         {
-            hostContext.TryGetService<IClientSettingsContext>(out var settings);
-            var localization=hostContext.GetRequiredService<IClientLocalizationService>().ForModule(this);
-            tab.Start(hostContext.Log,settings,localization);
-            hostContext.Log("Playtest: activated; registered tab through the public extension API.", LogLevel.INFO);
+            tab.Start(hostContext.GetRequiredService<IClientLocalizationService>().ForModule(this));
+            hostContext.Log?.Invoke("Playtest: activated; registered tab through the public extension API.", LogLevel.INFO);
         }
         public void Shutdown(ExtensionHostContext hostContext)
         {
-            tab.Stop();
-            hostContext.Log("Playtest: shutdown; cleared tab state and callbacks.", LogLevel.INFO);
+            scope?.Dispose(); scope = null; tab = null;
+            hostContext.Log?.Invoke("Playtest: shutdown; cleared tab state and callbacks.", LogLevel.INFO);
         }
     }
 
-    internal sealed class PlaytestTab : IMainTabProvider
+    internal sealed class PlaytestTab : IMainTabProvider, IDisposable
     {
+        private readonly Action<string, LogLevel> sink;
+        private readonly IClientSettingsContext context;
+        public PlaytestTab(IClientSettingsContext context, Action<string, LogLevel> sink) { this.context = context; this.sink = sink; }
         private Action<string, LogLevel> log;
         private int clicks;
         private IClientSettingsContext settings;
@@ -40,9 +54,16 @@ namespace Phinix.Store.Playtest
         private string result;
         public string TabLabel => T("tab");
         public float TabOrder => 998f;
-        internal void Start(Action<string, LogLevel> sink,IClientSettingsContext context,IClientLocalizer localizer) { Stop(); log = sink; settings=context; localization=localizer; localization.LanguageChanged+=LanguageChanged; clicks=Math.Max(0,settings?.Get("playtest.clicks",0)??0); active = true; }
+        internal void Start(IClientLocalizer localizer) { Stop(); log = sink; settings=context; localization=localizer; localization.LanguageChanged+=LanguageChanged; clicks=Math.Max(0,settings?.Get("playtest.clicks",0)??0); active = true; }
         private void LanguageChanged() { log?.Invoke("Playtest: language changed; locale="+localization?.Locale,LogLevel.INFO); }
-        internal void Stop() { if(localization!=null) { localization.LanguageChanged-=LanguageChanged; localization.Dispose(); localization=null; } active = false; clicks = 0; result = null; log = null; settings=null; generation++; }
+        internal void Stop()
+        {
+            var previous=localization; localization=null;
+            active=false; clicks=0; result=null; log=null; settings=null; generation++;
+            if(previous!=null) { previous.LanguageChanged-=LanguageChanged; previous.Dispose(); }
+        }
+        public void Dispose() { Stop(); }
+
         public void Draw(Rect inRect)
         {
             if (!active || inRect.width <= 0 || inRect.height <= 0) return;

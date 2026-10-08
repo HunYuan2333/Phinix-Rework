@@ -11,7 +11,7 @@ using Verse;
 
 namespace Phinix.TradeExtension.Client
 {
-    public class TradeList
+    public class TradeList : IDisposable
     {
         private readonly ITradeUiHostContext hostContext;
         private readonly IClientTradeService tradeService;
@@ -55,6 +55,8 @@ namespace Phinix.TradeExtension.Client
         /// <summary>
         /// Creates a new <see cref="TradeList"/>.
         /// </summary>
+        private bool disposed;
+
         public TradeList(ITradeUiHostContext hostContext)
         {
             this.hostContext = hostContext;
@@ -72,6 +74,20 @@ namespace Phinix.TradeExtension.Client
 
             // Pre-fill the trade rows
             repopulateTradeRows();
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            hostContext.OnDisconnect -= onDisconnectHandler;
+            tradeService.OnTradesSynced -= onTradesSyncedHandler;
+            tradeService.OnTradeCancelled -= onTradeCompletedOrCancelledHandler;
+            tradeService.OnTradeCompleted -= onTradeCompletedOrCancelledHandler;
+            tradeService.OnTradeCreationSuccess -= onTradeCreationSuccessHandler;
+            tradeService.OnTradeUpdateFailure -= onTradeUpdateHandler;
+            tradeService.OnTradeUpdateSuccess -= onTradeUpdateHandler;
+            hostContext.OnUserDisplayNameChanged -= onUserDisplayNameChangedHandler;
         }
 
         public void Draw(Rect inRect)

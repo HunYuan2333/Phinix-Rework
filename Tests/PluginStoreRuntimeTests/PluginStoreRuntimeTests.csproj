@@ -21,7 +21,6 @@
     <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PackageModels.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/CatalogReader.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
-    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreOperation.cs" Link="Production/PluginStore/ManagedStoreOperation.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />

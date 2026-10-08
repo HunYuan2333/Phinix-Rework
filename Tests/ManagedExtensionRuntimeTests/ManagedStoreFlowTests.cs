@@ -45,6 +45,8 @@ internal static partial class Program
             response.Content.Headers.ContentLength=body.Length;
             return Task.FromResult(response);
         }
+        internal bool Disposed;
+        protected override void Dispose(bool disposing) { Disposed=true; base.Dispose(disposing); }
         internal void SetMetadata()
         {
             string snapshot=Encoding.UTF8.GetString(Catalog).Contains(new string('e',40))?new string('e',40):new string('b',40);
@@ -177,39 +179,16 @@ internal static partial class Program
             var withOld=new ClientEnvironmentSnapshot(envBase.Paths,envBase.HostModRoot,"1.6","0.9.7","1.5.0",envBase.InstalledMods.Concat(new[]{new ClientInstalledModSnapshot("old.mod",mod,false)}),envBase.LoadedAssemblies,envBase.Modules,new string[0]);
             var catalogForOld=ManagedStoreCatalogReader.Read(Utf8(ManagedCatalog(ManagedListing(manifest,zip))),"test.source");
             using(var runtime=EmptyRuntime(inactive,facts,new List<ManagedExtensionRuntimeAudit>()))
-                StoreReject("LegacyModAssemblyConflict",()=>new ManagedStorePlanner(catalogForOld,withOld,runtime.Refresh(new string[0],CancellationToken.None),endpoint).Plan(catalogForOld.Packages.Single(),CancellationToken.None));
-            // The same library with a foreign framework-attribute scope is valid collision evidence,
-            // even though it must not pass the strict downloaded-plugin gate.
-            var foreign=(byte[])files["Assemblies/Fixture.Managed.Plugin.dll"].Clone();
-            int scopeAt=Find(foreign,Utf8("mscorlib\0")); Buffer.BlockCopy(Utf8("localclr"),0,foreign,scopeAt,8);
-            File.WriteAllBytes(dll,foreign);
-            StoreReject("LegacyModAssemblyConflict",()=>ManagedStoreLocalGate.Check(withOld,catalogForOld.Packages,CancellationToken.None));
-            var unrelated=(byte[])files["Assemblies/Fixture.Managed.Helper.dll"].Clone();
-            scopeAt=Find(unrelated,Utf8("mscorlib\0")); Buffer.BlockCopy(Utf8("localclr"),0,unrelated,scopeAt,8);
-            int nameAt=Find(unrelated,Utf8("Fixture.Managed.Helper\0")); Buffer.BlockCopy(Utf8("Fixture.Foreign.Helper"),0,unrelated,nameAt,22);
-            File.WriteAllBytes(dll,unrelated);
-            ManagedStoreLocalGate.Check(withOld,catalogForOld.Packages,CancellationToken.None);
-            Assert(ManagedExtensionMetadataReader.ReadIdentity(unrelated).Name=="Fixture.Foreign.Helper","Unrelated foreign local library does not veto a nonempty install plan");
-            Assert(!AppDomain.CurrentDomain.GetAssemblies().Any(a=>a.GetName().Name=="localclr"),"Local name inspection never loads a DLL or attributes");
-            File.WriteAllBytes(dll,new byte[]{1,2,3});
-            var failureLog=new List<string>();
-            using(var runtime=EmptyRuntime(inactive,facts,new List<ManagedExtensionRuntimeAudit>()))
-            using(var controller=new ManagedStoreController(runtime,runtime,failureLog.Add))
             {
-                var handler=new ManagedFlowHandler {Catalog=Utf8(ManagedCatalog(ManagedListing(manifest,zip))),Payload=zip}; handler.SetMetadata();
-                controller.Refresh(endpoint,withOld,false,new RepositoryTransport(handler)).GetAwaiter().GetResult();
-                controller.Plan(controller.Snapshot.Catalog.Packages.Single(),withOld,controller.Snapshot.Catalog).GetAwaiter().GetResult();
-                var issue=controller.Snapshot.LocalIdentity;
-                Assert(controller.Snapshot.State==ManagedStoreState.Failed && controller.Snapshot.Code=="LocalIdentityUncertain" && controller.Snapshot.Plan==null,"Corrupt local bytes still close planning");
-                Assert(issue!=null && issue.ModId=="old.mod" && issue.RelativePath=="Custom/Assemblies/renamed.dll" && issue.Reason=="AssemblyMetadataInvalid","Snapshot identifies exact relative file and underlying parser code");
-                string audit=failureLog.Single(s=>s.Contains("managed.operation_failed"));
-                Assert(audit.Contains("\"localMod\":\"old.mod\"") && audit.Contains("\"localFile\":\"renamed.dll\"") && audit.Contains("\"localReason\":\"AssemblyMetadataInvalid\"") && audit.Contains("\"source\":\"test.source\""),"Failure audit carries mod, basename, parser reason and source");
-                Assert(!audit.Contains(mod) && !audit.Contains("Custom/Assemblies") && !audit.Contains("StackTrace"),"Public audit omits absolute/relative directories and exception body");
+                var inventory=runtime.Refresh(new string[0],CancellationToken.None);
+                Assert(new ManagedStorePlanner(catalogForOld,withOld,inventory,endpoint).Plan(catalogForOld.Packages.Single(),CancellationToken.None)!=null,"Inactive disk copies do not reserve CLR names");
+                File.WriteAllBytes(dll,new byte[]{1,2,3});
+                File.WriteAllText(Path.Combine(mod,"LoadFolders.xml"),"<broken");
+                Assert(new ManagedStorePlanner(catalogForOld,withOld,inventory,endpoint).Plan(catalogForOld.Packages.Single(),CancellationToken.None)!=null,"Unrelated corrupt files do not veto planning");
+                var loaded=new ClientEnvironmentSnapshot(withOld.Paths,withOld.HostModRoot,"1.6","0.9.7","1.5.0",withOld.InstalledMods,
+                    withOld.LoadedAssemblies.Concat(new[]{new ClientLoadedAssemblySnapshot("Fixture.Managed.Plugin","1.2.3.4",mod)}),withOld.Modules,new string[0]);
+                StoreReject("CandidateAssemblyConflict",()=>new ManagedStorePlanner(catalogForOld,loaded,inventory,endpoint).Plan(catalogForOld.Packages.Single(),CancellationToken.None));
             }
-            File.Delete(dll);
-            File.WriteAllText(Path.Combine(mod,"LoadFolders.xml"),"<loadFolders><v1.6><li>../outside</li></v1.6></loadFolders>");
-            try { ManagedStoreLocalGate.Check(withOld,catalogForOld.Packages,CancellationToken.None); throw new Exception("Unsafe local load folder admitted"); }
-            catch(StoreValidationException ex) { Assert(ex.Code=="LocalIdentityUncertain" && ex.LocalIdentity?.RelativePath=="LoadFolders.xml" && ex.LocalIdentity.Reason=="LocalLoadFolderInvalid","Unsafe folder remains rejected with actionable diagnostics"); }
         }
         finally { if(Directory.Exists(root)) Directory.Delete(root,true); }
     }

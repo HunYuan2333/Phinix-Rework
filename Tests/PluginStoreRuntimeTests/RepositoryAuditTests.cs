@@ -16,6 +16,13 @@ internal static partial class Program
         const string id = "12345678-1234-1234-1234-123456789abc";
         var endpoint = new RepositoryEndpoint("https://repo.example.test", Source);
         var logs = new List<string>(); var audit = new RepositoryDiagnostics(logs.Add, Source);
+        var contextLogs=new List<string>();
+        new RepositoryDiagnostics(contextLogs.Add,Source) {Operation="Installing",ExceptionType="IOException",
+            ContextReasons=new[]{"GamePathsUnavailable","ModuleOwnershipUnknown","/home/SECRET","SECRET token","GamePathsUnavailable"}}
+            .Event("managed.operation_failed","ManagedStore","IncompleteEnvironment");
+        Assert(contextLogs.Single().Contains("\"operation\":\"Installing\"") && contextLogs.Single().Contains("\"exceptionType\":\"IOException\"") &&
+            contextLogs.Single().Contains("GamePathsUnavailable"),"Failure audit records operation, exception type and safe readiness causes.");
+        Assert(!contextLogs.Single().Contains("SECRET"),"Readiness diagnostics exclude paths and uncontrolled text.");
         using (var transport = new RepositoryTransport(new MockRepository((r, t) =>
         {
             Assert(r.Headers.GetValues("X-Phinix-Client-Request-Id").Single() == audit.ClientRequestId, "One refresh correlation ID is sent to the gateway.");

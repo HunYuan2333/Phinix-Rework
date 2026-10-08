@@ -13,8 +13,9 @@ namespace Phinix.PluginStore
     internal sealed class ManagedStoreSnapshot
     {
         internal ManagedStoreSnapshot(long revision,ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,
-            ManagedExtensionManagementSnapshot inventory,string code,string requestId=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,ManagedStoreProgress progress=null)
-        { Revision=revision; State=state; Catalog=catalog; Repository=repository; Plan=plan; Inventory=inventory; Code=code; RequestId=requestId; LocalIdentity=localIdentity; ReferenceFailure=referenceFailure; Progress=progress; }
+            ManagedExtensionManagementSnapshot inventory,string code,string requestId=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,ManagedStoreProgress progress=null,IEnumerable<string> contextReasons=null)
+        { Revision=revision; State=state; Catalog=catalog; Repository=repository; Plan=plan; Inventory=inventory; Code=code; RequestId=requestId; LocalIdentity=localIdentity; ReferenceFailure=referenceFailure; Progress=progress; ContextReasons=StoreCollections.Freeze(contextReasons); }
+        internal System.Collections.ObjectModel.ReadOnlyCollection<string> ContextReasons { get; }
         internal long Revision { get; }
         internal ManagedStoreState State { get; }
         internal ManagedStoreCatalogSnapshot Catalog { get; }
@@ -34,6 +35,7 @@ namespace Phinix.PluginStore
         private readonly IManagedExtensionManagementService management;
         private readonly IManagedExtensionInstallationService installation;
         private readonly Action<string> log;
+        private readonly Func<CancellationToken,Task<ClientEnvironmentSnapshot>> captureEnvironment;
         private ManagedStoreSnapshot snapshot=new ManagedStoreSnapshot(0,ManagedStoreState.Idle,null,null,null,null,null);
         private readonly ManagedStoreOperation operation=new ManagedStoreOperation();
         private CancellationTokenSource running;
@@ -44,8 +46,8 @@ namespace Phinix.PluginStore
         private ManagedExtensionManagementSnapshot updatesInventory;
         private ManagedStoreRecord[] updates=new ManagedStoreRecord[0];
         private System.Collections.ObjectModel.ReadOnlyCollection<ManagedStoreRecord> updatesView=Array.AsReadOnly(new ManagedStoreRecord[0]);
-        internal ManagedStoreController(IManagedExtensionManagementService management,IManagedExtensionInstallationService installation,Action<string> log=null)
-        { this.management=management; this.installation=installation; this.log=log; }
+        internal ManagedStoreController(IManagedExtensionManagementService management,IManagedExtensionInstallationService installation,Action<string> log=null,Func<CancellationToken,Task<ClientEnvironmentSnapshot>> captureEnvironment=null)
+        { this.management=management; this.installation=installation; this.log=log; this.captureEnvironment=captureEnvironment; }
         internal ManagedStoreSnapshot Snapshot { get { lock(gate) return snapshot; } }
         internal System.Collections.ObjectModel.ReadOnlyCollection<ManagedStoreRecord> Updates
         {
@@ -86,10 +88,37 @@ namespace Phinix.PluginStore
                 }
             });
         }
+        internal StoreFailureInfo ReportFailure(Exception error)
+            => new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId) {Operation="UserAction"}
+                .Failure("managed.action_failed","ManagedStore",error,"ManagedStoreFailed");
+        private void RequireEnvironment(ClientEnvironmentSnapshot environment)
+        {
+            if(environment==null || !environment.IsComplete || management==null)
+            {
+                var reasons=new List<string>();
+                if(environment==null) reasons.Add("EnvironmentSnapshotUnavailable");
+                else
+                {
+                    if(environment.Paths==null) reasons.Add("GamePathsUnavailable");
+                    if(environment.HostModRoot==null) reasons.Add("HostRootUnavailable");
+                    reasons.AddRange(environment.Diagnostics.Select(d=>d.Split(':')[0]));
+                }
+                if(management==null) reasons.Add("ManagedRuntimeUnavailable");
+                new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId) {Operation="Inventory",ContextReasons=reasons.ToArray()}
+                    .Event("managed.environment_rejected","ManagedStore","IncompleteEnvironment");
+                throw Error("IncompleteEnvironment");
+            }
+        }
         private ManagedExtensionManagementSnapshot Inventory(ClientEnvironmentSnapshot environment,CancellationToken token)
         {
-            if(environment==null || !environment.IsComplete || management==null) throw Error("IncompleteEnvironment");
-            return management.Refresh(environment.DisabledModuleIds,token);
+            RequireEnvironment(environment);
+            var inventory=management.Refresh(environment.DisabledModuleIds,token);
+            if(inventory==null) throw Error("IncompleteEnvironment");
+            var diagnostics=inventory.Diagnostics.Concat(inventory.Packages.Select(p=>p.Package.DiagnosticCode).Where(c=>c!=null)).ToArray();
+            if(diagnostics.Length!=0)
+                new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId) {Operation="Inventory",ContextReasons=diagnostics}
+                    .Event("managed.inventory_restricted","ManagedStore","ManagedInventoryUncertain");
+            return inventory;
         }
         internal Task Refresh(RepositoryEndpoint endpoint,ClientEnvironmentSnapshot environment,bool offline,RepositoryTransport transport)
         { return Refresh(endpoint,environment,offline,new CloudflareRepositoryAccess(transport)); }
@@ -144,10 +173,11 @@ namespace Phinix.PluginStore
             var endpoint=before.Repository.Endpoint; var audit=new RepositoryDiagnostics(log,endpoint.SourceId);
             return Run(install?ManagedStoreState.Installing:ManagedStoreState.Downloading,async token=>
             {
-                audit.Event("managed.download_started","ManagedPackage");
-                var cache=new ManagedRepositoryCache(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),endpoint);
                 using(var connection=transport??ManagedRepositoryAccess.Create(endpoint,audit))
                 {
+                    environment=await RefreshEnvironment(environment,token).ConfigureAwait(false);
+                    audit.Event("managed.download_started","ManagedPackage");
+                    var cache=new ManagedRepositoryCache(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),endpoint);
                     var entry=await Fresh(connection,cache,endpoint,expected,token).ConfigureAwait(false);
                     var inventory=Inventory(environment,token);
                     var selected=entry.Catalog.Packages.Single(p=>p.Id==expected.Root.Id && !p.IsWorkshop && p.Manifest.Version.ToString()==expected.Root.Manifest.Version.ToString());
@@ -175,6 +205,8 @@ namespace Phinix.PluginStore
                         ReportProgress(token,new ManagedStoreProgress(ManagedProgressStage.Rechecking,null,received,current.DownloadBytes,index,downloads.Length));
                         audit.Event("managed.precommit_checking","ManagedInstall",bytes:received);
                         await Fresh(connection,cache,endpoint,expected,token).ConfigureAwait(false);
+                        environment=await RefreshEnvironment(environment,token).ConfigureAwait(false);
+                        audit.Event("managed.environment_rechecked","ManagedInstall",bytes:received);
                         var finalInventory=Inventory(environment,token);
                         if(new ManagedStorePlanner(entry.Catalog,environment,finalInventory,endpoint,expected.ReplacesPackages).Plan(selected,token).Identity!=expected.Identity) throw Error("ManagedStateChanged");
                         ReportProgress(token,new ManagedStoreProgress(ManagedProgressStage.Committing,null,received,current.DownloadBytes,index,downloads.Length));
@@ -186,7 +218,22 @@ namespace Phinix.PluginStore
                     }
                     return Result(install?ManagedStoreState.Installed:ManagedStoreState.Verified,before.Catalog,new RepositoryBrowseInfo(endpoint,DateTime.UtcNow,false,false),expected,inventory,install?"ManagedInstallSaved":"ManagedPayloadsVerified",committed:install);
                 }
-            });
+            },audit);
+        }
+        private async Task<ClientEnvironmentSnapshot> RefreshEnvironment(ClientEnvironmentSnapshot previous,CancellationToken token)
+        {
+            token.ThrowIfCancellationRequested();
+            var current=captureEnvironment==null?previous:await AwaitOperation(captureEnvironment,token,"EnvironmentCaptureTimeout").ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            RequireEnvironment(current);
+            if(previous==null || previous.Paths==null ||
+                !string.Equals(previous.Paths.SaveDataRoot,current.Paths.SaveDataRoot,ClientPathOwnership.Comparison) ||
+                !string.Equals(previous.Paths.LocalModsRoot,current.Paths.LocalModsRoot,ClientPathOwnership.Comparison) ||
+                !string.Equals(previous.HostModRoot,current.HostModRoot,ClientPathOwnership.Comparison) ||
+                previous.RimWorldVersion!=current.RimWorldVersion || previous.PhinixCompatibilityVersion!=current.PhinixCompatibilityVersion ||
+                previous.AbstractionsCompatibilityVersion!=current.AbstractionsCompatibilityVersion) throw Error("ManagedEnvironmentChanged");
+            lock(gate) updateEnvironment=current;
+            return current;
         }
         private static async Task<ManagedRepositoryCacheEntry> Fresh(IManagedRepositoryAccess transport,ManagedRepositoryCache cache,RepositoryEndpoint endpoint,ManagedStorePlan expected,CancellationToken token)
         {
@@ -205,13 +252,15 @@ namespace Phinix.PluginStore
                 return Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,CancellationToken.None),"ManagedStateSaved",committed:true));
             });
         }
-        private Task Run(ManagedStoreState state,Func<CancellationToken,Task<OperationResult>> work)
+        private Task Run(ManagedStoreState state,Func<CancellationToken,Task<OperationResult>> work,RepositoryDiagnostics audit=null)
         {
             lock(gate)
             {
                 if(disposed) throw new ObjectDisposedException(nameof(ManagedStoreController));
                 if(operation.Busy) throw Error("StoreBusy");
                 long generation=operation.Begin(state);
+                audit=audit??new RepositoryDiagnostics(log,snapshot.Repository?.Endpoint.SourceId);
+                audit.Operation=state.ToString();
                 var source=new CancellationTokenSource(); running=source;
                 lastProgressTicks=0;
                 snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,snapshot.Catalog,snapshot.Repository,snapshot.Plan,snapshot.Inventory,null);
@@ -229,8 +278,9 @@ namespace Phinix.PluginStore
                         var validation=ex as StoreValidationException;
                         string code=validation?.Code??(ex as ManagedExtensionValidationException)?.Code??"ManagedStoreFailed";
                         var referenceFailure=validation?.ReferenceFailure??(ex as ManagedExtensionValidationException)?.ReferenceFailure;
-                        new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId).Event("managed.operation_failed","ManagedStore",code,validation?.RequestId,localIdentity:validation?.LocalIdentity,referenceFailure:referenceFailure);
-                        outcome=Result(ManagedStoreState.Failed,null,null,null,null,code,validation?.RequestId,validation?.LocalIdentity,referenceFailure);
+                        var failure=audit.Failure("managed.operation_failed","ManagedStore",ex,"ManagedStoreFailed");
+                        code=failure.Code;
+                        outcome=Result(ManagedStoreState.Failed,null,null,null,null,code,failure.RequestId,validation?.LocalIdentity,referenceFailure,contextReasons:failure.ContextReasons);
                     }
                     lock(gate)
                     {
@@ -243,7 +293,7 @@ namespace Phinix.PluginStore
                                 result=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled").Snapshot;
                             if(ReferenceEquals(running,source) && operation.Complete(generation,result.State))
                                 snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,result.Catalog??snapshot.Catalog,result.Repository??snapshot.Repository,
-                                    result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure);
+                                    result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure,contextReasons:result.ContextReasons);
                         }
                         finally
                         {
@@ -266,16 +316,18 @@ namespace Phinix.PluginStore
                 if(!boundary && ticks-lastProgressTicks<Stopwatch.Frequency/4) return;
                 lastProgressTicks=ticks;
                 snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,snapshot.State,snapshot.Catalog,snapshot.Repository,snapshot.Plan,snapshot.Inventory,
-                    snapshot.Code,snapshot.RequestId,snapshot.LocalIdentity,snapshot.ReferenceFailure,progress);
+                    snapshot.Code,snapshot.RequestId,snapshot.LocalIdentity,snapshot.ReferenceFailure,progress,snapshot.ContextReasons);
             }
         }
-        private static async Task<T> Metadata<T>(Func<CancellationToken,Task<T>> work,CancellationToken token)
+        private static Task<T> Metadata<T>(Func<CancellationToken,Task<T>> work,CancellationToken token)
+            => AwaitOperation(work,token,"RepositoryTimeout");
+        private static async Task<T> AwaitOperation<T>(Func<CancellationToken,Task<T>> work,CancellationToken token,string timeoutCode)
         {
             using(var deadline=CancellationTokenSource.CreateLinkedTokenSource(token))
             {
                 var task=work(deadline.Token); var delay=Task.Delay(30000,deadline.Token);
                 if(await Task.WhenAny(task,delay).ConfigureAwait(false)!=task)
-                { deadline.Cancel(); _=task.ContinueWith(t=>{var ignored=t.Exception;},TaskContinuationOptions.OnlyOnFaulted); token.ThrowIfCancellationRequested(); throw Error("RepositoryTimeout"); }
+                { deadline.Cancel(); _=task.ContinueWith(t=>{var ignored=t.Exception;},TaskContinuationOptions.OnlyOnFaulted); token.ThrowIfCancellationRequested(); throw Error(timeoutCode); }
                 deadline.Cancel(); return await task.ConfigureAwait(false);
             }
         }
@@ -313,8 +365,8 @@ namespace Phinix.PluginStore
             internal ManagedStoreSnapshot Snapshot { get; }
             internal bool Committed { get; }
         }
-        private static OperationResult Result(ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,ManagedExtensionManagementSnapshot inventory,string code,string request=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,bool committed=false)
-        { return new OperationResult(new ManagedStoreSnapshot(0,state,catalog,repository,plan,inventory,code,request,localIdentity,referenceFailure),committed); }
+        private static OperationResult Result(ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,ManagedExtensionManagementSnapshot inventory,string code,string request=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,bool committed=false,IEnumerable<string> contextReasons=null)
+        { return new OperationResult(new ManagedStoreSnapshot(0,state,catalog,repository,plan,inventory,code,request,localIdentity,referenceFailure,contextReasons:contextReasons),committed); }
         private static StoreValidationException Error(string code) { return new StoreValidationException(code,"Managed shop operation: "+code); }
     }
 }

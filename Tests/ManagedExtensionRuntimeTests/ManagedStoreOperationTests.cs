@@ -15,6 +15,8 @@ internal static partial class Program
     private static void ManagedStoreOperationRegression(Dictionary<string,byte[]> files)
     {
         int before=assertions;
+        StoreFailureRegression();
+        StoreEnvironmentRefreshRegression(files);
         StoreTransitionMatrix();
         StoreControllerCancellation(files);
         StoreControllerLateProgress(files);

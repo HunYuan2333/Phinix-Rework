@@ -22,7 +22,7 @@
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/ManagedStorePayloadValidator.cs" />
-    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/ManagedStoreLocalGate.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreInstallationInput.cs" Link="Production/ManagedStoreInstallationInput.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryTransport.cs" Link="Production/RepositoryTransport.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryPayloadTransport.cs" Link="Production/RepositoryPayloadTransport.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryDiagnostics.cs" Link="Production/RepositoryDiagnostics.cs" />

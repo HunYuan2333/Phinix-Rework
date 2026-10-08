@@ -18,19 +18,26 @@ namespace Phinix.ChatExtension.Client
         private int cachedRawUnread = -1;
         private int cachedFilteredUnread;
         private volatile bool started;
+        private readonly IClientMainThreadDispatcher dispatcher;
+        private readonly System.Action<string, Utils.LogLevel> log;
+        private int generation;
 
         public FrameworkClientChatServiceAdapter(
             IFrameworkChatClientApi chatApi,
             IClientDisplayMessageFeed messageFeed,
             IClientDisplayMessageStore messageStore,
             IClientUserDirectory userDirectory,
-            IClientSettingsContext settingsContext)
+            IClientSettingsContext settingsContext,
+            IClientMainThreadDispatcher dispatcher,
+            System.Action<string, Utils.LogLevel> log)
         {
             this.chatApi = chatApi ?? throw new System.ArgumentNullException(nameof(chatApi));
             this.messageFeed = messageFeed ?? throw new System.ArgumentNullException(nameof(messageFeed));
             this.messageStore = messageStore ?? throw new System.ArgumentNullException(nameof(messageStore));
             this.userDirectory = userDirectory ?? throw new System.ArgumentNullException(nameof(userDirectory));
             this.settingsContext = settingsContext ?? throw new System.ArgumentNullException(nameof(settingsContext));
+            this.dispatcher = dispatcher ?? throw new System.ArgumentNullException(nameof(dispatcher));
+            this.log = log ?? throw new System.ArgumentNullException(nameof(log));
         }
 
         public void Dispose() { Stop(); }
@@ -46,6 +53,7 @@ namespace Phinix.ChatExtension.Client
         {
             if (!started) return;
             started = false;
+            System.Threading.Interlocked.Increment(ref generation);
             messageFeed.DisplayMessageReceived -= onDisplayMessageReceived;
         }
 
@@ -128,6 +136,22 @@ namespace Phinix.ChatExtension.Client
         private void onDisplayMessageReceived(object sender, FrameworkDisplayMessageEventArgs args)
         {
             if (!started) return;
+            int current = System.Threading.Volatile.Read(ref generation);
+            dispatcher.Enqueue(() =>
+            {
+                if (!started || current != System.Threading.Volatile.Read(ref generation)) return;
+                try { Deliver(sender, args); }
+                catch (System.Exception ex) { Report("Chat message conversion failed: " + ex); }
+            });
+        }
+
+        private void Report(string message)
+        {
+            try { log(message, Utils.LogLevel.WARNING); } catch { }
+        }
+
+        private void Deliver(object sender, FrameworkDisplayMessageEventArgs args)
+        {
             // Even a blocked message can evict an older unread message at capacity.
             System.Threading.Interlocked.Increment(ref messageVersion);
             if (args?.Message == null)
@@ -146,7 +170,15 @@ namespace Phinix.ChatExtension.Client
                 return;
             }
 
-            OnChatMessageReceived?.Invoke(sender, new UIChatMessageEventArgs(uiMessage));
+            var handlers = OnChatMessageReceived;
+            if (handlers == null) return;
+            var messageArgs = new UIChatMessageEventArgs(uiMessage);
+            foreach (System.EventHandler<UIChatMessageEventArgs> handler in handlers.GetInvocationList())
+            {
+                if (!started) break;
+                try { handler(sender, messageArgs); }
+                catch (System.Exception ex) { Report("Chat message subscriber failed: " + ex); }
+            }
         }
     }
 }

@@ -193,4 +193,16 @@
   <Phinix_store2_disabledModulesRecovery>模块在 Phinix 设置中全部禁用。请打开“扩展”，启用保留的模块条目后再重试安装。</Phinix_store2_disabledModulesRecovery>
   <Phinix_store2_disabledPackageRecovery>已安装包处于禁用或待删除状态。请检查“扩展 → 安装包”，待删除时先重启完成卸载，再重新安装。</Phinix_store2_disabledPackageRecovery>
   <Phinix_store2_assemblyConflictRecovery>程序集身份仍被占用。卸载后重启再重试；若仍冲突，请检查其他重复副本。</Phinix_store2_assemblyConflictRecovery>
+  <Phinix_store2_pathTooLongFriendly>插件文件路径过长。请缩短游戏数据目录路径后重试。</Phinix_store2_pathTooLongFriendly>
+  <Phinix_store2_storageFriendly>无法写入插件文件。请检查磁盘剩余空间和目录写入权限后重试。</Phinix_store2_storageFriendly>
+  <Phinix_store2_recoveryFriendly>插件操作未完成，需要恢复。请重启游戏进行恢复；若仍失败，请提供错误详情和日志。</Phinix_store2_recoveryFriendly>
+  <Phinix_store2_environmentFriendly>插件运行环境尚未就绪。请查看错误详情；刷新或重启仍无效时，请提供日志。</Phinix_store2_environmentFriendly>
+  <Phinix_store2_environmentChangedFriendly>插件运行环境发生变化。请重启游戏，刷新商店后重新确认安装。</Phinix_store2_environmentChangedFriendly>
+  <Phinix_store2_ownershipFriendly>无法确认托管插件的记录或文件归属。请查看错误详情并提供日志，先保留现有文件。</Phinix_store2_ownershipFriendly>
+  <Phinix_store2_dependencyFriendly>所需依赖缺失、被禁用或版本不兼容。请检查相关扩展后重新确认安装。</Phinix_store2_dependencyFriendly>
+  <Phinix_store2_reviewFriendly>索引、计划或本地状态已变化。请在线刷新商店后重新确认操作。</Phinix_store2_reviewFriendly>
+  <Phinix_store2_busyFriendly>已有商店操作正在进行。请等待完成，或取消后重试。</Phinix_store2_busyFriendly>
+  <Phinix_store2_unavailableFriendly>此条目当前不可安装，或已安装。请刷新商店并检查扩展管理。</Phinix_store2_unavailableFriendly>
+  <Phinix_store2_contentFriendly>插件清单或文件未通过校验。请刷新商店后重试；仍失败时提供错误详情和日志。</Phinix_store2_contentFriendly>
+  <Phinix_store2_inputFriendly>输入的地址、本地路径或来源标识无效。请检查商店设置和选择的本地文件。</Phinix_store2_inputFriendly>
 </LanguageData>

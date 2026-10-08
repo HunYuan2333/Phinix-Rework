@@ -5,8 +5,11 @@ using Verse;
 
 namespace Phinix.PluginStore
 {
-    internal sealed class PluginStoreSettingsPanel : IClientSettingsPanelProvider
+    internal sealed class PluginStoreSettingsPanel : IClientSettingsPanelProvider, System.IDisposable
     {
+        public PluginStoreSettingsPanel() { }
+        public void Dispose() { Stop(); }
+
         private IClientWindowService windows;
         private IClientMainThreadDispatcher dispatcher;
         private object language;
@@ -24,11 +27,12 @@ namespace Phinix.PluginStore
         public void Stop()
         {
             PluginStoreWindow closing = window;
-            if (closing != null) dispatcher?.Enqueue(() => closing.Close());
+            IClientMainThreadDispatcher closingDispatcher=dispatcher;
             window = null;
             windows = null;
             dispatcher = null;
             createView=null;
+            if (closing != null) closingDispatcher?.Enqueue(() => closing.Close());
         }
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)

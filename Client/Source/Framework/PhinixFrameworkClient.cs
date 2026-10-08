@@ -1038,7 +1038,17 @@ namespace PhinixClient.Framework
 
             if (changed)
             {
-                CompatibilityModeChanged?.Invoke(this, new FrameworkCompatibilityModeChangedEventArgs(CompatibilityMode));
+                var handlers = CompatibilityModeChanged;
+                if (handlers != null)
+                {
+                    var args = new FrameworkCompatibilityModeChangedEventArgs(CompatibilityMode);
+                    foreach (EventHandler<FrameworkCompatibilityModeChangedEventArgs> handler in handlers.GetInvocationList())
+                    {
+                        try { handler(this, args); }
+                        catch (Exception ex)
+                        { try { RaiseLogEntry(new LogEventArgs("Compatibility mode subscriber failed: " + ex, LogLevel.WARNING)); } catch { } }
+                    }
+                }
             }
 
             if (!string.IsNullOrEmpty(systemMessageKey))

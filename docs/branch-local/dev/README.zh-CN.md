@@ -100,15 +100,15 @@ Phinix Rework 采用分层、插件优先的架构。详见 [设计哲学.md](./
 
 ## 扩展开发
 
-插件实现 `IPhinixExtensionModule`，通过 `IExtensionBuilder` 注册 handler 和 API：
+客户端插件继承 `ClientExtensionModule`（客户端抽象 1.9），通过 Compose 与 `IExtensionBuilder` 组合 handler/API。客户端直接 Register 已弃用，服务端 Register 保留：
 
 ```csharp
 [PhinixExtension("my.extension")]
-public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+public class MyExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
 {
-    public string ExtensionId => "my.extension";
+    public override string ExtensionId => "my.extension";
 
-    public void Register(IExtensionBuilder builder)
+    public override void Compose(IExtensionBuilder builder)
     {
         builder.AddClientMessageHandler(this);
         builder.RegisterApi<IMyService>(this);

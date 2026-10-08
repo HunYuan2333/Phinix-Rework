@@ -10,6 +10,14 @@
 
 ---
 
+## Client composition entry (F4 development update)
+
+New client plugins require ClientExtensionAbstractions 1.9, derive from `ClientExtensionModule`, and override `Compose(IExtensionBuilder)`. The base forwards the shared registry's Register call exactly once; use the ordinary discovery, activation and shutdown lifecycle. Create owned scopes at Compose/Activate, inject ordinary services through constructors, borrow host/API dependencies, and dispose owned scopes in Shutdown. See the maintained Example and Playtest sources under `Extensions/PluginStore/Samples`.
+
+Direct client `IPhinixExtensionModule.Register` is deprecated in the F4 development line. The optional `LegacyClientExtensionModule` source adapter and its Register method are marked Obsolete; old binaries still use the same registry and receive one client migration warning per startup. Disabled candidates are not constructed for diagnostics. Do not derive new plugins from that compatibility adapter. The shared server Register contract is unchanged.
+
+First planned stable deprecation release: host 0.9.8. Intended removal: host 1.0 / client abstractions 2.0, only after independent RedPacket/TalentTrade migration, matching catalog/resource updates, rollback checks and game acceptance. The current development host has not been published as 0.9.8. Existing immutable release assets and saves/settings must not be overwritten. Below, shared Register describes the registry mechanism; client author implementations use Compose.
+
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
@@ -226,9 +234,9 @@ The attribute is defined in [FrameworkTypes.cs:495-509](Common/Utils/Framework/F
 
 ```csharp
 [PhinixExtension("mymod.myfeature", DependsOn = new[] { "phinix.chat", "phinix.trade" })]
-public class MyExtension : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+public class MyExtension : ClientExtensionModule, IActivatablePhinixExtensionModule
 {
-    public string ExtensionId => "mymod.myfeature";
+    public override string ExtensionId => "mymod.myfeature";
     // ...
 }
 ```
@@ -363,7 +371,7 @@ ExtensionHostContext hostCtx = builder.HostContext; // Host context
 Call `builder.RegisterApi<T>(implementation)` in `Register()`, and your implementation enters the framework's API registry:
 
 ```csharp
-public void Register(IExtensionBuilder builder)
+public override void Compose(IExtensionBuilder builder)
 {
     var myFeature = new MyFeatureService(/* ... */);
     builder.RegisterApi<IMyFeatureApi>(myFeature);
@@ -1329,7 +1337,7 @@ Chat and Trade both provide independent Contracts projects containing only inter
 // In your submod
 using Phinix.TradeExtension;  // Reference TradeExtension Contracts assembly
 
-public void Register(IExtensionBuilder builder)
+public override void Compose(IExtensionBuilder builder)
 {
     // Resolve in Activate
 }
@@ -1463,7 +1471,7 @@ hostContext.GetRequiredService<IFrameworkClientCommandTransport>()
 ### 11.2 Calling hostContext.GetRequiredService in Register()
 
 ```csharp
-public void Register(IExtensionBuilder builder)
+public override void Compose(IExtensionBuilder builder)
 {
     // ❌ Wrong: host services may not be ready during Register phase
     var session = builder.HostContext.GetRequiredService<IClientSessionContext>();
@@ -1751,7 +1759,7 @@ namespace MyMod.PhinixExtension
 {
     [PhinixExtension("mymod.myfeature")]
     public sealed class MySubmodExtension :
-        IPhinixExtensionModule,
+        ClientExtensionModule,
         IActivatablePhinixExtensionModule,
         IClientMessageHandler
     {
@@ -1767,7 +1775,7 @@ namespace MyMod.PhinixExtension
 
         // ===== IPhinixExtension =====
 
-        public string ExtensionId => "mymod.myfeature";
+        public override string ExtensionId => "mymod.myfeature";
 
         // ===== IMessageHandler =====
 
@@ -1775,7 +1783,7 @@ namespace MyMod.PhinixExtension
 
         // ===== IPhinixExtensionModule =====
 
-        public void Register(IExtensionBuilder builder)
+        public override void Compose(IExtensionBuilder builder)
         {
             // Only registration — do not obtain host services
             builder.AddClientMessageHandler(this);

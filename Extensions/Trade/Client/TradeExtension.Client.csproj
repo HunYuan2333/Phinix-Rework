@@ -71,6 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BuiltInTradeClientExtension.cs" />
+    <Compile Include="TradeClientActivationLifetime.cs" />
     <Compile Include="ClientTradeUiHostContext.cs" />
     <Compile Include="DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="FrameworkTradeItemPayloadCodec.cs" />

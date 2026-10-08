@@ -10,8 +10,104 @@ namespace Phinix.PluginStore
         public StoreValidationException(string code, string message, Exception inner) : base(message, inner) { Code = code; }
         public string Code { get; }
         internal string RequestId { get; set; }
+        internal IEnumerable<string> ContextReasons { get; set; }
         internal LocalIdentityDiagnostic LocalIdentity { get; set; }
         internal Utils.Framework.ManagedExtensions.ManagedExtensionAssemblyReferenceFailure ReferenceFailure { get; set; }
+    }
+
+    internal enum StoreFailureScope { Target, Environment, Repository, Storage, Recovery, Action, Unexpected }
+
+    // Presentation and safe diagnostics only. This never authorizes a retry or
+    // changes the installation/ownership gates that produced the failure.
+    internal sealed class StoreFailureInfo
+    {
+        private StoreFailureInfo(string code,string requestId,IEnumerable<string> contextReasons)
+        {
+            Code=SafeCode(code)??"StoreOperationFailed";
+            RequestId=SafeRequestId(requestId);
+            var reasons=new List<string>();
+            if(contextReasons!=null) foreach(var reason in contextReasons)
+            {
+                string safe=SafeCode(reason);
+                if(safe!=null && !reasons.Contains(safe)) reasons.Add(safe);
+                if(reasons.Count==32) break;
+            }
+            ContextReasons=StoreCollections.Freeze(reasons);
+            Classify();
+        }
+        internal static string SafeCode(string value)
+            => value!=null && System.Text.RegularExpressions.Regex.IsMatch(value,@"\A[A-Za-z][A-Za-z0-9]{0,63}\z")?value:null;
+        internal static string SafeRequestId(string value)
+            => value!=null && System.Text.RegularExpressions.Regex.IsMatch(value,@"\A[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\z")?value:null;
+        internal string Code { get; }
+        internal string RequestId { get; }
+        internal ReadOnlyCollection<string> ContextReasons { get; }
+        internal LocalIdentityDiagnostic LocalIdentity { get; private set; }
+        internal Utils.Framework.ManagedExtensions.ManagedExtensionAssemblyReferenceFailure ReferenceFailure { get; private set; }
+        internal StoreFailureScope Scope { get; private set; }
+        internal string MessageKey { get; private set; }
+        internal string Diagnostic => Code+(RequestId==null?"":"\nRequest ID: "+RequestId)+
+            (ContextReasons.Count==0?"":"\nCauses: "+string.Join(", ",ContextReasons));
+        internal static StoreFailureInfo FromCode(string code,string requestId=null,IEnumerable<string> reasons=null)
+            => new StoreFailureInfo(code,requestId,reasons);
+        internal static StoreFailureInfo FromException(Exception error,string fallback="StoreOperationFailed")
+        {
+            var validation=error as StoreValidationException;
+            var managed=error as Utils.Framework.ManagedExtensions.ManagedExtensionValidationException;
+            string code=validation?.Code??managed?.Code;
+            if(code==null)
+            {
+                if(error is System.IO.IOException || error is UnauthorizedAccessException) code="InstallationStorageFailed";
+                else code=fallback;
+            }
+            var failure=new StoreFailureInfo(code,validation?.RequestId,validation?.ContextReasons)
+                {LocalIdentity=validation?.LocalIdentity,ReferenceFailure=validation?.ReferenceFailure??managed?.ReferenceFailure};
+            if(failure.Scope==StoreFailureScope.Unexpected && (failure.ReferenceFailure!=null || failure.LocalIdentity!=null))
+                failure.Set(StoreFailureScope.Target,"compatibilityFriendly");
+            return failure;
+        }
+        private bool Is(params string[] codes) { foreach(string code in codes) if(Code==code) return true; return false; }
+        private void Set(StoreFailureScope scope,string key) { Scope=scope; MessageKey=key; }
+        private void Classify()
+        {
+            if(Code=="ManagedInventoryUncertain") foreach(string reason in ContextReasons)
+            {
+                var cause=FromCode(reason);
+                if(cause.Scope==StoreFailureScope.Recovery) { Set(cause.Scope,cause.MessageKey); return; }
+            }
+            if(Is("ManagedInstallRecoveryRequired","ManagedTransactionPending","InstallRecoveryStorageFailed","InstallationRecoveryRequired","ManagedInstallOutcomeUncertain","InstallationCleanupRequired") ||
+                Code.StartsWith("InstallJournal",StringComparison.Ordinal) || Code.StartsWith("InstallWork",StringComparison.Ordinal) ||
+                Code.StartsWith("UnknownManagedTransaction",StringComparison.Ordinal) || Code.StartsWith("OrphanInstall",StringComparison.Ordinal))
+                { Set(StoreFailureScope.Recovery,"recoveryFriendly"); return; }
+            if(Is("ManagedInstallPathTooLong")) { Set(StoreFailureScope.Storage,"pathTooLongFriendly"); return; }
+            if(Code.Contains("StorageFailed") || Code.Contains("CleanupFailed")) { Set(StoreFailureScope.Storage,"storageFriendly"); return; }
+            if(Is("IncompleteEnvironment","EnvironmentCaptureTimeout","ManagedManagementUnavailable","ManagedInventoryUnavailable"))
+                { Set(StoreFailureScope.Environment,"environmentFriendly"); return; }
+            if(Is("ManagedEnvironmentChanged")) { Set(StoreFailureScope.Environment,"environmentChangedFriendly"); return; }
+            if(Is("ManagedInventoryUncertain","ManagedOwnershipUncertain","LocalIdentityUncertain") || Code.Contains("Ownership"))
+                { Set(StoreFailureScope.Environment,"ownershipFriendly"); return; }
+            if(Is("ManagedAllModulesDisabled")) { Set(StoreFailureScope.Target,"disabledModulesRecovery"); return; }
+            if(Is("ManagedDependencyDisabled")) { Set(StoreFailureScope.Target,"disabledPackageRecovery"); return; }
+            if(Is("CandidateAssemblyConflict","ManagedInstallPackageConflict","ManagedInstallTargetExists","CandidateModuleConflict"))
+                { Set(StoreFailureScope.Target,"assemblyConflictRecovery"); return; }
+            if(Code.Contains("Dependency") || Is("CandidateExternalModMissing","ExternalModMissing"))
+                { Set(StoreFailureScope.Target,"dependencyFriendly"); return; }
+            if(Code.StartsWith("CandidateHost",StringComparison.Ordinal) || Code.StartsWith("CandidateAssemblyReference",StringComparison.Ordinal) ||
+                Is("ManagedHostAssemblyUnavailable","LocalLoadFolderInvalid","IncompatibleVersion"))
+                { Set(StoreFailureScope.Target,"compatibilityFriendly"); return; }
+            if(Is("RepositoryRateLimited")) { Set(StoreFailureScope.Repository,"rateLimitedFriendly"); return; }
+            if(Is("RepositoryUnavailable","RepositoryTimeout")) { Set(StoreFailureScope.Repository,"networkFriendly"); return; }
+            if(Is("RepositoryStale","SnapshotChanged","ManagedStateChanged","OnlineSnapshotRequired","CacheUnavailable"))
+                { Set(StoreFailureScope.Action,"reviewFriendly"); return; }
+            if(Is("InvalidEndpoint","InvalidIndexPath","InvalidSourceId")) { Set(StoreFailureScope.Action,"inputFriendly"); return; }
+            if(Is("StoreBusy","OperationInProgress")) { Set(StoreFailureScope.Action,"busyFriendly"); return; }
+            if(Is("PackageUnavailable","ManagedAlreadyInstalled","NoPackagesToDownload")) { Set(StoreFailureScope.Target,"unavailableFriendly"); return; }
+            if(Code.Contains("Digest") || Code.Contains("Mismatch") || Code.StartsWith("Invalid",StringComparison.Ordinal) ||
+                Code.StartsWith("Unsupported",StringComparison.Ordinal) || Code.StartsWith("AssemblyMetadata",StringComparison.Ordinal) ||
+                Code.StartsWith("Archive",StringComparison.Ordinal) || Code.StartsWith("Payload",StringComparison.Ordinal))
+                { Set(StoreFailureScope.Target,"contentFriendly"); return; }
+            Set(StoreFailureScope.Unexpected,"failedFriendly");
+        }
     }
 
     internal sealed class LocalIdentityDiagnostic

@@ -193,4 +193,16 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_disabledModulesRecovery>All modules are disabled in Phinix settings. Open Extensions and enable the saved module entries before retrying installation.</Phinix_store2_disabledModulesRecovery>
   <Phinix_store2_disabledPackageRecovery>The installed package is disabled or pending removal. Check Extensions → Packages and restart to complete removal before reinstalling.</Phinix_store2_disabledPackageRecovery>
   <Phinix_store2_assemblyConflictRecovery>An assembly identity is still occupied. Restart after uninstalling, then retry; check for another copy if the conflict remains.</Phinix_store2_assemblyConflictRecovery>
+  <Phinix_store2_pathTooLongFriendly>Plugin paths are too long. Use a shorter game data folder path and try again.</Phinix_store2_pathTooLongFriendly>
+  <Phinix_store2_storageFriendly>Could not write plugin files. Check free disk space and folder permissions, then try again.</Phinix_store2_storageFriendly>
+  <Phinix_store2_recoveryFriendly>An interrupted plugin operation requires recovery. Restart the game to recover it; if it persists, share the error details and log.</Phinix_store2_recoveryFriendly>
+  <Phinix_store2_environmentFriendly>The plugin environment is not ready. Open error details and share the log if refreshing or restarting does not help.</Phinix_store2_environmentFriendly>
+  <Phinix_store2_environmentChangedFriendly>The plugin environment changed. Restart the game, refresh the store and review the installation again.</Phinix_store2_environmentChangedFriendly>
+  <Phinix_store2_ownershipFriendly>Managed plugin records or file ownership cannot be confirmed. Keep existing files and share error details and the log.</Phinix_store2_ownershipFriendly>
+  <Phinix_store2_dependencyFriendly>A required dependency is missing, disabled or incompatible. Check related extensions and review the installation again.</Phinix_store2_dependencyFriendly>
+  <Phinix_store2_reviewFriendly>The catalog, plan or local state has changed. Refresh the store online and review the action again.</Phinix_store2_reviewFriendly>
+  <Phinix_store2_busyFriendly>Another store operation is in progress. Wait for it to finish or cancel it before retrying.</Phinix_store2_busyFriendly>
+  <Phinix_store2_unavailableFriendly>This listing is unavailable for installation or already installed. Refresh the store and check Extensions.</Phinix_store2_unavailableFriendly>
+  <Phinix_store2_contentFriendly>Plugin metadata or files failed validation. Refresh the store and retry; if it persists, share error details and the log.</Phinix_store2_contentFriendly>
+  <Phinix_store2_inputFriendly>An address, local path or source ID is invalid. Check store settings and the selected local file.</Phinix_store2_inputFriendly>
 </LanguageData>

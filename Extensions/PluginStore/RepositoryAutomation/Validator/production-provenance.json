@@ -11,7 +11,7 @@
     {
       "source": "Extensions/PluginStore/Client/PackageModels.cs",
       "snapshot": "Validator/Production/PackageModels.cs",
-      "sha256": "d52a8ab36fe77e1566ace32c06a238a29e455b2f6b5932c49e517e2aab572da5"
+      "sha256": "45dd0c0e172ab621766bee59a58237246464c74b589fb0e2d3e4f1816b47a67b"
     },
     {
       "source": "Extensions/PluginStore/Client/CatalogReader.cs",
@@ -51,7 +51,7 @@
     {
       "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionMetadata.cs",
       "snapshot": "Validator/Production/ManagedExtensions/ManagedExtensionMetadata.cs",
-      "sha256": "3f05ba53d487d868cf7c87530555af103bee4bf04982d953b76a79a26c59bc6c"
+      "sha256": "84ca86e3600d9db5f233a0b7d2ee96a8ef9728e541fb1942b45ca7a67fee6c78"
     },
     {
       "source": "Common/Utils/Framework/ManagedExtensions/ManagedExtensionPayloadInspector.cs",

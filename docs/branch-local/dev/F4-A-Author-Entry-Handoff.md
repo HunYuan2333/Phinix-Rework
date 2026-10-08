@@ -74,8 +74,10 @@ Lock update was required only to add the new fixture project, not change runtime
 3. Disable Chat and restart: it stays unconstructed/inactive; restore and restart: exactly one active Chat. Existing example/Inventory/Trade/Store/Legacy modules still use their previous entry and should retain their existing behavior.
 4. Normal quit/restart; check no cleanup errors. Retest red-packet installation against the unchanged actual third-party mod list to verify the pending EM-03 fix separately.
 
-After acceptance, commit F4-A separately on dev, then begin F4-B example migration. Local-check scope changes belong in F4-F2: prioritize actual loaded identities/effective directories and distinguish proven collision from inability to inspect, with an explicit policy and its own regression/game batch. Signing remains F6-S before author tools. No persistence/protocol/trade ACK/item-ownership changes in F4-A.
+After acceptance, commit F4-A separately on dev, then begin F4-B example migration. Local-check scope changes belong in F4-F2: prioritize actual loaded identities/effective directories and distinguish proven collision from inability to inspect, with an explicit policy and its own regression/game batch. No persistence/protocol/trade ACK/item-ownership changes in F4-A.
 
 ## User acceptance (2026-10-07)
 
 The user compiled the current workspace package and reported “没问题了，继续”. F4-A game check accepted; no invented individual-step logs. Next: separate commits for the accepted EM-03 and F4-A slices, then F4-B sample migration.
+
+Accepted F4-A commit: b339cb6; EM-03 commit: c0c8d4e. No push. F4-B is the next separate sample batch.

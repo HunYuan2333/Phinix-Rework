@@ -30,6 +30,7 @@ namespace Phinix.LegacyAdapter.Client
         // 入站消息队列上限 —— 与 PhinixFrameworkClient.MaxDisplayMessages(1000) 对齐
         private const int MaxPendingMessages = 200;
         private int pendingMessageCount;
+        private volatile bool handlersRegistered;
 
         public LegacyChatProtocolAdapter(
             ILegacyModuleTransport legacyTransport,
@@ -43,14 +44,18 @@ namespace Phinix.LegacyAdapter.Client
 
         public void RegisterHandlers()
         {
+            if (handlersRegistered) return;
             pendingMessageCount = 0;
+            handlersRegistered = true;
             legacyTransport.RegisterHandler(ChatModuleName, OnLegacyChatPacketReceived);
         }
 
         public void UnregisterHandlers()
         {
-            legacyTransport.UnregisterHandler(ChatModuleName);
+            if (!handlersRegistered) return;
+            handlersRegistered = false;
             pendingMessageCount = 0;
+            legacyTransport.UnregisterHandler(ChatModuleName);
         }
 
         /// <summary>
@@ -93,7 +98,7 @@ namespace Phinix.LegacyAdapter.Client
         /// </summary>
         private void OnLegacyChatPacketReceived(string module, string connectionId, byte[] data)
         {
-            if (data == null || data.Length == 0) return;
+            if (!handlersRegistered || data == null || data.Length == 0) return;
 
             try
             {

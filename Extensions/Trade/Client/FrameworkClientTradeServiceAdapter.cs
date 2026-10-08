@@ -8,9 +8,10 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    internal sealed class FrameworkClientTradeServiceAdapter : IClientTradeService, ITradeRequestApi
+    internal sealed class FrameworkClientTradeServiceAdapter : IClientTradeService, ITradeRequestApi, IDisposable
     {
         private readonly IFrameworkTradeClientApi tradeService;
+        private volatile bool stopped;
         private IFrameworkClientTransport frameworkClient;
         private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
@@ -35,6 +36,21 @@ namespace Phinix.TradeExtension.Client
             this.lifecycle = lifecycle;
             this.sessionContext = sessionContext;
             this.log = log;
+        }
+
+        public void Dispose()
+        {
+            stopped = true;
+            frameworkClient = null;
+            commandTransport = null;
+            lifecycle = null;
+            sessionContext = null;
+            log = null;
+        }
+
+        private void EnsureActive()
+        {
+            if (stopped) throw new InvalidOperationException("Trade has stopped.");
         }
 
         public event EventHandler<LogEventArgs> OnLogEntry
@@ -89,12 +105,14 @@ namespace Phinix.TradeExtension.Client
 
         public void CreateTrade(string uuid)
         {
+            EnsureActive();
             OnTradeCreationRequested?.Invoke(this, new TradeCreationEventArgs(new ClientTradeSnapshot(string.Empty, new UserManagement.ImmutableUser(uuid))));
             SendTradePacket(tradeService.CreateTradeRequest(uuid, createContext()));
         }
 
         public void CancelTrade(string tradeId)
         {
+            EnsureActive();
             log?.Invoke($"[TradeAdapter] CancelTrade: tradeId={tradeId}", LogLevel.DEBUG);
             SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
         }
@@ -111,9 +129,9 @@ namespace Phinix.TradeExtension.Client
 
         public bool TryGetTrade(string tradeId, out ClientTradeSnapshot trade) => tradeService.TryGetTrade(tradeId, out trade);
 
-        public bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid) => tradeService.TryGetOtherPartyUuid(tradeId, sessionContext.Uuid, out otherPartyUuid);
+        public bool TryGetOtherPartyUuid(string tradeId, out string otherPartyUuid) => tradeService.TryGetOtherPartyUuid(tradeId, sessionContext?.Uuid, out otherPartyUuid);
 
-        public bool TryGetOtherPartyAccepted(string tradeId, out bool otherPartyAccepted) => tradeService.TryGetOtherPartyAccepted(tradeId, sessionContext.Uuid, out otherPartyAccepted);
+        public bool TryGetOtherPartyAccepted(string tradeId, out bool otherPartyAccepted) => tradeService.TryGetOtherPartyAccepted(tradeId, sessionContext?.Uuid, out otherPartyAccepted);
 
         public bool TryGetPartyAccepted(string tradeId, string partyUuid, out bool accepted) => tradeService.TryGetPartyAccepted(tradeId, partyUuid, out accepted);
 
@@ -121,6 +139,7 @@ namespace Phinix.TradeExtension.Client
 
         public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
         {
+            EnsureActive();
             var tradeItems = items.ToList();
 
             if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
@@ -166,6 +185,7 @@ namespace Phinix.TradeExtension.Client
 
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)
         {
+            EnsureActive();
             log?.Invoke($"[TradeAdapter] UpdateTradeStatus: tradeId={tradeId}, accepted={accepted}, cancelled={cancelled}", LogLevel.DEBUG);
             SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
         }

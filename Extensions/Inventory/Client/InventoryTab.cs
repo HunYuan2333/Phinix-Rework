@@ -7,7 +7,7 @@ using Verse;
 
 namespace Phinix.InventoryExtension.Client
 {
-    internal sealed class InventoryTab : IMainTabProvider, IResponsiveMainTabProvider
+    internal sealed class InventoryTab : IMainTabProvider, IResponsiveMainTabProvider, IDisposable
     {
         private enum EditorMode { None, Extract, DailySchedule }
 
@@ -21,6 +21,7 @@ namespace Phinix.InventoryExtension.Client
         private static readonly Color NoticeBackground = new Color(0.55f, 0.42f, 0.12f, 0.2f);
 
         private readonly BuiltInInventoryClientExtension inventory;
+        private bool disposed;
         private IReadOnlyList<InventoryEntry> entries = Array.Empty<InventoryEntry>();
         private string[] rowTitles = Array.Empty<string>();
         private string[] rowDetails = Array.Empty<string>();
@@ -55,6 +56,14 @@ namespace Phinix.InventoryExtension.Client
             // The tab and inventory share one extension lifetime. Also refresh on codec activation changes.
             inventory.InventoryChanged += InvalidateRows;
             inventory.AvailabilityChanged += InvalidateRows;
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            inventory.InventoryChanged -= InvalidateRows;
+            inventory.AvailabilityChanged -= InvalidateRows;
         }
 
         private void InvalidateRows(object sender, EventArgs args) { shownVersion = -1; }

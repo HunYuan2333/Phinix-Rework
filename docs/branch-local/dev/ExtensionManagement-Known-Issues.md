@@ -160,3 +160,21 @@ English: supplemental audit confirms a local LoadFolders veto during planning. P
 用户随后确认：这份日志来自更新修复包之前。作为原问题证据保留，不代表修复包仍失败；修复后的实际模组复测结果仍待反馈。User confirmed this is a pre-update log, not a post-repair failure.
 
 2026-10-07 最新工作区整包反馈：用户确认“没问题了，继续”。记录 EM-03 及 F4-A 当前批次游戏核查通过；无逐项日志，不扩大为全模组兼容认证。
+
+## EM-04：EasyUpgrades 本地身份读取阻止商店安装（2026-10-07）
+
+状态：定位到检查路径，原始 DLL 待提供。用户明确这份日志来自不含 F4-A 的 LoadFolders 修复版，不归因于 Compose/DI 迁移。
+
+审计时间 2026-10-07T12:21:15.1162808Z，clientRequestId=7c110f7bd7134f28aa8cf570804a8a8f，localMod=mlie.easyupgrades，localFile=EasyUpgrades.dll，localReason=AssemblyMetadataInvalid，reason=LocalIdentityUncertain。
+
+代码路径：ManagedStoreLocalGate.Check 扫描本地 DLL → ManagedExtensionMetadataReader.ReadIdentity → Reader.OpenTables。ReadIdentity 虽只取程序集身份，仍经过插件载荷使用的 PE/CLI/元数据布局限制；任何 ManagedExtensionValidationException 都被本地门禁转换为 LocalIdentityUncertain 并终止规划。真实名称重复走 LegacyModAssemblyConflict，因此当前日志不能证明 EasyUpgrades 与红包存在程序集身份冲突，也不能证明第三方文件损坏。具体触发的字节/限制尚未复现。
+
+后续先用用户实际 DLL 复现，区分普通程序集格式兼容与损坏，再补回归。关联 F4-F2 扫描边界收敛；不得用按模组 ID 白名单或吞掉所有读取失败来绕过真实名称冲突保护。本轮保留 F4-B 并行修改，仅记录和审查代码，未修改运行逻辑、构建或执行测试。
+
+English: the pre-F4-A repair build rejected local EasyUpgrades.dll during identity inspection, not with the actual assembly-name collision code. Identity-only reads currently share strict payload layout checks. The exact rejected bytes require the user's DLL to reproduce; no claim of binary corruption or confirmed runtime conflict is made. Track this with F4-F2 and retain real collision protection.
+
+### EM-04 最小修复实施
+
+用户要求从架构收敛并立即交付最小版本。已删除普通模组磁盘门禁；实际依赖/已加载冲突及托管载荷验证保留。Chat 线程/订阅者缺陷同步修复，对方消息故障未获日志、未复现；用户本机消息正常。验证及交付见 Store-Chat-Minimal-Fix-Handoff.md。游戏验收待反馈；未提交或发布。
+
+English: removed the ordinary-mod disk veto and retained actual runtime/dependency and managed payload checks. Chat callback defects repaired, remote report not reproduced. See the bilingual handoff for validation and pending game acceptance.

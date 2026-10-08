@@ -91,6 +91,8 @@ namespace Phinix.TradeExtension.Client
 
     internal sealed class TradeInventorySourcePresenter : IInventorySourcePresenter
     {
+        public TradeInventorySourcePresenter() { }
+
         public string SourceId => FrameworkTradeProtocol.Capability;
 
         public InventorySourcePresentation Present(InventoryEntry entry)

@@ -21,14 +21,15 @@
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs" Link="Production/ClientEnvironmentSnapshot.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PluginStore/PackageVersion.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PluginStore/PackageModels.cs" />
+    <Compile Include="../PluginStoreRuntimeTests/StoreFailureTests.cs" Link="StoreFailureTests.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/PluginStore/CatalogReader.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PayloadValidator.cs" Link="Production/PluginStore/PayloadValidator.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/PluginStore/RepositoryMetadata.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/PluginStore/ManagedStoreCatalog.cs" />
-    <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreLocalGate.cs" Link="Production/PluginStore/ManagedStoreLocalGate.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreOperation.cs" Link="Production/PluginStore/ManagedStoreOperation.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/StoreEnvironmentRefresh.cs" Link="Production/PluginStore/StoreEnvironmentRefresh.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/StoreMaintainerRegistry.cs" Link="Production/PluginStore/StoreMaintainerRegistry.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/StoreReleaseNotice.cs" Link="Production/PluginStore/StoreReleaseNotice.cs" />
     <None Include="../../Extensions/PluginStore/Client/Assets/maintainers.json" Link="StorePresentation/maintainers.json" CopyToOutputDirectory="PreserveNewest" />

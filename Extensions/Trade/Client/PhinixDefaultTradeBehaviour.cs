@@ -13,7 +13,7 @@ using Thing = Verse.Thing;
 
 namespace Phinix.TradeExtension.Client
 {
-    internal sealed class PhinixDefaultTradeBehaviour
+    internal sealed class PhinixDefaultTradeBehaviour : IDisposable
     {
         private readonly IClientTradeService tradeService;
         private readonly IClientUserDirectory userDirectory;
@@ -53,8 +53,14 @@ namespace Phinix.TradeExtension.Client
             this.log = log;
         }
 
+        private volatile bool started;
+        private int generation;
+
         public void Start()
         {
+            if (started) return;
+            System.Threading.Interlocked.Increment(ref generation);
+            started = true;
             tradeService.OnTradeCreationRequested += onTradeCreationRequested;
             tradeService.OnTradeCreationSuccess += onTradeCreationSuccess;
             tradeService.OnTradeCreationFailure += onTradeCreationFailure;
@@ -67,19 +73,35 @@ namespace Phinix.TradeExtension.Client
 
         public void Stop()
         {
-            tradeService.OnTradeCreationRequested -= onTradeCreationRequested;
-            tradeService.OnTradeCreationSuccess -= onTradeCreationSuccess;
-            tradeService.OnTradeCreationFailure -= onTradeCreationFailure;
-            tradeService.OnTradeCompleted -= onTradeCompleted;
-            tradeService.OnTradeCancelled -= onTradeCancelled;
-            tradeService.OnTradeUpdateFailure -= onTradeUpdateFailure;
-            inventoryReadApi.AvailabilityChanged -= onInventoryAvailabilityChanged;
-            settingsContext.OnSettingChanged -= onSettingChanged;
+            if (!started) return;
+            started = false;
+            System.Threading.Interlocked.Increment(ref generation);
+            var failures = new List<Exception>();
+            TradeLifetimeCleanup.Try(() => tradeService.OnTradeCreationRequested -= onTradeCreationRequested, failures);
+            TradeLifetimeCleanup.Try(() => tradeService.OnTradeCreationSuccess -= onTradeCreationSuccess, failures);
+            TradeLifetimeCleanup.Try(() => tradeService.OnTradeCreationFailure -= onTradeCreationFailure, failures);
+            TradeLifetimeCleanup.Try(() => tradeService.OnTradeCompleted -= onTradeCompleted, failures);
+            TradeLifetimeCleanup.Try(() => tradeService.OnTradeCancelled -= onTradeCancelled, failures);
+            TradeLifetimeCleanup.Try(() => tradeService.OnTradeUpdateFailure -= onTradeUpdateFailure, failures);
+            TradeLifetimeCleanup.Try(() => inventoryReadApi.AvailabilityChanged -= onInventoryAvailabilityChanged, failures);
+            TradeLifetimeCleanup.Try(() => settingsContext.OnSettingChanged -= onSettingChanged, failures);
             pendingCompletions.Clear();
+            lock (waitingLock) waitingForTradeCreationWith.Clear();
+            TradeLifetimeCleanup.ThrowIfFailed(failures);
+        }
+
+        public void Dispose() { Stop(); }
+
+        private void Enqueue(Action action)
+        {
+            if (!started) return;
+            int expected = generation;
+            dispatcher.Enqueue(() => { if (started && expected == generation) action(); });
         }
 
         private void onTradeCreationRequested(object sender, TradeCreationEventArgs args)
         {
+            if (!started) return;
             if (string.IsNullOrEmpty(args?.OtherPartyUuid))
             {
                 return;
@@ -93,6 +115,7 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeCreationSuccess(object sender, TradeCreationEventArgs args)
         {
+            if (!started) return;
             try
             {
                 if (args?.Trade == null) return;
@@ -100,7 +123,7 @@ namespace Phinix.TradeExtension.Client
                 if (tryQueueTradeWindow(args.OtherPartyUuid, args.Trade)) return;
 
                 string displayName = resolveDisplayName(args.OtherPartyUuid);
-                dispatcher.Enqueue(() =>
+                Enqueue(() =>
                 {
                     LetterDef letterDef = DefDatabase<LetterDef>.GetNamed("TradeCreated");
                     Find.LetterStack.ReceiveLetter(
@@ -119,6 +142,7 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeCreationFailure(object sender, TradeCreationEventArgs args)
         {
+            if (!started) return;
             try
             {
                 if (args == null) return;
@@ -128,7 +152,7 @@ namespace Phinix.TradeExtension.Client
                     waitingForTradeCreationWith.Remove(args.OtherPartyUuid);
                 }
 
-                dispatcher.Enqueue(() =>
+                Enqueue(() =>
                     windowService.Open(new Dialog_MessageBox(
                         title: "Phinix_error_tradeCreationFailedTitle".Translate(),
                         text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString()))));
@@ -143,11 +167,13 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeCompleted(object sender, TradeCompletionEventArgs args)
         {
+            if (!started) return;
             depositCompletion(args, true);
         }
 
         private void onTradeCancelled(object sender, TradeCompletionEventArgs args)
         {
+            if (!started) return;
             depositCompletion(args, false);
         }
 
@@ -158,7 +184,7 @@ namespace Phinix.TradeExtension.Client
                 if (args == null) return;
                 string displayName = resolveDisplayName(args.OtherPartyUuid);
                 bool display = completed || shouldDisplayTradeEvent(args.OtherPartyUuid);
-                dispatcher.Enqueue(() =>
+                Enqueue(() =>
                 {
                     string key = completionKey(args.TradeId, !completed);
                     pendingCompletions[key] = new PendingCompletion(args, displayName, completed, display);
@@ -175,7 +201,8 @@ namespace Phinix.TradeExtension.Client
 
         private void onInventoryAvailabilityChanged(object sender, EventArgs args)
         {
-            dispatcher.Enqueue(() =>
+            if (!started) return;
+            Enqueue(() =>
             {
                 foreach (string key in pendingCompletions.Keys.ToArray())
                     tryDepositPending(key, false);
@@ -184,8 +211,9 @@ namespace Phinix.TradeExtension.Client
 
         private void onSettingChanged(string key, object value)
         {
+            if (!started) return;
             if (key != InventoryDeliveryPreference.SettingKey) return;
-            dispatcher.Enqueue(() =>
+            Enqueue(() =>
             {
                 foreach (string pendingKey in pendingCompletions.Keys.ToArray())
                     tryDepositPending(pendingKey, false);
@@ -273,6 +301,7 @@ namespace Phinix.TradeExtension.Client
 
         private void onTradeUpdateFailure(object sender, TradeUpdateEventArgs args)
         {
+            if (!started) return;
             try
             {
                 if (args == null) return;
@@ -283,7 +312,7 @@ namespace Phinix.TradeExtension.Client
                     displayName = resolveDisplayName(otherPartyUuid);
                 }
 
-                dispatcher.Enqueue(() =>
+                Enqueue(() =>
                     windowService.Open(new Dialog_MessageBox(
                         title: "Phinix_error_tradeUpdateFailedTitle".Translate(),
                         text: "Phinix_error_tradeUpdateFailedMessage".Translate(displayName, args.FailureMessage, args.FailureReason.ToString()))));
@@ -316,7 +345,7 @@ namespace Phinix.TradeExtension.Client
                 }
             }
 
-            dispatcher.Enqueue(() => windowService.Open(new TradeWindow(trade, tradeUiHostContext)));
+            Enqueue(() => windowService.Open(new TradeWindow(trade, tradeUiHostContext)));
             return true;
         }
 

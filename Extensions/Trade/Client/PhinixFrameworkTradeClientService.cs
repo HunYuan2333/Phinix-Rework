@@ -29,6 +29,11 @@ namespace Phinix.TradeExtension.Client
         public event EventHandler<TradeCompletionEventArgs> OnTradeCompleted;
         public event EventHandler<TradeCompletionEventArgs> OnTradeCancelled;
 
+        public PhinixFrameworkTradeClientService(ITradeItemPayloadEncoder itemPipeline, Action<LogEventArgs> log)
+            : this(itemPipeline, null, log)
+        {
+        }
+
         public PhinixFrameworkTradeClientService(ITradeItemPayloadEncoder itemPipeline, IClientUserDirectory userDirectory, Action<LogEventArgs> log)
         {
             repository = new PhinixFrameworkTradeClientRepository();

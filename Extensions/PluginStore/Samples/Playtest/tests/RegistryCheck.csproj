@@ -5,7 +5,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="RegistryCheck.cs" />
+    <Compile Include="ManagedSampleCheck.cs" />
+    <Reference Include="System.IO.Compression" />
     <Compile Include="../../../../../Client/Source/Framework/ClientLocalizationService.cs" Link="Production/ClientLocalizationService.cs" />
+    <ProjectReference Include="../../../../../Client/Composition/Phinix.ClientComposition.csproj" />
     <ProjectReference Include="../../../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
     <ProjectReference Include="../../../../../Common/Utils/Utils.csproj"><SetTargetFramework>TargetFramework=net472</SetTargetFramework></ProjectReference>
   </ItemGroup>

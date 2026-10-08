@@ -115,6 +115,7 @@ namespace PhinixClient
         private PhinixFrameworkClient frameworkClient;
         private EventHandler processExitHandler;
         private Action quittingHandler;
+        private IDisposable extensionAssemblyScope;
         private ManagedExtensionRuntime managedExtensionRuntime;
         private ClientLocalizationService localizationService;
         private object localizationGameLanguage;
@@ -328,7 +329,7 @@ namespace PhinixClient
                 IUiTheme uiTheme = new UiTheme(modRoot);
                 extensionHostContext.AddService<IUiTheme>(uiTheme);
                 Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
-                ExtensionAssemblyLoader.LoadAssemblies(
+                extensionAssemblyScope = ExtensionAssemblyLoader.LoadOwnedAssemblies(
                     GetExtensionProbeDirectories(modRoot),
                     (message, level) =>
                     {
@@ -357,7 +358,8 @@ namespace PhinixClient
                         VersionControl.CurrentMajor + "." + VersionControl.CurrentMinor,CompatibilityVersion,ClientAbstractionsCompatibility.Version,
                         AppDomain.CurrentDomain.GetAssemblies().Where(a=>!a.IsDynamic).Select(a=>ManagedAssemblyIdentity.FromAssemblyName(a.GetName())),
                         hostIds,availableIds,ModLister.AllInstalledMods.Where(m=>m!=null && m.Active).Select(m=>m.PackageIdNonUnique),
-                        hostModuleTypes.Select(type=>new ManagedExtensionHostModule(type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name,type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>())));
+                        hostModuleTypes.Select(type=>new ManagedExtensionHostModule(type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name,type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>())),
+                        new[] { new ManagedHostReferenceRule(typeof(Verse.Game).Assembly.GetName().Name,ManagedHostReferenceVersionPolicy.SameReleaseFamily) });
                     managedExtensionRuntime.Start(facts,Settings.DisabledExtensions,hostModuleTypes.SelectMany(type=>type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>()),CancellationToken.None);
                 }
                 catch(Exception error)
@@ -458,7 +460,11 @@ namespace PhinixClient
             finally
             {
                 try { localizationService?.Dispose(); }
-                finally { managedExtensionRuntime?.Dispose(); }
+                finally
+                {
+                    try { managedExtensionRuntime?.Dispose(); }
+                    finally { extensionAssemblyScope?.Dispose(); extensionAssemblyScope = null; }
+                }
             }
         }
 
@@ -717,45 +723,16 @@ namespace PhinixClient
 
         private static IEnumerable<string> GetExtensionProbeDirectories(string modRootDir = null)
         {
-            // Assembly.Location 在 Prepatcher / AssemblyLoadContext 等环境下可能返回 ""
-            // 导致 Path.GetDirectoryName("") 抛出 ArgumentException。
-            // 设计哲学 §3.9：启动期文件定位优先用 RimWorld 框架提供的稳定入口。
-            string clientAssemblyDirectory = null;
-            try { clientAssemblyDirectory = Path.GetDirectoryName(typeof(Client).Assembly.Location); }
-            catch (ArgumentException) { }
+            // RootDir belongs to this ModContentPack; patched Assembly.Location may
+            // refer to a generated directory and is not a source ownership declaration.
+            if (string.IsNullOrEmpty(modRootDir)) yield break;
+            string root = ClientEnvironmentPaths.NormalizeAbsolute(modRootDir);
+            yield return Path.Combine(root, "Common", "Assemblies");
+            foreach (string directory in ExtensionBundleDirectories.GetProbeDirectories(Path.Combine(root, "Common", "Extensions"),
+                (message, level) => Verse.Log.Warning("[Phinix] " + message))) yield return directory;
+            // RimWorld loads ordinary submods and the host's versioned Assemblies.
+            // Discover their already loaded module types through the ordinary registry.
 
-            string appBaseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-
-            if (!string.IsNullOrEmpty(clientAssemblyDirectory))
-            {
-                // 主体程序集定位公共引用目录及随包插件根。
-                yield return clientAssemblyDirectory;
-                yield return Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Assemblies"));
-                foreach(string directory in ExtensionBundleDirectories.GetProbeDirectories(Path.GetFullPath(Path.Combine(clientAssemblyDirectory, "..", "..", "Common", "Extensions")),
-                    (message,level)=>Verse.Log.Warning("[Phinix] "+message))) yield return directory;
-            }
-            else if (!string.IsNullOrEmpty(modRootDir))
-            {
-                // 降级路径：从 ModContentPack.RootDir 直接推导
-                yield return Path.Combine(modRootDir, "Common", "Assemblies");
-                foreach(string directory in ExtensionBundleDirectories.GetProbeDirectories(Path.Combine(modRootDir, "Common", "Extensions"),
-                    (message,level)=>Verse.Log.Warning("[Phinix] "+message))) yield return directory;
-            }
-
-            if (!string.IsNullOrEmpty(appBaseDirectory))
-            {
-                yield return appBaseDirectory;
-            }
-
-            // 新增：扫描所有活跃 mod 的 Assemblies 目录（第三方 submod 发现）
-            foreach (ModMetaData mod in ModLister.AllInstalledMods)
-            {
-                if (mod == null || !mod.Active) continue;
-                if (string.Equals(mod.PackageId, PackageId, StringComparison.OrdinalIgnoreCase)) continue;
-
-                string asmDir = System.IO.Path.Combine(mod.RootDir?.ToString() ?? "", "Assemblies");
-                if (System.IO.Directory.Exists(asmDir)) yield return asmDir;
-            }
         }
 
         /// <summary>

@@ -4,7 +4,7 @@
   "display": {
     "name": "Phinix Store Playtest",
     "summary": "Tests package language files, tab registration, counting and 100 silver. Use test saves.",
-    "changelog": "UI uses host localization with language switching and missing-key fallback."
+    "changelog": "1.4.0: migrate to the neutral Compose entry and scoped services; settings and gameplay behavior retained."
   },
   "strings": {
     "tab": "Store test",

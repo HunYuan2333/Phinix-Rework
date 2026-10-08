@@ -263,10 +263,10 @@ namespace Phinix.PluginStore
 
         private void Fail(Exception ex)
         {
-            var validation = ex as StoreValidationException;
-            localError = (validation == null ? "" : validation.Code + ": ") + Clean(ex.Message);
+            var failure=new RepositoryDiagnostics(line=>log?.Invoke("Plugin store audit: "+line,LogLevel.WARNING)) {Operation="UserAction"}
+                .Failure("repository.action_failed","StoreView",ex);
+            localError=Clean(("Phinix_store2_"+failure.MessageKey).Translate()+"\n"+failure.Diagnostic);
             dirty = true;
-            log?.Invoke("Plugin store: " + ex, LogLevel.WARNING);
         }
 
         private void Rebuild(float availableWidth)
@@ -279,7 +279,7 @@ namespace Phinix.PluginStore
             if (!dirty && !catalogChanged && !changedLanguage && Mathf.Approximately(width, availableWidth) && revision == snapshot.Revision && cachedSearch == search) return;
             width = availableWidth; language = LanguageDatabase.activeLanguage; revision = snapshot.Revision; cachedSearch = search; dirty = false;
             if (snapshot.Diagnostic != null && loggedRevision != snapshot.Revision)
-            { loggedRevision = snapshot.Revision; log?.Invoke("Plugin store: " + snapshot.Diagnostic, LogLevel.WARNING); }
+            { loggedRevision = snapshot.Revision; new RepositoryDiagnostics(line=>log?.Invoke("Plugin store audit: "+line,LogLevel.WARNING)) {Operation="StoreView"}.Event("repository.failure_displayed","StoreView",snapshot.ErrorCode); }
             endpointLabel = T("endpoint"); remoteSourceLabel = T("remoteSource"); refreshLabel = T("refresh"); cacheLabel = T("cache"); localToolsLabel = T("localTools");
             title = T("title"); intro = T("preview"); pathLabel = T("path"); sourceLabel = T("source"); searchLabel = T("search");
             loadLabel = T("load"); cancelLabel = T("cancel"); planLabel = T("plan"); managementLabel = T("management"); sourceSettingsLabel = T("sourceSettings");
@@ -303,7 +303,11 @@ namespace Phinix.PluginStore
                 if (repository.Stale || timedStale) statusText += "\n" + T("stale");
             }
 
-            if (snapshot.Error != null) statusText += "\n" + snapshot.ErrorCode + ": " + Clean(snapshot.Error);
+            if (snapshot.Error != null)
+            {
+                var failure=StoreFailureInfo.FromCode(snapshot.ErrorCode);
+                statusText += "\n"+("Phinix_store2_"+failure.MessageKey).Translate()+"\n"+Clean(snapshot.Error);
+            }
             if (localError != null) statusText += "\n" + T("operationFailed") + "\n" + localError;
             selectionText = selected == null ? T("select") : T("selected") + ": " +
                 Clean(selected.Name) + " " + (selected.IsWorkshop ? T("workshop") : selected.Version.ToString()) +

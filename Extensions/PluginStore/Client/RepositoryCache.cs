@@ -88,7 +88,7 @@ namespace Phinix.PluginStore
             // Revalidate before touching the prior valid bundle.
             RepositoryMetadata.Verify(RepositoryMetadata.ReadStable(entry.StableBytes, endpoint.SourceId), entry.PublishedBytes, entry.CatalogBytes);
             CheckLinks(); Directory.CreateDirectory(DirectoryPath); CheckLinks();
-            string temporary = FilePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            string temporary = RepositoryCacheWrite.TemporaryPath(DirectoryPath);
             try
             {
                 using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -139,6 +139,9 @@ namespace Phinix.PluginStore
     {
         private readonly string temporary, target;
         internal RepositoryCacheWrite(string temporary, string target) { this.temporary = temporary; this.target = target; }
+        // Keep staging beside the target for atomic replacement, without repeating its name.
+        internal static string TemporaryPath(string directory)
+        { return Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp"); }
         public void Commit(CancellationToken token)
         {
             token.ThrowIfCancellationRequested();

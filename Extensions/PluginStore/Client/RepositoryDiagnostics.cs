@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
@@ -15,13 +16,34 @@ namespace Phinix.PluginStore
         internal RepositoryDiagnostics(Action<string> sink = null, string source = null)
         { this.sink = sink; this.source = source; ClientRequestId = Guid.NewGuid().ToString("N"); }
         internal string ClientRequestId { get; }
+        internal string CauseType { get; set; }
+        internal string FailureScope { get; set; }
+        internal string Operation { get; set; }
+        internal string ExceptionType { get; set; }
+        internal string[] ContextReasons { get; set; }
         internal string TransactionId { get; set; }
         internal string AccessMethod { get; set; }
         internal string RepositoryIdentity { get; set; }
         internal static string RequestId(string value)
-        { return value != null && Regex.IsMatch(value, @"\A[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\z", RegexOptions.CultureInvariant) ? value : null; }
+        { return StoreFailureInfo.SafeRequestId(value); }
         internal static string Code(string value)
-        { return value != null && Regex.IsMatch(value, @"\A[A-Za-z][A-Za-z0-9]{0,63}\z", RegexOptions.CultureInvariant) ? value : null; }
+        { return StoreFailureInfo.SafeCode(value); }
+        internal void Warning(string stage,string reason,string diagnostic)
+        {
+            var parts=(diagnostic??"").Split(':');
+            Operation="Presentation"; ExceptionType=parts.Length==0?null:parts[parts.Length-1];
+            ContextReasons=parts; FailureScope=StoreFailureInfo.FromCode(reason).Scope.ToString();
+            Event("store.presentation_warning",stage,reason);
+        }
+        internal StoreFailureInfo Failure(string name,string stage,Exception error,string fallback="StoreOperationFailed")
+        {
+            var failure=StoreFailureInfo.FromException(error,fallback);
+            var validation=error as StoreValidationException;
+            var reference=validation?.ReferenceFailure??(error as Utils.Framework.ManagedExtensions.ManagedExtensionValidationException)?.ReferenceFailure;
+            ExceptionType=error.GetType().Name; CauseType=error.InnerException?.GetType().Name; FailureScope=failure.Scope.ToString(); ContextReasons=failure.ContextReasons.ToArray();
+            Event(name,stage,failure.Code,failure.RequestId,localIdentity:validation?.LocalIdentity,referenceFailure:reference);
+            return failure;
+        }
         internal void Event(string name, string stage = null, string reason = null, string requestId = null, int status = 0, long bytes = 0, PackageRecord package = null, ManagedStoreRecord managed = null, string snapshot = null, string catalogHash = null,LocalIdentityDiagnostic localIdentity=null,Utils.Framework.ManagedExtensions.ManagedExtensionAssemblyReferenceFailure referenceFailure=null,string githubRequestId=null,long? rateLimitRemaining=null,long? rateLimitReset=null,long? retryAfterSeconds=null)
         {
             if (sink == null) return;
@@ -29,6 +51,8 @@ namespace Phinix.PluginStore
             {
                 string id=package?.Id??managed?.Id; var artifact=package?.Artifact??managed?.Artifact;
                 var record = new Record { SchemaVersion = 1, Time = DateTime.UtcNow.ToString("O"), Component = "client",
+                    CauseType = Code(CauseType), FailureScope = Code(FailureScope), Operation = Code(Operation), ExceptionType = Code(ExceptionType),
+                    ContextReasons = ContextReasons?.Select(Code).Where(c=>c!=null).Distinct().Take(32).ToArray(),
                     Event = name, ClientRequestId = ClientRequestId, Source = source,
                     AccessMethod=AccessMethod=="GitHub" || AccessMethod=="Cloudflare"?AccessMethod:null,
                     RepositoryIdentitySha256=RepositoryIdentity!=null && Regex.IsMatch(RepositoryIdentity,@"\A[a-f0-9]{64}\z")?RepositoryIdentity:null,
@@ -69,6 +93,11 @@ namespace Phinix.PluginStore
             [DataMember(Name = "component")] public string Component;
             [DataMember(Name = "event")] public string Event;
             [DataMember(Name = "clientRequestId")] public string ClientRequestId;
+            [DataMember(Name = "causeType", EmitDefaultValue = false)] public string CauseType;
+            [DataMember(Name = "failureScope", EmitDefaultValue = false)] public string FailureScope;
+            [DataMember(Name = "operation", EmitDefaultValue = false)] public string Operation;
+            [DataMember(Name = "exceptionType", EmitDefaultValue = false)] public string ExceptionType;
+            [DataMember(Name = "contextReasons", EmitDefaultValue = false)] public string[] ContextReasons;
             [DataMember(Name = "transactionId", EmitDefaultValue = false)] public string TransactionId;
             [DataMember(Name = "source", EmitDefaultValue = false)] public string Source;
             [DataMember(Name = "accessMethod", EmitDefaultValue = false)] public string AccessMethod;

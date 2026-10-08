@@ -15,6 +15,11 @@ namespace Phinix.TradeExtension.Client
         private readonly List<IItemCodec> codecs;
         private readonly ItemCodecContext codecContext;
 
+        public TradeClientItemPipeline(Action<LogEventArgs> log)
+            : this(log, FrameworkCompatibilityMode.Unknown)
+        {
+        }
+
         public TradeClientItemPipeline(Action<LogEventArgs> log, FrameworkCompatibilityMode compatibilityMode, IEnumerable<IItemCodec> extensionCodecs = null)
         {
             codecContext = new ItemCodecContext

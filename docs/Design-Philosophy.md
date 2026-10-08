@@ -324,6 +324,8 @@ The main package owns one copy of Phinix.ClientComposition and all eight support
 
 New client authors derive from `ClientExtensionModule` and override `Compose(IExtensionBuilder)` (ClientExtensionAbstractions 1.9). Its explicit, nonvirtual shared Register bridge checks host composition availability and invokes Compose once through the ordinary registry. Chat now adopts this entry. Constructors stay passive; Activate/Shutdown and scope ownership remain explicit. Old direct Register modules and server modules retain their existing path during migration. Managed metadata recognizes only the trusted client contract/base assembly identity, not arbitrary external inheritance. The 1.9 API/CLR version prevents new authors from binding to older contract assemblies; deploy a matching full package.
 
+F4-H development status: maintained Chat/Inventory/Trade/Store/LegacyAdapter and both samples use Compose. Direct client Register is deprecated; LegacyClientExtensionModule is an Obsolete source compatibility adapter, and registered old client modules receive one migration warning per startup. The shared server registry remains unchanged. Planned first stable deprecation: host 0.9.8; conditional removal: host 1.0 / client abstractions 2.0 after independent plugin migration, distribution/rollback and game gates. This is not a published version bump or removal. The 1.9 composition contract/runtime set is a freeze candidate; open game/boundary gates must remain explicit.
+
 ### 3.13 Store operation transitions
 
 The bundled Store owns a pinned Stateless dependency behind its internal operation model. Shared contracts, the host and business services do not expose library types. The controller serializes transitions and snapshot publication under one gate; operation generations and token identity reject stale results/progress. Transitions contain no downloads, installation, UI work or persistence writes.
@@ -632,3 +634,9 @@ Full UI adaptability (Phase 9 acceptance standard) requires the system to mainta
 ## DLL plugin language resources
 
 The host provides package-scoped localization: plugins bind during Activate, resolve keys while drawing and release during Shutdown. It is independent of store/business plugins and does not inject managed languages into RimWorld global dictionaries. The main thread publishes language changes; resource validation and fallback are general infrastructure.
+
+## Client assembly loading ownership
+
+RimWorld selects and loads ordinary mods and their effective version/conditional folders. The client discovers Phinix modules in assemblies already loaded by the game; it does not proactively scan other mods' root `Assemblies` directories or the game executable directory. Proactive Phinix loading uses its own `ModContentPack.RootDir` runtime/bundle roots.
+
+The owned loader prepares complete assembly identities before loading, handles only owned requesters and declared exact references, and detaches its resolver after plugin shutdown. This is an ownership boundary for our loader, not CLR isolation. Managed plugin payload verification and startup conflict/dependency gates remain separate. The legacy server loader remains available until a separate migration is accepted.
