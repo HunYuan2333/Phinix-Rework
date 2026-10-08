@@ -4,8 +4,8 @@ Phinix RimWorld 1.6 客户端，包含客户端宿主、游戏相关抽象及官
 
 RimWorld 1.6 client host, game-facing abstractions and official client extensions. Shared source is pinned at `Dependencies/Phinix.Common`; the neighboring standalone Common checkout is not required to build.
 
-> 当前为本地 F6 迁移候选，正式远端尚未切换。以下构建命令在独立 checkout 中验证通过；构建不等于游戏验收。迁移未改变网络协议、存档格式或物品所有权规则。
-> Local F6 migration candidate; remote publication/cutover is pending. Builds were verified in independent checkouts and do not certify in-game behavior. Wire identities, persistence formats and item-ownership rules remain unchanged.
+> 以下构建命令在独立 checkout 中验证通过；构建不等于游戏验收。迁移未改变网络协议、存档格式或物品所有权规则。拆分前完整源码保留在原 Rework 仓的 `codex/pre-split-20261008` 分支。
+> Builds were verified in independent checkouts and do not certify in-game behavior. Wire identities, persistence formats and item-ownership rules remain unchanged. The complete pre-split source is preserved on the original Rework repository branch codex/pre-split-20261008.
 
 ## 获取源码 / Checkout
 
