@@ -121,7 +121,21 @@ namespace PhinixClient
         private object localizationGameLanguage;
         private bool extensionInitializationAttempted;
         public PhinixFrameworkClient FrameworkClient => frameworkClient;
-        internal IManagedExtensionManagementService ManagedExtensionManagement => managedExtensionRuntime;
+        private ClientExtensionControlService extensionControls;
+        internal IClientExtensionControlService ExtensionControls => extensionControls;
+        internal IManagedExtensionManagementService ManagedExtensionManagement => (IManagedExtensionManagementService)extensionControls ?? managedExtensionRuntime;
+        internal ClientExtensionControlResult SetModuleEnabled(string id, bool enabled, long? revision=null)
+        {
+            ClientExtensionControlResult result;
+            if(extensionControls!=null) result=extensionControls.SetModuleEnabled(id,enabled,revision??extensionControls.Capture().Revision);
+            else
+            {
+                try { Settings.SaveExtensionModuleIntent(id,!enabled); result=new ClientExtensionControlResult(true,"ManagedStateSaved"); }
+                catch(Exception error) { Verse.Log.Error("[Phinix] Module settings save failed: "+error); result=new ClientExtensionControlResult(false,"ManagedModuleSettingsWriteFailed"); }
+            }
+            if(!result.Succeeded) Messages.Message("Phinix_managed_commandFailed".Translate(result.Code),MessageTypeDefOf.RejectInput);
+            return result;
+        }
         private ClientUserEventStream userEventStream;
         private ClientShellEventStream shellEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
@@ -351,8 +365,7 @@ namespace PhinixClient
                         entry => Verse.Log.Message("[Phinix] " + ManagedExtensionAuditJson.Format(entry)),
                         error => { if(Prefs.DevMode) Verse.Log.Warning("[Phinix] Managed extension internal diagnostic: " + error); });
                     extensionHostContext.AddService<IManagedExtensionInventoryService>(managedExtensionRuntime);
-                    extensionHostContext.AddService<IManagedExtensionManagementService>(managedExtensionRuntime);
-                    extensionHostContext.AddService<IManagedExtensionInstallationService>(managedExtensionRuntime);
+
                     extensionHostContext.AddService<IExtensionDiscoveryPolicy>(managedExtensionRuntime);
                     var facts = new ManagedExtensionHostFacts(
                         VersionControl.CurrentMajor + "." + VersionControl.CurrentMinor,CompatibilityVersion,ClientAbstractionsCompatibility.Version,
@@ -361,11 +374,27 @@ namespace PhinixClient
                         hostModuleTypes.Select(type=>new ManagedExtensionHostModule(type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name,type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>())),
                         new[] { new ManagedHostReferenceRule(typeof(Verse.Game).Assembly.GetName().Name,ManagedHostReferenceVersionPolicy.SameReleaseFamily) });
                     managedExtensionRuntime.Start(facts,Settings.DisabledExtensions,hostModuleTypes.SelectMany(type=>type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>()),CancellationToken.None);
+                    extensionControls=new ClientExtensionControlService(managedExtensionRuntime,managedExtensionRuntime,
+                        ()=>UnityData.IsInMainThread,()=>Settings.SettingsVersion,()=>Settings.DisabledExtensions,
+                        Settings.SaveExtensionModuleIntent,
+                        ()=> (frameworkClient?.ExtensionResults??Array.Empty<ExtensionDiscoveryResult>()).Where(r=>r.State==ExtensionModuleState.Active).Select(r=>r.ExtensionId),
+                        ()=> (frameworkClient?.ExtensionResults??Array.Empty<ExtensionDiscoveryResult>()).Where(r=>r.State==ExtensionModuleState.Failed).Select(r=>r.ExtensionId),
+                        error=>Verse.Log.Error("[Phinix] Managed module settings save failed: "+error));
+                    try { extensionControls.Refresh(Settings.DisabledExtensions,CancellationToken.None); }
+                    catch(Exception error)
+                    {
+                        Verse.Log.Warning("[Phinix] ManagedInventoryUnavailable; startup discovery is retained; refresh management to retry. " + error.GetType().Name);
+                        if(Prefs.DevMode) Verse.Log.Warning(error.ToString());
+                    }
+                    extensionHostContext.AddService<IManagedExtensionManagementService>(extensionControls);
+                    extensionHostContext.AddService<IManagedExtensionInstallationService>(extensionControls);
+                    extensionHostContext.AddService<IClientExtensionControlService>(extensionControls);
                 }
                 catch(Exception error)
                 {
                     Verse.Log.Warning("[Phinix] ManagedStartupUnavailable; built-in discovery continues. " + error.GetType().Name);
                     if(Prefs.DevMode) Verse.Log.Warning(error.ToString());
+                    extensionControls?.Dispose(); extensionControls=null;
                     managedExtensionRuntime?.Dispose();
                 }
 
@@ -462,7 +491,7 @@ namespace PhinixClient
                 try { localizationService?.Dispose(); }
                 finally
                 {
-                    try { managedExtensionRuntime?.Dispose(); }
+                    try { extensionControls?.Dispose(); managedExtensionRuntime?.Dispose(); }
                     finally { extensionAssemblyScope?.Dispose(); extensionAssemblyScope = null; }
                 }
             }

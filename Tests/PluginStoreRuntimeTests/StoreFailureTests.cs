@@ -15,6 +15,7 @@ internal static partial class Program
             new[]{"ManagedInstallPathTooLong","Storage","pathTooLongFriendly"},
             new[]{"InstallationStorageFailed","Storage","storageFriendly"},
             new[]{"ManagedInstallStorageFailed","Storage","storageFriendly"},
+            new[]{"ManagedModuleSettingsWriteFailed","Storage","storageFriendly"},
             new[]{"IncompleteEnvironment","Environment","environmentFriendly"},
             new[]{"EnvironmentCaptureTimeout","Environment","environmentFriendly"},
             new[]{"ManagedInventoryUnavailable","Environment","environmentFriendly"},

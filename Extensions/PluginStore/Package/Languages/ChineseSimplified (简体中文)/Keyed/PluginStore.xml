@@ -205,4 +205,16 @@
   <Phinix_store2_unavailableFriendly>此条目当前不可安装，或已安装。请刷新商店并检查扩展管理。</Phinix_store2_unavailableFriendly>
   <Phinix_store2_contentFriendly>插件清单或文件未通过校验。请刷新商店后重试；仍失败时提供错误详情和日志。</Phinix_store2_contentFriendly>
   <Phinix_store2_inputFriendly>输入的地址、本地路径或来源标识无效。请检查商店设置和选择的本地文件。</Phinix_store2_inputFriendly>
+  <Phinix_store2_currentState>当前运行：</Phinix_store2_currentState>
+  <Phinix_store2_moduleChoices>模块选择</Phinix_store2_moduleChoices>
+  <Phinix_store2_current_Unknown>未知</Phinix_store2_current_Unknown>
+  <Phinix_store2_current_Inactive>未运行</Phinix_store2_current_Inactive>
+  <Phinix_store2_current_Active>运行中</Phinix_store2_current_Active>
+  <Phinix_store2_current_PartiallyActive>部分运行</Phinix_store2_current_PartiallyActive>
+  <Phinix_store2_current_Failed>加载失败</Phinix_store2_current_Failed>
+  <Phinix_store2_next_Unknown>未知</Phinix_store2_next_Unknown>
+  <Phinix_store2_next_Enabled>下次启动启用</Phinix_store2_next_Enabled>
+  <Phinix_store2_next_PartiallyDisabled>下次启动部分停用</Phinix_store2_next_PartiallyDisabled>
+  <Phinix_store2_next_Disabled>下次启动停用</Phinix_store2_next_Disabled>
+  <Phinix_store2_next_PendingRemoval>下次启动移除</Phinix_store2_next_PendingRemoval>
 </LanguageData>

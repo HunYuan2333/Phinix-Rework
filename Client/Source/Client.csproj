@@ -139,6 +139,7 @@
     <Compile Include="Framework\ClientGameLanguage.cs" />
     <Compile Include="Framework\ClientEnvironmentCapture.cs" />
     <Compile Include="Framework\ManagedExtensionManagerController.cs" />
+    <Compile Include="Framework\ClientExtensionControlService.cs" />
     <Compile Include="Framework\ManagedExtensionManagerLayout.cs" />
     <Compile Include="Framework\ManagedExtensionManagerView.cs" />
     <Compile Include="Framework\ClientEnvironmentService.cs" />

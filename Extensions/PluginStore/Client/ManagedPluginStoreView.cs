@@ -16,6 +16,10 @@ namespace Phinix.PluginStore
         private readonly IClientEnvironmentService environment;
         private readonly IClientSettingsContext settings;
         private readonly IClientExtensionManagementWindowService management;
+        private readonly IClientExtensionControlService controls;
+        private ClientExtensionControlSnapshot controlState;
+        private long observedControlRevision=-1, renderedControlRevision=-1;
+        private ClientExtensionPackageState selectedState;
         private readonly IClientLocalizer localizer;
         private readonly IUiTheme theme;
         private readonly IClientLinkService links;
@@ -60,10 +64,10 @@ namespace Phinix.PluginStore
         internal void Stop() { stopped=true; installIntent=null; }
         internal ManagedPluginStoreView(ManagedStoreController controller,IClientEnvironmentService environment,IClientSettingsContext settings,
             IClientExtensionManagementWindowService management,IClientLocalizer localizer,IUiTheme theme,
-            IClientLinkService links,StoreMaintainerRegistry maintainers,StoreBadgeIcons badgeIcons)
+            IClientLinkService links,StoreMaintainerRegistry maintainers,StoreBadgeIcons badgeIcons,IClientExtensionControlService controls=null)
         {
             this.controller=controller; this.environment=environment; this.settings=settings; this.management=management; this.localizer=localizer; this.theme=theme;
-            this.links=links; this.maintainers=maintainers; this.badgeIcons=badgeIcons;
+            this.links=links; this.maintainers=maintainers; this.badgeIcons=badgeIcons; this.controls=controls;
             accessMethod=settings.Get("plugin-store.officialAccessMethod","github")=="cloudflare"?RepositoryAccessMethod.Cloudflare:RepositoryAccessMethod.GitHub;
         }
         private static string T(string key) { return ("Phinix_store2_"+key).Translate(); }
@@ -76,7 +80,10 @@ namespace Phinix.PluginStore
             {
                 Text.Font=GameFont.Small; Text.Anchor=TextAnchor.UpperLeft; Text.WordWrap=true; GUI.color=Color.white;
                 var snapshot=controller.Snapshot;
-                if(!initialized && !snapshot.Busy) { initialized=true; if(snapshot.Catalog==null) Refresh(false); snapshot=controller.Snapshot; }
+                controlState=controls?.Capture();
+                if(controlState!=null && !snapshot.Busy && !controlState.Busy && snapshot.Catalog!=null && observedControlRevision!=controlState.Revision)
+                { observedControlRevision=controlState.Revision; Act(()=>controller.RefreshInventory(environment.Capture())); snapshot=controller.Snapshot; }
+                if(!initialized && !snapshot.Busy && controlState?.Busy!=true) { initialized=true; if(snapshot.Catalog==null) Refresh(false); snapshot=controller.Snapshot; }
                 var ready=installIntent?.Take(snapshot,selected);
                 if(ready!=null)
                 {
@@ -96,7 +103,7 @@ namespace Phinix.PluginStore
                 float filterWidth = Mathf.Min(190, width * .4f), gap = Mathf.Min(8, width);
                 float searchWidth = Mathf.Max(0, width-filterWidth-gap);
                 var searchRect = new Rect(rect.x, y, searchWidth, 32);
-                GUI.enabled=enabled && !snapshot.Busy;
+                GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
                 float clearWidth=string.IsNullOrEmpty(search)?0:Mathf.Min(28,searchWidth);
                 string nextSearch = Widgets.TextField(new Rect(searchRect.x,searchRect.y,Mathf.Max(0,searchWidth-clearWidth),32), search, 128);
                 if(clearWidth>0 && Widgets.ButtonText(new Rect(searchRect.xMax-clearWidth,searchRect.y,clearWidth,32),"×")) nextSearch="";
@@ -106,7 +113,7 @@ namespace Phinix.PluginStore
                     GUI.color = Color.white;
                 }
                 TooltipHandler.TipRegion(searchRect, T("search"));
-                GUI.enabled = enabled && !snapshot.Busy;
+                GUI.enabled = enabled && !snapshot.Busy && controlState?.Busy!=true;
                 if (Widgets.ButtonText(new Rect(rect.xMax-filterWidth, y, filterWidth, 32), T("filter"+filter))) ChooseFilter();
                 GUI.enabled = enabled;
                 if (nextSearch != search) { search=nextSearch; listScroll=Vector2.zero; }
@@ -132,7 +139,7 @@ namespace Phinix.PluginStore
             // One row on desktop, wrap/overflow on smaller windows using the host-neutral helper.
             var bar=ResponsiveToolbarLayout.Calculate(rect,toolbarWidths,3,1,32,6,2,40,toolbarRects);
             height=Mathf.Min(rect.height,bar.Height);
-            GUI.enabled=enabled && !snapshot.Busy;
+            GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             for(int i=0;i<bar.VisibleActionCount;i++)
             {
                 string text=T(i==0?"refresh":i==1?(accessMethod==RepositoryAccessMethod.GitHub?"accessGithub":"accessCloudflare"):"management");
@@ -215,11 +222,14 @@ namespace Phinix.PluginStore
                 filter=i; listScroll=Vector2.zero;
             })).ToList()));
         }
+        private ManagedExtensionManagementSnapshot SharedInventory(ManagedStoreSnapshot snapshot)
+            => controlState?.InventoryKnown==true?controlState.Inventory:snapshot.Inventory;
         private void Rebuild(ManagedStoreSnapshot snapshot)
         {
-            if(cached==snapshot && cachedSearch==search && cachedFilter==filter && ReferenceEquals(language,LanguageDatabase.activeLanguage) && locale==localizer.Locale) return;
+            if(renderedControlRevision==(controlState?.Revision??-1) && cached==snapshot && cachedSearch==search && cachedFilter==filter && ReferenceEquals(language,LanguageDatabase.activeLanguage) && locale==localizer.Locale) return;
             bool changed=cached?.Catalog!=snapshot.Catalog;
-            bool contentChanged=cached==null || changed || cached.Inventory!=snapshot.Inventory || cached.Repository!=snapshot.Repository || cachedSearch!=search || cachedFilter!=filter || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || locale!=localizer.Locale;
+            bool controlsChanged=renderedControlRevision!=(controlState?.Revision??-1); renderedControlRevision=controlState?.Revision??-1;
+            bool contentChanged=controlsChanged || cached==null || changed || cached.Inventory!=snapshot.Inventory || cached.Repository!=snapshot.Repository || cachedSearch!=search || cachedFilter!=filter || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || locale!=localizer.Locale;
             cached=snapshot; cachedSearch=search; cachedFilter=filter; language=LanguageDatabase.activeLanguage; locale=localizer.Locale;
             if(changed && selected!=null)
             {
@@ -235,10 +245,10 @@ namespace Phinix.PluginStore
                 Text.Font=GameFont.Small;
                 updateIds.Clear(); foreach(var p in controller.Updates) updateIds.Add(p.Id);
                 var listing=ManagedStoreListing.Build(snapshot.Catalog,search,locale);
-                rows=listing.Where(g=>filter==0 || filter==1 && snapshot.Inventory?.Packages.Any(p=>p.Package.PackageId==g.Preferred.Id)==true || filter==2 && updateIds.Contains(g.Preferred.Id)).ToArray();
+                rows=listing.Where(g=>filter==0 || filter==1 && SharedInventory(snapshot)?.Packages.Any(p=>p.Package.PackageId==g.Preferred.Id)==true || filter==2 && updateIds.Contains(g.Preferred.Id)).ToArray();
                 if(selected!=null && !rows.Any(g=>g.Versions.Contains(selected))) { selected=null; installIntent=null; detailScroll=Vector2.zero; }
                 cardWidth=-1;
-                selectedLocal=selected==null?null:snapshot.Inventory?.Packages.FirstOrDefault(p=>p.Package.PackageId==selected.Id);
+                selectedLocal=selected==null?null:SharedInventory(snapshot)?.Packages.FirstOrDefault(p=>p.Package.PackageId==selected.Id);
                 selectedOwned=selectedLocal!=null && Owns(snapshot,selectedLocal);
                 selectedOfficial=maintainers.IsOfficial(selected,snapshot.Catalog,snapshot.Repository?.Endpoint);
                 detail=BuildDetail(snapshot); detailHeight=0;
@@ -278,7 +288,9 @@ namespace Phinix.PluginStore
             {
                 b.Clear();
                 b.AppendLine(T("installedVersion")+" "+selectedLocal.Package.Version);
-                b.AppendLine(T("installedState")+" "+T("desired_"+selectedLocal.Package.DesiredState)+(selectedLocal.RestartPending?" · "+T("restartRequired"):""));
+                var projected=controlState==null?null:new ClientExtensionPackageState(selectedLocal,controlState);
+                b.AppendLine(T("installedState")+" "+(projected==null?T("desired_"+selectedLocal.Package.DesiredState):PackageStateText(projected)));
+                if(projected!=null) b.AppendLine(T("currentState")+" "+T("current_"+projected.Current));
                 if(!selectedOwned) b.AppendLine(T("foreignInstallation"));
                 else if(ManagedExtensionVersion.Parse(selectedLocal.Package.Version).CompareTo(selected.Manifest.Version)>0) b.AppendLine(T("downgradeUnavailable"));
                 else if(selectedLocal.Package.DesiredState!=ManagedExtensionDesiredState.Enabled && ManagedExtensionVersion.Parse(selectedLocal.Package.Version).CompareTo(selected.Manifest.Version)<0) b.AppendLine(T("enableBeforeUpdate"));
@@ -288,6 +300,8 @@ namespace Phinix.PluginStore
             if(selected.Tags.Count>0) sections.Add(new DetailSection { Title=T("tags"), Body=Clean(string.Join(" · ",selected.Tags)) });
             return "";
         }
+        private string PackageStateText(ClientExtensionPackageState state)
+        { return T("next_"+state.Next)+" · "+T("moduleChoices")+" "+state.EnabledModuleCount+"/"+state.ModuleCount+(state.RestartPending?" · "+T("restartRequired"):""); }
         private void Label(Rect rect, string text, Color color)
         {
             if(rect.width<=0 || rect.height<=0) return;
@@ -357,8 +371,9 @@ namespace Phinix.PluginStore
                     cardNames[i]=Shorten(Clean(row.DisplayName(locale)),Mathf.Max(0,width-24));
                     Text.Font=GameFont.Tiny;
                     cardMetadata[i]=Shorten((row.IsWorkshop?"":row.Manifest.Version+" · ")+Clean(row.Author),Mathf.Max(0,width-24));
-                    var local=snapshot.Inventory?.Packages.FirstOrDefault(p=>p.Package.PackageId==row.Id);
-                    cardStates[i]=Shorten(local?.RestartPending==true?T("restartRequired"):updateIds.Contains(row.Id)?T("updateBadge"):local!=null?T("desired_"+local.Package.DesiredState):row.State!="active"?T("withdrawn"):"",Mathf.Max(0,width-24));
+                    var local=SharedInventory(snapshot)?.Packages.FirstOrDefault(p=>p.Package.PackageId==row.Id);
+                    var projected=local==null || controlState==null?null:new ClientExtensionPackageState(local,controlState);
+                    cardStates[i]=Shorten(projected!=null?PackageStateText(projected):(local?.RestartPending==true || local?.ModulesRestartPending==true)?T("restartRequired"):updateIds.Contains(row.Id)?T("updateBadge"):local!=null?T("desired_"+local.Package.DesiredState):row.State!="active"?T("withdrawn"):"",Mathf.Max(0,width-24));
                     Text.Font=GameFont.Small;
                 }
             }
@@ -381,7 +396,7 @@ namespace Phinix.PluginStore
                     DrawBadges(new Rect(12,card.y+57,Mathf.Max(0,width-24),24),cardOfficial[i],row.IsWorkshop);
                     Label(new Rect(12,card.y+85,Mathf.Max(0,width-24),18),cardStates[i],updateIds.Contains(row.Id)?theme.Warning:theme.SecondaryText);
                     Text.Font=GameFont.Small; Text.WordWrap=true;
-                    GUI.enabled=enabled && !snapshot.Busy;
+                    GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
                     if(Widgets.ButtonInvisible(card)) Select(active?selected:row,snapshot);
                     GUI.enabled=enabled;
                     TooltipHandler.TipRegion(card,cardTips[i]);
@@ -395,7 +410,7 @@ namespace Phinix.PluginStore
             if(rect.height<=0 || rect.width<=0) return;
             Widgets.DrawBoxSolid(rect,theme.Surface);
             var regions=ManagedStoreLayout.DetailRegions(rect,compact,selected!=null);
-            GUI.enabled=enabled && !snapshot.Busy;
+            GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             if(regions.Back.height>0 && Widgets.ButtonText(regions.Back,T("backToList")))
             { selected=null; installIntent=null; cached=null; GUI.enabled=enabled; return; }
             GUI.enabled=enabled;
@@ -421,7 +436,7 @@ namespace Phinix.PluginStore
                         Text.Font=GameFont.Medium; Label(new Rect(12,y,width,nameHeight),nameLine,theme.PrimaryText); Text.Font=GameFont.Small; y+=nameHeight+6;
                         Text.Font=GameFont.Tiny; Label(new Rect(12,y,width,22),authorShort,theme.SecondaryText); TooltipHandler.TipRegion(new Rect(12,y,width,22),authorLine); Text.Font=GameFont.Small; y+=28;
                         DrawBadges(new Rect(12,y,width,24),selectedOfficial,selected.IsWorkshop); y+=32;
-                        GUI.enabled=enabled && !snapshot.Busy;
+                        GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
                         if(!selected.IsWorkshop && Widgets.ButtonText(new Rect(12,y,width,30),T("version")+" "+selected.Manifest.Version+" ▾")) ChooseVersion(snapshot);
                         else if(selected.IsWorkshop) Label(new Rect(12,y,width,30),T("workshop"),theme.SecondaryText);
                         GUI.enabled=enabled; y+=44;
@@ -447,9 +462,11 @@ namespace Phinix.PluginStore
             var primary=new Rect(rect.x+padding,rect.y+Mathf.Min(6,Mathf.Max(0,rect.height-primaryHeight)),width,primaryHeight);
             var local=selectedLocal;
             bool newer=local!=null && !selected.IsWorkshop && selected.Manifest.Version.CompareTo(ManagedExtensionVersion.Parse(local.Package.Version))>0;
-            bool enable=local!=null && local.Package.DesiredState!=ManagedExtensionDesiredState.Enabled;
+            selectedState=local==null || controlState==null?null:new ClientExtensionPackageState(local,controlState);
+            bool enable=local!=null && (local.Package.DesiredState!=ManagedExtensionDesiredState.Enabled || selectedState?.CanRestoreSingleModule==true);
+            bool modulesBlocked=selectedState!=null && selectedState.ModuleCount>0 && selectedState.EnabledModuleCount==0 && !selectedState.CanRestoreSingleModule;
             bool canFetch=snapshot.Repository!=null && !snapshot.Repository.Offline && !snapshot.Repository.Stale && selected.State=="active";
-            GUI.enabled=enabled && !snapshot.Busy;
+            GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             string caption;
             Action action;
             if(selected.IsWorkshop)
@@ -464,11 +481,13 @@ namespace Phinix.PluginStore
                 GUI.enabled=GUI.enabled && canFetch && local.Package.DesiredState==ManagedExtensionDesiredState.Enabled && local.Package.ContentState==ManagedExtensionContentState.ContentVerified && local.Package.DiagnosticCode==null;
                 action=()=>BeginInstall(snapshot,true);
             }
+            else if(modulesBlocked)
+            { caption=T("management"); action=()=>Act(()=>management.OpenExtensionManagerWindow()); }
             else
-            { caption=T(enable?"enable":"disable"); GUI.enabled=GUI.enabled && (enable?local.EnableBlockCode:local.DisableBlockCode)==null; action=()=>SetEnabled(local,enable); }
+            { caption=T(enable?"enable":"disable"); GUI.enabled=GUI.enabled && (selectedState?.CanRestoreSingleModule==true || (enable?local.EnableBlockCode:local.DisableBlockCode)==null); action=()=>SetEnabled(local,enable); }
             if(Widgets.ButtonText(primary,caption)) action();
             TooltipHandler.TipRegion(primary,caption);
-            GUI.enabled=enabled && !snapshot.Busy;
+            GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             float y=primary.yMax+6;
             if(local!=null && selectedOwned && rect.yMax-y>=28)
             {
@@ -476,7 +495,7 @@ namespace Phinix.PluginStore
                 if(Widgets.ButtonText(new Rect(rect.x+padding,y,menuWidth,28),T("manageInstalled"))) OpenInstalledMenu(local,enable);
                 if(width>=360)
                 {
-                    GUI.enabled=enabled && !snapshot.Busy && local.RemovalBlockCode==null;
+                    GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true && local.RemovalBlockCode==null;
                     if(Widgets.ButtonText(new Rect(rect.x+padding+menuWidth+6,y,Mathf.Max(0,width-menuWidth-6),28),T("uninstall"))) ConfirmUninstall(local);
                 }
                 y+=34;
@@ -485,14 +504,15 @@ namespace Phinix.PluginStore
             if(rect.yMax-y>=18)
             {
                 Text.Font=GameFont.Tiny;
-                Label(new Rect(rect.x+padding,y,width,rect.yMax-y),T(selected.IsWorkshop?"workshopFooter":local?.RestartPending==true?"restartRequired":"restartHint"),local?.RestartPending==true?theme.Warning:theme.SecondaryText);
+                Label(new Rect(rect.x+padding,y,width,rect.yMax-y),T(selected.IsWorkshop?"workshopFooter":(local?.RestartPending==true || local?.ModulesRestartPending==true)?"restartRequired":"restartHint"),(local?.RestartPending==true || local?.ModulesRestartPending==true)?theme.Warning:theme.SecondaryText);
                 Text.Font=GameFont.Small;
             }
         }
         private void OpenInstalledMenu(ManagedExtensionManagementPackage local,bool enable)
         {
+            long? expectedRevision=controlState?.Revision;
             var options=new List<FloatMenuOption> {
-                new FloatMenuOption(T(enable?"enable":"disable"),(enable?local.EnableBlockCode:local.DisableBlockCode)==null?(Action)(()=>SetEnabled(local,enable)):null),
+                new FloatMenuOption(T(enable?"enable":"disable"),(selectedState?.CanRestoreSingleModule==true || (enable?local.EnableBlockCode:local.DisableBlockCode)==null)?(Action)(()=>SetEnabled(local,enable,expectedRevision)):null),
                 new FloatMenuOption(T("uninstall"),local.RemovalBlockCode==null?(Action)(()=>ConfirmUninstall(local)):null),
                 new FloatMenuOption(T("management"),()=>Act(()=>management.OpenExtensionManagerWindow())) };
             if(local.EnableBlockCode!=null || local.DisableBlockCode!=null || local.RemovalBlockCode!=null)
@@ -503,8 +523,25 @@ namespace Phinix.PluginStore
         {
             Act(()=> { controller.Plan(selected,environment.Capture(),snapshot.Catalog,replace); installIntent=new ManagedStoreInstallIntent(snapshot.Catalog,selected); });
         }
-        private void SetEnabled(ManagedExtensionManagementPackage local,bool enable)
-        { Act(()=>controller.Change(local.Package,enable?ManagedExtensionDesiredState.Enabled:ManagedExtensionDesiredState.Disabled,environment.Capture())); }
+        private void SetEnabled(ManagedExtensionManagementPackage local,bool enable,long? expectedRevision=null)
+        {
+            var state=controls?.Capture();
+            if(state!=null && (expectedRevision??controlState?.Revision)!=state.Revision)
+            { Act(()=> { throw new StoreValidationException("ManagedStateChanged","Module state changed; review again."); }); return; }
+            var projected=state==null?null:new ClientExtensionPackageState(local,state);
+            if(enable && projected?.CanRestoreSingleModule==true)
+            {
+                Act(()=>
+                {
+                    string id=local.Package.Manifest.Modules[0].Id;
+                    var result=controls.SetModuleEnabled(id,true,state.Revision);
+                    if(!result.Succeeded) throw new StoreValidationException(result.Code,"Module state refused.");
+                    Log.Message("[Phinix] Managed single-module intent saved; restart required: "+id);
+                });
+                return;
+            }
+            Act(()=>controller.Change(local.Package,enable?ManagedExtensionDesiredState.Enabled:ManagedExtensionDesiredState.Disabled,environment.Capture()));
+        }
         private void ConfirmUninstall(ManagedExtensionManagementPackage local)
         {
             var expected=local.Package;
@@ -549,7 +586,7 @@ namespace Phinix.PluginStore
         }
         private bool Owns(ManagedStoreSnapshot snapshot,ManagedExtensionManagementPackage local)
         {
-            return snapshot.Inventory.Packages.Count(p=>p.Package.PackageId==selected.Id)==1 &&
+            return SharedInventory(snapshot).Packages.Count(p=>p.Package.PackageId==selected.Id)==1 &&
                 local.Package.SourceId==snapshot.Catalog.SourceId && local.Package.RepositoryIdentitySha256==snapshot.Repository?.Endpoint.IdentityKey;
         }
         private void Select(ManagedStoreRecord row,ManagedStoreSnapshot snapshot)

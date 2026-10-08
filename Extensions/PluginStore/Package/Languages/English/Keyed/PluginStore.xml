@@ -205,4 +205,16 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_unavailableFriendly>This listing is unavailable for installation or already installed. Refresh the store and check Extensions.</Phinix_store2_unavailableFriendly>
   <Phinix_store2_contentFriendly>Plugin metadata or files failed validation. Refresh the store and retry; if it persists, share error details and the log.</Phinix_store2_contentFriendly>
   <Phinix_store2_inputFriendly>An address, local path or source ID is invalid. Check store settings and the selected local file.</Phinix_store2_inputFriendly>
+  <Phinix_store2_currentState>Current runtime:</Phinix_store2_currentState>
+  <Phinix_store2_moduleChoices>module choices</Phinix_store2_moduleChoices>
+  <Phinix_store2_current_Unknown>Unknown</Phinix_store2_current_Unknown>
+  <Phinix_store2_current_Inactive>Inactive</Phinix_store2_current_Inactive>
+  <Phinix_store2_current_Active>Active</Phinix_store2_current_Active>
+  <Phinix_store2_current_PartiallyActive>Partly active</Phinix_store2_current_PartiallyActive>
+  <Phinix_store2_current_Failed>Load failed</Phinix_store2_current_Failed>
+  <Phinix_store2_next_Unknown>Unknown</Phinix_store2_next_Unknown>
+  <Phinix_store2_next_Enabled>Enabled next start</Phinix_store2_next_Enabled>
+  <Phinix_store2_next_PartiallyDisabled>Partly disabled next start</Phinix_store2_next_PartiallyDisabled>
+  <Phinix_store2_next_Disabled>Disabled next start</Phinix_store2_next_Disabled>
+  <Phinix_store2_next_PendingRemoval>Remove next start</Phinix_store2_next_PendingRemoval>
 </LanguageData>

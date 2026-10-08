@@ -80,7 +80,7 @@ namespace Phinix.PluginStore
                 Code.StartsWith("UnknownManagedTransaction",StringComparison.Ordinal) || Code.StartsWith("OrphanInstall",StringComparison.Ordinal))
                 { Set(StoreFailureScope.Recovery,"recoveryFriendly"); return; }
             if(Is("ManagedInstallPathTooLong")) { Set(StoreFailureScope.Storage,"pathTooLongFriendly"); return; }
-            if(Code.Contains("StorageFailed") || Code.Contains("CleanupFailed")) { Set(StoreFailureScope.Storage,"storageFriendly"); return; }
+            if(Code.Contains("StorageFailed") || Code.Contains("CleanupFailed") || Is("ManagedModuleSettingsWriteFailed")) { Set(StoreFailureScope.Storage,"storageFriendly"); return; }
             if(Is("IncompleteEnvironment","EnvironmentCaptureTimeout","ManagedManagementUnavailable","ManagedInventoryUnavailable"))
                 { Set(StoreFailureScope.Environment,"environmentFriendly"); return; }
             if(Is("ManagedEnvironmentChanged")) { Set(StoreFailureScope.Environment,"environmentChangedFriendly"); return; }

@@ -28,6 +28,8 @@ namespace PhinixClient
         private IUiTheme theme;
         private int resultCount = -1;
         private int settingsVersion = -1;
+        private long controlVersion=-1;
+        private ClientExtensionControlSnapshot controlState;
         private int logVersion = -1;
         private int widthBucket = -1;
         private int logWidthBucket = -1;
@@ -67,6 +69,7 @@ namespace PhinixClient
 
             PhinixFrameworkClient framework = Client.Instance?.FrameworkClient;
             Settings settings = Client.Instance?.Settings;
+            controlState=Client.Instance?.ExtensionControls?.Capture();
             IReadOnlyList<ExtensionDiscoveryResult> results = framework?.ExtensionResults ??
                 (IReadOnlyList<ExtensionDiscoveryResult>)Array.Empty<ExtensionDiscoveryResult>();
             ResolveTheme(framework);
@@ -74,12 +77,12 @@ namespace PhinixClient
             int currentWidthBucket = (int)(inRect.width / 24f);
             int currentSettingsVersion = settings?.SettingsVersion ?? 0;
             object currentLanguage = LanguageDatabase.activeLanguage;
-            if (resultCount != results.Count || settingsVersion != currentSettingsVersion ||
+            if (controlVersion!=(controlState?.Revision??-1) || resultCount != results.Count || settingsVersion != currentSettingsVersion ||
                 widthBucket != currentWidthBucket || !ReferenceEquals(language, currentLanguage))
             {
                 RebuildRows(results, framework, settings, inRect.width);
                 resultCount = results.Count;
-                settingsVersion = currentSettingsVersion;
+                settingsVersion = currentSettingsVersion; controlVersion=controlState?.Revision??-1;
                 widthBucket = currentWidthBucket;
                 language = currentLanguage;
             }
@@ -179,13 +182,12 @@ namespace PhinixClient
             {
                 float checkbox = Mathf.Min(18f, inner.height);
                 bool enabled = row.Checked;
-                if (row.CanToggle && !managedView.Busy)
+                if (row.CanToggle && !managedView.Busy && controlState?.Busy!=true)
                 {
                     Widgets.Checkbox(new Vector2(inner.x, inner.y + 4f), ref enabled, checkbox);
                     if (enabled != row.Checked && Client.Instance?.Settings != null)
                     {
-                        Client.Instance.Settings.SetExtensionDisabled(row.Result.ExtensionId, !enabled);
-                        Client.Instance.Settings.AcceptChanges();
+                        if(!Client.Instance.SetModuleEnabled(row.Result.ExtensionId,enabled,controlState?.Revision).Succeeded) return;
                         Messages.Message((enabled ? "Phinix_extensions_toggleEnabled" :
                             "Phinix_extensions_toggleDisabled").Translate(row.Result.ExtensionId),
                             MessageTypeDefOf.NeutralEvent);
@@ -299,7 +301,7 @@ namespace PhinixClient
         {
             rows.Clear();
             ExtensionDependencyGraph graph = framework?.ExtensionDependencyGraph;
-            IReadOnlyCollection<string> disabled = settings?.DisabledExtensions;
+            IReadOnlyCollection<string> disabled = controlState?.EffectiveDisabledModuleIds ?? (IReadOnlyCollection<string>)settings?.DisabledExtensions;
             List<ExtensionDiscoveryResult> sorted = ExtensionDisplayState.IncludeDisabledSettings(results, disabled);
             sorted.Sort(CompareResults);
             int active = 0;
@@ -314,6 +316,8 @@ namespace PhinixClient
                 ExtensionDiscoveryResult result = sorted[i];
                 string id = result.ExtensionId ?? "?";
                 ExtensionDisplayState display = ExtensionDisplayState.Compute(result, disabled, graph);
+                var owner=controlState?.FindModuleOwner(id);
+                bool packageGated=owner!=null && (!controlState.InventoryKnown || owner.Package.DesiredState!=Utils.Framework.ManagedExtensions.ManagedExtensionDesiredState.Enabled || owner.ModuleSettingsBlockCode!=null);
                 string dependencies;
                 IReadOnlyList<string> declared = result.DependsOn;
                 bool missingDeclaration = graph != null && graph.IsUndeclared(id);
@@ -337,6 +341,7 @@ namespace PhinixClient
                 }
                 string tooltip = id + "\n" + (result.DisplayName ?? "") + "\n" +
                     (result.SourcePackageId ?? result.AssemblyName ?? "") + "\n" + dependencies;
+                if(packageGated) tooltip+="\n"+"Phinix_managed_packageGate".Translate();
                 if (result.AssemblyName == null) tooltip += "\n" + "Phinix_extensions_disabledSettingRecovery".Translate();
                 if (!string.IsNullOrEmpty(pendingText)) tooltip += "\n" + pendingText;
                 if (!string.IsNullOrEmpty(result.StateDetail)) tooltip += "\n" + result.StateDetail;
@@ -354,8 +359,8 @@ namespace PhinixClient
                     Dependencies = dependencies,
                     StateColor = GetStatusColor(display.RuntimeState, theme),
                     DependencyColor = missingDeclaration ? new Color(0.7f, 0.7f, 0.45f) : new Color(0.6f, 0.6f, 0.6f),
-                    CanToggle = result.State != ExtensionModuleState.DependencyDisabled,
-                    Checked = settings == null || !settings.IsExtensionDisabled(id),
+                    CanToggle = !packageGated && result.State != ExtensionModuleState.DependencyDisabled,
+                    Checked = disabled==null || !System.Linq.Enumerable.Contains(disabled,id,StringComparer.OrdinalIgnoreCase),
                     Tooltip = tooltip
                 });
                 if (display.RuntimeState == ExtensionModuleState.Active) active++;

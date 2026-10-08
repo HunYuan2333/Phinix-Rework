@@ -62,6 +62,8 @@ namespace Phinix.PluginStore
                     local.Borrow(theme);
                     local.Borrow(hostContext.GetRequiredService<IClientLocalizationService>());
                     local.Borrow(hostContext.GetRequiredService<IClientExtensionManagementWindowService>());
+                    IClientExtensionControlService controls;
+                    if(hostContext.TryGetService(out controls)) local.Borrow(controls);
                     local.Borrow(hostContext.GetRequiredService<IClientLinkService>());
                     local.Borrow(hostContext.GetRequiredService<IManagedExtensionManagementService>());
                     local.Borrow(hostContext.GetRequiredService<IManagedExtensionInstallationService>());

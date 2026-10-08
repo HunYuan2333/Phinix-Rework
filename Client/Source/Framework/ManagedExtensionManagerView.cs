@@ -17,6 +17,8 @@ namespace PhinixClient.Framework
         private readonly List<Row> rows=new List<Row>();
         private Vector2 scroll;
         private int cachedVersion=-1, settingsVersion=-1;
+        private long controlsVersion=-1, renderedControlsVersion=-1;
+        private ClientExtensionControlSnapshot controlState;
         private float cachedWidth=-1f;
         private object language;
         private bool initialized, disposed;
@@ -27,19 +29,20 @@ namespace PhinixClient.Framework
         {
             var service=Client.Instance?.ManagedExtensionManagement;
             var settings=Client.Instance?.Settings;
+            controlState=Client.Instance?.ExtensionControls?.Capture();
             if(!initialized) { initialized=true; settingsVersion=settings?.SettingsVersion??0; controller.Refresh(service,settings?.DisabledExtensions); }
             Update();
             int version=settings?.SettingsVersion??0;
-            if(!controller.Busy && version!=settingsVersion) { settingsVersion=version; controller.Refresh(service,settings?.DisabledExtensions); }
+            if(!controller.Busy && controlState?.Busy!=true && (version!=settingsVersion || controlsVersion!=(controlState?.Revision??-1))) { settingsVersion=version; controlsVersion=controlState?.Revision??-1; controller.Refresh(service,settings?.DisabledExtensions); }
             float width=Mathf.Max(0f,rect.width-16f);
-            if(cachedVersion!=controller.Version || cachedWidth!=width || !ReferenceEquals(language,LanguageDatabase.activeLanguage))
-            { Rebuild(width); cachedVersion=controller.Version; cachedWidth=width; language=LanguageDatabase.activeLanguage; }
+            if(renderedControlsVersion!=(controlState?.Revision??-1) || cachedVersion!=controller.Version || cachedWidth!=width || !ReferenceEquals(language,LanguageDatabase.activeLanguage))
+            { Rebuild(width); renderedControlsVersion=controlState?.Revision??-1; cachedVersion=controller.Version; cachedWidth=width; language=LanguageDatabase.activeLanguage; }
             bool oldEnabled=UnityEngine.GUI.enabled, oldWrap=Text.WordWrap; GameFont oldFont=Text.Font; Color oldColor=UnityEngine.GUI.color;
             try
             {
                 Text.WordWrap=false; Text.Font=GameFont.Small;
                 float top=Mathf.Min(32f,Mathf.Max(0f,rect.height));
-                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy;
+                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && controlState?.Busy!=true;
                 if(Widgets.ButtonText(new Rect(rect.x,rect.y,Mathf.Min(110f,Mathf.Max(0f,rect.width)),top),refreshLabel)) controller.Refresh(service,settings?.DisabledExtensions);
                 UnityEngine.GUI.enabled=oldEnabled;
                 Rect statusRect=new Rect(rect.x+Mathf.Min(116f,rect.width),rect.y,Mathf.Max(0f,rect.width-116f),top);
@@ -73,17 +76,17 @@ namespace PhinixClient.Framework
             try
             {
                 var model=row.Model;
-                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && model.ModuleSettingsBlockCode==null;
+                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && controlState?.Busy!=true && model.ModuleSettingsBlockCode==null;
                 if(Widgets.ButtonText(layout.ModuleButton,moduleLabel))
                 {
                     var options=new List<FloatMenuOption>();
                     foreach(var module in model.Package.Manifest.Modules)
                     {
-                        string id=module.Id; bool disabled=settings?.IsExtensionDisabled(id)==true;
+                        string id=module.Id; bool disabled=settings?.IsExtensionDisabled(id)==true; long? expectedRevision=controlState?.Revision;
                         options.Add(new FloatMenuOption((disabled?"Phinix_managed_enable":"Phinix_managed_disable").Translate()+" · "+id,()=>
                         {
                             if(disposed || controller.Busy || settings==null) return;
-                            settings.SetExtensionDisabled(id,!disabled); settings.AcceptChanges();
+                            if(Client.Instance?.SetModuleEnabled(id,disabled,expectedRevision).Succeeded!=true) return;
                             Log.Message("[Phinix] Managed module intent saved; restart required: "+id);
                         }));
                     }
@@ -92,10 +95,10 @@ namespace PhinixClient.Framework
                 if(model.ModuleSettingsBlockCode!=null) TooltipHandler.TipRegion(layout.ModuleButton,Reason(model.ModuleSettingsBlockCode));
                 bool enable=model.Package.DesiredState!=ManagedExtensionDesiredState.Enabled;
                 string block=enable?model.EnableBlockCode:model.DisableBlockCode;
-                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && block==null;
+                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && controlState?.Busy!=true && block==null;
                 if(Widgets.ButtonText(layout.Toggle,row.Toggle)) controller.Change(service,model.Package,enable?ManagedExtensionDesiredState.Enabled:ManagedExtensionDesiredState.Disabled,settings?.DisabledExtensions);
                 bool undo=model.Package.DesiredState==ManagedExtensionDesiredState.PendingRemoval;
-                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && (undo?model.DisableBlockCode:model.RemovalBlockCode)==null;
+                UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && controlState?.Busy!=true && (undo?model.DisableBlockCode:model.RemovalBlockCode)==null;
                 if(Widgets.ButtonText(layout.Removal,row.Removal))
                 {
                     if(undo) controller.Change(service,model.Package,ManagedExtensionDesiredState.Disabled,settings?.DisabledExtensions);
@@ -114,7 +117,7 @@ namespace PhinixClient.Framework
             moduleLabel="Phinix_managed_moduleActions".Translate();
             confirm="Phinix_managed_confirmRemoval"; confirmTitle="Phinix_managed_remove".Translate();
             status=Reason(controller.MessageCode??"ManagedInventoryReady");
-            var snapshot=controller.Snapshot;
+            var snapshot=controlState?.InventoryKnown==true?controlState.Inventory:controller.Snapshot;
             if(snapshot?.Diagnostics.Count>0) status+=" · "+string.Join(", ",snapshot.Diagnostics);
             shortStatus=Short(status,Mathf.Max(0f,width-100f));
             rows.Clear();
@@ -124,8 +127,9 @@ namespace PhinixClient.Framework
             {
                 var p=model.Package;
                 string title=Safe(p.Manifest?.Name??p.PackageId??p.RecordKey??"?")+" · "+Safe(p.Version??"?")+" · "+Safe(p.SourceId??"?");
-                string current=model.Current?.AssembliesLoaded==true?"Phinix_managed_loaded".Translate().ToString():"Phinix_managed_unloaded".Translate().ToString();
-                string state="Phinix_managed_state".Translate(current,Desired(p.DesiredState)).ToString()+(model.RestartPending || model.ModulesRestartPending?" · "+"Phinix_managed_restartPending".Translate().ToString():"");
+                var projected=controlState==null?null:new ClientExtensionPackageState(model,controlState);
+                string current=projected==null?(model.Current?.AssembliesLoaded==true?"Phinix_managed_loaded".Translate().ToString():"Phinix_managed_unloaded".Translate().ToString()):("Phinix_managed_current_"+projected.Current).Translate().ToString();
+                string state="Phinix_managed_state".Translate(current,(projected==null?Desired(p.DesiredState):("Phinix_managed_next_"+projected.Next).Translate().ToString())).ToString()+((projected?.RestartPending??(model.RestartPending || model.ModulesRestartPending))?" · "+"Phinix_managed_restartPending".Translate().ToString():"");
                 int disabledCount=p.Manifest?.Modules.Count(m=>settings?.IsExtensionDisabled(m.Id)==true)??0;
                 state+=" · "+"Phinix_managed_moduleIntent".Translate(disabledCount,p.Manifest?.Modules.Count??0);
                 string modules=p.Manifest==null?"":string.Join(", ",p.Manifest.Modules.Select(m=>m.Id));
@@ -154,6 +158,7 @@ namespace PhinixClient.Framework
                 case "ManagedAllModulesDisabled": return "Phinix_managed_allModulesDisabled".Translate()+" ("+code+")";
                 case "CandidatePackageDependencyUnavailable": case "ManagedModuleDependencyUnavailable": case "ManagedDependencyRejected": return "Phinix_managed_missingDependency".Translate()+" ("+code+")";
                 case "CandidateHostIncompatible": return "Phinix_managed_incompatible".Translate()+" ("+code+")";
+                case "ManagedModuleSettingsWriteFailed": return "Phinix_managed_moduleWriteFailed".Translate();
                 case "ManagedStateWriteUncertain": return "Phinix_managed_writeUncertain".Translate();
                 case "ManagedHasDependents": case "ManagedHostHasDependents": case "ManagedHostAssemblyDependent": return "Phinix_managed_dependents".Translate()+" ("+code+")";
                 case "ManagedStateChanged": return "Phinix_managed_stale".Translate();

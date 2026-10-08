@@ -11,14 +11,21 @@ using Verse;
 
 internal static partial class Program
 {
+    private sealed class StoreControlProbe : IClientExtensionControlService
+    {
+        public ClientExtensionControlSnapshot Capture()=>new ClientExtensionControlSnapshot(0,false,false,null,null,null,null);
+        public ClientExtensionControlResult SetModuleEnabled(string id,bool enabled,long revision)=>new ClientExtensionControlResult(false,"ProbeOnly");
+    }
     private static void CheckActivation(Type type,bool legacy,List<string> facts)
     {
-        foreach(string scenario in legacy?new[]{"success"}:new[]{"success","missing-service","localizer-failure","view-failure","environment-failure","release-failure"})
+        foreach(string scenario in legacy?new[]{"success"}:new[]{"success","without-controls","missing-service","localizer-failure","view-failure","environment-failure","release-failure"})
         {
             var services=new StoreHost {Scenario=scenario}; var errors=new List<Exception>();
             using(var factory=new ClientCompositionFactory(()=>true,errors.Add))
             {
                 var host=new ExtensionHostContext();
+                var controls=new StoreControlProbe();
+                if(!legacy && scenario!="without-controls") host.AddService<IClientExtensionControlService>(controls);
                 host.AddService<IClientCompositionFactory>(factory);
                 host.AddService<IClientLocalizationService>(services); host.AddService<IClientEnvironmentService>(services);
                 host.AddService<IClientSettingsContext>(services); host.AddService<IClientMainThreadDispatcher>(services);
@@ -29,7 +36,7 @@ internal static partial class Program
                 var module=(IPhinixExtensionModule)Activator.CreateInstance(type); services.Module=module;
                 module.Register(new Builder(host,false)); bool failed=false;
                 try { ((IActivatablePhinixExtensionModule)module).Activate(host); } catch(Exception) { failed=true; }
-                bool success=scenario=="success" || scenario=="release-failure";
+                bool success=scenario=="success" || scenario=="without-controls" || scenario=="release-failure";
                 Assert(failed!=success,"Expected activation outcome: "+scenario);
                 object controller=services.LastController,icons=services.LastIcons;
                 object oldView=null,secondView=null; Delegate create=null;
@@ -41,6 +48,7 @@ internal static partial class Program
                     var panel=Field(module,"panel");var tab=Field(module,"tab");
                     oldView=Field(tab,"view"); create=(Delegate)Field(panel,"createView"); secondView=create.DynamicInvoke();
                     Assert(!ReferenceEquals(oldView,secondView) && ReferenceEquals(Field(oldView,"controller"),controller) && ReferenceEquals(Field(secondView,"controller"),controller),"Independent views share one controller.");
+                    if(!legacy) Assert(ReferenceEquals(Field(oldView,"controls"),scenario=="without-controls"?null:controls) && ReferenceEquals(Field(secondView,"controls"),scenario=="without-controls"?null:controls),"F6-M both Store views borrow the same host control boundary.");
                     oldView.GetType().GetField("search",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(oldView,"tab-search");
                     Assert((string)Field(secondView,"search")=="","Tab/window searches do not leak across views.");
                     Assert(ReferenceEquals(Field(oldView,"localizer"),Field(secondView,"localizer")) && ReferenceEquals(Field(oldView,"badgeIcons"),icons),"Views share activation-owned resources.");

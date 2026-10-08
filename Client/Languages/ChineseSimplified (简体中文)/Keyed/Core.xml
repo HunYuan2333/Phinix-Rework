@@ -118,4 +118,17 @@
   <Phinix_managed_writeUncertain>写入结果尚不能确认，请刷新核对期望状态并查看日志。</Phinix_managed_writeUncertain>
   <Phinix_extensions_disabledSettingRecovery>未加载：可在此恢复保留的禁用设置，卸载后也可恢复。已安装模块启用后需重启生效。</Phinix_extensions_disabledSettingRecovery>
   <Phinix_managed_moduleIntent>模块禁用：{0}/{1}</Phinix_managed_moduleIntent>
+  <Phinix_managed_commandFailed>无法保存扩展状态：{0}。请刷新后重试。</Phinix_managed_commandFailed>
+  <Phinix_managed_moduleWriteFailed>模块设置保存失败。请刷新核对状态后重试。</Phinix_managed_moduleWriteFailed>
+  <Phinix_managed_packageGate>整包已停用、待移除或状态不可用。请先检查整包管理；原有模块选择会保留。</Phinix_managed_packageGate>
+  <Phinix_managed_current_Unknown>未知</Phinix_managed_current_Unknown>
+  <Phinix_managed_current_Inactive>未运行</Phinix_managed_current_Inactive>
+  <Phinix_managed_current_Active>运行中</Phinix_managed_current_Active>
+  <Phinix_managed_current_PartiallyActive>部分运行</Phinix_managed_current_PartiallyActive>
+  <Phinix_managed_current_Failed>加载失败</Phinix_managed_current_Failed>
+  <Phinix_managed_next_Unknown>未知</Phinix_managed_next_Unknown>
+  <Phinix_managed_next_Enabled>下次启动启用</Phinix_managed_next_Enabled>
+  <Phinix_managed_next_PartiallyDisabled>下次启动部分停用</Phinix_managed_next_PartiallyDisabled>
+  <Phinix_managed_next_Disabled>下次启动停用</Phinix_managed_next_Disabled>
+  <Phinix_managed_next_PendingRemoval>下次启动移除</Phinix_managed_next_PendingRemoval>
 </LanguageData>

@@ -35,6 +35,8 @@ namespace PhinixClient.Framework
         private float[] cachedHintHeights;
         private int cachedResultsCount = -1;
         private int cachedSettingsVersion = -1;
+        private long cachedControlVersion=-1;
+        private ClientExtensionControlSnapshot controlState;
         private int cachedWidthBucket = -1;
         private object cachedLanguage;
 
@@ -58,12 +60,13 @@ namespace PhinixClient.Framework
             IReadOnlyList<ExtensionDiscoveryResult> results = frameworkClient.ExtensionResults;
             ExtensionDependencyGraph dependencyGraph = frameworkClient.ExtensionDependencyGraph;
             Settings hostSettings = Client.Instance?.Settings;
+            controlState=Client.Instance?.ExtensionControls?.Capture();
             int resultsCount = results?.Count ?? 0;
             int settingsVersion = hostSettings?.SettingsVersion ?? 0;
             float availableWidth = Mathf.Max(1f, listing.ColumnWidth);
             int widthBucket = (int)(availableWidth / 16f);
             object language = LanguageDatabase.activeLanguage;
-            if (cachedSortedResults == null ||
+            if (cachedControlVersion!=(controlState?.Revision??-1) || cachedSortedResults == null ||
                 cachedResultsCount != resultsCount ||
                 cachedSettingsVersion != settingsVersion ||
                 cachedWidthBucket != widthBucket ||
@@ -71,7 +74,7 @@ namespace PhinixClient.Framework
             {
                 RebuildCache(results, dependencyGraph, hostSettings, availableWidth);
                 cachedResultsCount = resultsCount;
-                cachedSettingsVersion = settingsVersion;
+                cachedSettingsVersion = settingsVersion; cachedControlVersion=controlState?.Revision??-1;
                 cachedWidthBucket = widthBucket;
                 cachedLanguage = language;
             }
@@ -92,8 +95,10 @@ namespace PhinixClient.Framework
                 string extensionId = result.ExtensionId ?? result.DisplayName ?? "?";
 
                 // 复选框语义：勾选 = 启用（不在禁用列表中）。运行时依赖禁用状态不可单独启用。
-                bool canToggle = result.State != ExtensionModuleState.DependencyDisabled;
-                bool isEnabled = hostSettings == null || !hostSettings.IsExtensionDisabled(extensionId);
+                var owner=controlState?.FindModuleOwner(extensionId);
+                bool packageGated=owner!=null && (!controlState.InventoryKnown || owner.Package.DesiredState!=Utils.Framework.ManagedExtensions.ManagedExtensionDesiredState.Enabled || owner.ModuleSettingsBlockCode!=null);
+                bool canToggle = !packageGated && controlState?.Busy!=true && result.State != ExtensionModuleState.DependencyDisabled;
+                bool isEnabled = controlState==null?(hostSettings == null || !hostSettings.IsExtensionDisabled(extensionId)):!System.Linq.Enumerable.Contains(controlState.EffectiveDisabledModuleIds,extensionId,StringComparer.OrdinalIgnoreCase);
                 bool newEnabled = isEnabled;
 
                 if (canToggle)
@@ -102,8 +107,7 @@ namespace PhinixClient.Framework
                     Widgets.CheckboxLabeled(rowRect, cachedLabels[i], ref newEnabled);
                     if (newEnabled != isEnabled && hostSettings != null)
                     {
-                        hostSettings.SetExtensionDisabled(extensionId, !newEnabled);
-                        hostSettings.AcceptChanges();
+                        Client.Instance?.SetModuleEnabled(extensionId,newEnabled,controlState?.Revision);
                     }
                 }
                 else
@@ -135,7 +139,7 @@ namespace PhinixClient.Framework
             float availableWidth)
         {
             cachedManagementLabel = "Phinix_extensions_management".Translate();
-            IReadOnlyCollection<string> disabledIds = hostSettings?.DisabledExtensions;
+            IReadOnlyCollection<string> disabledIds = controlState?.EffectiveDisabledModuleIds ?? (IReadOnlyCollection<string>)hostSettings?.DisabledExtensions;
 
             cachedSortedResults = ExtensionDisplayState.IncludeDisabledSettings(results, disabledIds);
             cachedSortedResults.Sort((a, b) => string.Compare(a.ExtensionId, b.ExtensionId, StringComparison.OrdinalIgnoreCase));
@@ -174,6 +178,13 @@ namespace PhinixClient.Framework
                         detail = "Phinix_extensions_depDisabledHint".Translate();
                     }
                     cachedHints[i] = ("  ⚠ " + detail).Colorize(Color.yellow);
+                }
+
+                var owner=controlState?.FindModuleOwner(extensionId);
+                if(owner!=null && (!controlState.InventoryKnown || owner.Package.DesiredState!=Utils.Framework.ManagedExtensions.ManagedExtensionDesiredState.Enabled || owner.ModuleSettingsBlockCode!=null))
+                {
+                    string gateHint="  "+"Phinix_managed_packageGate".Translate();
+                    cachedHints[i]=cachedHints[i]==null?gateHint:cachedHints[i]+"\n"+gateHint;
                 }
 
                 // 老插件未声明依赖关系提示

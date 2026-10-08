@@ -16,6 +16,8 @@
     <Compile Remove="Fixtures/RepositoryMonoSmoke/**/*.cs" />
     <Compile Remove="Fixtures/ManagedExtensionMonoSmoke/**/*.cs" />
     <ProjectReference Include="Fixtures/ManagedPayload/ManagedPayload.csproj" ReferenceOutputAssembly="false" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientExtensionControlService.cs" Link="Production/IClientExtensionControlService.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientExtensionControlService.cs" Link="Production/ClientExtensionControlService.cs" />
     <!-- Compile the actual net472 planning sources without game dependencies. -->
     <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PackageVersion.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PackageModels.cs" />

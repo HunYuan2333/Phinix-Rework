@@ -42,6 +42,7 @@ internal static partial class Program
             PackageDownloads().GetAwaiter().GetResult();
             Installations().GetAwaiter().GetResult();
             ManagedExtensionContracts();
+            ExtensionControlRegression();
             RepositoryAdapters().GetAwaiter().GetResult();
             Console.WriteLine("All plugin store runtime tests passed (" + assertions + " assertions).");
             return 0;

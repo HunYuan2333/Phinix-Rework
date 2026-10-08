@@ -73,6 +73,7 @@
     <Compile Include="Framework\IClientExtensionAbstractions.cs" />
     <Compile Include="Framework\IClientComposition.cs" />
     <Compile Include="Framework\IClientExtensionManagementWindowService.cs" />
+    <Compile Include="Framework\IClientExtensionControlService.cs" />
     <Compile Include="Framework\ClientEnvironmentSnapshot.cs" />
     <Compile Include="Framework\FrameworkDisplayMessageEventArgs.cs" />
     <Compile Include="Framework\UserBlockStateChangedEventArgs.cs" />

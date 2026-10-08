@@ -118,4 +118,17 @@
   <Phinix_managed_writeUncertain>The write outcome is uncertain. Refresh to check desired state and inspect logs.</Phinix_managed_writeUncertain>
   <Phinix_extensions_disabledSettingRecovery>Not loaded: this saved disable setting can be cleared here, including after uninstall. Enabling an installed module takes effect after restart.</Phinix_extensions_disabledSettingRecovery>
   <Phinix_managed_moduleIntent>modules disabled: {0}/{1}</Phinix_managed_moduleIntent>
+  <Phinix_managed_commandFailed>Unable to save extension state: {0}. Refresh and retry.</Phinix_managed_commandFailed>
+  <Phinix_managed_moduleWriteFailed>Module settings could not be saved. Refresh to check state before retrying.</Phinix_managed_moduleWriteFailed>
+  <Phinix_managed_packageGate>The package is disabled, pending removal or unavailable. Check package management first; saved module choices are retained.</Phinix_managed_packageGate>
+  <Phinix_managed_current_Unknown>Unknown</Phinix_managed_current_Unknown>
+  <Phinix_managed_current_Inactive>Inactive</Phinix_managed_current_Inactive>
+  <Phinix_managed_current_Active>Active</Phinix_managed_current_Active>
+  <Phinix_managed_current_PartiallyActive>Partly active</Phinix_managed_current_PartiallyActive>
+  <Phinix_managed_current_Failed>Load failed</Phinix_managed_current_Failed>
+  <Phinix_managed_next_Unknown>Unknown</Phinix_managed_next_Unknown>
+  <Phinix_managed_next_Enabled>Enabled next start</Phinix_managed_next_Enabled>
+  <Phinix_managed_next_PartiallyDisabled>Partly disabled next start</Phinix_managed_next_PartiallyDisabled>
+  <Phinix_managed_next_Disabled>Disabled next start</Phinix_managed_next_Disabled>
+  <Phinix_managed_next_PendingRemoval>Remove next start</Phinix_managed_next_PendingRemoval>
 </LanguageData>

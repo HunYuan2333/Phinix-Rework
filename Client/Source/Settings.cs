@@ -211,6 +211,21 @@ namespace PhinixClient
         /// <summary>
         /// 查询指定扩展是否被用户禁用。
         /// </summary>
+        internal void SaveExtensionModuleIntent(string extensionId, bool disabled)
+        {
+            bool previous=IsExtensionDisabled(extensionId);
+            if(previous==disabled) return;
+            SetExtensionDisabled(extensionId,disabled);
+            try { AcceptChanges(); }
+            catch(Exception error)
+            {
+                SetExtensionDisabled(extensionId,previous);
+                try { AcceptChanges(); }
+                catch(Exception rollback) { throw new AggregateException("Extension module settings recovery failed.",error,rollback); }
+                throw;
+            }
+        }
+
         public bool IsExtensionDisabled(string extensionId)
         {
             if (string.IsNullOrEmpty(extensionId) || disabledExtensions == null) return false;
