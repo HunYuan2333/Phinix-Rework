@@ -1,6 +1,6 @@
 # Plugin store runtime regression harness
 
-2026-10-05: 896 assertions passed. RepositoryAdapterTests covers real net472 payload metadata, GitHub/CF byte equivalence, verified installed ownership across switches, per-provider ETags, shared continuity/cache boundaries, identity/redirect/content failures, cancellation and bounded stalls. The adapter fixture builds against the repository Utils/framework references; no game assemblies or credentials are needed. [Exact commands and live evidence](../../docs/branch-local/dev/plugin-store/RepositoryAccessImplementation.md).
+2026-10-05: 896 assertions passed. RepositoryAdapterTests covers real net472 payload metadata, GitHub/CF byte equivalence, verified installed ownership across switches, per-provider ETags, shared continuity/cache boundaries, identity/redirect/content failures, cancellation and bounded stalls. The adapter fixture builds against the repository Utils/framework references; no game assemblies or credentials are needed.
 
 Run from the repository root:
 
@@ -56,7 +56,6 @@ python Tests/PluginStoreRuntimeTests/RepositoryMetadataGeneratorTests.py
 ```
 
 `Fixtures/RepositoryMonoSmoke/Program.cs` supports a separate Mono metadata/mock
-transport/cache smoke. The exact mcs/mono command is in
-[the batch validation record](../../docs/branch-local/dev/plugin-store/远端目录协议与浏览缓存实现.md).
-It covers normal atomic replacement on this local filesystem and is not in-game networking
-or a crash/durable installation transaction test.
+transport/cache smoke. It compiles via mcs/csc against local framework references,
+testing normal atomic replacement on the local filesystem without in-game networking
+or durable installation transaction dependencies.

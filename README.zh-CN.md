@@ -188,6 +188,7 @@ Output/phinix-rework/
 
 ### 文档与参考
 
+- [插件开发指南](docs/插件开发指南.md) — 托管插件开发规范、生命周期与 DI 组合、打包与 Index 发布流程。（*注：Phinix 插件开发 skill 正在准备中，后续将补充链接。*）
 - [设计哲学](docs/设计哲学.md) — 插件平权边界、三条通信管道与生命周期规范。
 - [兼容边界与故障恢复约束](docs/Compatibility-Boundaries.md) — 客户端与不同服务端版本的网络契约与恢复约束。
 - [客户端虚拟库存边界](docs/Inventory.md) — 虚拟库存暂存与日志恢复规范。

@@ -188,6 +188,7 @@ This output folder is the complete, installable RimWorld mod. Copy it directly t
 
 ### Documentation & References
 
+- [Plugin Development Guide](docs/Plugin-Development.md) — Comprehensive technical guide covering plugin architecture, lifecycle, DI composition, packaging, and publication. *(Phinix plugin development skill is currently in preparation; integration links will be added once ready.)*
 - [Architecture & Design Philosophy](docs/Design-Philosophy.md) — Plugin boundaries, communication pipelines, and lifecycle models.
 - [Compatibility Boundaries & Recovery Constraints](docs/Compatibility-Boundaries.md) — Network contracts and error recovery boundaries across server versions.
 - [Client Inventory & Recovery Boundaries](docs/Inventory.md) — Inventory staging, ledger, and journal recovery constraints.
