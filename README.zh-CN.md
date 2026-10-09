@@ -186,9 +186,20 @@ Output/phinix-rework/
 
 该目录即为完整的 RimWorld 模组目录。手动测试时直接将其复制到 `<path-to-RimWorld>/Mods/Phinix-Rework/` 即可。
 
+### 插件开发 Skill
+
+**Phinix Rework 插件开发 skill** 面向小白和开发者，按步骤帮助选择托管插件或 RimWorld Mod 路线、准备编译引用、使用公开接口与 DI、构建和验证插件包，以及通过 Release 和 Index 发布。详细参考按当前任务需要读取。
+
+- [简体中文 skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-cn/SKILL.md)
+- [English skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-en/SKILL.md)
+
+选择一种语言，将该语言目录及其 `references/` 一起交给支持 skill 的 AI 工具，按工具支持的方式使用。外层 `phinix-rework-plugin-development/` 只是两个语言版本的分发目录，不是可单独安装的 skill。
+
+目前 skill 为开发引导草案。开始前确认目标宿主具备文档中的接口与本地安装工具；工作区修改、正式发行和游戏验收分别记录。现有发布 Actions、手动发行及 Index 流程继续可用，具体能力状态见对应 skill 的版本说明。
+
 ### 文档与参考
 
-- [插件开发指南](docs/插件开发指南.md) — 托管插件开发规范、生命周期与 DI 组合、打包与 Index 发布流程。（*注：Phinix 插件开发 skill 正在准备中，后续将补充链接。*）
+- [插件开发指南](docs/插件开发指南.md) — 托管插件开发规范、生命周期与 DI 组合、打包与 Index 发布流程。
 - [设计哲学](docs/设计哲学.md) — 插件平权边界、三条通信管道与生命周期规范。
 - [兼容边界与故障恢复约束](docs/Compatibility-Boundaries.md) — 客户端与不同服务端版本的网络契约与恢复约束。
 - [客户端虚拟库存边界](docs/Inventory.md) — 虚拟库存暂存与日志恢复规范。

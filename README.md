@@ -186,9 +186,20 @@ Output/phinix-rework/
 
 This output folder is the complete, installable RimWorld mod. Copy it directly to `<path-to-RimWorld>/Mods/Phinix-Rework/` for local testing.
 
+### Plugin Development Skill
+
+The **Phinix Rework plugin development skill** provides guided steps for beginners and developers: choosing a managed plugin or RimWorld Mod, preparing references, using public APIs and DI, building and validating packages, and publishing through Release and Index. Detailed references are loaded as needed.
+
+- [English skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-en/SKILL.md)
+- [简体中文 skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-cn/SKILL.md)
+
+Choose one language and use that complete folder, including its `references/`, with an AI tool that supports skills. The outer `phinix-rework-plugin-development/` directory contains the two variants; it is not itself an installable skill.
+
+The skill is a development guide draft. Confirm the target host supports the APIs and local installation tools described; workspace changes, released builds and game acceptance are recorded separately. Existing publishing Actions and manual release/Index routes remain available. See the chosen skill's version notes before starting.
+
 ### Documentation & References
 
-- [Plugin Development Guide](docs/Plugin-Development.md) — Comprehensive technical guide covering plugin architecture, lifecycle, DI composition, packaging, and publication. *(Phinix plugin development skill is currently in preparation; integration links will be added once ready.)*
+- [Plugin Development Guide](docs/Plugin-Development.md) — Plugin architecture, lifecycle, DI composition, packaging, and publication.
 - [Architecture & Design Philosophy](docs/Design-Philosophy.md) — Plugin boundaries, communication pipelines, and lifecycle models.
 - [Compatibility Boundaries & Recovery Constraints](docs/Compatibility-Boundaries.md) — Network contracts and error recovery boundaries across server versions.
 - [Client Inventory & Recovery Boundaries](docs/Inventory.md) — Inventory staging, ledger, and journal recovery constraints.
