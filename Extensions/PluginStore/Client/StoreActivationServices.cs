@@ -40,7 +40,8 @@ namespace Phinix.PluginStore
         public StoreControllerLease(IManagedExtensionManagementService management,IManagedExtensionInstallationService installation,
             IClientEnvironmentService environment,IClientMainThreadDispatcher dispatcher,StoreActivationDiagnostics diagnostics)
         { Controller=new ManagedStoreController(management,installation,diagnostics.Audit,
-            token=>StoreEnvironmentRefresh.Capture(environment.Capture,dispatcher.Enqueue,token)); }
+            token=>StoreEnvironmentRefresh.Capture(environment.Capture,dispatcher.Enqueue,token),
+            token=>StoreEnvironmentRefresh.Capture(()=>Prefs.DevMode,dispatcher.Enqueue,token)); }
         public void Dispose() { Controller.Dispose(); }
     }
 

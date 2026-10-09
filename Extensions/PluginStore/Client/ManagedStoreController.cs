@@ -13,8 +13,9 @@ namespace Phinix.PluginStore
     internal sealed class ManagedStoreSnapshot
     {
         internal ManagedStoreSnapshot(long revision,ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,RepositoryBrowseInfo repository,ManagedStorePlan plan,
-            ManagedExtensionManagementSnapshot inventory,string code,string requestId=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,ManagedStoreProgress progress=null,IEnumerable<string> contextReasons=null)
-        { Revision=revision; State=state; Catalog=catalog; Repository=repository; Plan=plan; Inventory=inventory; Code=code; RequestId=requestId; LocalIdentity=localIdentity; ReferenceFailure=referenceFailure; Progress=progress; ContextReasons=StoreCollections.Freeze(contextReasons); }
+            ManagedExtensionManagementSnapshot inventory,string code,string requestId=null,LocalIdentityDiagnostic localIdentity=null,ManagedExtensionAssemblyReferenceFailure referenceFailure=null,ManagedStoreProgress progress=null,IEnumerable<string> contextReasons=null,ManagedExtensionZip localPackage=null)
+        { Revision=revision; State=state; Catalog=catalog; Repository=repository; Plan=plan; Inventory=inventory; Code=code; RequestId=requestId; LocalIdentity=localIdentity; ReferenceFailure=referenceFailure; Progress=progress; ContextReasons=StoreCollections.Freeze(contextReasons); LocalPackage=localPackage; }
+        internal ManagedExtensionZip LocalPackage { get; }
         internal System.Collections.ObjectModel.ReadOnlyCollection<string> ContextReasons { get; }
         internal long Revision { get; }
         internal ManagedStoreState State { get; }
@@ -29,7 +30,7 @@ namespace Phinix.PluginStore
         internal ManagedStoreProgress Progress { get; }
         internal bool Busy => ManagedStoreOperation.IsBusy(State);
     }
-    internal sealed class ManagedStoreController : IDisposable
+    internal sealed partial class ManagedStoreController : IDisposable
     {
         private readonly object gate=new object();
         private readonly IManagedExtensionManagementService management;
@@ -40,14 +41,17 @@ namespace Phinix.PluginStore
         private readonly ManagedStoreOperation operation=new ManagedStoreOperation();
         private CancellationTokenSource running;
         private bool disposed;
+        private bool inventoryKnown;
+        private bool repositoryReadFailed;
+        internal bool InventoryKnown { get { lock(gate) return inventoryKnown; } }
         private long lastProgressTicks;
         private ClientEnvironmentSnapshot updateEnvironment,updatesEnvironment;
         private ManagedStoreCatalogSnapshot updatesCatalog;
         private ManagedExtensionManagementSnapshot updatesInventory;
         private ManagedStoreRecord[] updates=new ManagedStoreRecord[0];
         private System.Collections.ObjectModel.ReadOnlyCollection<ManagedStoreRecord> updatesView=Array.AsReadOnly(new ManagedStoreRecord[0]);
-        internal ManagedStoreController(IManagedExtensionManagementService management,IManagedExtensionInstallationService installation,Action<string> log=null,Func<CancellationToken,Task<ClientEnvironmentSnapshot>> captureEnvironment=null)
-        { this.management=management; this.installation=installation; this.log=log; this.captureEnvironment=captureEnvironment; }
+        internal ManagedStoreController(IManagedExtensionManagementService management,IManagedExtensionInstallationService installation,Action<string> log=null,Func<CancellationToken,Task<ClientEnvironmentSnapshot>> captureEnvironment=null,Func<CancellationToken,Task<bool>> captureDeveloperMode=null)
+        { this.management=management; this.installation=installation; this.log=log; this.captureEnvironment=captureEnvironment; this.captureDeveloperMode=captureDeveloperMode; }
         internal ManagedStoreSnapshot Snapshot { get { lock(gate) return snapshot; } }
         internal System.Collections.ObjectModel.ReadOnlyCollection<ManagedStoreRecord> Updates
         {
@@ -71,6 +75,7 @@ namespace Phinix.PluginStore
             return Run(ManagedStoreState.Reading,async token=>
             {
                 var inventory=Inventory(environment,token);
+                PublishInventory(inventory,token);
                 // No installed official plugins: avoid a startup network request entirely.
                 if(!inventory.Packages.Any(p=>p.Package.SourceId==endpoint.SourceId && p.Package.RepositoryIdentitySha256==endpoint.IdentityKey &&
                     p.Package.DesiredState!=ManagedExtensionDesiredState.PendingRemoval && p.Package.ContentState==ManagedExtensionContentState.ContentVerified))
@@ -112,13 +117,41 @@ namespace Phinix.PluginStore
         private ManagedExtensionManagementSnapshot Inventory(ClientEnvironmentSnapshot environment,CancellationToken token)
         {
             RequireEnvironment(environment);
-            var inventory=management.Refresh(environment.DisabledModuleIds,token);
-            if(inventory==null) throw Error("IncompleteEnvironment");
+            ManagedExtensionManagementSnapshot inventory;
+            try
+            {
+                inventory=management.Refresh(environment.DisabledModuleIds,token);
+                if(inventory==null) throw Error("IncompleteEnvironment");
+                lock(gate) inventoryKnown=true;
+            }
+            catch { lock(gate) inventoryKnown=false; throw; }
             var diagnostics=inventory.Diagnostics.Concat(inventory.Packages.Select(p=>p.Package.DiagnosticCode).Where(c=>c!=null)).ToArray();
             if(diagnostics.Length!=0)
                 new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId) {Operation="Inventory",ContextReasons=diagnostics}
                     .Event("managed.inventory_restricted","ManagedStore","ManagedInventoryUncertain");
             return inventory;
+        }
+        private void PublishInventory(ManagedExtensionManagementSnapshot inventory,CancellationToken token)
+        {
+            lock(gate)
+            {
+                if(running==null || running.Token!=token || token.IsCancellationRequested || disposed) return;
+                snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,snapshot.State,snapshot.Catalog,snapshot.Repository,
+                    snapshot.Plan,inventory,snapshot.Code,snapshot.RequestId,snapshot.LocalIdentity,snapshot.ReferenceFailure,
+                    snapshot.Progress,snapshot.ContextReasons,snapshot.LocalPackage);
+            }
+        }
+        private OperationResult CompleteCommit(ManagedStoreState state,ManagedStoreCatalogSnapshot catalog,
+            RepositoryBrowseInfo repository,ManagedStorePlan plan,ClientEnvironmentSnapshot environment,string code)
+        {
+            try { return Result(state,catalog,repository,plan,Inventory(environment,CancellationToken.None),code,committed:true); }
+            catch(Exception error)
+            {
+                var failure=new RepositoryDiagnostics(log,repository?.Endpoint.SourceId) {Operation="PostCommitRefresh"}
+                    .Failure("managed.refresh_after_commit_failed","ManagedStore",error,"ManagedInventoryUnavailable");
+                return Result(state,catalog,repository,plan,null,state==ManagedStoreState.Installed?"ManagedInstallSavedRefreshFailed":"ManagedStateSavedRefreshFailed",
+                    failure.RequestId,contextReasons:failure.ContextReasons,committed:true);
+            }
         }
         internal Task Refresh(RepositoryEndpoint endpoint,ClientEnvironmentSnapshot environment,bool offline,RepositoryTransport transport)
         { return Refresh(endpoint,environment,offline,new CloudflareRepositoryAccess(transport)); }
@@ -137,6 +170,8 @@ namespace Phinix.PluginStore
             }
             return Run(ManagedStoreState.Reading,async token=>
             {
+                // Installed package management must remain available after an index/network failure.
+                PublishInventory(Inventory(environment,token),token);
                 var cache=new ManagedRepositoryCache(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),endpoint);
                 ManagedRepositoryCacheEntry entry;
                 if(offline) entry=cache.TryRead(token)??throw Error("CacheUnavailable");
@@ -150,7 +185,18 @@ namespace Phinix.PluginStore
             });
         }
         internal Task RefreshInventory(ClientEnvironmentSnapshot environment)
-        { var before=Snapshot; return Run(ManagedStoreState.Managing,token=>Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,token),"ManagedInventoryRefreshed"))); }
+        {
+            var before=Snapshot;
+            bool retainFailure; lock(gate) retainFailure=repositoryReadFailed;
+            return Run(ManagedStoreState.Managing,token=>
+            {
+                var inventory=Inventory(environment,token);
+                return Task.FromResult(before.State==ManagedStoreState.Failed && retainFailure?
+                    Result(ManagedStoreState.Failed,before.Catalog,before.Repository,null,inventory,before.Code,before.RequestId,
+                        before.LocalIdentity,before.ReferenceFailure,contextReasons:before.ContextReasons):
+                    Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,inventory,"ManagedInventoryRefreshed"));
+            });
+        }
         internal Task Plan(ManagedStoreRecord selected,ClientEnvironmentSnapshot environment,ManagedStoreCatalogSnapshot expected,bool replace=false)
         {
             var before=Snapshot; if(before.Catalog!=expected) throw Error("SnapshotChanged");
@@ -211,10 +257,11 @@ namespace Phinix.PluginStore
                         if(new ManagedStorePlanner(entry.Catalog,environment,finalInventory,endpoint,expected.ReplacesPackages).Plan(selected,token).Identity!=expected.Identity) throw Error("ManagedStateChanged");
                         ReportProgress(token,new ManagedStoreProgress(ManagedProgressStage.Committing,null,received,current.DownloadBytes,index,downloads.Length));
                         audit.Event("managed.commit_started","ManagedInstall",bytes:received);
+                        lock(gate) inventoryKnown=false;
                         var result=installation.Install(new ManagedExtensionInstallRequest(packages),environment.DisabledModuleIds,token);
                         audit.TransactionId=result.TransactionId; audit.Event("managed.install_result","ManagedInstall",result.Code,referenceFailure:result.ReferenceFailure);
                         if(!result.Succeeded) throw new StoreValidationException(result.Code,"Managed installation refused.") {ReferenceFailure=result.ReferenceFailure};
-                        inventory=Inventory(environment,CancellationToken.None);
+                        return CompleteCommit(ManagedStoreState.Installed,before.Catalog,new RepositoryBrowseInfo(endpoint,DateTime.UtcNow,false,false),expected,environment,"ManagedInstallSaved");
                     }
                     return Result(install?ManagedStoreState.Installed:ManagedStoreState.Verified,before.Catalog,new RepositoryBrowseInfo(endpoint,DateTime.UtcNow,false,false),expected,inventory,install?"ManagedInstallSaved":"ManagedPayloadsVerified",committed:install);
                 }
@@ -247,9 +294,10 @@ namespace Phinix.PluginStore
             var before=Snapshot;
             return Run(ManagedStoreState.Managing,token=>
             {
+                lock(gate) inventoryKnown=false;
                 var result=management.ChangeDesiredState(expected,state,environment.DisabledModuleIds,token);
                 if(!result.Succeeded) throw Error(result.Code);
-                return Task.FromResult(Result(ManagedStoreState.Ready,before.Catalog,before.Repository,null,Inventory(environment,CancellationToken.None),"ManagedStateSaved",committed:true));
+                return Task.FromResult(CompleteCommit(ManagedStoreState.Ready,before.Catalog,before.Repository,null,environment,"ManagedStateSaved"));
             });
         }
         private Task Run(ManagedStoreState state,Func<CancellationToken,Task<OperationResult>> work,RepositoryDiagnostics audit=null)
@@ -292,8 +340,12 @@ namespace Phinix.PluginStore
                             if(operation.CancellationRequested && !outcome.Committed && result.State!=ManagedStoreState.Failed && result.State!=ManagedStoreState.Canceled)
                                 result=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled").Snapshot;
                             if(ReferenceEquals(running,source) && operation.Complete(generation,result.State))
+                            {
+                                if(result.State!=ManagedStoreState.Failed) repositoryReadFailed=false;
+                                else if(result.Inventory==null) repositoryReadFailed=state==ManagedStoreState.Reading && inventoryKnown;
                                 snapshot=new ManagedStoreSnapshot(snapshot.Revision+1,operation.State,result.Catalog??snapshot.Catalog,result.Repository??snapshot.Repository,
-                                    result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure,contextReasons:result.ContextReasons);
+                                    result.State==ManagedStoreState.Failed || result.State==ManagedStoreState.Canceled?null:result.Plan,result.Inventory??snapshot.Inventory,result.Code,result.RequestId,result.LocalIdentity,result.ReferenceFailure,contextReasons:result.ContextReasons,localPackage:result.LocalPackage);
+                            }
                         }
                         finally
                         {

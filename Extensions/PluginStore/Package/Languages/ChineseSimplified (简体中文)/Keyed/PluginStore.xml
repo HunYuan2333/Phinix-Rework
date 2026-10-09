@@ -217,4 +217,26 @@
   <Phinix_store2_next_PartiallyDisabled>下次启动部分停用</Phinix_store2_next_PartiallyDisabled>
   <Phinix_store2_next_Disabled>下次启动停用</Phinix_store2_next_Disabled>
   <Phinix_store2_next_PendingRemoval>下次启动移除</Phinix_store2_next_PendingRemoval>
+  <Phinix_store2_localImport>dev: 安装本地插件 ZIP</Phinix_store2_localImport>
+  <Phinix_store2_localBadge>本地开发</Phinix_store2_localBadge>
+  <Phinix_store2_installationSource>安装来源</Phinix_store2_installationSource>
+  <Phinix_store2_localBadgeTip>手动导入的开发包，未通过商店目录发布或认证。</Phinix_store2_localBadgeTip>
+  <Phinix_store2_installedOnlyTip>此已安装包不在当前商店目录中，管理操作依据本机已校验的安装记录。</Phinix_store2_installedOnlyTip>
+  <Phinix_store2_inventoryUnknown>安装包状态未确认，请刷新后再修改。</Phinix_store2_inventoryUnknown>
+  <Phinix_store2_savedRefreshFailed>变更已保存，但安装状态刷新失败。请刷新确认，重启后生效。</Phinix_store2_savedRefreshFailed>
+  <Phinix_store2_cancelRemoval>取消卸载</Phinix_store2_cancelRemoval>
+  <Phinix_store2_cancelRemovalTip>取消卸载后，下次启动仍保持停用；各模块的启停选择不会被清除。</Phinix_store2_cancelRemovalTip>
+  <Phinix_store2_localBrowse>浏览</Phinix_store2_localBrowse>
+  <Phinix_store2_localSelect>选择 ZIP</Phinix_store2_localSelect>
+  <Phinix_store2_localInvalidSelection>请选择现有 ZIP，或输入绝对目录路径。</Phinix_store2_localInvalidSelection>
+  <Phinix_store2_localDirectoryLimit>目录条目过多，请输入更具体的路径。</Phinix_store2_localDirectoryLimit>
+  <Phinix_store2_localConfirmation>安装这个本地开发包？变更将在重启游戏后生效。</Phinix_store2_localConfirmation>
+  <Phinix_store2_localInstallSaved>本地开发包已保存。重启游戏后加载此构建。</Phinix_store2_localInstallSaved>
+  <Phinix_store2_localPayloadVerified>本地 ZIP 已校验，请核对安装确认。</Phinix_store2_localPayloadVerified>
+  <Phinix_store2_DeveloperModeRequired>本地导入需要开启开发者模式。</Phinix_store2_DeveloperModeRequired>
+  <Phinix_store2_LocalOfficialPackageConflict>此包 ID 已属于其他来源。请卸载并重启后再导入。</Phinix_store2_LocalOfficialPackageConflict>
+  <Phinix_store2_LocalPackageAlreadyInstalled>相同 ZIP 摘要已经安装。</Phinix_store2_LocalPackageAlreadyInstalled>
+  <Phinix_store2_LocalPackageDowngrade>不允许降低本地包版本。</Phinix_store2_LocalPackageDowngrade>
+  <Phinix_store2_ManagedReplacementIdentityInvalid>替换前需要启用并验证现有包。</Phinix_store2_ManagedReplacementIdentityInvalid>
+  <Phinix_store2_copySummary>复制摘要</Phinix_store2_copySummary>
 </LanguageData>

@@ -11,6 +11,7 @@ namespace PhinixClient.Framework
         IManagedExtensionManagementService, IManagedExtensionInstallationService, IDisposable
     {
         private readonly object gate=new object();
+        private readonly object refreshGate=new object();
         private readonly IManagedExtensionManagementService management;
         private readonly IManagedExtensionInstallationService installation;
         private readonly Func<bool> isMainThread;
@@ -21,6 +22,7 @@ namespace PhinixClient.Framework
         private string[] disabled,active=new string[0],failed=new string[0];
         private int settingsSeen, busy;
         private long revision;
+        private long refreshGeneration;
         private bool known,disposed;
         private ManagedExtensionManagementSnapshot inventory;
         private string inventorySignature;
@@ -98,12 +100,25 @@ namespace PhinixClient.Framework
         }
         public ManagedExtensionManagementSnapshot Refresh(IEnumerable<string> expected,CancellationToken token)
         {
+            var requested=(expected??Enumerable.Empty<string>()).ToArray();
+            long observed; lock(gate) observed=refreshGeneration;
+            // Concurrent consumers share a completed read; later explicit refreshes still inspect disk.
+            lock(refreshGate)
+            {
+                token.ThrowIfCancellationRequested();
+                long captured; var input=Input(requested,out captured);
+                lock(gate) { if(known && captured==revision && observed!=refreshGeneration) return inventory; }
+                return RefreshCore(input,token);
+            }
+        }
+        private ManagedExtensionManagementSnapshot RefreshCore(IEnumerable<string> expected,CancellationToken token)
+        {
             long captured; var input=Input(expected,out captured);
             try
             {
                 var result=management.Refresh(input,token);
                 string signature=string.Join("|",result.Packages.OrderBy(p=>p.Package.RecordKey,StringComparer.Ordinal).Select(p=>
-                    p.Package.RecordKey+":"+p.Package.Version+":"+p.Package.ManifestSha256+":"+p.Package.InstallationTransactionId+":"+
+                    p.Package.RecordKey+":"+p.Package.Version+":"+p.Package.ManifestSha256+":"+p.Package.ArtifactSha256+":"+p.Package.InstallationTransactionId+":"+
                     p.Package.RepositoryIdentitySha256+":"+p.Package.ContentState+":"+p.Package.StateOperationId+":"+p.Package.DesiredState+":"+p.Package.DiagnosticCode+":"+
                     p.Current?.DiagnosticCode+":"+p.Current?.AssembliesLoaded+":"+p.EnableBlockCode+":"+p.DisableBlockCode+":"+
                     p.RemovalBlockCode+":"+p.ModuleSettingsBlockCode+":"+p.ModulesRestartPending)) + "|"+string.Join(",",result.Diagnostics);
@@ -111,6 +126,7 @@ namespace PhinixClient.Framework
                 {
                     if(captured!=revision) throw new ManagedExtensionValidationException("ManagedStateChanged");
                     inventory=result;
+                    refreshGeneration++;
                     if(!known || signature!=inventorySignature) { inventorySignature=signature; known=true; Changed(); }
                     else cached=null;
                 }

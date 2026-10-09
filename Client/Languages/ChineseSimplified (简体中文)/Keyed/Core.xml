@@ -131,4 +131,6 @@
   <Phinix_managed_next_PartiallyDisabled>下次启动部分停用</Phinix_managed_next_PartiallyDisabled>
   <Phinix_managed_next_Disabled>下次启动停用</Phinix_managed_next_Disabled>
   <Phinix_managed_next_PendingRemoval>下次启动移除</Phinix_managed_next_PendingRemoval>
+  <Phinix_managed_copySummary>复制摘要</Phinix_managed_copySummary>
+  <Phinix_managed_localDevelopment>本地开发</Phinix_managed_localDevelopment>
 </LanguageData>

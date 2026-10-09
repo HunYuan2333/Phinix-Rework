@@ -142,6 +142,7 @@
     <Compile Include="Framework\ClientExtensionControlService.cs" />
     <Compile Include="Framework\ManagedExtensionManagerLayout.cs" />
     <Compile Include="Framework\ManagedExtensionManagerView.cs" />
+    <Compile Include="Framework\ManagedExtensionDiagnosticSummary.cs" />
     <Compile Include="Framework\ClientEnvironmentService.cs" />
     <Compile Include="Framework\ClientFrameworkUserDirectoryAdapter.cs" />
     <Compile Include="Framework\ClientMainThreadDispatcher.cs" />

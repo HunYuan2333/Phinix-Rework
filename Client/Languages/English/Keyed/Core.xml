@@ -131,4 +131,6 @@
   <Phinix_managed_next_PartiallyDisabled>Partly disabled next start</Phinix_managed_next_PartiallyDisabled>
   <Phinix_managed_next_Disabled>Disabled next start</Phinix_managed_next_Disabled>
   <Phinix_managed_next_PendingRemoval>Remove next start</Phinix_managed_next_PendingRemoval>
+  <Phinix_managed_copySummary>Copy summary</Phinix_managed_copySummary>
+  <Phinix_managed_localDevelopment>Local development</Phinix_managed_localDevelopment>
 </LanguageData>

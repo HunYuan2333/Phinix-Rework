@@ -7,11 +7,13 @@ namespace Phinix.PluginStore
 {
     internal static class StoreEnvironmentRefresh
     {
-        internal static async Task<ClientEnvironmentSnapshot> Capture(Func<ClientEnvironmentSnapshot> capture,
+        internal static Task<ClientEnvironmentSnapshot> Capture(Func<ClientEnvironmentSnapshot> capture,
+            Action<Action> enqueue,CancellationToken token) => Capture<ClientEnvironmentSnapshot>(capture,enqueue,token);
+        internal static async Task<T> Capture<T>(Func<T> capture,
             Action<Action> enqueue,CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            var completion=new TaskCompletionSource<ClientEnvironmentSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completion=new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
             using(token.Register(()=>completion.TrySetCanceled()))
             {
                 try

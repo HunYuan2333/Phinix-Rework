@@ -79,6 +79,7 @@ namespace Phinix.PluginStore
                 theme.RegisterColor("plugin-store.badge.official",new UnityEngine.Color(.94f,.76f,.36f));
                 theme.RegisterColor("plugin-store.badge.managed",new UnityEngine.Color(.43f,.81f,.77f));
                 theme.RegisterColor("plugin-store.badge.workshop",new UnityEngine.Color(.53f,.73f,.96f));
+                theme.RegisterColor("plugin-store.badge.local",new UnityEngine.Color(.96f,.49f,.61f));
                 managedController=activationComposition.Resolve<StoreControllerLease>().Controller;
                 badgeIcons=activationComposition.Resolve<StoreBadgeIcons>();
                 var views=activationComposition.Resolve<StoreViewFactory>();

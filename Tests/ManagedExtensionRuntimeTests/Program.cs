@@ -201,6 +201,8 @@ internal static partial class Program
             ManagementRegression(files);
             InstallationRuntimeRegression(files);
             ReplacementRuntimeRegression(files);
+            LocalDevelopmentRegression(files);
+            StoreSynchronizationRegression(files);
             ManagedStoreFlowRegression(files);
             ManagedStoreOperationRegression(files);
             DisabledSettingReinstallRegression(files);

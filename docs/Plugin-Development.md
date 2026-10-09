@@ -2,7 +2,7 @@
 
 This document is the official technical reference for developing managed plugins for Phinix Rework. It aligns strictly with current codebase architecture and verified runtime practices.
 
-> **Note**: The Phinix plugin development skill is currently in preparation; integration links will be added once ready.
+> **Note**: Phinix plugin skill authoring is blocked until local sideloading and the [developer foundations](branch-local/dev/Developer-Foundation-Delivery-Plan.md) pass acceptance. No usable skill link is available yet.
 
 ---
 
@@ -28,11 +28,11 @@ Obtained during the activation phase via `ExtensionHostContext.GetRequiredServic
 
 | Interface | Namespace | Capability |
 | :--- | :--- | :--- |
-| `IClientSessionContext` | `PhinixClient.Framework` | Session state, connected server address, local user UUID |
+| `IClientSessionContext` | `PhinixClient.Framework` | Authentication/login state, session ID and local user UUID; no server-address member |
 | `IClientUserDirectory` | `PhinixClient.Framework` | Online/offline user queries, display names, profile metadata |
-| `IClientUserEventStream` | `PhinixClient.Framework` | User lifecycle events (join, leave, disconnect) |
+| `IClientUserEventStream` | `PhinixClient.Framework` | Disconnected, UsersChanged, UserDisplayNameChanged and BlockedUsersChanged events |
 | `IClientMainThreadDispatcher` | `PhinixClient.Framework` | Marshals background callbacks to the RimWorld main thread (`Enqueue(Action)`) |
-| `IClientSettingsContext` | `PhinixClient.Framework` | Package-scoped persistent key-value configuration (`Get`, `Set`) |
+| `IClientSettingsContext` | `PhinixClient.Framework` | Shared persistent keys (`Get<T>`, `Set<T>`); prefix keys with your module ID because the host does not isolate them automatically |
 | `IClientLocalizationService` | `PhinixClient.Framework` | Provides module-scoped localization (`ForModule(this)` -> `IClientLocalizer`) |
 | `IClientWindowService` | `PhinixClient.Framework` | Host window management (opening dialogs, toggling windows) |
 | `IClientSoundService` | `PhinixClient.Framework` | Native UI sound playback |
@@ -46,7 +46,7 @@ Registered during the registration phase via `builder.RegisterApi<T>(instance)`:
 - **Sidebar Drawer (`IServerSidebarProvider` / `IResponsiveSidebarProvider`)**:
   Provides right-hand sidebar panels or collapsible drawers.
 - **Tab Badge (`IBadgeProvider`)**:
-  Renders unread counters or badge notifications (`BadgeText`, `ShouldDisplay`).
+  Renders unread counters or badge notifications (`BadgeText`).
 - **Settings Panel (`IClientSettingsPanelProvider`)**:
   Renders plugin-specific settings sub-panels within the main Phinix Settings window.
 - **Notice Banner (`INoticeBannerProvider`)**:
@@ -55,11 +55,11 @@ Registered during the registration phase via `builder.RegisterApi<T>(instance)`:
   Handles Enter / Return keyboard inputs.
 
 ### 2.3 Responsive Layout Utilities
-Available in `PhinixClient.Framework.UI`:
-- `UiScreenSafeArea.ClampWindow` / `Normalize`: Prevents windows from rendering off-screen and eliminates negative-dimension IMGUI exceptions.
+Available in namespace `PhinixClient` (sources under `Client/ClientExtensionAbstractions/UI`):
+- `UiScreenSafeArea.ClampWindow`: Clamps windows to the screen. `Normalize` is internal, not a callable public plugin API.
 - `ResponsiveFormLayout`: Adaptive single-line vs. vertically stacked form layouts.
 - `ResponsiveSplitLayout`: Multi-pane layouts that degrade gracefully to vertical stacks or SinglePane tabs when width is constrained.
-- `ResponsiveToolbarLayout`: Automatically collapses secondary actions into an overflow `⋯` FloatMenu.
+- `ResponsiveToolbarLayout`: Computes visible-action and overflow-button geometry; the caller draws controls and creates the FloatMenu.
 - `VirtualListLayout`: Viewport virtualization for high-volume scroll lists.
 
 ---
@@ -75,7 +75,7 @@ Available in `PhinixClient.Framework.UI`:
    - Called on the main game thread (`Activate(ExtensionHostContext hostContext)`).
    - Resolve borrowed services, subscribe to event streams, load settings, and launch background tasks.
 4. **Shutdown**:
-   - Called on game exit, disconnect, or plugin disablement (`Shutdown(ExtensionHostContext hostContext)`).
+   - Called when the host extension runtime stops (`Shutdown(ExtensionHostContext hostContext)`). Disconnection is an event, not module Shutdown; enable/disable saves next-start intent, and loading a save does not rebuild all modules.
    - Must perform **symmetrical teardown**: unsubscribe all events, terminate background tasks, and dispose owned resources.
 
 ### 3.2 Two Authoring Paradigms
@@ -84,42 +84,63 @@ Available in `PhinixClient.Framework.UI`:
 Derive from `ClientExtensionModule` and override `Compose`:
 
 ```csharp
+using System;
+using PhinixClient;
 using PhinixClient.Framework;
+using UnityEngine;
+using Utils;
 using Utils.Framework;
+using Verse;
 
 [PhinixExtension("my.custom.plugin")]
 public sealed class MyCustomPlugin : ClientExtensionModule, IActivatablePhinixExtensionModule
 {
     private IClientCompositionScope scope;
-
     public override string ExtensionId => "my.custom.plugin";
 
     public override void Compose(IExtensionBuilder builder)
     {
-        scope = builder.HostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
+        var log = builder.HostContext.Log ?? ((message, level) => { });
+        var candidate = builder.HostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
         {
-            // Borrow host or cross-plugin services
-            local.Borrow(builder.HostContext.Log);
-
-            // Register owned implementations
-            local.Register<IMyDomainService, MyDomainService>();
+            local.Borrow<Action<string, LogLevel>>(log);
             local.Register<IMainTabProvider, MyPluginTab>();
         });
-
-        // Publish components to host extension points
-        builder.RegisterApi<IMainTabProvider>(scope.Resolve<IMainTabProvider>());
+        try
+        {
+            builder.RegisterApi<IMainTabProvider>(candidate.Resolve<IMainTabProvider>());
+            scope = candidate;
+        }
+        catch
+        {
+            try { candidate.Dispose(); }
+            catch (Exception cleanup)
+            {
+                try { log("Composition cleanup failed: " + cleanup, LogLevel.ERROR); }
+                catch { }
+            }
+            throw;
+        }
     }
 
-    public void Activate(ExtensionHostContext hostContext)
-    {
-        // Activate active logic, subscribe to events
-    }
-
+    public void Activate(ExtensionHostContext hostContext) { }
     public void Shutdown(ExtensionHostContext hostContext)
     {
-        // Dispose owned scope (automatically disposes registered IDisposable instances)
-        scope?.Dispose();
+        var owned = scope;
         scope = null;
+        owned?.Dispose();
+    }
+}
+
+public sealed class MyPluginTab : IMainTabProvider
+{
+    private readonly Action<string, LogLevel> log;
+    public MyPluginTab(Action<string, LogLevel> log) { this.log = log; }
+    public string TabLabel => "Example";
+    public float TabOrder => 500;
+    public void Draw(Rect rect)
+    {
+        if (Widgets.ButtonText(rect, "Hello")) log("Example clicked.", LogLevel.INFO);
     }
 }
 ```
@@ -137,7 +158,7 @@ public sealed class MyLegacyPlugin : IPhinixExtensionModule, IActivatablePhinixE
 
     public void Register(IExtensionBuilder builder)
     {
-        builder.RegisterApi<IMainTabProvider>(new MyPluginTab());
+        builder.RegisterApi<IMainTabProvider>(new MyPluginTab(builder.HostContext.Log ?? ((message, level) => { })));
     }
 
     public void Activate(ExtensionHostContext hostContext) { /* Startup */ }
@@ -148,7 +169,7 @@ public sealed class MyLegacyPlugin : IPhinixExtensionModule, IActivatablePhinixE
 > **Current Status**: Option B remains fully functional for backwards compatibility, but outputs a single migration advisory at startup. Removal is planned for host 1.0 / abstractions 2.0 after external migrations conclude.
 
 ### 3.3 Reality of Existing Managed Plugins
-- **Phinix-Example-Plugin** (1.0.2): Uses legacy `IPhinixExtensionModule.Register`.
+- **Phinix-Example-Plugin** (1.0.2 development revision): Uses modern `ClientExtensionModule.Compose`, owns a DI scope and localizer, and borrows host services. Published 1.0.2 artifacts are unchanged.
 - **Phinix-Legacy-RedPacket** (1.0.0): Uses legacy registration.
 - **Phinix-Legacy-TalentTrade** (1.0.1): Uses legacy registration.
 
@@ -166,7 +187,9 @@ RimWorld engine methods and Unity GUI calls are strictly bound to the main threa
 ```csharp
 mainThreadDispatcher.Enqueue(() =>
 {
-    Find.LetterStack.ReceiveLetter(...);
+    // The callback may execute after a save/world change; validate its context again.
+    if (Current.Game == null || Find.LetterStack == null) return;
+    // Apply only the operation still owned by this session/world.
 });
 ```
 
@@ -177,7 +200,7 @@ mainThreadDispatcher.Enqueue(() =>
 
 ### 4.3 Harmony Patching Guidelines
 If your plugin uses Harmony to patch RimWorld methods:
-1. **Never patch in static constructors**: The CLR executes static constructors during initial assembly discovery, bypassing user disablement settings.
+1. **Never patch in static constructors**: Reflection scanning alone does not guarantee static constructor execution. Patching during type initialization still bypasses explicit lifecycle control.
 2. **Patch in `Activate`, unpatch in `Shutdown`**:
    ```csharp
    private Harmony harmony;
@@ -205,6 +228,10 @@ If your plugin uses Harmony to patch RimWorld methods:
 - **RimWorld 1.6 Managed Assemblies** (`Assembly-CSharp.dll`, `UnityEngine*.dll`) for compile-time references.
 
 ### 5.2 Packaging
+For the exercised local build, preflight, developer-mode ZIP import and restart loop, see [Local Plugin Quickstart](Local-Plugin-Quickstart.md). The Example builds against prepared public host DLLs and supports `--host-assemblies`; `example/package-config.json` configures compatibility/dependencies/external mods. `ManagedPackageTool --validate ZIP` uses the same static ZIP inspector as installation.
+
+Managed ZIP manifests use schema 1; the Store catalog uses schema 3. Use the pack.py belonging to your plugin repository. The following arguments are for the Example repository; the two legacy plugins use --phinix-package and --packager instead.
+
 Package release ZIPs using `pack.py` and `ManagedPackageTool`:
 
 ```bash
@@ -235,10 +262,11 @@ your-package-1.0.0.zip
 
 1. **Automated Headless Tests**:
    Write .NET 10 console test harnesses for domain logic and state transitions to verify boundary handling without game overhead.
-2. **Local Mod Testing**:
-   - Extract the generated ZIP into `<RimWorld>/SaveData/Phinix/ManagedExtensions/packages/<package-id>/<version>/`.
-   - Launch RimWorld and verify discovery in **Extension Manager**.
-   - Verify enabling, disabling, restart requirements, and clean teardown upon save exit.
+2. **Local Game Testing**:
+   - Store installation uses a managed transaction to write package files, installation receipts and desired state. Extracting a ZIP alone does not register a plugin.
+   - For a private candidate, enable RimWorld developer mode and use Store → Install local plugin ZIP, review the digest, then restart. Follow [Local Plugin Quickstart](Local-Plugin-Quickstart.md); extracting a ZIP or copying a test bundle does not create managed installation records.
+   - Managed paths use the actual SaveDataRoot and a sourceId/packageId-derived `pkg-<hash>`, not `<package-id>/<version>`.
+   - Test next-start toggles, restart, save loading, disconnect and host exit separately; module, connection, save and operation lifetimes differ.
 
 ---
 
@@ -256,7 +284,7 @@ flowchart LR
 1. **Publish GitHub Release**:
    Publish a GitHub Release in your public repository containing the immutable release ZIP.
 2. **Submit Candidate Issue**:
-   Open a **Plugin submission** Issue on [Phinix-Plugin-Index](https://github.com/HunYuan2333/Phinix-Plugin-Index) with the candidate JSON.
+   Open a **Plugin submission** Issue on [Phinix-Plugin-Index](https://github.com/HunYuan2333/Phinix-Plugin-Index) with the complete candidate JSON from `examples/managed-submission.json`, including fixed repository/Release/asset/sourceCommit identities, digests and manifest. Workshop listings use `examples/workshop-submission.json` and require no managed ZIP.
 3. **Automated Static Checks**:
    Intake workflows automatically inspect candidate schema, PE metadata, dependency closures, and SHA-256 integrity.
 4. **Maintainer Approval**:
@@ -275,7 +303,7 @@ flowchart LR
 - **Phinix-Legacy-RedPacket**:
   - Depends on Trade and Inventory.
   - **Known Issue 1**: Sending ordinary steel across multiple physical stacks can trigger an incompatible-stacks exception. Grouping and selection alignment are planned in a separate plugin update.
-  - **Known Issue 2**: Claim completion summaries may encounter a `NullReferenceException` when processed without active world context (e.g., at the main menu). Decoupled notification scheduling is planned.
+  - **Known Issue 2**: A claim summary NullReferenceException was observed in a Root_Entry call chain. Its root cause remains unconfirmed; review notification scheduling and domain commit boundaries before attributing it to missing world context.
 - **Phinix-Legacy-TalentTrade**:
   - Uses Harmony patches for pawn transfer interception.
   - **Persistence Boundary**: Active listings and rental records reside in a save-local `GameComponent`. Uninstalling while transactions are in-flight can corrupt save data.

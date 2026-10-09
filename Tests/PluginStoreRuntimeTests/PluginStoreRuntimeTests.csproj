@@ -26,6 +26,7 @@
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreOperation.cs" Link="Production/PluginStore/ManagedStoreOperation.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreController.cs" Link="Production/PluginStore/ManagedStoreController.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ManagedLocalImport.cs" Link="Production/PluginStore/ManagedLocalImport.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryCache.cs" Link="Production/PluginStore/ManagedRepositoryCache.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryPayloadTransport.cs" Link="Production/PluginStore/ManagedRepositoryPayloadTransport.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedRepositoryAccess.cs" Link="Production/PluginStore/ManagedRepositoryAccess.cs" />

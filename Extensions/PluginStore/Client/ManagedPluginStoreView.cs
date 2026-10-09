@@ -27,10 +27,12 @@ namespace Phinix.PluginStore
         private readonly StoreBadgeIcons badgeIcons;
         private bool[] cardOfficial=new bool[0];
         private bool selectedOfficial;
-        private float officialLabelWidth, managedLabelWidth, workshopLabelWidth;
+        private float officialLabelWidth, managedLabelWidth, workshopLabelWidth, localLabelWidth;
         private string linkNotice;
-        private readonly Rect[] toolbarRects = new Rect[3];
-        private readonly float[] toolbarWidths = new float[3];
+        private readonly Rect[] toolbarRects = new Rect[4];
+        private readonly float[] toolbarWidths = new float[4];
+        private long observedLocalRevision=-1;
+        private bool localImportActive;
         private readonly HashSet<string> updateIds = new HashSet<string>(StringComparer.Ordinal);
         private ManagedExtensionManagementPackage selectedLocal;
         private bool selectedOwned;
@@ -50,8 +52,8 @@ namespace Phinix.PluginStore
         private string search="",error;
         private StoreFailureInfo localFailure;
         private RepositoryAccessMethod accessMethod;
-        private ManagedStoreRecord selected;
-        private ManagedStoreGroup[] rows=new ManagedStoreGroup[0];
+        private ManagedStoreEntry selected;
+        private ManagedStoreEntryGroup[] rows=new ManagedStoreEntryGroup[0];
         private ManagedStoreInstallIntent installIntent;
         private ManagedStoreSnapshot cached;
         private string cachedSearch,detail="",status="";
@@ -60,6 +62,8 @@ namespace Phinix.PluginStore
         private float detailHeight;
         private float measuredWidth=-1;
         private bool initialized;
+        private bool renderedInventoryKnown;
+        private bool InventoryKnown => controlState?.InventoryKnown??controller.InventoryKnown;
         private bool stopped;
         internal void Stop() { stopped=true; installIntent=null; }
         internal ManagedPluginStoreView(ManagedStoreController controller,IClientEnvironmentService environment,IClientSettingsContext settings,
@@ -80,11 +84,24 @@ namespace Phinix.PluginStore
             {
                 Text.Font=GameFont.Small; Text.Anchor=TextAnchor.UpperLeft; Text.WordWrap=true; GUI.color=Color.white;
                 var snapshot=controller.Snapshot;
+                if(localImportActive && !Prefs.DevMode)
+                { controller.Cancel(); controller.DiscardLocal(snapshot); localImportActive=false; snapshot=controller.Snapshot; }
+                if(snapshot.LocalPackage!=null && observedLocalRevision!=snapshot.Revision)
+                {
+                    observedLocalRevision=snapshot.Revision;
+                    if(localImportActive && Prefs.DevMode && controller.ClaimLocalConfirmation(snapshot)) ConfirmLocalInstall(snapshot);
+                }
+                if(!snapshot.Busy && (snapshot.State==ManagedStoreState.Failed || snapshot.State==ManagedStoreState.Canceled || snapshot.State==ManagedStoreState.Installed)) localImportActive=false;
                 controlState=controls?.Capture();
-                if(controlState!=null && !snapshot.Busy && !controlState.Busy && snapshot.Catalog!=null && observedControlRevision!=controlState.Revision)
-                { observedControlRevision=controlState.Revision; Act(()=>controller.RefreshInventory(environment.Capture())); snapshot=controller.Snapshot; }
-                if(!initialized && !snapshot.Busy && controlState?.Busy!=true) { initialized=true; if(snapshot.Catalog==null) Refresh(false); snapshot=controller.Snapshot; }
-                var ready=installIntent?.Take(snapshot,selected);
+                if(controlState!=null && !snapshot.Busy && snapshot.LocalPackage==null && !controlState.Busy && observedControlRevision!=controlState.Revision)
+                {
+                    observedControlRevision=controlState.Revision;
+                    if(snapshot.Code!="ManagedStateSavedRefreshFailed" && snapshot.Code!="ManagedInstallSavedRefreshFailed")
+                        Act(()=>controller.RefreshInventory(environment.Capture()));
+                    snapshot=controller.Snapshot;
+                }
+                if(!initialized && !snapshot.Busy && snapshot.LocalPackage==null && controlState?.Busy!=true) { initialized=true; if(snapshot.Catalog==null) Refresh(false); snapshot=controller.Snapshot; }
+                var ready=installIntent?.Take(snapshot,selected?.CatalogRecord);
                 if(ready!=null)
                 {
                     if(ManagedStoreInstallIntent.NeedsConfirmation(ready)) ConfirmInstall(ready);
@@ -135,14 +152,16 @@ namespace Phinix.PluginStore
                 toolbarWidths[0]=Mathf.Max(120,Text.CalcSize(T("refresh")).x+24);
                 toolbarWidths[1]=Mathf.Max(160,Mathf.Max(Text.CalcSize(T("accessGithub")).x,Text.CalcSize(T("accessCloudflare")).x)+32);
                 toolbarWidths[2]=Mathf.Max(140,Text.CalcSize(T("management")).x+24);
+                toolbarWidths[3]=Mathf.Max(180,Text.CalcSize(T("localImport")).x+24);
             }
             // One row on desktop, wrap/overflow on smaller windows using the host-neutral helper.
-            var bar=ResponsiveToolbarLayout.Calculate(rect,toolbarWidths,3,1,32,6,2,40,toolbarRects);
+            int count=Prefs.DevMode?4:3;
+            var bar=ResponsiveToolbarLayout.Calculate(rect,toolbarWidths,count,1,32,6,2,40,toolbarRects);
             height=Mathf.Min(rect.height,bar.Height);
             GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             for(int i=0;i<bar.VisibleActionCount;i++)
             {
-                string text=T(i==0?"refresh":i==1?(accessMethod==RepositoryAccessMethod.GitHub?"accessGithub":"accessCloudflare"):"management");
+                string text=T(i==0?"refresh":i==1?(accessMethod==RepositoryAccessMethod.GitHub?"accessGithub":"accessCloudflare"):i==2?"management":"localImport");
                 if(i==1) text+=" ▾";
                 if(Widgets.ButtonText(toolbarRects[i],text)) ToolbarAction(i);
                 TooltipHandler.TipRegion(toolbarRects[i],i==1?T("accessExplanation")+(accessMethod==RepositoryAccessMethod.GitHub?"\n"+T("githubAccessGuidance"):""):text);
@@ -150,7 +169,7 @@ namespace Phinix.PluginStore
             if(bar.HasOverflow && Widgets.ButtonText(bar.OverflowButtonRect,"⋯"))
             {
                 var options=new List<FloatMenuOption>();
-                for(int i=bar.VisibleActionCount;i<3;i++) { int action=i; options.Add(new FloatMenuOption(T(i==0?"refresh":i==1?"accessCurrent":"management"),()=>ToolbarAction(action))); }
+                for(int i=bar.VisibleActionCount;i<count;i++) { int action=i; options.Add(new FloatMenuOption(T(i==0?"refresh":i==1?"accessCurrent":i==2?"management":"localImport"),()=>ToolbarAction(action))); }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
             GUI.enabled=enabled;
@@ -179,6 +198,16 @@ namespace Phinix.PluginStore
             if(controller.Snapshot.Busy) return;
             if(action==0) Refresh(false);
             else if(action==2) Act(()=>management.OpenExtensionManagerWindow());
+            else if(action==3)
+            {
+                if(!Prefs.DevMode || stopped) return;
+                Find.WindowStack.Add(new LocalPackageFileWindow(path=>Act(()=>
+                {
+                    if(stopped || !Prefs.DevMode) return;
+                    installIntent=null; localImportActive=true;
+                    controller.PrepareLocal(path,environment.Capture(),Prefs.DevMode);
+                })));
+            }
             else Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> {
                 new FloatMenuOption(T("accessGithub"),()=>SwitchAccess(RepositoryAccessMethod.GitHub)),
                 new FloatMenuOption(T("accessCloudflare"),()=>SwitchAccess(RepositoryAccessMethod.Cloudflare)) }));
@@ -192,7 +221,8 @@ namespace Phinix.PluginStore
             if(measuredStatus!=text || statusWidth!=textWidth)
             { measuredStatus=text; statusWidth=textWidth; statusHeight=Text.CalcHeight(text,textWidth); }
             float height=Mathf.Min(rect.height,Mathf.Max(36,Mathf.Min(68,statusHeight+12)));
-            Color accent=diagnostic?theme.Error:snapshot.State==ManagedStoreState.Installed?theme.Success:snapshot.Busy?theme.Warning:theme.SecondaryText;
+            bool refreshFailed=snapshot.Code=="ManagedStateSavedRefreshFailed" || snapshot.Code=="ManagedInstallSavedRefreshFailed";
+            Color accent=diagnostic?theme.Error:refreshFailed?theme.Warning:snapshot.State==ManagedStoreState.Installed?theme.Success:snapshot.Busy?theme.Warning:theme.SecondaryText;
             Widgets.DrawBoxSolid(new Rect(rect.x,rect.y,rect.width,height),theme.Surface);
             Widgets.DrawBoxSolid(new Rect(rect.x,rect.y,3,height),accent);
             var messageRect=new Rect(rect.x+10,rect.y+6,textWidth,Mathf.Max(0,height-12));
@@ -200,7 +230,10 @@ namespace Phinix.PluginStore
             if(statusHeight>messageRect.height) TooltipHandler.TipRegion(messageRect,text);
             GUI.enabled=enabled;
             if(diagnostic && Widgets.ButtonText(new Rect(rect.xMax-actionWidth-4,rect.y+4,actionWidth,Mathf.Max(0,height-8)),T("errorDetails")))
-                Find.WindowStack.Add(new Dialog_MessageBox(Clean(ErrorDetails(snapshot)),null));
+            {
+                string summary=ErrorDetails(snapshot);
+                Find.WindowStack.Add(new Dialog_MessageBox(Clean(summary),T("copySummary"),()=>GUIUtility.systemCopyBuffer=summary));
+            }
             else if(snapshot.Busy && Widgets.ButtonText(new Rect(rect.xMax-actionWidth-4,rect.y+4,actionWidth,Mathf.Max(0,height-8)),T("cancel")))
             { installIntent=null; controller.Cancel(); }
             if(snapshot.Busy && snapshot.Progress!=null && rect.height-height>=50)
@@ -223,41 +256,46 @@ namespace Phinix.PluginStore
             })).ToList()));
         }
         private ManagedExtensionManagementSnapshot SharedInventory(ManagedStoreSnapshot snapshot)
-            => controlState?.InventoryKnown==true?controlState.Inventory:snapshot.Inventory;
+            => controlState!=null?controlState.Inventory:snapshot.Inventory;
         private void Rebuild(ManagedStoreSnapshot snapshot)
         {
-            if(renderedControlRevision==(controlState?.Revision??-1) && cached==snapshot && cachedSearch==search && cachedFilter==filter && ReferenceEquals(language,LanguageDatabase.activeLanguage) && locale==localizer.Locale) return;
+            if(renderedInventoryKnown==InventoryKnown && renderedControlRevision==(controlState?.Revision??-1) && cached==snapshot && cachedSearch==search && cachedFilter==filter && ReferenceEquals(language,LanguageDatabase.activeLanguage) && locale==localizer.Locale) return;
             bool changed=cached?.Catalog!=snapshot.Catalog;
             bool controlsChanged=renderedControlRevision!=(controlState?.Revision??-1); renderedControlRevision=controlState?.Revision??-1;
-            bool contentChanged=controlsChanged || cached==null || changed || cached.Inventory!=snapshot.Inventory || cached.Repository!=snapshot.Repository || cachedSearch!=search || cachedFilter!=filter || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || locale!=localizer.Locale;
+            bool contentChanged=renderedInventoryKnown!=InventoryKnown || controlsChanged || cached==null || changed || cached.Inventory!=snapshot.Inventory || cached.Repository!=snapshot.Repository || cachedSearch!=search || cachedFilter!=filter || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || locale!=localizer.Locale;
+            renderedInventoryKnown=InventoryKnown;
             cached=snapshot; cachedSearch=search; cachedFilter=filter; language=LanguageDatabase.activeLanguage; locale=localizer.Locale;
-            if(changed && selected!=null)
-            {
-                selected=ManagedStoreListing.RestoreSelection(snapshot.Catalog,selected);
-                if(selected==null) detailScroll=Vector2.zero;
-            }
             if(contentChanged)
             {
                 Text.Font=GameFont.Tiny;
                 officialLabelWidth=Text.CalcSize(T("officialBadge")).x;
                 managedLabelWidth=Text.CalcSize(T("managedBadge")).x;
                 workshopLabelWidth=Text.CalcSize(T("workshop")).x;
+                localLabelWidth=Text.CalcSize(T("localBadge")).x;
                 Text.Font=GameFont.Small;
                 updateIds.Clear(); foreach(var p in controller.Updates) updateIds.Add(p.Id);
-                var listing=ManagedStoreListing.Build(snapshot.Catalog,search,locale);
-                rows=listing.Where(g=>filter==0 || filter==1 && SharedInventory(snapshot)?.Packages.Any(p=>p.Package.PackageId==g.Preferred.Id)==true || filter==2 && updateIds.Contains(g.Preferred.Id)).ToArray();
-                if(selected!=null && !rows.Any(g=>g.Versions.Contains(selected))) { selected=null; installIntent=null; detailScroll=Vector2.zero; }
+                var listing=ManagedStoreListing.BuildEntries(snapshot.Catalog,SharedInventory(snapshot),snapshot.Repository?.Endpoint,search,locale);
+                rows=listing.Where(g=>filter==0 || filter==1 && g.Preferred.Installed!=null || filter==2 && !g.Preferred.IsInstalledOnly && updateIds.Contains(g.Preferred.Id)).ToArray();
+                var previous=selected;
+                selected=ManagedStoreListing.RestoreEntry(rows,previous);
+                if(previous!=null && (selected==null || selected.CatalogRecord!=previous.CatalogRecord)) installIntent=null;
+                if(previous!=null && selected==null) detailScroll=Vector2.zero;
                 cardWidth=-1;
-                selectedLocal=selected==null?null:SharedInventory(snapshot)?.Packages.FirstOrDefault(p=>p.Package.PackageId==selected.Id);
-                selectedOwned=selectedLocal!=null && Owns(snapshot,selectedLocal);
-                selectedOfficial=maintainers.IsOfficial(selected,snapshot.Catalog,snapshot.Repository?.Endpoint);
+                selectedLocal=selected?.Installed;
+                selectedOwned=selectedLocal!=null && InventoryKnown;
+                selectedOfficial=maintainers.IsOfficial(selected?.CatalogRecord,snapshot.Catalog,snapshot.Repository?.Endpoint);
                 detail=BuildDetail(snapshot); detailHeight=0;
                 resultCaption=string.Format(T("resultCount"),rows.Length);
             }
             string key="state_"+snapshot.State; status=T(key);
             if(snapshot.State==ManagedStoreState.Failed) status=FailureMessage(snapshot);
             if(snapshot.Code=="ManagedStateSaved") status=T("stateSaved");
+            if(snapshot.Code=="ManagedStateSavedRefreshFailed" || snapshot.Code=="ManagedInstallSavedRefreshFailed") status=T("savedRefreshFailed");
+            if(snapshot.Code=="LocalInstallSaved") status=T("localInstallSaved");
+            if(snapshot.Code=="LocalPayloadVerified") status=T("localPayloadVerified");
+            if(snapshot.Code=="ManagedStoreCanceled") status=T("state_Canceled");
             if(snapshot.Repository?.Offline==true || snapshot.Repository?.Stale==true) status+=" · "+T("offlineNotice");
+            if(!InventoryKnown && SharedInventory(snapshot)!=null) status+=" · "+T("inventoryUnknown");
             if(snapshot.Progress!=null)
             {
                 var p=snapshot.Progress;
@@ -271,33 +309,36 @@ namespace Phinix.PluginStore
         {
             sections.Clear();
             if(selected==null) return T("choose");
-            nameLine=Clean(selected.DisplayName(locale)); authorLine=Clean(selected.Author)+" · "+Clean(selected.License);
+            nameLine=Clean(selected.DisplayName(locale)); authorLine=Clean(selected.Author)+(selected.License==null?"":" · "+Clean(selected.License));
             sections.Add(new DetailSection { Title=T("about"), Body=Clean(selected.DisplaySummary(locale)) });
             if(!selected.IsWorkshop) sections.Add(new DetailSection { Title=T("changelog"), Body=Clean(selected.DisplayChangelog(locale)??T("noChangelog")) });
             var b=new StringBuilder();
             b.AppendLine("RimWorld "+Clean(string.Join(", ",selected.RimWorldVersions)));
             if(selected.IsWorkshop) b.AppendLine(T("workshopNotice"));
-            else
+            else if(selected.Manifest!=null)
             {
                 b.AppendLine("Phinix "+Clean(selected.Manifest.Compatibility.PhinixRange.Text));
                 foreach(var dependency in selected.Manifest.Dependencies) b.AppendLine(T("dependency")+" "+Clean(dependency.PackageId)+" "+dependency.VersionRange.Text+(dependency.Optional?" · "+T("optional"):""));
                 foreach(var mod in selected.Manifest.ExternalMods) b.AppendLine(T("externalMod")+" "+Clean(mod.PackageId));
             }
             sections.Add(new DetailSection { Title=T("compatibility"), Body=b.ToString().TrimEnd() });
+            if(selected.IsInstalledOnly)
+                sections.Add(new DetailSection { Title=T("installationSource"), Body=T(selected.IsLocalDevelopment?"localBadgeTip":"installedOnlyTip")+"\n"+Clean(selected.Id)+"\nSHA-256: "+Clean(selectedLocal.Package.ArtifactSha256) });
             if(selectedLocal!=null && !selected.IsWorkshop)
             {
                 b.Clear();
-                b.AppendLine(T("installedVersion")+" "+selectedLocal.Package.Version);
+                b.AppendLine(T("installedVersion")+" "+Clean(selectedLocal.Package.Version));
                 var projected=controlState==null?null:new ClientExtensionPackageState(selectedLocal,controlState);
                 b.AppendLine(T("installedState")+" "+(projected==null?T("desired_"+selectedLocal.Package.DesiredState):PackageStateText(projected)));
                 if(projected!=null) b.AppendLine(T("currentState")+" "+T("current_"+projected.Current));
-                if(!selectedOwned) b.AppendLine(T("foreignInstallation"));
-                else if(ManagedExtensionVersion.Parse(selectedLocal.Package.Version).CompareTo(selected.Manifest.Version)>0) b.AppendLine(T("downgradeUnavailable"));
-                else if(selectedLocal.Package.DesiredState!=ManagedExtensionDesiredState.Enabled && ManagedExtensionVersion.Parse(selectedLocal.Package.Version).CompareTo(selected.Manifest.Version)<0) b.AppendLine(T("enableBeforeUpdate"));
+                if(!InventoryKnown) b.AppendLine(T("inventoryUnknown"));
+                else if(!selected.IsInstalledOnly && ManagedExtensionVersion.Parse(selectedLocal.Package.Version).CompareTo(selected.Manifest.Version)>0) b.AppendLine(T("downgradeUnavailable"));
+                else if(!selected.IsInstalledOnly && selectedLocal.Package.DesiredState!=ManagedExtensionDesiredState.Enabled && ManagedExtensionVersion.Parse(selectedLocal.Package.Version).CompareTo(selected.Manifest.Version)<0) b.AppendLine(T("enableBeforeUpdate"));
+                if(selectedLocal.Package.DiagnosticCode!=null) b.AppendLine(Clean(selectedLocal.Package.DiagnosticCode));
                 sections.Add(new DetailSection { Title=T("installation"), Body=b.ToString().TrimEnd() });
             }
-            if(selected.State!="active") sections.Add(new DetailSection { Title=T("availability"), Body=T("withdrawn") });
-            if(selected.Tags.Count>0) sections.Add(new DetailSection { Title=T("tags"), Body=Clean(string.Join(" · ",selected.Tags)) });
+            if(!selected.IsInstalledOnly && selected.State!="active") sections.Add(new DetailSection { Title=T("availability"), Body=T("withdrawn") });
+            if(selected.Tags.Any()) sections.Add(new DetailSection { Title=T("tags"), Body=Clean(string.Join(" · ",selected.Tags)) });
             return "";
         }
         private string PackageStateText(ClientExtensionPackageState state)
@@ -307,11 +348,11 @@ namespace Phinix.PluginStore
             if(rect.width<=0 || rect.height<=0) return;
             GUI.color=color; Widgets.Label(rect,text); GUI.color=Color.white;
         }
-        private void DrawBadges(Rect rect,bool official,bool workshop)
+        private void DrawBadges(Rect rect,bool official,bool workshop,bool local=false)
         {
-            var layout=ManagedStoreBadgeLayout.Calculate(rect,official,officialLabelWidth,workshop?workshopLabelWidth:managedLabelWidth);
+            var layout=ManagedStoreBadgeLayout.Calculate(rect,official,officialLabelWidth,local?localLabelWidth:workshop?workshopLabelWidth:managedLabelWidth);
             if(official) DrawBadge(layout.Official,StoreBadgeKind.Official,layout.OfficialText,T("officialBadge"),T("officialBadgeTip"));
-            DrawBadge(layout.Route,workshop?StoreBadgeKind.Workshop:StoreBadgeKind.Managed,layout.RouteText,T(workshop?"workshop":"managedBadge"),T(workshop?"workshopBadgeTip":"managedBadgeTip"));
+            DrawBadge(layout.Route,local?StoreBadgeKind.Local:workshop?StoreBadgeKind.Workshop:StoreBadgeKind.Managed,layout.RouteText,T(local?"localBadge":workshop?"workshop":"managedBadge"),T(local?"localBadgeTip":workshop?"workshopBadgeTip":"managedBadgeTip"));
         }
         private void DrawBadge(Rect rect,StoreBadgeKind kind,bool showText,string caption,string tip)
         {
@@ -365,15 +406,15 @@ namespace Phinix.PluginStore
                 for(int i=0;i<rows.Length;i++)
                 {
                     var row=rows[i].Preferred;
-                    cardOfficial[i]=maintainers.IsOfficial(row,snapshot.Catalog,snapshot.Repository?.Endpoint);
+                    cardOfficial[i]=maintainers.IsOfficial(row.CatalogRecord,snapshot.Catalog,snapshot.Repository?.Endpoint);
                     cardTips[i]=Clean(row.DisplayName(locale))+"\n"+Clean(row.DisplaySummary(locale))+"\n"+
-                        (cardOfficial[i]?T("officialBadge")+" · ":"")+T(row.IsWorkshop?"workshop":"managedBadge")+"\n"+T(row.IsWorkshop?"workshopBadgeTip":"managedBadgeTip");
+                        (cardOfficial[i]?T("officialBadge")+" · ":"")+T(row.IsLocalDevelopment?"localBadge":row.IsWorkshop?"workshop":"managedBadge")+"\n"+T(row.IsLocalDevelopment?"localBadgeTip":row.IsWorkshop?"workshopBadgeTip":"managedBadgeTip");
                     cardNames[i]=Shorten(Clean(row.DisplayName(locale)),Mathf.Max(0,width-24));
                     Text.Font=GameFont.Tiny;
-                    cardMetadata[i]=Shorten((row.IsWorkshop?"":row.Manifest.Version+" · ")+Clean(row.Author),Mathf.Max(0,width-24));
-                    var local=SharedInventory(snapshot)?.Packages.FirstOrDefault(p=>p.Package.PackageId==row.Id);
+                    cardMetadata[i]=Shorten((row.IsWorkshop?"":row.Version+" · ")+Clean(row.IsInstalledOnly?row.Id:row.Author),Mathf.Max(0,width-24));
+                    var local=row.Installed;
                     var projected=local==null || controlState==null?null:new ClientExtensionPackageState(local,controlState);
-                    cardStates[i]=Shorten(projected!=null?PackageStateText(projected):(local?.RestartPending==true || local?.ModulesRestartPending==true)?T("restartRequired"):updateIds.Contains(row.Id)?T("updateBadge"):local!=null?T("desired_"+local.Package.DesiredState):row.State!="active"?T("withdrawn"):"",Mathf.Max(0,width-24));
+                    cardStates[i]=Shorten(local!=null && !InventoryKnown?T("inventoryUnknown"):projected!=null?PackageStateText(projected):(local?.RestartPending==true || local?.ModulesRestartPending==true)?T("restartRequired"):!row.IsInstalledOnly && updateIds.Contains(row.Id)?T("updateBadge"):local!=null?T("desired_"+local.Package.DesiredState):row.State!="active"?T("withdrawn"):"",Mathf.Max(0,width-24));
                     Text.Font=GameFont.Small;
                 }
             }
@@ -388,20 +429,20 @@ namespace Phinix.PluginStore
                     bool active=group.Versions.Contains(selected);
                     Widgets.DrawBoxSolid(card,active?theme.HoverHighlight:theme.Surface);
                     Widgets.DrawHighlightIfMouseover(card);
-                    if(active) Widgets.DrawBoxSolid(new Rect(0,card.y,3,card.height),theme.Warning);
+                    if(active || row.IsLocalDevelopment) Widgets.DrawBoxSolid(new Rect(0,card.y,3,card.height),row.IsLocalDevelopment?theme.GetColor("plugin-store.badge.local"):theme.Warning);
                     Text.WordWrap=false;
                     Label(new Rect(12,card.y+7,Mathf.Max(0,width-24),26),cardNames[i],theme.PrimaryText);
                     Text.Font=GameFont.Tiny;
                     Label(new Rect(12,card.y+35,Mathf.Max(0,width-24),20),cardMetadata[i],theme.SecondaryText);
-                    DrawBadges(new Rect(12,card.y+57,Mathf.Max(0,width-24),24),cardOfficial[i],row.IsWorkshop);
-                    Label(new Rect(12,card.y+85,Mathf.Max(0,width-24),18),cardStates[i],updateIds.Contains(row.Id)?theme.Warning:theme.SecondaryText);
+                    DrawBadges(new Rect(12,card.y+57,Mathf.Max(0,width-24),24),cardOfficial[i],row.IsWorkshop,row.IsLocalDevelopment);
+                    Label(new Rect(12,card.y+85,Mathf.Max(0,width-24),18),cardStates[i],!row.IsInstalledOnly && updateIds.Contains(row.Id)?theme.Warning:theme.SecondaryText);
                     Text.Font=GameFont.Small; Text.WordWrap=true;
                     GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
                     if(Widgets.ButtonInvisible(card)) Select(active?selected:row,snapshot);
                     GUI.enabled=enabled;
                     TooltipHandler.TipRegion(card,cardTips[i]);
                 }
-                if(rows.Length==0) Label(new Rect(12,12,Mathf.Max(0,width-24),Mathf.Max(0,viewport.height-24)),T(snapshot.Catalog==null?"refreshFirst":snapshot.Catalog.Packages.Count==0?"catalogEmpty":"empty"),theme.SecondaryText);
+                if(rows.Length==0) Label(new Rect(12,12,Mathf.Max(0,width-24),Mathf.Max(0,viewport.height-24)),T(snapshot.Catalog==null && SharedInventory(snapshot)?.Packages.Count==0?"refreshFirst":"empty"),theme.SecondaryText);
             }
             finally { Widgets.EndScrollView(); }
         }
@@ -435,9 +476,10 @@ namespace Phinix.PluginStore
                     {
                         Text.Font=GameFont.Medium; Label(new Rect(12,y,width,nameHeight),nameLine,theme.PrimaryText); Text.Font=GameFont.Small; y+=nameHeight+6;
                         Text.Font=GameFont.Tiny; Label(new Rect(12,y,width,22),authorShort,theme.SecondaryText); TooltipHandler.TipRegion(new Rect(12,y,width,22),authorLine); Text.Font=GameFont.Small; y+=28;
-                        DrawBadges(new Rect(12,y,width,24),selectedOfficial,selected.IsWorkshop); y+=32;
+                        DrawBadges(new Rect(12,y,width,24),selectedOfficial,selected.IsWorkshop,selected.IsLocalDevelopment); y+=32;
                         GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
-                        if(!selected.IsWorkshop && Widgets.ButtonText(new Rect(12,y,width,30),T("version")+" "+selected.Manifest.Version+" ▾")) ChooseVersion(snapshot);
+                        if(selected.IsInstalledOnly) Label(new Rect(12,y,width,30),T("version")+" "+Clean(selected.Version),theme.SecondaryText);
+                        else if(!selected.IsWorkshop && Widgets.ButtonText(new Rect(12,y,width,30),T("version")+" "+selected.Version+" ▾")) ChooseVersion(snapshot);
                         else if(selected.IsWorkshop) Label(new Rect(12,y,width,30),T("workshop"),theme.SecondaryText);
                         GUI.enabled=enabled; y+=44;
                     }
@@ -461,11 +503,12 @@ namespace Phinix.PluginStore
             float primaryHeight=Mathf.Min(32,rect.height);
             var primary=new Rect(rect.x+padding,rect.y+Mathf.Min(6,Mathf.Max(0,rect.height-primaryHeight)),width,primaryHeight);
             var local=selectedLocal;
-            bool newer=local!=null && !selected.IsWorkshop && selected.Manifest.Version.CompareTo(ManagedExtensionVersion.Parse(local.Package.Version))>0;
+            bool newer=local!=null && !selected.IsWorkshop && !selected.IsInstalledOnly && selected.Manifest.Version.CompareTo(ManagedExtensionVersion.Parse(local.Package.Version))>0;
+            bool undo=local?.Package.DesiredState==ManagedExtensionDesiredState.PendingRemoval;
             selectedState=local==null || controlState==null?null:new ClientExtensionPackageState(local,controlState);
             bool enable=local!=null && (local.Package.DesiredState!=ManagedExtensionDesiredState.Enabled || selectedState?.CanRestoreSingleModule==true);
             bool modulesBlocked=selectedState!=null && selectedState.ModuleCount>0 && selectedState.EnabledModuleCount==0 && !selectedState.CanRestoreSingleModule;
-            bool canFetch=snapshot.Repository!=null && !snapshot.Repository.Offline && !snapshot.Repository.Stale && selected.State=="active";
+            bool canFetch=InventoryKnown && !selected.IsInstalledOnly && snapshot.Repository!=null && !snapshot.Repository.Offline && !snapshot.Repository.Stale && selected.State=="active";
             GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             string caption;
             Action action;
@@ -475,6 +518,8 @@ namespace Phinix.PluginStore
             { caption=T("install"); GUI.enabled=GUI.enabled && canFetch; action=()=>BeginInstall(snapshot,false); }
             else if(!selectedOwned)
             { caption=T("management"); action=()=>Act(()=>management.OpenExtensionManagerWindow()); }
+            else if(undo)
+            { caption=T("cancelRemoval"); GUI.enabled=GUI.enabled && local.DisableBlockCode==null; action=()=>CancelRemoval(local); }
             else if(newer)
             {
                 caption=T("update")+" · "+selected.Manifest.Version;
@@ -486,7 +531,7 @@ namespace Phinix.PluginStore
             else
             { caption=T(enable?"enable":"disable"); GUI.enabled=GUI.enabled && (selectedState?.CanRestoreSingleModule==true || (enable?local.EnableBlockCode:local.DisableBlockCode)==null); action=()=>SetEnabled(local,enable); }
             if(Widgets.ButtonText(primary,caption)) action();
-            TooltipHandler.TipRegion(primary,caption);
+            TooltipHandler.TipRegion(primary,selectedOwned && undo?T("cancelRemovalTip"):caption);
             GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             float y=primary.yMax+6;
             if(local!=null && selectedOwned && rect.yMax-y>=28)
@@ -495,8 +540,10 @@ namespace Phinix.PluginStore
                 if(Widgets.ButtonText(new Rect(rect.x+padding,y,menuWidth,28),T("manageInstalled"))) OpenInstalledMenu(local,enable);
                 if(width>=360)
                 {
-                    GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true && local.RemovalBlockCode==null;
-                    if(Widgets.ButtonText(new Rect(rect.x+padding+menuWidth+6,y,Mathf.Max(0,width-menuWidth-6),28),T("uninstall"))) ConfirmUninstall(local);
+                    GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true && (undo?local.DisableBlockCode:local.RemovalBlockCode)==null;
+                    var removalRect=new Rect(rect.x+padding+menuWidth+6,y,Mathf.Max(0,width-menuWidth-6),28);
+                    if(Widgets.ButtonText(removalRect,T(undo?"cancelRemoval":"uninstall"))) { if(undo) CancelRemoval(local); else ConfirmUninstall(local); }
+                    if(undo) TooltipHandler.TipRegion(removalRect,T("cancelRemovalTip"));
                 }
                 y+=34;
             }
@@ -510,10 +557,12 @@ namespace Phinix.PluginStore
         }
         private void OpenInstalledMenu(ManagedExtensionManagementPackage local,bool enable)
         {
+            if(!InventoryKnown) return;
+            bool undo=local.Package.DesiredState==ManagedExtensionDesiredState.PendingRemoval;
             long? expectedRevision=controlState?.Revision;
             var options=new List<FloatMenuOption> {
-                new FloatMenuOption(T(enable?"enable":"disable"),(selectedState?.CanRestoreSingleModule==true || (enable?local.EnableBlockCode:local.DisableBlockCode)==null)?(Action)(()=>SetEnabled(local,enable,expectedRevision)):null),
-                new FloatMenuOption(T("uninstall"),local.RemovalBlockCode==null?(Action)(()=>ConfirmUninstall(local)):null),
+                new FloatMenuOption(T(undo?"cancelRemoval":enable?"enable":"disable"),(undo?local.DisableBlockCode==null:selectedState?.CanRestoreSingleModule==true || (enable?local.EnableBlockCode:local.DisableBlockCode)==null)?(Action)(()=>{ if(undo) CancelRemoval(local); else SetEnabled(local,enable,expectedRevision); }):null),
+                new FloatMenuOption(T("uninstall"),!undo && local.RemovalBlockCode==null?(Action)(()=>ConfirmUninstall(local)):null),
                 new FloatMenuOption(T("management"),()=>Act(()=>management.OpenExtensionManagerWindow())) };
             if(local.EnableBlockCode!=null || local.DisableBlockCode!=null || local.RemovalBlockCode!=null)
                 options.Add(new FloatMenuOption(T("managementDetails"),()=>Find.WindowStack.Add(new Dialog_MessageBox(Clean(T("blockedFriendly")+"\n\n"+local.EnableBlockCode+"\n"+local.DisableBlockCode+"\n"+local.RemovalBlockCode),null))));
@@ -521,11 +570,13 @@ namespace Phinix.PluginStore
         }
         private void BeginInstall(ManagedStoreSnapshot snapshot, bool replace)
         {
-            Act(()=> { controller.Plan(selected,environment.Capture(),snapshot.Catalog,replace); installIntent=new ManagedStoreInstallIntent(snapshot.Catalog,selected); });
+            if(selected?.CatalogRecord==null || !InventoryKnown) return;
+            Act(()=> { controller.Plan(selected.CatalogRecord,environment.Capture(),snapshot.Catalog,replace); installIntent=new ManagedStoreInstallIntent(snapshot.Catalog,selected.CatalogRecord); });
         }
         private void SetEnabled(ManagedExtensionManagementPackage local,bool enable,long? expectedRevision=null)
         {
             var state=controls?.Capture();
+            if(!(state?.InventoryKnown??controller.InventoryKnown)) return;
             if(state!=null && (expectedRevision??controlState?.Revision)!=state.Revision)
             { Act(()=> { throw new StoreValidationException("ManagedStateChanged","Module state changed; review again."); }); return; }
             var projected=state==null?null:new ClientExtensionPackageState(local,state);
@@ -545,12 +596,28 @@ namespace Phinix.PluginStore
         private void ConfirmUninstall(ManagedExtensionManagementPackage local)
         {
             var expected=local.Package;
-            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(T("confirmUninstall"),()=>Act(()=>controller.Change(expected,ManagedExtensionDesiredState.PendingRemoval,environment.Capture()))));
+            Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(T("confirmUninstall"),()=>Act(()=>
+            {
+                if(!(controls?.Capture().InventoryKnown??controller.InventoryKnown)) throw new StoreValidationException("ManagedInventoryUnavailable","Refresh package facts before removal.");
+                controller.Change(expected,ManagedExtensionDesiredState.PendingRemoval,environment.Capture());
+            })));
         }
+        private void CancelRemoval(ManagedExtensionManagementPackage local)
+        { if(InventoryKnown) Act(()=>controller.Change(local.Package,ManagedExtensionDesiredState.Disabled,environment.Capture())); }
         private void ConfirmInstall(ManagedStorePlan plan)
         {
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(T(plan.ReplacesPackages?"updateConfirmation":"dependencyConfirmation")+"\n\n"+string.Join("\n",plan.Items.Select(i=>Clean(i.Package.DisplayName(locale))+" "+i.Package.Manifest.Version+" · "+T(i.Installed==null?"newPackage":i.RequiresDownload?"updatedPackage":"existingPackage")))+"\n\n"+T("downloadSize")+" "+(plan.DownloadBytes/1024d/1024d).ToString("F2")+" MiB",()=>
-            { if(controller.Snapshot.Plan!=plan || controller.Snapshot.Busy || selected!=plan.Root) { localFailure=null; error=T("reviewAgain"); return; } Act(()=>controller.Download(plan,environment.Capture(),true)); }));
+            { if(controller.Snapshot.Plan!=plan || controller.Snapshot.Busy || selected?.CatalogRecord!=plan.Root) { localFailure=null; error=T("reviewAgain"); return; } Act(()=>controller.Download(plan,environment.Capture(),true)); }));
+        }
+        private void ConfirmLocalInstall(ManagedStoreSnapshot prepared)
+        {
+            var zip=prepared.LocalPackage;
+            string summary=zip.Manifest.PackageId+"\n"+zip.Manifest.Version+"\nSHA-256: "+zip.Sha256;
+            Find.WindowStack.Add(new Dialog_MessageBox(T("localConfirmation")+"\n\n"+summary,T("install"),()=>Act(()=>
+            {
+                if(stopped || !localImportActive || !Prefs.DevMode) return;
+                controller.InstallLocal(prepared,environment.Capture(),Prefs.DevMode);
+            }),T("cancel"),()=>{ localImportActive=false; controller.DiscardLocal(prepared); }));
         }
         private RepositoryEndpoint SelectedEndpoint()
         {
@@ -574,7 +641,7 @@ namespace Phinix.PluginStore
         private void OpenWorkshop()
         {
             Act(()=> {
-                var result=links.Open(selected.WorkshopUrl);
+                var result=links.Open(selected.CatalogRecord.WorkshopUrl);
                 if(result==ClientLinkOpenResult.Unavailable) { localFailure=null; error=T("linkUnavailable"); }
                 else linkNotice=T(result==ClientLinkOpenResult.GameBrowserRequested?"gameBrowserRequested":"externalBrowserRequested");
             });
@@ -584,18 +651,18 @@ namespace Phinix.PluginStore
             try { error=null; localFailure=null; linkNotice=null; action(); }
             catch(Exception ex) { localFailure=controller.ReportFailure(ex); error=localFailure.Diagnostic; }
         }
-        private bool Owns(ManagedStoreSnapshot snapshot,ManagedExtensionManagementPackage local)
-        {
-            return SharedInventory(snapshot).Packages.Count(p=>p.Package.PackageId==selected.Id)==1 &&
-                local.Package.SourceId==snapshot.Catalog.SourceId && local.Package.RepositoryIdentitySha256==snapshot.Repository?.Endpoint.IdentityKey;
-        }
-        private void Select(ManagedStoreRecord row,ManagedStoreSnapshot snapshot)
+        private void Select(ManagedStoreEntry row,ManagedStoreSnapshot snapshot)
         { installIntent=null; selected=row; cached=null; Rebuild(snapshot); detailScroll=Vector2.zero; error=null; localFailure=null; linkNotice=null; }
         private void ChooseVersion(ManagedStoreSnapshot snapshot)
         {
             var versions=snapshot.Catalog.Packages.Where(p=>p.Id==selected.Id).OrderByDescending(p=>p.Manifest.Version);
             Find.WindowStack.Add(new FloatMenu(versions.Select(p=>new FloatMenuOption(p.Manifest.Version+ (p.State=="active"?"":" · "+T("withdrawn")),()=> {
-                if(controller.Snapshot.Catalog==snapshot.Catalog && !controller.Snapshot.Busy) Select(p,controller.Snapshot);
+                if(controller.Snapshot.Catalog==snapshot.Catalog && !controller.Snapshot.Busy)
+                {
+                    var entries=ManagedStoreListing.BuildEntries(snapshot.Catalog,SharedInventory(snapshot),snapshot.Repository?.Endpoint,"",locale);
+                    var entry=entries.SelectMany(g=>g.Versions).FirstOrDefault(e=>e.CatalogRecord==p);
+                    if(entry!=null) Select(entry,controller.Snapshot);
+                }
             })).ToList()));
         }
         private static string FailureMessage(ManagedStoreSnapshot snapshot)

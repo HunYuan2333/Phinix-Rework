@@ -217,4 +217,26 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_next_PartiallyDisabled>Partly disabled next start</Phinix_store2_next_PartiallyDisabled>
   <Phinix_store2_next_Disabled>Disabled next start</Phinix_store2_next_Disabled>
   <Phinix_store2_next_PendingRemoval>Remove next start</Phinix_store2_next_PendingRemoval>
+  <Phinix_store2_localImport>dev: Install local plugin ZIP</Phinix_store2_localImport>
+  <Phinix_store2_localBadge>Local development</Phinix_store2_localBadge>
+  <Phinix_store2_installationSource>Installation source</Phinix_store2_installationSource>
+  <Phinix_store2_localBadgeTip>Manually imported development package. Not published or approved by the store.</Phinix_store2_localBadgeTip>
+  <Phinix_store2_installedOnlyTip>Installed package not listed by the current store. Management uses the verified local installation record.</Phinix_store2_installedOnlyTip>
+  <Phinix_store2_inventoryUnknown>Package state unconfirmed. Refresh before making changes.</Phinix_store2_inventoryUnknown>
+  <Phinix_store2_savedRefreshFailed>Changes saved, but package state could not be refreshed. Refresh to confirm; restart to apply.</Phinix_store2_savedRefreshFailed>
+  <Phinix_store2_cancelRemoval>Cancel uninstall</Phinix_store2_cancelRemoval>
+  <Phinix_store2_cancelRemovalTip>Cancel uninstall and keep the package disabled for next start. Individual module choices are preserved.</Phinix_store2_cancelRemovalTip>
+  <Phinix_store2_localBrowse>Browse</Phinix_store2_localBrowse>
+  <Phinix_store2_localSelect>Select ZIP</Phinix_store2_localSelect>
+  <Phinix_store2_localInvalidSelection>Select an existing ZIP or enter an absolute directory path.</Phinix_store2_localInvalidSelection>
+  <Phinix_store2_localDirectoryLimit>Too many entries. Enter a more specific path.</Phinix_store2_localDirectoryLimit>
+  <Phinix_store2_localConfirmation>Install this local development package? Changes take effect after restarting the game.</Phinix_store2_localConfirmation>
+  <Phinix_store2_localInstallSaved>Local development package saved. Restart the game to load this build.</Phinix_store2_localInstallSaved>
+  <Phinix_store2_localPayloadVerified>Local ZIP verified. Review the installation confirmation.</Phinix_store2_localPayloadVerified>
+  <Phinix_store2_DeveloperModeRequired>Developer mode is required for local import.</Phinix_store2_DeveloperModeRequired>
+  <Phinix_store2_LocalOfficialPackageConflict>This package ID is already owned by another source. Remove it and restart before importing.</Phinix_store2_LocalOfficialPackageConflict>
+  <Phinix_store2_LocalPackageAlreadyInstalled>This ZIP digest is already installed.</Phinix_store2_LocalPackageAlreadyInstalled>
+  <Phinix_store2_LocalPackageDowngrade>Local package version downgrade is not allowed.</Phinix_store2_LocalPackageDowngrade>
+  <Phinix_store2_ManagedReplacementIdentityInvalid>The existing package must be enabled and verified before replacing it.</Phinix_store2_ManagedReplacementIdentityInvalid>
+  <Phinix_store2_copySummary>Copy summary</Phinix_store2_copySummary>
 </LanguageData>

@@ -70,6 +70,8 @@ namespace Phinix.PluginStore
         private void Set(StoreFailureScope scope,string key) { Scope=scope; MessageKey=key; }
         private void Classify()
         {
+            if(Is("DeveloperModeRequired","LocalOfficialPackageConflict","LocalPackageAlreadyInstalled","LocalPackageDowngrade","ManagedReplacementIdentityInvalid"))
+                { Set(StoreFailureScope.Action,Code); return; }
             if(Code=="ManagedInventoryUncertain") foreach(string reason in ContextReasons)
             {
                 var cause=FromCode(reason);

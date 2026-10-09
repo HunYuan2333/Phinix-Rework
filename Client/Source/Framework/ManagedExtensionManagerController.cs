@@ -18,6 +18,7 @@ namespace PhinixClient.Framework
         private bool disposed;
         public ManagedExtensionManagerController(Action<Exception> internalError = null) { this.internalError=internalError; }
         public ManagedExtensionManagementSnapshot Snapshot { get; private set; }
+        public bool InventoryKnown { get; private set; }
         public bool Busy => task!=null;
         public int Version { get; private set; }
         public string MessageCode { get; private set; }
@@ -30,7 +31,7 @@ namespace PhinixClient.Framework
         {
             if(disposed) throw new ObjectDisposedException(nameof(ManagedExtensionManagerController));
             if(Busy) return;
-            if(service==null) { MessageCode="ManagedManagementUnavailable"; Version++; return; }
+            if(service==null) { InventoryKnown=false; MessageCode="ManagedManagementUnavailable"; Version++; return; }
             string[] captured=(disabled??new string[0]).ToArray();
             cancellation=new CancellationTokenSource(); var token=cancellation.Token;
             MessageCode="ManagedOperationRunning"; LastChange=null; Version++;
@@ -57,6 +58,7 @@ namespace PhinixClient.Framework
             if(task==null || !task.IsCompleted) return false;
             Outcome result=task.GetAwaiter().GetResult(); task=null; cancellation.Dispose(); cancellation=null;
             if(result.Snapshot!=null) Snapshot=result.Snapshot;
+            InventoryKnown=result.Snapshot!=null;
             LastChange=result.Change; MessageCode=result.Code; Version++;
             if(result.Error!=null) try { internalError?.Invoke(result.Error); } catch { }
             return true;
@@ -64,7 +66,7 @@ namespace PhinixClient.Framework
         public void Dispose()
         {
             if(disposed) return; disposed=true; cancellation?.Cancel(); cancellation?.Dispose(); cancellation=null;
-            task=null; Snapshot=null; LastChange=null;
+            task=null; Snapshot=null; LastChange=null; InventoryKnown=false;
         }
     }
 }

@@ -6,7 +6,7 @@ using Verse;
 
 namespace Phinix.PluginStore
 {
-    internal enum StoreBadgeKind { Official, Managed, Workshop }
+    internal enum StoreBadgeKind { Official, Managed, Workshop, Local }
 
     internal sealed class StoreBadgeIcons : IDisposable
     {

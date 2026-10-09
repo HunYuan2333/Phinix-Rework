@@ -15,6 +15,7 @@ internal static class Program
         try
         {
             if(args.Length!=0 && args[0]=="--export-host-profile") { HostProfileExport.Export(args); return 0; }
+            if(args.Length!=0 && args[0]=="--validate") { OfflinePreflight.Validate(args); return 0; }
             var options=new Dictionary<string,string>(); var files=new Dictionary<string,byte[]>(); var declarations=new List<object>(); var modules=new List<object>();
             var host=new List<ManagedAssemblyIdentity>(); var metadataInputs=new List<ManagedAssemblyMetadata>();
             var resources=new List<object>(); var languagePaths=new List<string>();
@@ -46,8 +47,9 @@ internal static class Program
                 }
             }
             string[] required={"--package-id","--name","--version","--output"};
-            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range"}).ToArray();
-            if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output, --display-output and --abstractions-range.");
+            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range","--config"}).ToArray();
+            if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output, --display-output, --abstractions-range and --config. Offline: --validate ZIP [--host-assembly DLL ...].");
+            var config=PackageConfiguration.Read(options);
             if(languagePaths.Count==0 && options.ContainsKey("--default-locale")) throw new ArgumentException("Default locale needs language files.");
             if(host.Count!=0)
             {
@@ -65,7 +67,7 @@ internal static class Program
             object localization=languagePaths.Count==0?null:new {defaultLocale=options.ContainsKey("--default-locale")?ExtensionLocale.Normalize(options["--default-locale"]):null,files=languagePaths};
             var jsonOptions=new JsonSerializerOptions {DefaultIgnoreCondition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull};
             byte[] manifest=JsonSerializer.SerializeToUtf8Bytes(new {schemaVersion=1,management="phinix-dll",packageId=options["--package-id"],name=options["--name"],version=options["--version"],targetFramework="net472",
-                compatibility=new {rimWorldVersions=new[]{"1.6"},phinixRange=">=0.9.7 <1.0.0",abstractionsRange=options.ContainsKey("--abstractions-range")?options["--abstractions-range"]:">=1.7.0 <2.0.0"},dependencies=new object[0],externalMods=new object[0],resources,localization,assemblies=declarations,modules},jsonOptions);
+                compatibility=config.Compatibility,dependencies=config.Dependencies,externalMods=config.ExternalMods,resources,localization,assemblies=declarations,modules},jsonOptions);
             var parsed=ManagedExtensionManifestReader.Read(manifest);
             if(parsed.Assemblies.SelectMany(ManagedExtensionManifestReader.AssemblyNames).Any(name=>host.Any(a=>string.Equals(a.Name,name,StringComparison.OrdinalIgnoreCase))))
                 throw new ArgumentException("Package assembly conflicts with a supplied host assembly.");
@@ -83,16 +85,20 @@ internal static class Program
             if(files.Values.Sum(b=>(long)b.Length)+manifest.Length>ManagedExtensionManifestReader.MaxExpandedBytes) throw new ArgumentException("Expanded package size limit.");
             string destination=Path.GetFullPath(options["--output"]); if(File.Exists(destination)) throw new IOException("Output already exists; use a new version/path."); Directory.CreateDirectory(Path.GetDirectoryName(destination));
             files.Add("manifest.json",manifest);
-            using(var output=new FileStream(destination,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+            byte[] package;
+            using(var output=new MemoryStream())
             {
                 using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) foreach(var pair in files.OrderBy(p=>p.Key,StringComparer.Ordinal))
                 {
                     var entry=zip.CreateEntry(pair.Key,CompressionLevel.Optimal); entry.LastWriteTime=new DateTimeOffset(2026,10,5,0,0,0,TimeSpan.Zero); entry.ExternalAttributes=0;
                     using(var stream=entry.Open()) stream.Write(pair.Value,0,pair.Value.Length);
                 }
-                output.Flush(true);
+                output.Position=0;
+                ManagedExtensionZip.Read(output,CancellationToken.None);
+                package=output.ToArray();
             }
-            byte[] package=File.ReadAllBytes(destination);
+            using(var output=new FileStream(destination,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+            { output.Write(package,0,package.Length); output.Flush(true); }
             if(display!=null) using(var output=new FileStream(options["--display-output"],FileMode.CreateNew,FileAccess.Write,FileShare.None)) output.Write(display,0,display.Length);
             if(bundle!=null)
             {
