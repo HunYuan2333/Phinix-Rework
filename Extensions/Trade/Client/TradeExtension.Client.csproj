@@ -75,7 +75,6 @@
     <Compile Include="ClientTradeUiHostContext.cs" />
     <Compile Include="DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
-    <Compile Include="FrameworkLegacyTradeClientAdapter.cs" />
     <Compile Include="FrameworkClientTradeServiceAdapter.cs" />
     <Compile Include="PendingThings.cs" />
     <Compile Include="PoppedThing.cs" />
@@ -93,6 +92,7 @@
     <Compile Include="TradeThingStateSerializer.cs" />
     <Compile Include="TradeList.cs" />
     <Compile Include="TradeMainTabProvider.cs" />
+    <Compile Include="TradeSettingsInputAdapter.cs" />
     <Compile Include="TradeSettingsPanelProvider.cs" />
     <Compile Include="TradeTheme.cs" />
     <Compile Include="TradeWindow.cs" />

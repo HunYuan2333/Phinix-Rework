@@ -1,6 +1,7 @@
-﻿// Original file provided by Longwelwind (https://github.com/Longwelwind)
+// Original file provided by Longwelwind (https://github.com/Longwelwind)
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -44,11 +45,8 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override float CalcHeight(float width)
         {
-            SetStyle();
-            float height = Verse.Text.CalcHeight(Text, width);
-            ClearStyle();
-
-            return height;
+            using (new ClientGuiScope(true))
+            { SetStyle(); return Verse.Text.CalcHeight(Text, width); }
         }
 
         /// <inheritdoc />
@@ -57,19 +55,16 @@ namespace PhinixClient.GUI
             // Calculating width with wrapping is pointless, so we won't do that
             if (wrap) return FLUID;
 
-            SetStyle();
-            float width = Verse.Text.CalcSize(Text).x;
-            ClearStyle();
-
-            return width;
+            using (new ClientGuiScope(true))
+            { SetStyle(); return Verse.Text.CalcSize(Text).x; }
         }
 
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
-            SetStyle();
-            Widgets.Label(inRect, Text);
-            ClearStyle();
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
+            { SetStyle(); ClientWidgets.Label(inRect, Text, HostThemeDrawing.Current); }
         }
 
         /// <summary>
@@ -82,14 +77,5 @@ namespace PhinixClient.GUI
             Verse.Text.WordWrap = this.wrap;
         }
 
-        /// <summary>
-        /// Resets the text font and anchor to their defaults.
-        /// </summary>
-        private void ClearStyle()
-        {
-            Verse.Text.Anchor = TextAnchor.UpperLeft;
-            Verse.Text.Font = GameFont.Small;
-            Verse.Text.WordWrap = true;
-        }
     }
 }

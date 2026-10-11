@@ -26,7 +26,7 @@ internal static partial class Program
                 local.Borrow<IClientSessionContext>(host);
                 local.Borrow<IClientSettingsContext>(host);
                 local.Borrow<IClientUserEventStream>(host);
-                local.Borrow<IFrameworkClientTransport>(host);
+                local.Borrow<IChatMessageSender>(host);
                 local.Borrow<Action<string>>(_ => { });
                 local.Borrow<Action<LogEventArgs>>(_ => { });
                 local.Register<IClientChatService, FrameworkClientChatServiceAdapter>();
@@ -45,7 +45,7 @@ internal static partial class Program
             host.Drain(); host.Disconnect();
             Assert(messages == 1 && disconnects == 1, "Actual Chat services forward events once.");
             ui.SendChatMessage("hello", null);
-            Assert(host.Sends == 1, "Actual Chat constructor-injected transport sends via existing capability behavior.");
+            Assert(host.Sends == 1, "Actual Chat constructor-injected transport sends via the current intent API.");
             EventHandler<UIChatMessageEventArgs> broken = (_, __) => { throw new Exception("subscriber"); };
             adapter.OnChatMessageReceived += broken;
             int later = 0;
@@ -66,7 +66,7 @@ internal static partial class Program
         }
         var partialHost = new ChatHost { FailUserSubscription = true };
         var partial = new ChatUiHostContext(new FrameworkClientChatServiceAdapter(api, partialHost, partialHost, partialHost, partialHost, partialHost, (_, __) => { }),
-            partialHost, partialHost, partialHost, _ => { }, _ => { }, api, partialHost, partialHost);
+            partialHost, partialHost, partialHost, _ => { }, _ => { }, partialHost, partialHost);
         ExpectFailure(partial.Start, "Actual Chat activation failure must remain observable.");
         partial.Dispose();
         Assert(partialHost.SubscriptionCount == 0, "Actual Chat partial Start cleanup removes earlier subscriptions.");
@@ -74,7 +74,7 @@ internal static partial class Program
 
     private sealed class ChatHost : IClientDisplayMessageFeed, IClientDisplayMessageStore,
         IClientUserDirectory, IClientSessionContext, IClientSettingsContext, IClientUserEventStream,
-        IFrameworkClientTransport, IClientMainThreadDispatcher, IDisposable
+        IFrameworkClientTransport, IChatMessageSender, IClientMainThreadDispatcher, IDisposable
     {
         internal EventHandler<FrameworkDisplayMessageEventArgs> Feed;
         public event EventHandler<FrameworkDisplayMessageEventArgs> DisplayMessageReceived
@@ -115,6 +115,7 @@ internal static partial class Program
         public void UnBlockUser(string uuid) { }
         public bool HasRemoteCapability(string capability) => true;
         public void SendFrameworkPacket(FrameworkPacket packet) { Sends++; }
+        public bool TrySend(ChatMessageIntent intent) { Sends++; return true; }
         public bool TryHandleOutgoingMessage(string rawMessage) => false;
         public bool TryHandleOutgoingItem(FrameworkItemPayload payload) => false;
         public void Dispose() { Disposed = true; }

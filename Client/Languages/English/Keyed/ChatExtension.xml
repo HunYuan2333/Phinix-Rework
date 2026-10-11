@@ -33,4 +33,5 @@
     <Phinix_chat_imageLoading>Loading image…</Phinix_chat_imageLoading>
     <Phinix_chat_imageUnsupported>Image could not be decoded. Click to open the original.</Phinix_chat_imageUnsupported>
     <Phinix_chat_imageFailed>Image failed to load. Click to retry.</Phinix_chat_imageFailed>
+  <Phinix_chat_sendUnavailable>Message dispatch did not complete. Your input was kept.</Phinix_chat_sendUnavailable>
 </LanguageData>

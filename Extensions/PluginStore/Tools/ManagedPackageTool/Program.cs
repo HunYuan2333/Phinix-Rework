@@ -14,15 +14,22 @@ internal static class Program
     {
         try
         {
+            if(args.Length!=0 && (args[0]=="--pack-theme" || args[0]=="--validate-theme")) { ThemePackageCommand.Run(args); return 0; }
             if(args.Length!=0 && args[0]=="--export-host-profile") { HostProfileExport.Export(args); return 0; }
             if(args.Length!=0 && args[0]=="--validate") { OfflinePreflight.Validate(args); return 0; }
             var options=new Dictionary<string,string>(); var files=new Dictionary<string,byte[]>(); var declarations=new List<object>(); var modules=new List<object>();
-            var host=new List<ManagedAssemblyIdentity>(); var metadataInputs=new List<ManagedAssemblyMetadata>();
+            var host=new List<ManagedAssemblyIdentity>(); var clientApiVersions = new List<string>(); var metadataInputs=new List<ManagedAssemblyMetadata>();
             var resources=new List<object>(); var languagePaths=new List<string>();
             if(args.Length%2!=0) throw new ArgumentException("Expected option/value pairs.");
             for(int i=0;i<args.Length;i+=2)
             {
-                if(args[i]=="--host-assembly") { host.Add(ManagedAssemblyIdentity.FromAssemblyName(AssemblyName.GetAssemblyName(args[i+1]))); continue; }
+                if(args[i]=="--host-assembly")
+                {
+                    var identity = ManagedAssemblyIdentity.FromAssemblyName(AssemblyName.GetAssemblyName(args[i+1])); host.Add(identity);
+                    if (identity.Name == "ClientExtensionAbstractions")
+                        clientApiVersions.Add(System.Diagnostics.FileVersionInfo.GetVersionInfo(args[i+1]).FileVersion ?? identity.Version);
+                    continue;
+                }
                 if(args[i]=="--language-file")
                 {
                     using(var input=File.OpenRead(args[i+1]))
@@ -47,7 +54,7 @@ internal static class Program
                 }
             }
             string[] required={"--package-id","--name","--version","--output"};
-            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range","--config"}).ToArray();
+            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range","--compile-client-api","--config"}).ToArray();
             if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output, --display-output, --abstractions-range and --config. Offline: --validate ZIP [--host-assembly DLL ...].");
             var config=PackageConfiguration.Read(options);
             if(languagePaths.Count==0 && options.ContainsKey("--default-locale")) throw new ArgumentException("Default locale needs language files.");
@@ -69,6 +76,15 @@ internal static class Program
             byte[] manifest=JsonSerializer.SerializeToUtf8Bytes(new {schemaVersion=1,management="phinix-dll",packageId=options["--package-id"],name=options["--name"],version=options["--version"],targetFramework="net472",
                 compatibility=config.Compatibility,dependencies=config.Dependencies,externalMods=config.ExternalMods,resources,localization,assemblies=declarations,modules},jsonOptions);
             var parsed=ManagedExtensionManifestReader.Read(manifest);
+            if (options.TryGetValue("--compile-client-api", out string compileApi) &&
+                (clientApiVersions.Count == 0 || clientApiVersions.Any(v => new Version(v).ToString(3) != compileApi)))
+                throw new ArgumentException("This transitional plugin must compile against client API " + compileApi + "; use the matching baseline host references.");
+            foreach (string version in clientApiVersions)
+            {
+                var hostVersion = ManagedExtensionVersion.Parse(new Version(version).ToString(3));
+                if (!parsed.Compatibility.AbstractionsRange.Contains(hostVersion))
+                    throw new ArgumentException("Supplied client API " + hostVersion + " is outside the package abstractionsRange. Build with matching references and target profile.");
+            }
             if(parsed.Assemblies.SelectMany(ManagedExtensionManifestReader.AssemblyNames).Any(name=>host.Any(a=>string.Equals(a.Name,name,StringComparison.OrdinalIgnoreCase))))
                 throw new ArgumentException("Package assembly conflicts with a supplied host assembly.");
             ManagedExtensionPayloadInspector.Inspect(parsed,parsed.Assemblies.ToDictionary(a=>a.File.Path,a=>files[a.File.Path]),CancellationToken.None);

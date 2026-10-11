@@ -24,7 +24,7 @@ internal static partial class Program
             {
                 var host = new ExtensionHostContext();
                 host.AddService<IClientCompositionFactory>(factory);
-                host.AddService<IUiTheme>(services);
+                host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                 host.AddService<IFrameworkClientTransport>(services);
                 host.AddService<IFrameworkClientCommandTransport>(services);
                 host.AddService<IFrameworkClientLifecycle>(services);
@@ -122,7 +122,7 @@ internal static partial class Program
 
     private sealed class TradeHost : IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle,
         IClientSessionContext, IClientSettingsContext, IClientUserEventStream, IClientUserDirectory,
-        IClientMainThreadDispatcher, IClientWindowService, IUiTheme, IDisposable
+        IClientMainThreadDispatcher, IClientWindowService, IClientTheme,IClientThemeRegistry, IDisposable
     {
         private readonly Dictionary<string, Delegate> listeners = new Dictionary<string, Delegate>();
         private readonly Dictionary<string, object> values = new Dictionary<string, object>();
@@ -158,12 +158,16 @@ internal static partial class Program
         public void Enqueue(Action action) { Queue.Add(action); }
         public void Drain() { Action[] actions = Queue.ToArray(); Queue.Clear(); foreach (Action action in actions) action(); }
         public void Open(Window window) { throw new InvalidOperationException("Unexpected game UI work."); } public void OpenSettingsWindow() { }
+        public long Version => 0;
+        public event Action Changed { add { } remove { } }
+        public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
         public Color PrimaryText => default(Color); public Color SecondaryText => default(Color); public Color Background => default(Color);
         public Color Surface => default(Color); public Color Separator => default(Color); public Color HoverHighlight => default(Color);
         public Color Pending => default(Color); public Color Error => default(Color); public Color Success => default(Color); public Color Warning => default(Color);
-        public void RegisterColor(string key, Color value) { } public Color GetColor(string key) => default(Color);
+        public Color GetColor(string key) => default(Color);
         public bool TryGetColor(string key, out Color value) { value = default(Color); return true; }
-        public void RegisterFloat(string key, float value) { } public float GetFloat(string key, float defaultValue = 0f) => defaultValue; public void Reload() { }
+        public float GetFloat(string key, float defaultValue = 0f) => defaultValue;
         public void Dispose() { Disposed++; }
     }
 
@@ -194,4 +198,12 @@ internal static partial class Program
         public Token(Action release) { this.release = release; }
         public void Dispose() { Action action = release; release = null; action?.Invoke(); }
     }
+}
+
+internal sealed class TestThemeRegistration : PhinixClient.Framework.IClientThemeRegistration
+{
+    public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+    public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
+    public void Commit() { }
+    public void Dispose() { }
 }

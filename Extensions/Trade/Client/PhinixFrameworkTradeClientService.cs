@@ -9,7 +9,7 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkTradeUpdateResultApi
+    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkTradeUpdateResultApi, ITradeStateInput
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private readonly ITradeItemPayloadEncoder itemPipeline;
@@ -462,21 +462,7 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
-            repository.Remove(payload.TradeId);
-            RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            log?.Invoke(new LogEventArgs($"[TradeService] HandleCompletedEvent: firing OnTradeCompleted, subscribers={OnTradeCompleted != null}", LogLevel.DEBUG));
-            if (OnTradeCompleted != null)
-            {
-                OnTradeCompleted.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, true,
-                    payload.OtherPartyUuid, DecodeTradeItems(payload.Items), null, payload.Items));
-                log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted fired successfully", LogLevel.DEBUG));
-            }
-            else
-            {
-                log?.Invoke(new LogEventArgs("[TradeService] HandleCompletedEvent: OnTradeCompleted has NO subscribers! Window won't close, items won't drop.", LogLevel.WARNING));
-            }
-            log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' completed with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
+            CompleteTrade(payload.TradeId, true, payload.OtherPartyUuid, payload.Items);
         }
 
         public void HandleCancelledEvent(FrameworkPacket packet)
@@ -487,19 +473,14 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            log?.Invoke(new LogEventArgs($"[TradeService] HandleCancelledEvent: tradeId={payload.TradeId}, otherParty={payload.OtherPartyUuid}", LogLevel.DEBUG));
-            repository.Remove(payload.TradeId);
-            RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            OnTradeCancelled?.Invoke(this, new TradeCompletionEventArgs(payload.TradeId, false,
-                payload.OtherPartyUuid, DecodeTradeItems(payload.Items), null, payload.Items));
-            log?.Invoke(new LogEventArgs($"Framework trade '{payload.TradeId}' cancelled with '{payload.OtherPartyUuid}'.", LogLevel.DEBUG));
+            CompleteTrade(payload.TradeId, false, payload.OtherPartyUuid, payload.Items);
         }
 
         /// <summary>
-        /// Legacy 适配器专用：将旧版服务器发来的 trade 快照注入 repository，触发 UI 刷新。
+        /// 应用已经转换和校验的权威交易状态，触发 UI 刷新。
         /// 所有协议转换逻辑在 Adapter 中完成，此处仅负责写入和通知。
         /// </summary>
-        internal void ApplyLegacyTradeSnapshot(FrameworkTradeStateSnapshot snapshot)
+        public void UpsertTrade(FrameworkTradeStateSnapshot snapshot)
         {
             if (snapshot == null || string.IsNullOrEmpty(snapshot.TradeId)) return;
 
@@ -507,7 +488,7 @@ namespace Phinix.TradeExtension.Client
             if (snapshot.Participants == null || snapshot.Participants.Count != 2)
             {
                 log?.Invoke(new LogEventArgs(
-                    $"Legacy adapter supplied trade '{snapshot.TradeId}' with {snapshot.Participants?.Count ?? 0} participant(s); expected 2. Dropping.",
+                    $"State input supplied trade '{snapshot.TradeId}' with {snapshot.Participants?.Count ?? 0} participant(s); expected 2. Dropping.",
                     LogLevel.WARNING));
                 return;
             }
@@ -518,7 +499,7 @@ namespace Phinix.TradeExtension.Client
                 string.Equals(snapshot.Participants[0].Uuid, snapshot.Participants[1].Uuid, StringComparison.OrdinalIgnoreCase))
             {
                 log?.Invoke(new LogEventArgs(
-                    $"Legacy adapter supplied trade '{snapshot.TradeId}' with invalid participants [{snapshot.Participants[0].Uuid}, {snapshot.Participants[1].Uuid}]. Dropping.",
+                    $"State input supplied trade '{snapshot.TradeId}' with invalid participants [{snapshot.Participants[0].Uuid}, {snapshot.Participants[1].Uuid}]. Dropping.",
                     LogLevel.WARNING));
                 return;
             }
@@ -536,7 +517,7 @@ namespace Phinix.TradeExtension.Client
                 if (TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot updatedTrade))
                 {
                     log?.Invoke(new LogEventArgs(
-                        $"Legacy trade update event emitted for '{snapshot.TradeId}'.",
+                        $"Trade state update event emitted for '{snapshot.TradeId}'.",
                         LogLevel.DEBUG));
                     OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
                 }
@@ -544,9 +525,9 @@ namespace Phinix.TradeExtension.Client
         }
 
         /// <summary>
-        /// Legacy 适配器专用：从 repository 移除已完成的 trade，触发 UI 刷新。
+        /// 移除交易状态并通知观察者。
         /// </summary>
-        internal void RemoveLegacyTrade(string tradeId)
+        public void RemoveTrade(string tradeId)
         {
             if (string.IsNullOrEmpty(tradeId)) return;
 
@@ -558,37 +539,7 @@ namespace Phinix.TradeExtension.Client
             }
         }
 
-        /// <summary>
-        /// Legacy 适配器专用：移除 trade 并发出完成/取消事件，保持 UI 和默认行为走同一事件链。
-        /// </summary>
-        internal void CompleteLegacyTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<TradeItemSnapshot> items)
-        {
-            if (string.IsNullOrEmpty(tradeId)) return;
-
-            bool hadTrade = repository.TryGet(tradeId, out _);
-            repository.Remove(tradeId);
-            if (hadTrade)
-            {
-                RepositoryChanged?.Invoke(this, EventArgs.Empty);
-            }
-
-            var args = new TradeCompletionEventArgs(
-                tradeId,
-                success,
-                otherPartyUuid ?? string.Empty,
-                (items ?? Array.Empty<TradeItemSnapshot>()).ToArray());
-
-            if (success)
-            {
-                OnTradeCompleted?.Invoke(this, args);
-            }
-            else
-            {
-                OnTradeCancelled?.Invoke(this, args);
-            }
-        }
-
-        internal void CompleteLegacyTradePayloads(string tradeId, bool success, string otherPartyUuid,
+        public void CompleteTrade(string tradeId, bool success, string otherPartyUuid,
             IEnumerable<FrameworkItemPayload> items)
         {
             FrameworkItemPayload[] payloads = (items ?? Array.Empty<FrameworkItemPayload>()).ToArray();

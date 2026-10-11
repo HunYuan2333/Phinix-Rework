@@ -26,6 +26,7 @@
     <Compile Include="ManagedStoreController.cs" />
     <Compile Include="ManagedLocalImport.cs" />
     <Compile Include="LocalPackageFileWindow.cs" />
+    <Compile Include="LocalThemePackagesWindow.cs" />
     <Compile Include="StoreEnvironmentRefresh.cs" />
     <Compile Include="ManagedStoreOperation.cs" />
     <Compile Include="ManagedStoreListing.cs" />

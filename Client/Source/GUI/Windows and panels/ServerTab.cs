@@ -177,6 +177,17 @@ namespace PhinixClient
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background);
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             object activeLanguage = LanguageDatabase.activeLanguage;
             if (!ReferenceEquals(cachedTabLanguage, activeLanguage))
             {
@@ -212,7 +223,7 @@ namespace PhinixClient
 
             if (mainTabRect.width > 0f && tabList.Count > 0)
             {
-                TabDrawer.DrawTabsOverflow(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                ClientWidgets.Tabs(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH, HostThemeDrawing.Current);
             }
 
             if ((!sidebarCollapsedBySpace || !sidebarDrawerOpen) && activeTab >= 0 && activeTab < tabProviders.Count)
@@ -221,7 +232,8 @@ namespace PhinixClient
             }
             else
             {
-                Widgets.DrawMenuSection(mainRect);
+                ClientWidgets.Surface(mainRect, HostThemeDrawing.Current);
+                ClientWidgets.Border(mainRect, HostThemeDrawing.Current);
             }
 
             if (sidebarWidth > 0f && sidebarProviders.Count == 1)
@@ -240,7 +252,7 @@ namespace PhinixClient
                     Mathf.Max(0f, rightColumnRect.height - sidebarTabHeight));
                 if (rightColumnRect.width > 0f)
                 {
-                    TabDrawer.DrawTabsOverflow(rightColumnRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                    ClientWidgets.Tabs(rightColumnRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH, HostThemeDrawing.Current);
                 }
 
                 if (activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
@@ -367,7 +379,7 @@ namespace PhinixClient
                 windowRect.yMin + bannerHeight,
                 buttonWidth,
                 Mathf.Min(TabDrawer.TabHeight, Mathf.Max(0f, windowRect.height - bannerHeight)));
-            if (toggleRect.height > 0f && Widgets.ButtonText(toggleRect, "☰"))
+            if (toggleRect.height > 0f && ClientWidgets.Button(toggleRect, "☰", HostThemeDrawing.Current))
             {
                 sidebarDrawerOpen = !sidebarDrawerOpen;
             }
@@ -381,7 +393,8 @@ namespace PhinixClient
             float preferredWidth = Mathf.Max(SIDEBAR_MIN_WIDTH, activeProvider.PreferredWidth);
             float drawerWidth = Mathf.Min(contentRect.width, Mathf.Max(preferredWidth, 280f));
             Rect drawerRect = new Rect(contentRect.xMax - drawerWidth, contentRect.yMin, drawerWidth, contentRect.height);
-            Widgets.DrawMenuSection(drawerRect);
+            ClientWidgets.Fill(drawerRect, HostThemeDrawing.Current.GetColor("ui.button.background"));
+            ClientWidgets.Border(drawerRect, HostThemeDrawing.Current);
 
             const float drawerPadding = 6f;
             const float drawerHeaderHeight = 30f;
@@ -389,7 +402,7 @@ namespace PhinixClient
             Rect closeRect = new Rect(innerRect.xMax - 30f, innerRect.yMin, 30f, Mathf.Min(drawerHeaderHeight, innerRect.height));
             Rect titleRect = new Rect(innerRect.xMin, innerRect.yMin, Mathf.Max(0f, closeRect.xMin - innerRect.xMin - 4f), closeRect.height);
             Widgets.Label(titleRect, activeProvider.TabLabel);
-            if (closeRect.height > 0f && Widgets.ButtonText(closeRect, "×"))
+            if (closeRect.height > 0f && ClientWidgets.Button(closeRect, "×", HostThemeDrawing.Current))
             {
                 sidebarDrawerOpen = false;
                 return;
@@ -402,7 +415,7 @@ namespace PhinixClient
                 float tabHeight = Mathf.Min(GetSidebarTabHeight(innerRect.width, tabBaseRect), tabBaseRect.height);
                 if (tabHeight > 0f)
                 {
-                    TabDrawer.DrawTabsOverflow(tabBaseRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                    ClientWidgets.Tabs(tabBaseRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH, HostThemeDrawing.Current);
                     cursorY += tabHeight;
                 }
             }

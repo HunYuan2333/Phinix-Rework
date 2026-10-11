@@ -1,3 +1,4 @@
+using PhinixClient.Framework;
 using Authentication;
 using UnityEngine;
 using Verse;
@@ -63,6 +64,17 @@ namespace PhinixClient
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background);
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             if (inRect.width <= 0f || inRect.height <= 0f) return;
             float width = Mathf.Max(1f, inRect.width - 16f);
             RebuildLayout(width);
@@ -79,7 +91,8 @@ namespace PhinixClient
                 TooltipHandler.TipRegion(new Rect(0f, y, viewWidth, serverNameHeight), ServerName ?? "");
                 y += serverNameHeight + Spacing;
                 Rect descriptionRect = new Rect(0f, y, viewWidth, descriptionHeight);
-                Widgets.DrawMenuSection(descriptionRect);
+                ClientWidgets.Surface(descriptionRect, HostThemeDrawing.Current);
+                ClientWidgets.Border(descriptionRect, HostThemeDrawing.Current);
                 Rect descriptionInner = descriptionRect.ContractedBy(6f);
                 bool descriptionOverflows = descriptionContentHeight > descriptionInner.height;
                 float descriptionViewWidth = Mathf.Max(1f,
@@ -97,11 +110,11 @@ namespace PhinixClient
                 finally { Widgets.EndScrollView(); }
                 TooltipHandler.TipRegion(descriptionRect, ServerDescription ?? "");
                 y += descriptionHeight + Spacing;
-                usernameText = Widgets.TextField(new Rect(0f, y, viewWidth, RowHeight), usernameText);
+                usernameText = ClientWidgets.TextField(new Rect(0f, y, viewWidth, RowHeight), usernameText, HostThemeDrawing.Current, controlName: "phinix.credentials.username." + SessionId);
                 y += RowHeight + Spacing;
-                passwordText = Widgets.TextField(new Rect(0f, y, viewWidth, RowHeight), passwordText);
+                passwordText = ClientWidgets.TextField(new Rect(0f, y, viewWidth, RowHeight), passwordText, HostThemeDrawing.Current, controlName: "phinix.credentials.password." + SessionId);
                 y += RowHeight + Spacing;
-                if (Widgets.ButtonText(new Rect(0f, y, viewWidth, RowHeight), submitText))
+                if (ClientWidgets.Button(new Rect(0f, y, viewWidth, RowHeight), submitText, HostThemeDrawing.Current))
                 {
                     CredentialsCallback?.Invoke(true, SessionId, AuthType, usernameText, passwordText);
                     CredentialsCallback = null;

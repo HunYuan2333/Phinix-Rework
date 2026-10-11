@@ -39,6 +39,7 @@ namespace Phinix.ChatExtension.Client
         private float[] onlineScrollbarOffsets = new float[1];
         private float[] blockedNormalOffsets = new float[1];
         private float[] blockedScrollbarOffsets = new float[1];
+        private long cachedThemeVersion = -1;
         private float cachedWidth = -1f;
         private object cachedLanguage;
         private string cachedBlockedUsersLabel;
@@ -93,13 +94,23 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             if (inRect.width <= 0f || inRect.height <= 0f)
             {
                 return;
             }
 
             object language = LanguageDatabase.activeLanguage;
-            if (onlineUsersChanged || blockedUsersChanged || !Mathf.Approximately(cachedWidth, inRect.width) || !ReferenceEquals(language, cachedLanguage))
+            if (cachedThemeVersion != ChatTheme.Version || onlineUsersChanged || blockedUsersChanged || !Mathf.Approximately(cachedWidth, inRect.width) || !ReferenceEquals(language, cachedLanguage))
             {
                 if (Monitor.TryEnter(userListsLock))
                 {
@@ -247,6 +258,7 @@ namespace Phinix.ChatExtension.Client
 
             onlineUsersChanged = false;
             blockedUsersChanged = false;
+            cachedThemeVersion = ChatTheme.Version;
             cachedWidth = width;
             cachedLanguage = language;
             cachedBlockedUsersLabel = "Phinix_chat_blockedUsers".Translate();
@@ -354,7 +366,7 @@ namespace Phinix.ChatExtension.Client
             if (Mouse.IsOver(inRect))
             {
                 string stripped = TextHelper.StripRichText(formattedDisplayName);
-                Widgets.Label(paddedRect, stripped.Colorize(Widgets.MouseoverOptionColor));
+                ClientWidgets.Label(paddedRect, stripped, ChatTheme.Current.GetColor("ui.accent"));
             }
             else
             {

@@ -66,12 +66,19 @@
     <Reference Include="UnityEngine">
       <HintPath>$(RimWorldDepDir)\UnityEngine.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(RimWorldDepDir)\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Framework\IClientLinkService.cs" />
     <Compile Include="Framework\IClientLocalizationService.cs" />
     <Compile Include="Framework\IClientExtensionAbstractions.cs" />
     <Compile Include="Framework\IClientComposition.cs" />
+    <Compile Include="Framework\IClientTaskService.cs" />
+    <Compile Include="Framework\IClientExtensionPoints.cs" />
+    <Compile Include="Framework\IClientApiDirectory.cs" />
+    <Compile Include="Framework\IClientLifetimeService.cs" />
     <Compile Include="Framework\IClientExtensionManagementWindowService.cs" />
     <Compile Include="Framework\IClientExtensionControlService.cs" />
     <Compile Include="Framework\ClientEnvironmentSnapshot.cs" />
@@ -87,7 +94,9 @@
     <Compile Include="UI\IUiAcceptKeyHandler.cs" />
     <Compile Include="UI\IServerSidebarProvider.cs" />
     <Compile Include="UI\INoticeBannerProvider.cs" />
-    <Compile Include="UI\IUiTheme.cs" />
+    <Compile Include="UI\IClientTheme.cs" />
+    <Compile Include="UI\IClientThemePackages.cs" />
+    <Compile Include="UI\ClientWidgets.cs" />
     <Compile Include="UI\ResponsiveFormLayout.cs" />
     <Compile Include="UI\ResponsiveSplitLayout.cs" />
     <Compile Include="UI\ResponsiveToolbarLayout.cs" />

@@ -33,7 +33,7 @@ internal static class Program
                     host.AddService<IClientCompositionFactory>(factory);
                     host.AddService<IClientSettingsContext>(services);
                     host.AddService<IClientMainThreadDispatcher>(services);
-                    host.AddService<IClientShellEventStream>(services);
+                    host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                     if(scenario!="missing-host") host.AddService<IClientWindowService>(services);
                     var module=(IPhinixExtensionModule)Activator.CreateInstance(type);
                     object ledger=type.GetField("ledger",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(module);
@@ -91,7 +91,7 @@ internal static class Program
                 var host=new ExtensionHostContext(); var services=new Services(); var factory=new Factory(inner,false);
                 host.AddService<IClientCompositionFactory>(factory);
                 host.AddService<IClientSettingsContext>(services); host.AddService<IClientMainThreadDispatcher>(services);
-                host.AddService<IClientShellEventStream>(services); host.AddService<IClientWindowService>(services);
+                host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services); host.AddService<IClientWindowService>(services);
                 host.AddService<IExtensionDiscoveryPolicy>(new Discovery(type));
                 var disabled=PhinixExtensionRegistry.DiscoverExtensions(host,new Disabled());
                 Assert(disabled.Modules.Count==0 && disabled.ExtensionResults.Single().State==ExtensionModuleState.Disabled && factory.Created==0,
@@ -137,7 +137,7 @@ internal static class Program
         {
             var factory=new Factory(inner,false);
             host.AddService<IClientCompositionFactory>(factory); host.AddService<IClientSettingsContext>(services);
-            host.AddService<IClientMainThreadDispatcher>(services); host.AddService<IClientShellEventStream>(services);
+            host.AddService<IClientMainThreadDispatcher>(services); host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
             host.AddService<IClientWindowService>(services);
             var module=(IPhinixExtensionModule)Activator.CreateInstance(type); module.Register(new Builder(host,false));
             try
@@ -241,8 +241,20 @@ internal static class Program
         }
         finally { type.GetField("active",BindingFlags.NonPublic|BindingFlags.Static).SetValue(null,null); journal.Dispose(); if(Directory.Exists(directory)) Directory.Delete(directory,true); }
     }
-    private sealed class Services : IClientSettingsContext,IClientMainThreadDispatcher,IClientShellEventStream,IClientWindowService,IDisposable
+    private sealed class Services : IClientSettingsContext,IClientMainThreadDispatcher,IClientShellEventStream,IClientWindowService,IClientTheme,IClientThemeRegistry,IDisposable
     {
+        public long Version => 0;
+        public event Action Changed { add { } remove { } }
+        public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new ThemeRegistration();
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, UnityEngine.Color>(), new Dictionary<string, float>());
+        public UnityEngine.Color PrimaryText => default(UnityEngine.Color); public UnityEngine.Color SecondaryText => default(UnityEngine.Color);
+        public UnityEngine.Color Background => default(UnityEngine.Color); public UnityEngine.Color Surface => default(UnityEngine.Color);
+        public UnityEngine.Color Separator => default(UnityEngine.Color); public UnityEngine.Color HoverHighlight => default(UnityEngine.Color);
+        public UnityEngine.Color Pending => default(UnityEngine.Color); public UnityEngine.Color Error => default(UnityEngine.Color);
+        public UnityEngine.Color Success => default(UnityEngine.Color); public UnityEngine.Color Warning => default(UnityEngine.Color);
+        public UnityEngine.Color GetColor(string key) => default(UnityEngine.Color);
+        public bool TryGetColor(string key, out UnityEngine.Color value) { value = default(UnityEngine.Color); return true; }
+        public float GetFloat(string key, float defaultValue = 0f) => defaultValue;
         public int Queued,Opened,Disposed; private EventHandler shell;
         public bool ThrowOnRemove; public readonly List<Action> Actions=new List<Action>();
         public int Subscribers=>shell?.GetInvocationList().Length??0;
@@ -255,6 +267,13 @@ internal static class Program
         public void Enqueue(Action action) { Queued++; Actions.Add(action); }
         public void Open(Window window) { Opened++; } public void OpenSettingsWindow() { Opened++; }
         public void Dispose() { Disposed++; }
+    }
+    private sealed class ThemeRegistration : IClientThemeRegistration
+    {
+        public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+        public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
+        public void Commit() { }
+        public void Dispose() { }
     }
     private sealed class Factory : IClientCompositionFactory
     {
@@ -290,7 +309,7 @@ internal static class Program
         public bool CanStore(InventoryItem item)=>true; public string GetAggregationKey(InventoryItem item)=>null;
         public int MaximumStackCount(InventoryEntry entry)=>1;
         public Thing Materialize(InventoryEntry entry,int count) {throw new NotSupportedException();}
-        public void Deliver(Thing thing,Map map,IntVec3 spot) {throw new NotSupportedException();}
+        public InventoryDeliveryResult DeliverVerified(Thing thing,Map map,IntVec3 spot) {throw new NotSupportedException();}
     }
     private sealed class Builder : IExtensionBuilder
     {

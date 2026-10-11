@@ -5,19 +5,14 @@ using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider, IClientLegacySettingsMigrator
+    internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider
     {
-        private readonly IUiTheme theme;
-        private readonly string[] labels = new string[12];
-        private readonly float[] labelHeights = new float[12];
+        private readonly string[] labels = new string[11];
+        private readonly float[] labelHeights = new float[11];
         private float cachedWidth = -1f;
         private object cachedLanguage;
 
-        public ChatSettingsPanelProvider(IUiTheme theme)
-        {
-            this.theme = theme ?? throw new ArgumentNullException(nameof(theme));
-        }
-
+        public ChatSettingsPanelProvider() { }
 
         public string SectionId => "chat.display";
 
@@ -26,6 +21,16 @@ namespace Phinix.ChatExtension.Client
         public bool IsVisible(IClientSettingsContext settings) => true;
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
+        {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawSettingsContents(listing, settings);
+            }
+        }
+
+        private void DrawSettingsContents(Listing_Standard listing, IClientSettingsContext settings)
         {
             RebuildLabels(listing.ColumnWidth);
             DrawCheckbox(listing, settings, 0, "chat.playNoiseOnMessageReceived", true);
@@ -36,7 +41,7 @@ namespace Phinix.ChatExtension.Client
 
             DrawLabel(listing, 5);
             string limitStr = settings.Get("chat.messageLimit", 40).ToString();
-            limitStr = listing.TextEntry(limitStr);
+            limitStr = ClientWidgets.TextField(listing.GetRect(30f), limitStr, ChatTheme.Current, controlName: "phinix.chat.settings.limitStr");
             int.TryParse(limitStr, out int chatMessageLimit);
             settings.Set("chat.messageLimit", chatMessageLimit);
 
@@ -45,7 +50,7 @@ namespace Phinix.ChatExtension.Client
 
             DrawLabel(listing, 8);
             string noticeDurationStr = settings.Get("chat.notice.defaultDuration", 10).ToString();
-            noticeDurationStr = listing.TextEntry(noticeDurationStr);
+            noticeDurationStr = ClientWidgets.TextField(listing.GetRect(30f), noticeDurationStr, ChatTheme.Current, controlName: "phinix.chat.settings.noticeDurationStr");
             int.TryParse(noticeDurationStr, out int noticeDuration);
             settings.Set("chat.notice.defaultDuration", noticeDuration);
 
@@ -53,22 +58,12 @@ namespace Phinix.ChatExtension.Client
 
             DrawLabel(listing, 10);
             string maxImageHeightStr = settings.Get("chat.images.maxHeight", 240f).ToString();
-            maxImageHeightStr = listing.TextEntry(maxImageHeightStr);
+            maxImageHeightStr = ClientWidgets.TextField(listing.GetRect(30f), maxImageHeightStr, ChatTheme.Current, controlName: "phinix.chat.settings.maxImageHeightStr");
             if (float.TryParse(maxImageHeightStr, out float maxImageHeight))
             {
                 settings.Set("chat.images.maxHeight", maxImageHeight);
             }
 
-            if (theme != null)
-            {
-                listing.Gap(4f);
-                Rect buttonRect = listing.GetRect(Mathf.Max(30f, labelHeights[11]));
-                if (Widgets.ButtonText(buttonRect, labels[11]))
-                {
-                    theme.Reload();
-                    ChatTheme.Refresh(theme);
-                }
-            }
         }
 
         private void RebuildLabels(float width)
@@ -85,7 +80,7 @@ namespace Phinix.ChatExtension.Client
                 "Phinix_modSettings_showBlockedUnreadMessageCount", "Phinix_modSettings_chatMessageLimit",
                 "Phinix_modSettings_forceMessageFieldFocus", "Phinix_modSettings_noticeEnabled",
                 "Phinix_modSettings_noticeDefaultDuration", "Phinix_modSettings_chatImagesEnabled",
-                "Phinix_modSettings_chatImagesMaxHeight", "Phinix_modSettings_reloadTheme"
+                "Phinix_modSettings_chatImagesMaxHeight"
             };
             for (int i = 0; i < keys.Length; i++)
             {
@@ -100,7 +95,7 @@ namespace Phinix.ChatExtension.Client
         {
             bool value = settings.Get(key, defaultValue);
             Rect rect = listing.GetRect(labelHeights[labelIndex]);
-            Widgets.CheckboxLabeled(rect, labels[labelIndex], ref value);
+            ClientWidgets.Checkbox(rect, labels[labelIndex], ref value, ChatTheme.Current);
             TooltipHandler.TipRegion(rect, labels[labelIndex]);
             settings.Set(key, value);
         }
@@ -108,47 +103,9 @@ namespace Phinix.ChatExtension.Client
         private void DrawLabel(Listing_Standard listing, int labelIndex)
         {
             Rect rect = listing.GetRect(labelHeights[labelIndex]);
-            Widgets.Label(rect, labels[labelIndex]);
+            ClientWidgets.Label(rect, labels[labelIndex], ChatTheme.Current);
             TooltipHandler.TipRegion(rect, labels[labelIndex]);
         }
 
-        public bool TryMigrateLegacySettings(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues)
-        {
-            if (settings == null || legacyValues == null)
-            {
-                return false;
-            }
-
-            migrateBool(settings, legacyValues, "showNameFormatting", "chat.showNameFormatting", true);
-            migrateBool(settings, legacyValues, "showChatFormatting", "chat.showChatFormatting", true);
-            migrateBool(settings, legacyValues, "showUnreadMessageCount", "chat.showUnreadMessageCount", true);
-            migrateBool(settings, legacyValues, "showBlockedUnreadMessageCount", "chat.showBlockedUnreadMessageCount", false);
-            migrateBool(settings, legacyValues, "forceMessageFieldFocus", "chat.forceMessageFieldFocus", true);
-            migrateBool(settings, legacyValues, "playNoiseOnMessageReceived", "chat.playNoiseOnMessageReceived", true);
-            migrateInt(settings, legacyValues, "chatMessageLimit", "chat.messageLimit", 40);
-            return true;
-        }
-
-        private static void migrateBool(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues, string legacyKey, string targetKey, bool defaultValue)
-        {
-            if (legacyValues.TryGetValue(legacyKey, out string rawValue) && bool.TryParse(rawValue, out bool parsedValue))
-            {
-                settings.Set(targetKey, parsedValue);
-                return;
-            }
-
-            settings.Set(targetKey, defaultValue);
-        }
-
-        private static void migrateInt(IClientSettingsContext settings, System.Collections.Generic.IReadOnlyDictionary<string, string> legacyValues, string legacyKey, string targetKey, int defaultValue)
-        {
-            if (legacyValues.TryGetValue(legacyKey, out string rawValue) && int.TryParse(rawValue, out int parsedValue))
-            {
-                settings.Set(targetKey, parsedValue);
-                return;
-            }
-
-            settings.Set(targetKey, defaultValue);
-        }
     }
 }

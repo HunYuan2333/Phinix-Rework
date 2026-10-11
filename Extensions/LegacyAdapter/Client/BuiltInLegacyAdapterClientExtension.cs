@@ -21,15 +21,15 @@ namespace Phinix.LegacyAdapter.Client
         IActivatablePhinixExtensionModule,
         IClientMessageHandler,
         IClientCommandHandler,
-        IClientOutgoingCommandHandler
+        IClientOutgoingCommandHandler,
+        IClientOutgoingMessageHandler
     {
         private ILegacyModuleTransport legacyTransport;
         private IFrameworkClientLifecycle lifecycle;
         private IDisplayMessageSink displaySink;
         private IClientSessionContext sessionContext;
         private IFrameworkTradeClientApi tradeApi;
-        private IFrameworkLegacyTradeRepositoryApi legacyTradeRepositoryApi;
-        private IFrameworkLegacyTradeDeliveryApi legacyTradeDeliveryApi;
+        private ITradeStateInput tradeStateInput;
         private Action<string, LogLevel> log;
 
         private LegacyChatProtocolAdapter chatAdapter;
@@ -67,10 +67,9 @@ namespace Phinix.LegacyAdapter.Client
                     log?.Invoke("[LegacyAdapter] IFrameworkTradeClientApi not registered — legacy trade sync disabled.", LogLevel.WARNING);
                 }
 
-                hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeRepositoryApi>(out legacyTradeRepositoryApi);
-                if (!hostContext.ApiRegistry.TryResolve<IFrameworkLegacyTradeDeliveryApi>(out legacyTradeDeliveryApi))
+                if (!hostContext.ApiRegistry.TryResolve<ITradeStateInput>(out tradeStateInput))
                 {
-                    log?.Invoke("[LegacyAdapter] IFrameworkLegacyTradeDeliveryApi not registered — legacy trade completion disabled.", LogLevel.ERROR);
+                    log?.Invoke("[LegacyAdapter] ITradeStateInput not registered — trade state input unavailable.", LogLevel.ERROR);
                 }
                 composition = hostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local =>
                 {
@@ -80,8 +79,8 @@ namespace Phinix.LegacyAdapter.Client
                     local.Borrow(lifecycle);
                     local.Borrow(new LegacyTradeDependencies
                     {
-                        Api = tradeApi, Repository = legacyTradeRepositoryApi,
-                        Delivery = legacyTradeDeliveryApi, Log = log
+                        Api = tradeApi, Repository = tradeStateInput,
+                        Log = log
                     });
                     local.Register<LegacyAdapterSession, LegacyAdapterSession>();
                 });
@@ -104,7 +103,7 @@ namespace Phinix.LegacyAdapter.Client
             composition = null;
             chatAdapter = null; tradeAdapter = null; session = null;
             legacyTransport = null; lifecycle = null; displaySink = null; sessionContext = null;
-            tradeApi = null; legacyTradeRepositoryApi = null; legacyTradeDeliveryApi = null; log = null;
+            tradeApi = null; tradeStateInput = null; log = null;
             owned?.Dispose();
         }
 
@@ -121,35 +120,44 @@ namespace Phinix.LegacyAdapter.Client
             return canHandle;
         }
 
-        public ClientOutgoingMessageResult HandleOutgoingText(
-            string rawMessage, ClientFrameworkContext context)
+        public ClientOutgoingMessageResult HandleOutgoingText(string rawMessage, ClientFrameworkContext context)
         {
-            if (chatAdapter == null)
-                return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Continue };
-            log?.Invoke(
-                $"[LegacyAdapter] HandleOutgoingText: sending via legacy Chat protocol, textLen={rawMessage?.Length ?? 0}",
-                LogLevel.DEBUG);
+            SendMessage(rawMessage, Guid.NewGuid().ToString());
+            return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Handled };
+        }
 
-            // 旧版服务器不广播回发送者，需要本地注入回声消息
-            displaySink?.Enqueue(new FrameworkDisplayMessage
+        public bool CanHandleOutgoingMessage(FrameworkPacket message)
+            => lifecycle?.CompatibilityMode == FrameworkCompatibilityMode.Legacy && chatAdapter != null
+               && message?.MessageType == Phinix.ChatExtension.FrameworkChatProtocol.MessageType;
+
+        public ClientOutgoingMessageResult HandleOutgoingMessage(FrameworkPacket message, ClientFrameworkContext context)
+        {
+            var payload = new global::Phinix.Framework.BuiltInChatMessagePayload();
+            using (var input = new Google.Protobuf.CodedInputStream(message.PayloadBytes)) payload.MergeFrom(input);
+            if (payload.MentionedUuids.Count != 0 || !string.IsNullOrEmpty(payload.ReplyToMessageId))
+                log?.Invoke("[LegacyAdapter] Chat metadata is unavailable on this endpoint; sending the original message text.", LogLevel.INFO);
+            SendMessage(payload.Message, payload.MessageId);
+            return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Handled };
+        }
+
+        private void SendMessage(string text, string messageId)
+        {
+            if (chatAdapter == null || !chatAdapter.SendChatMessage(text, messageId))
+                throw new InvalidOperationException("Chat message dispatch failed.");
+            // This endpoint does not echo to the sender. Publish only after dispatch succeeded.
+            try
             {
-                MessageId = Guid.NewGuid().ToString(),
-                SenderUuid = sessionContext?.Uuid ?? string.Empty,
-                Text = rawMessage,
-                TimestampUtcTicks = DateTime.UtcNow.Ticks,
-                Source = "builtin_chat"
-            });
-
-            bool sent = chatAdapter.SendChatMessage(rawMessage);
-            log?.Invoke(
-                $"[LegacyAdapter] HandleOutgoingText: chatAdapter.SendChatMessage returned {sent}",
-                LogLevel.DEBUG);
-
-            // 始终返回 Handled，防止后续 Chat handler 在 Legacy 模式下显示错误提示
-            return new ClientOutgoingMessageResult
+                displaySink?.Enqueue(new FrameworkDisplayMessage
+                {
+                    MessageId = messageId, SenderUuid = sessionContext?.Uuid ?? string.Empty,
+                    Text = text, TimestampUtcTicks = DateTime.UtcNow.Ticks, Source = "builtin_chat"
+                });
+            }
+            catch (Exception error)
             {
-                Action = MessageHandlingResultAction.Handled
-            };
+                // Dispatch already succeeded; an observer failure must not invite another send.
+                try { log?.Invoke("[LegacyAdapter] Chat echo failed after dispatch: " + error, LogLevel.WARNING); } catch { }
+            }
         }
 
         public bool CanHandleIncomingMessage(FrameworkPacket message)

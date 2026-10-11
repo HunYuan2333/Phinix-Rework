@@ -61,7 +61,7 @@ namespace Phinix.LegacyAdapter.Client
         /// <summary>
         /// 出站：将文本消息打包为 legacy ChatMessagePacket → 发送到 "Chat" 模块
         /// </summary>
-        public bool SendChatMessage(string rawMessage)
+        public bool SendChatMessage(string rawMessage, string messageId = null)
         {
             if (string.IsNullOrEmpty(rawMessage))
                 return false;
@@ -72,7 +72,7 @@ namespace Phinix.LegacyAdapter.Client
                 {
                     SessionId = sessionContext.SessionId ?? string.Empty,
                     Uuid = sessionContext.Uuid ?? string.Empty,
-                    MessageId = Guid.NewGuid().ToString(),
+                    MessageId = messageId ?? Guid.NewGuid().ToString(),
                     Message = rawMessage,
                     Timestamp = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow)
                 };

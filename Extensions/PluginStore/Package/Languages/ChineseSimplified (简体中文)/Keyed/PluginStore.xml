@@ -239,4 +239,14 @@
   <Phinix_store2_LocalPackageDowngrade>不允许降低本地包版本。</Phinix_store2_LocalPackageDowngrade>
   <Phinix_store2_ManagedReplacementIdentityInvalid>替换前需要启用并验证现有包。</Phinix_store2_ManagedReplacementIdentityInvalid>
   <Phinix_store2_copySummary>复制摘要</Phinix_store2_copySummary>
+  <Phinix_store2_localThemes>本地主题包</Phinix_store2_localThemes>
+  <Phinix_store2_themeChooseZip>选择主题 ZIP</Phinix_store2_themeChooseZip>
+  <Phinix_store2_themeSelector>主题选择器</Phinix_store2_themeSelector>
+  <Phinix_store2_themeCandidate>已校验本地候选</Phinix_store2_themeCandidate>
+  <Phinix_store2_themeLocalSource>来源：本地文件，未经官方商店审核。安装后在选择器选择主题即可热加载。</Phinix_store2_themeLocalSource>
+  <Phinix_store2_themeRemoveConfirm>确认卸载该主题包？当前使用其中主题时将回退默认；用户配色覆盖保留。</Phinix_store2_themeRemoveConfirm>
+  <Phinix_store2_themeRemoved>主题包已卸载，目录已刷新。</Phinix_store2_themeRemoved>
+  <Phinix_store2_themeInstall>安装本地主题包</Phinix_store2_themeInstall>
+  <Phinix_store2_themeUpdate>更新本地主题包</Phinix_store2_themeUpdate>
+  <Phinix_store2_themeInstalled>主题包已保存。请在主题选择器选择；无需重启。</Phinix_store2_themeInstalled>
 </LanguageData>

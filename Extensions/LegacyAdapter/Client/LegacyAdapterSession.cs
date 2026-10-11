@@ -10,8 +10,7 @@ namespace Phinix.LegacyAdapter.Client
     internal sealed class LegacyTradeDependencies
     {
         internal IFrameworkTradeClientApi Api;
-        internal IFrameworkLegacyTradeRepositoryApi Repository;
-        internal IFrameworkLegacyTradeDeliveryApi Delivery;
+        internal ITradeStateInput Repository;
         internal Action<string, LogLevel> Log;
     }
 
@@ -35,7 +34,7 @@ namespace Phinix.LegacyAdapter.Client
             this.transport = new SessionTransport(transport);
             Chat = new LegacyChatProtocolAdapter(this.transport, sink, session);
             Trade = new LegacyTradeProtocolAdapter(this.transport, sink, session, dependencies.Api,
-                dependencies.Repository, dependencies.Delivery, lifecycle, dependencies.Log);
+                dependencies.Repository, lifecycle, dependencies.Log);
         }
 
         internal void Start()

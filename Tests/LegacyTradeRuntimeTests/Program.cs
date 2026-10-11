@@ -392,9 +392,7 @@ internal static class Program
         public Fixture()
         {
             Service = new PhinixFrameworkTradeClientService(null, new FakeUsers(), null);
-            Type bridgeType = typeof(PhinixFrameworkTradeClientService).Assembly.GetType("Phinix.TradeExtension.Client.FrameworkLegacyTradeClientAdapter", true);
-            object bridge = Activator.CreateInstance(bridgeType, Service);
-            ((IFrameworkLegacyTradeRepositoryApi)bridge).UpsertTrade(new FrameworkTradeStateSnapshot
+            ((ITradeStateInput)Service).UpsertTrade(new FrameworkTradeStateSnapshot
             {
                 TradeId = "trade",
                 Participants = new List<FrameworkTradeParticipantSnapshot>
@@ -409,7 +407,7 @@ internal static class Program
             };
             Service.OnTradeUpdateFailure += (sender, args) => Failures.Add(args);
             Type adapterType = typeof(Trading.ProtoThing).Assembly.GetType("Phinix.LegacyAdapter.Client.LegacyTradeProtocolAdapter", true);
-            object instance = Activator.CreateInstance(adapterType, Transport, new FakeSink(), new FakeSession(), Service, bridge, bridge, null, null);
+            object instance = Activator.CreateInstance(adapterType, Transport, new FakeSink(), new FakeSession(), Service, Service, null, null);
             adapter = (IClientOutgoingCommandHandler)instance;
             adapterType.GetMethod("RegisterHandlers").Invoke(instance, null);
         }

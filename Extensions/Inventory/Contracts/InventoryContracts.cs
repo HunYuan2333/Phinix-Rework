@@ -5,7 +5,7 @@ namespace Phinix.InventoryExtension
 {
     public static class InventoryContract
     {
-        public const int Version = 5;
+        public const int Version = 6;
     }
 
     public static class InventoryDeliveryPreference
@@ -318,17 +318,7 @@ namespace Phinix.InventoryExtension
         string GetAggregationKey(InventoryItem item);
         int MaximumStackCount(InventoryEntry entry);
         Verse.Thing Materialize(InventoryEntry entry, int count);
-        // Throw if delivery fails or is uncertain; inventory retains the reservation.
-        void Deliver(Verse.Thing thing, Verse.Map map, Verse.IntVec3 dropSpot);
-    }
-
-    /// <summary>
-    /// Additive delivery contract for codecs that can report ownership transfer.
-    /// Older codecs remain supported and are verified by the inventory host after
-    /// their legacy Deliver call returns.
-    /// </summary>
-    public interface IInventoryVerifiedDeliveryCodec
-    {
+        // Explicit custody result is required; an uncertain result retains the reservation.
         InventoryDeliveryResult DeliverVerified(Verse.Thing thing, Verse.Map map, Verse.IntVec3 dropSpot);
     }
 

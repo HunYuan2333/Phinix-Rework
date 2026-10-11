@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System;
 using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
@@ -7,59 +8,48 @@ namespace Phinix.ChatExtension.Client
 {
     internal static class ChatTheme
     {
-        public static Color MentionText;
-        public static Color MentionSelfBg;
-        public static Color SelfName;
-        public static Color SelfMessageBg;
-        public static Color RowHoverBg;
-        public static Color GroupIndentLine;
-        public static Color ReplyQuoteBorder;
-        public static Color ReplyQuoteBg;
-        public static Color ReplyQuoteText;
-        public static Color NoticeAccent;
-        public static Color NoticeBg;
-        public static Color NoticeBannerBg;
-        public static Color NoticeProgress;
-        public static Color InputReplyBorder;
-        public static Color InputReplyBg;
-        public static Color BlockedBg;
-        public static Color BlockedName;
-        public static Color PendingMessage;
-        public static Color DeniedMessage;
-        public static Color ImagePlaceholderBg;
-        public static Color ImageFailedText;
+        internal static long Version => Current?.Version ?? 0;
+        public static Color MessageText => Current?.GetColor("chat.messageText") ?? default(Color);
+        public static Color InputText => Current?.GetColor("chat.inputText") ?? default(Color);
+        public static Color MentionText => Current?.GetColor("chat.mentionText") ?? default(Color);
+        public static Color MentionSelfBg => Current?.GetColor("chat.mentionSelfBg") ?? default(Color);
+        public static Color SelfName => Current?.GetColor("chat.selfName") ?? default(Color);
+        public static Color SelfMessageBg => Current?.GetColor("chat.selfMessageBg") ?? default(Color);
+        public static Color RowHoverBg => Current?.GetColor("chat.rowHoverBg") ?? default(Color);
+        public static Color GroupIndentLine => Current?.GetColor("chat.groupIndentLine") ?? default(Color);
+        public static Color ReplyQuoteBorder => Current?.GetColor("chat.replyQuoteBorder") ?? default(Color);
+        public static Color ReplyQuoteBg => Current?.GetColor("chat.replyQuoteBg") ?? default(Color);
+        public static Color ReplyQuoteText => Current?.GetColor("chat.replyQuoteText") ?? default(Color);
+        public static Color NoticeAccent => Current?.GetColor("chat.noticeAccent") ?? default(Color);
+        public static Color NoticeBg => Current?.GetColor("chat.noticeBg") ?? default(Color);
+        public static Color NoticeBannerBg => Current?.GetColor("chat.noticeBannerBg") ?? default(Color);
+        public static Color NoticeProgress => Current?.GetColor("chat.noticeProgress") ?? default(Color);
+        public static Color InputReplyBorder => Current?.GetColor("chat.inputReplyBorder") ?? default(Color);
+        public static Color InputReplyBg => Current?.GetColor("chat.inputReplyBg") ?? default(Color);
+        public static Color BlockedBg => Current?.GetColor("chat.blockedBg") ?? default(Color);
+        public static Color BlockedName => Current?.GetColor("chat.blockedName") ?? default(Color);
+        public static Color PendingMessage => Current?.GetColor("chat.pendingMessage") ?? default(Color);
+        public static Color DeniedMessage => Current?.GetColor("chat.deniedMessage") ?? default(Color);
+        public static Color ImagePlaceholderBg => Current?.GetColor("chat.imagePlaceholderBg") ?? default(Color);
+        public static Color ImageFailedText => Current?.GetColor("chat.imageFailedText") ?? default(Color);
 
         // 用户名配色 HSV 参数——由主题 XML <param> 控制，颜色计算统一走这里
-        private static float nameColorSaturation = 0.55f;
-        private static float nameColorValue = 0.85f;
+        private static float nameColorSaturation => Current?.GetFloat("chat.nameColor.saturation", .55f) ?? .55f;
+        private static float nameColorValue => Current?.GetFloat("chat.nameColor.value", .85f) ?? .85f;
 
-        internal static void Refresh(IUiTheme theme)
+        private static IClientTheme source;
+        private static IClientThemeReader latest, drawing;
+        internal static IClientThemeReader Current => drawing ?? latest;
+        internal static void Refresh(IClientTheme theme)
+        { source = theme; latest = theme.Capture(); }
+        internal static void Release() { source = null; latest = null; }
+        internal static DrawScope BeginDraw() => new DrawScope(true);
+        internal struct DrawScope : IDisposable
         {
-            MentionText = theme.GetColor("chat.mentionText");
-            MentionSelfBg = theme.GetColor("chat.mentionSelfBg");
-            SelfName = theme.GetColor("chat.selfName");
-            SelfMessageBg = theme.GetColor("chat.selfMessageBg");
-            RowHoverBg = theme.GetColor("chat.rowHoverBg");
-            GroupIndentLine = theme.GetColor("chat.groupIndentLine");
-            ReplyQuoteBorder = theme.GetColor("chat.replyQuoteBorder");
-            ReplyQuoteBg = theme.GetColor("chat.replyQuoteBg");
-            ReplyQuoteText = theme.GetColor("chat.replyQuoteText");
-            NoticeAccent = theme.GetColor("chat.noticeAccent");
-            NoticeBg = theme.GetColor("chat.noticeBg");
-            NoticeBannerBg = theme.GetColor("chat.noticeBannerBg");
-            NoticeProgress = theme.GetColor("chat.noticeProgress");
-            InputReplyBorder = theme.GetColor("chat.inputReplyBorder");
-            InputReplyBg = theme.GetColor("chat.inputReplyBg");
-            BlockedBg = theme.GetColor("chat.blockedBg");
-            BlockedName = theme.GetColor("chat.blockedName");
-            PendingMessage = theme.GetColor("chat.pendingMessage");
-            DeniedMessage = theme.GetColor("chat.deniedMessage");
-            ImagePlaceholderBg = theme.GetColor("chat.imagePlaceholderBg");
-            ImageFailedText = theme.GetColor("chat.imageFailedText");
-
-            // 读取主题化的 HSV 参数
-            nameColorSaturation = theme.GetFloat("nameColor.saturation", 0.55f);
-            nameColorValue = theme.GetFloat("nameColor.value", 0.85f);
+            private readonly IClientThemeReader previous;
+            internal DrawScope(bool capture)
+            { previous = drawing; drawing = previous ?? source?.Capture() ?? latest; }
+            public void Dispose() { drawing = previous; }
         }
 
         private static readonly Regex OpenTagRegex = new Regex(@"<(?!/)[^>]+>", RegexOptions.Compiled);

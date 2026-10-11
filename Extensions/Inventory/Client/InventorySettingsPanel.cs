@@ -6,7 +6,8 @@ namespace Phinix.InventoryExtension.Client
 {
     internal sealed class InventorySettingsPanel : IClientSettingsPanelProvider, IClientQuickSettingsPanelProvider
     {
-        public InventorySettingsPanel() { }
+        private readonly InventoryTheme theme;
+        public InventorySettingsPanel(InventoryTheme theme) { this.theme = theme; }
 
         private float cachedWidth = -1f;
         private object cachedLanguage;
@@ -33,6 +34,12 @@ namespace Phinix.InventoryExtension.Client
 
         public void DrawQuickSettings(Rect rect, IClientSettingsContext settings)
         {
+            using (theme.BeginDraw())
+            using (new ClientGuiScope(true)) DrawQuickSettingsContents(rect, settings);
+        }
+
+        private void DrawQuickSettingsContents(Rect rect, IClientSettingsContext settings)
+        {
             Rebuild(rect.width);
             GameFont oldFont = Text.Font;
             Color oldColor = GUI.color;
@@ -40,7 +47,7 @@ namespace Phinix.InventoryExtension.Client
             {
                 float y = rect.y;
                 Text.Font = GameFont.Medium;
-                Widgets.Label(new Rect(rect.x, y, rect.width, titleHeight), title);
+                ClientWidgets.Label(new Rect(rect.x, y, rect.width, titleHeight), title, theme.Current);
                 y += titleHeight + 4f;
 
                 string mode = settings.Get(InventoryDeliveryPreference.SettingKey,
@@ -62,7 +69,7 @@ namespace Phinix.InventoryExtension.Client
                 y += inventoryHeight + 6f;
                 Text.Font = GameFont.Tiny;
                 Rect footerRect = new Rect(rect.x, y, rect.width, footerHeight);
-                Widgets.Label(footerRect, footer);
+                ClientWidgets.Label(footerRect, footer, theme.Current, secondary: true);
                 TooltipHandler.TipRegion(footerRect, footer);
             }
             finally
@@ -74,9 +81,16 @@ namespace Phinix.InventoryExtension.Client
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         {
+            using (theme.BeginDraw())
+            using (new ClientGuiScope(true)) DrawSettingsContents(listing, settings);
+        }
+
+        private void DrawSettingsContents(Listing_Standard listing, IClientSettingsContext settings)
+        {
             Rebuild(listing.ColumnWidth);
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Medium;
+            GUI.color = theme.Current.PrimaryText;
             listing.Label(title);
             Text.Font = oldFont;
             listing.Gap(4f);
@@ -95,33 +109,25 @@ namespace Phinix.InventoryExtension.Client
             listing.Gap(6f);
             Text.Font = GameFont.Tiny;
             Rect footerRect = listing.GetRect(footerHeight);
-            Widgets.Label(footerRect, footer);
+            ClientWidgets.Label(footerRect, footer, theme.Current, secondary: true);
             TooltipHandler.TipRegion(footerRect, footer);
             Text.Font = oldFont;
             listing.Gap(8f);
         }
 
-        private static bool DrawOption(Rect rect, string optionTitle, string description, bool selected)
+        private bool DrawOption(Rect rect, string optionTitle, string description, bool selected)
         {
-            if (selected) Widgets.DrawBoxSolid(rect, new Color(0.2f, 0.45f, 0.7f, 0.16f));
-            else if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
-
-            Rect titleRect = new Rect(rect.x + 6f, rect.y + 4f, rect.width - 12f, 30f);
-            bool clicked = Widgets.RadioButtonLabeled(titleRect, optionTitle, selected);
-            GameFont oldFont = Text.Font;
-            Color oldColor = GUI.color;
-            Text.Font = GameFont.Tiny;
-            GUI.color = new Color(0.78f, 0.78f, 0.78f, 1f);
-            Rect descriptionRect = new Rect(rect.x + 34f, titleRect.yMax - 2f,
-                Mathf.Max(0f, rect.width - 42f), Mathf.Max(0f, rect.yMax - titleRect.yMax));
-            Widgets.Label(descriptionRect, description);
-            Text.Font = oldFont;
-            GUI.color = oldColor;
-            TooltipHandler.TipRegion(rect, description);
-            return clicked || (Widgets.ButtonInvisible(rect) && !selected);
+            return ClientWidgets.RadioOption(rect, optionTitle, description, selected,
+                theme.Current, theme.SelectedBackground);
         }
 
         private void Rebuild(float width)
+        {
+            using (theme.BeginDraw())
+            using (new ClientGuiScope(true)) RebuildContents(width);
+        }
+
+        private void RebuildContents(float width)
         {
             width = Mathf.Max(1f, width);
             object language = LanguageDatabase.activeLanguage;

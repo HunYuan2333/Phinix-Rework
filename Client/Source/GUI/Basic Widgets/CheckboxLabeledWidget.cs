@@ -1,7 +1,8 @@
-﻿// Original file provided by Longwelwind (https://github.com/Longwelwind)
+// Original file provided by Longwelwind (https://github.com/Longwelwind)
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
 using System;
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -39,11 +40,16 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true)) DrawContents(inRect);
+        }
+        private void DrawContents(Rect inRect)
+        {
             // Get a copy of the old checked state to compare with later
             bool oldValue = isChecked;
 
             // Draw the checkbox
-            Widgets.CheckboxLabeled(inRect, label, ref isChecked);
+            ClientWidgets.Checkbox(inRect, label, ref isChecked, HostThemeDrawing.Current);
 
             // Check if the checked state has changed
             if (oldValue != isChecked)

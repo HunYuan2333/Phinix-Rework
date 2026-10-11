@@ -11,7 +11,7 @@ using Verse;
 
 namespace Phinix.TradeExtension.Client
 {
-    internal sealed class TradeInventoryCodec : IInventoryCodec, IInventoryVerifiedDeliveryCodec, IInventoryItemPresentationCodec
+    internal sealed class TradeInventoryCodec : IInventoryCodec, IInventoryItemPresentationCodec
     {
         public const string Id = "trade.framework-item-v1";
         private readonly TradeClientItemPipeline itemPipeline;
@@ -60,12 +60,6 @@ namespace Phinix.TradeExtension.Client
         {
             if (entry == null || count != 1) throw new ArgumentException("A delivered trade stack is indivisible.");
             return itemPipeline.DecodeItemExactly(Decode(entry.Payload));
-        }
-
-        public void Deliver(Thing thing, Map map, IntVec3 dropSpot)
-        {
-            InventoryDeliveryResult result = DeliverVerified(thing, map, dropSpot);
-            if (!result.Succeeded) throw new InvalidOperationException(result.Reason ?? "Trade delivery failed.");
         }
 
         public InventoryDeliveryResult DeliverVerified(Thing thing, Map map, IntVec3 dropSpot)

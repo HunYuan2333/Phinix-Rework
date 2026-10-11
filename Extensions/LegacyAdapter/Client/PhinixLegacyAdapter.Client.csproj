@@ -127,6 +127,7 @@
       <Project>{B6FF1583-C75A-42C1-9B75-2B16215A0CF7}</Project>
       <Name>Utils</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Chat\Contracts\ChatExtension.csproj" />
     <ProjectReference Include="..\..\Trade\Contracts\TradeExtension.csproj">
       <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
       <Name>TradeExtension</Name>

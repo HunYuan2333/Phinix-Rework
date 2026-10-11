@@ -52,6 +52,7 @@ namespace Phinix.ChatExtension.Client
         private readonly List<UIChatMessage> messages = new List<UIChatMessage>();
         private readonly object messagesLock = new object();
         private readonly Dictionary<string, Rect> messageRectCache = new Dictionary<string, Rect>();
+        private long styleVersion = -1;
         private readonly Dictionary<string, CachedMessageDisplay> displayCache = new Dictionary<string, CachedMessageDisplay>();
         private readonly Dictionary<string, List<ChatImageState>> messageImageStates = new Dictionary<string, List<ChatImageState>>();
         private readonly IChatUiHostContext hostContext;
@@ -157,6 +158,21 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
+            if (styleVersion != ChatTheme.Version)
+            {
+                styleVersion = ChatTheme.Version;
+                displayCache.Clear(); messageRectCache.Clear(); layoutDirty = true;
+            }
             if (inRect.width <= SCROLLBAR_WIDTH || inRect.height <= 0f)
             {
                 return;
@@ -431,6 +447,7 @@ namespace Phinix.ChatExtension.Client
                         renderedMessageText = TextHelper.StripRichText(renderedMessageText).Colorize(ChatTheme.PendingMessage);
                     else if (chatMessage.Status == UIChatMessageStatus.Denied)
                         renderedMessageText = TextHelper.StripRichText(renderedMessageText).Colorize(ChatTheme.DeniedMessage);
+                    else renderedMessageText = renderedMessageText.Colorize(ChatTheme.MessageText);
                 }
 
                 Color nameColor = isSelf ? ChatTheme.SelfName : ChatTheme.GetNameColor(chatMessage.SenderUuid);
@@ -792,7 +809,8 @@ namespace Phinix.ChatExtension.Client
 
                 if (imageState.Texture != null)
                 {
-                    Widgets.DrawTextureFitted(imageRect, imageState.Texture, 1f);
+                    using (new ClientGuiScope(true))
+                { UnityEngine.GUI.color = Color.white; Widgets.DrawTextureFitted(imageRect, imageState.Texture, 1f); }
                     if (Widgets.ButtonInvisible(imageRect, false))
                     {
                         Application.OpenURL(imageState.Url);

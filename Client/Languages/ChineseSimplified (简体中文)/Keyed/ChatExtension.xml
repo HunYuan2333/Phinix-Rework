@@ -33,4 +33,5 @@
     <Phinix_chat_imageLoading>图片加载中…</Phinix_chat_imageLoading>
     <Phinix_chat_imageUnsupported>图片无法解码，点击打开原图</Phinix_chat_imageUnsupported>
     <Phinix_chat_imageFailed>图片加载失败，点击重试</Phinix_chat_imageFailed>
+  <Phinix_chat_sendUnavailable>发送未完成，已保留输入内容。</Phinix_chat_sendUnavailable>
 </LanguageData>

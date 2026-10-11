@@ -1,4 +1,5 @@
-﻿using PhinixClient.GUI;
+using PhinixClient.GUI;
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -23,13 +24,13 @@ namespace PhinixClient
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
-            // Background
-            Widgets.DrawMenuSection(inRect);
-
-            // Text
-            if (text != null)
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
             {
-                Widgets.NoneLabelCenteredVertically(inRect, text);
+                ClientWidgets.Surface(inRect, HostThemeDrawing.Current);
+                ClientWidgets.Border(inRect, HostThemeDrawing.Current);
+                Text.Anchor = TextAnchor.MiddleCenter;
+                if (text != null) ClientWidgets.Label(inRect, text, HostThemeDrawing.Current, secondary: true);
             }
         }
     }

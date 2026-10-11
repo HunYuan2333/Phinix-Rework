@@ -31,8 +31,16 @@ namespace PhinixClient.Framework
             starting = true;
             try
             {
-                Extensions = PhinixExtensionRegistry.DiscoverExtensions(hostContext);
-                ReportLegacyClientEntries();
+                hostContext.TryGetService<IExtensionDiscoveryPolicy>(out var originalPolicy);
+                var policy = new CurrentClientModules(originalPolicy);
+                hostContext.AddService<IExtensionDiscoveryPolicy>(policy);
+                try { Extensions = PhinixExtensionRegistry.DiscoverExtensions(hostContext); }
+                finally
+                {
+                    if (originalPolicy == null) hostContext.RemoveService<IExtensionDiscoveryPolicy>(policy);
+                    else hostContext.AddService<IExtensionDiscoveryPolicy>(originalPolicy);
+                }
+                Extensions.Warnings.AddRange(policy.Rejections);
                 PhinixExtensionRegistry.ActivateExtensions(Extensions, hostContext);
                 started = true;
             }
@@ -48,18 +56,19 @@ namespace PhinixClient.Framework
             }
         }
 
-        private void ReportLegacyClientEntries()
+        private sealed class CurrentClientModules : IExtensionDiscoveryPolicy
         {
-            // Only registered instances are inspected. Disabled/failed candidates are never
-            // constructed for diagnostics; the shared server registry has no such policy.
-            foreach (IPhinixExtensionModule module in Extensions.Modules)
+            private readonly IExtensionDiscoveryPolicy inner;
+            internal readonly System.Collections.Generic.List<string> Rejections = new System.Collections.Generic.List<string>();
+            internal CurrentClientModules(IExtensionDiscoveryPolicy inner) { this.inner = inner; }
+            public bool ShouldScanAssembly(System.Reflection.Assembly assembly) => inner == null || inner.ShouldScanAssembly(assembly);
+            public bool ShouldDiscoverType(Type type)
             {
-                if (module is IClientExtensionModule) continue;
-                string warning = "[ClientRegistrationDeprecated] Extension '" + module.ExtensionId +
-                    "' uses legacy client Register. Migrate to ClientExtensionModule.Compose " +
-                    "(client abstractions 1.9). Removal is planned for host 1.0 / abstractions 2.0 " +
-                    "after migration and acceptance gates.";
-                Extensions.Warnings.Add(warning);
+                if (inner != null && !inner.ShouldDiscoverType(type)) return false;
+                if (typeof(IClientExtensionModule).IsAssignableFrom(type)) return true;
+                if (type.IsClass && !type.IsAbstract && typeof(IPhinixExtensionModule).IsAssignableFrom(type))
+                    Rejections.Add("[ClientEntryUnsupported] " + type.FullName + ": use ClientExtensionModule.Compose.");
+                return false;
             }
         }
 

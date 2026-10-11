@@ -61,11 +61,8 @@ namespace PhinixClient.GUI
             // Begin scrolling
             Widgets.BeginScrollView(inRect, ref scrollPosition, viewRect);
 
-            // Draw the contents
-            child.Draw(viewRect);
-
-            // Stop scrolling
-            Widgets.EndScrollView();
+            try { child.Draw(viewRect); }
+            finally { Widgets.EndScrollView(); }
 
             // Check if the scroll position changed
             if (!scrollPosition.Equals(previousScrollPosition))

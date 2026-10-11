@@ -1,5 +1,6 @@
 using System;
 using PhinixClient;
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -11,6 +12,7 @@ namespace Phinix.InventoryExtension.Client
         private const float PreferredHeight = 500f;
         private const float MinimumWidth = 360f;
         private const float MinimumHeight = 400f;
+        private readonly InventoryTheme theme;
         private readonly Action<string> choose;
         private readonly Action dismiss;
         private bool choiceMade;
@@ -25,8 +27,9 @@ namespace Phinix.InventoryExtension.Client
             }
         }
 
-        public InventoryDeliveryChoiceDialog(Action<string> choose, Action dismiss)
+        public InventoryDeliveryChoiceDialog(InventoryTheme theme, Action<string> choose, Action dismiss)
         {
+            this.theme = theme;
             this.choose = choose;
             this.dismiss = dismiss;
             doCloseX = true;
@@ -51,6 +54,16 @@ namespace Phinix.InventoryExtension.Client
         }
 
         public override void DoWindowContents(Rect inRect)
+        {
+            using (theme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                GUI.color = theme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
         {
             GameFont oldFont = Text.Font;
             TextAnchor oldAnchor = Text.Anchor;
@@ -96,32 +109,31 @@ namespace Phinix.InventoryExtension.Client
                     float y = 0f;
                     Text.Font = GameFont.Medium;
                     Text.Anchor = TextAnchor.UpperLeft;
-                    Widgets.Label(new Rect(0f, y, viewWidth, 34f),
-                        "Phinix_inventory_deliveryChoiceTitle".Translate());
+                    ClientWidgets.Label(new Rect(0f, y, viewWidth, 34f),
+                        "Phinix_inventory_deliveryChoiceTitle".Translate(), theme.Current);
                     y += 40f;
 
                     Text.Font = GameFont.Small;
-                    Widgets.Label(new Rect(0f, y, viewWidth, introHeight), intro);
+                    ClientWidgets.Label(new Rect(0f, y, viewWidth, introHeight), intro, theme.Current);
                     y += introHeight + 12f;
 
                     DrawChoiceCard(new Rect(0f, y, viewWidth, cardHeight),
                         "Phinix_inventory_deliveryDirect".Translate(),
                         directDescription,
                         "Phinix_inventory_deliveryDirectButton".Translate(),
-                        new Color(0.28f, 0.62f, 0.95f, 1f),
+                        theme.DirectDeliveryAccent,
                         InventoryDeliveryPreference.DirectDrop);
                     y += cardHeight + 10f;
                     DrawChoiceCard(new Rect(0f, y, viewWidth, cardHeight),
                         "Phinix_inventory_deliveryInventory".Translate(),
                         inventoryDescription,
                         "Phinix_inventory_deliveryInventoryButton".Translate(),
-                        new Color(0.35f, 0.75f, 0.45f, 1f),
+                        theme.StoredDeliveryAccent,
                         InventoryDeliveryPreference.Inventory);
                     y += cardHeight + 10f;
 
                     Text.Font = GameFont.Tiny;
-                    GUI.color = new Color(0.78f, 0.78f, 0.78f, 1f);
-                    Widgets.Label(new Rect(0f, y, viewWidth, footerHeight), footer);
+                    ClientWidgets.Label(new Rect(0f, y, viewWidth, footerHeight), footer, theme.Current, secondary: true);
                 }
                 finally { Widgets.EndScrollView(); }
             }
@@ -143,26 +155,23 @@ namespace Phinix.InventoryExtension.Client
         private void DrawChoiceCard(Rect rect, string title, string description, string buttonText,
             Color accent, string value)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.72f));
-            Widgets.DrawBoxSolid(new Rect(rect.x, rect.y, 4f, rect.height), accent);
-            if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
-            Widgets.DrawBox(rect, 1);
+            ClientWidgets.Fill(rect, theme.ChoiceBackground);
+            ClientWidgets.Fill(new Rect(rect.x, rect.y, 4f, rect.height), accent);
+            if (Mouse.IsOver(rect)) ClientWidgets.Fill(rect, theme.Current.HoverHighlight);
+            ClientWidgets.Border(rect, theme.Current);
 
             Rect inner = rect.ContractedBy(12f);
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = accent;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 24f), title);
-
-            GUI.color = Color.white;
+            ClientWidgets.Label(new Rect(inner.x, inner.y, inner.width, 24f), title, accent);
             Text.Font = GameFont.Tiny;
             float buttonWidth = Mathf.Min(180f, inner.width);
             Rect buttonRect = new Rect(inner.xMax - buttonWidth, inner.yMax - 32f, buttonWidth, 30f);
             Rect descriptionRect = new Rect(inner.x, inner.y + 28f, inner.width,
                 Mathf.Max(0f, buttonRect.y - inner.y - 32f));
-            Widgets.Label(descriptionRect, description);
+            ClientWidgets.Label(descriptionRect, description, theme.Current, secondary: true);
             TooltipHandler.TipRegion(rect, description);
-            if (Widgets.ButtonText(buttonRect, buttonText)) Select(value);
+            if (ClientWidgets.Button(buttonRect, buttonText, theme.Current)) Select(value);
         }
 
         private void Select(string value)

@@ -174,6 +174,16 @@ namespace Phinix.TradeExtension.Client
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (TradeTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = TradeTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             if (shouldClose)
             {
                 Close();
@@ -243,7 +253,8 @@ namespace Phinix.TradeExtension.Client
 
             if (filteredAvailableItems.Count == 0)
             {
-                Widgets.DrawMenuSection(availableItemsRect);
+                ClientWidgets.Fill(availableItemsRect, TradeTheme.PanelBg);
+                ClientWidgets.Border(availableItemsRect, TradeTheme.Current);
                 Widgets.NoneLabelCenteredVertically(availableItemsRect, ("Phinix_trade_noItemsAvailable" + (availableItems.Count > 0 ? "WithSearch" : "")).Translate());
             }
             else
@@ -264,7 +275,8 @@ namespace Phinix.TradeExtension.Client
                 Rect arrowRect = new Rect(ourRect.xMax + DEFAULT_SPACING, inRect.yMin, OFFER_ARROW_COLUMN_WIDTH, inRect.height);
                 Rect theirRect = new Rect(arrowRect.xMax + DEFAULT_SPACING, inRect.yMin, panelWidth, inRect.height);
                 Rect textureRect = new Rect(arrowRect.xMin, arrowRect.yMin + arrowRect.height * 0.25f, arrowRect.width, arrowRect.height * 0.5f);
-                Widgets.DrawTextureFitted(textureRect, tradeArrows, 1f);
+                using (new ClientGuiScope(true))
+                { UnityEngine.GUI.color = Color.white; Widgets.DrawTextureFitted(textureRect, tradeArrows, 1f); }
                 drawOffer(ourRect, cachedOurOfferLabel, ourOfferCache, ref ourOfferScrollPos, ref ourOfferAccepted, ourAcceptedLabel, true, TradeTheme.OurOfferAccent, TradeTheme.OurOfferBg);
                 drawOffer(theirRect, cachedTheirOfferLabel, theirOfferCache, ref theirOfferScrollPos, ref theirOfferAccepted, theirAcceptedLabel, false, TradeTheme.TheirOfferAccent, TradeTheme.TheirOfferBg);
                 return;
@@ -276,10 +288,10 @@ namespace Phinix.TradeExtension.Client
             Rect theirTabRect = new Rect(ourTabRect.xMax, inRect.yMin, tabWidth, tabHeight);
             Color previousColor = UnityEngine.GUI.color;
             if (compactOfferTab == 0) UnityEngine.GUI.color = TradeTheme.AcceptedBadge;
-            if (Widgets.ButtonText(ourTabRect, cachedOurOfferLabel)) compactOfferTab = 0;
+            if (ClientWidgets.Button(ourTabRect, cachedOurOfferLabel, TradeTheme.Current, textColor: compactOfferTab == 0 ? (Color?)TradeTheme.AcceptedBadge : null)) compactOfferTab = 0;
             UnityEngine.GUI.color = previousColor;
             if (compactOfferTab == 1) UnityEngine.GUI.color = TradeTheme.AcceptedBadge;
-            if (Widgets.ButtonText(theirTabRect, cachedTheirOfferLabel)) compactOfferTab = 1;
+            if (ClientWidgets.Button(theirTabRect, cachedTheirOfferLabel, TradeTheme.Current, textColor: compactOfferTab == 1 ? (Color?)TradeTheme.AcceptedBadge : null)) compactOfferTab = 1;
             UnityEngine.GUI.color = previousColor;
 
             Rect panelRect = new Rect(inRect.xMin, inRect.yMin + tabHeight + 4f, inRect.width, Mathf.Max(0f, inRect.height - tabHeight - 4f));
@@ -320,12 +332,12 @@ namespace Phinix.TradeExtension.Client
             Widgets.Label(searchLabelRect, cachedSearchLabel);
             GUIUtils.RestoreTextFormat();
             string oldSearchText = searchText;
-            if (searchFieldRect.width > 0f) searchText = Widgets.TextField(searchFieldRect, searchText);
+            if (searchFieldRect.width > 0f) searchText = ClientWidgets.TextField(searchFieldRect, searchText, TradeTheme.Current, controlName: "phinix.trade.search." + trade.TradeId, placeholder: cachedSearchLabel, placeholderColor: TradeTheme.SearchPlaceholder);
             if (searchText != oldSearchText) RebuildAvailableItemFilter();
 
             ResponsiveToolbarResult result = ResponsiveToolbarLayout.Calculate(actionsRect, actionDesiredWidths, 3, 2, ITEM_ROW_HEIGHT, DEFAULT_SPACING, 1, 40f, actionRects);
             for (int i = 0; i < result.VisibleActionCount; i++) DrawToolbarAction(i, actionRects[i]);
-            if (result.HasOverflow && Widgets.ButtonText(result.OverflowButtonRect, "⋯"))
+            if (result.HasOverflow && ClientWidgets.Button(result.OverflowButtonRect, "⋯", TradeTheme.Current))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 for (int i = result.VisibleActionCount; i < 3; i++) AddToolbarOverflowOption(options, i);
@@ -338,7 +350,7 @@ namespace Phinix.TradeExtension.Client
             Color previousColor = UnityEngine.GUI.color;
             if (actionIndex == 1) UnityEngine.GUI.color = TradeTheme.CancelButton;
             string label = actionIndex == 0 ? cachedUpdateLabel : actionIndex == 1 ? cachedCancelLabel : cachedResetLabel;
-            if (Widgets.ButtonText(rect, label)) ExecuteToolbarAction(actionIndex);
+            if (ClientWidgets.Button(rect, label, TradeTheme.Current, textColor: actionIndex == 1 ? (Color?)TradeTheme.CancelButton : null)) ExecuteToolbarAction(actionIndex);
             UnityEngine.GUI.color = previousColor;
         }
 
@@ -798,7 +810,7 @@ namespace Phinix.TradeExtension.Client
                     ? "Phinix_trade_confirmAccepted".Translate()
                     : "Phinix_trade_confirmTrade".Translate();
 
-                if (Widgets.ButtonText(confirmBtnRect, btnLabel))
+                if (ClientWidgets.Button(confirmBtnRect, btnLabel, TradeTheme.Current, textColor: accepted ? (Color?)TradeTheme.AcceptedBadge : null))
                 {
                     accepted = !accepted;
                 }
@@ -849,11 +861,12 @@ namespace Phinix.TradeExtension.Client
                 float currentY = contentRect.yMin + stackIndex * ITEM_ROW_HEIGHT;
                 Rect rowRect = new Rect(contentRect.xMin, currentY, contentRect.width, ITEM_ROW_HEIGHT);
 
-                if ((stackIndex & 1) != 0) Widgets.DrawHighlight(rowRect);
+                if ((stackIndex & 1) != 0) ClientWidgets.Fill(rowRect, TradeTheme.PanelBg);
                 else if (Mouse.IsOver(rowRect)) Widgets.DrawBoxSolid(rowRect, TradeTheme.RowHoverBg);
 
                 Rect iconRect = rowRect.LeftPartPixels(ICON_WIDTH);
-                Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
+                using (new ClientGuiScope(true))
+                { UnityEngine.GUI.color = Color.white; Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f); }
 
                 Rect itemNameRect;
                 if (interactive)
@@ -877,11 +890,11 @@ namespace Phinix.TradeExtension.Client
 
                     itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin, Mathf.Max(0f, buttonAreaRect.xMin - iconRect.xMax - DEFAULT_SPACING * 2), rowRect.height);
 
-                    if (showTenButtons && Widgets.ButtonText(btnMinus10, "-10")) stack.Selected = Clamp(stack.Selected - 10, 0, stack.Count);
-                    if (showOneButtons && Widgets.ButtonText(btnMinus1, "-1")) stack.Selected = Clamp(stack.Selected - 1, 0, stack.Count);
+                    if (showTenButtons && ClientWidgets.Button(btnMinus10, "-10", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected - 10, 0, stack.Count);
+                    if (showOneButtons && ClientWidgets.Button(btnMinus1, "-1", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected - 1, 0, stack.Count);
 
                     string buf = stack.Selected == 0 ? "" : stack.Selected.ToString();
-                    buf = Widgets.TextField(quantityFieldRect, buf, 100, itemCountInputRegex);
+                    buf = ClientWidgets.TextField(quantityFieldRect, buf, TradeTheme.Current, maxLength: 100, inputValidator: itemCountInputRegex);
                     int parsedCount;
                     stack.Selected = string.IsNullOrEmpty(buf) ? 0 : int.TryParse(buf, out parsedCount) ? Clamp(parsedCount, 0, stack.Count) : stack.Count;
 
@@ -890,8 +903,8 @@ namespace Phinix.TradeExtension.Client
                     Widgets.Label(availableCountRect, $"/ {stack.Count}");
                     RestoreTextFormat();
 
-                    if (showOneButtons && Widgets.ButtonText(btnPlus1, "+1")) stack.Selected = Clamp(stack.Selected + 1, 0, stack.Count);
-                    if (showTenButtons && Widgets.ButtonText(btnPlus10, "+10")) stack.Selected = Clamp(stack.Selected + 10, 0, stack.Count);
+                    if (showOneButtons && ClientWidgets.Button(btnPlus1, "+1", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected + 1, 0, stack.Count);
+                    if (showTenButtons && ClientWidgets.Button(btnPlus10, "+10", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected + 10, 0, stack.Count);
 
                     if (Event.current != null && Event.current.type == EventType.MouseDown && Event.current.button == 1 && Mouse.IsOver(rowRect))
                     {
@@ -939,11 +952,12 @@ namespace Phinix.TradeExtension.Client
                 if (stack == null || stack.Count < 1) continue;
                 Rect rowRect = new Rect(contentRect.xMin, contentRect.yMin + stackIndex * ITEM_ROW_HEIGHT,
                     contentRect.width, ITEM_ROW_HEIGHT);
-                if ((stackIndex & 1) != 0) Widgets.DrawHighlight(rowRect);
+                if ((stackIndex & 1) != 0) ClientWidgets.Fill(rowRect, TradeTheme.PanelBg);
                 else if (Mouse.IsOver(rowRect)) Widgets.DrawBoxSolid(rowRect, TradeTheme.RowHoverBg);
 
                 Rect iconRect = rowRect.LeftPartPixels(ICON_WIDTH);
-                Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f);
+                using (new ClientGuiScope(true))
+                { UnityEngine.GUI.color = Color.white; Widgets.ThingIcon(iconRect, stack.ThingDef, stack.StuffDef, stack.StyleDef, 0.9f); }
                 bool showTenButtons = rowRect.width >= 430f;
                 bool showOneButtons = rowRect.width >= 350f;
                 int visibleButtonCount = showTenButtons ? 4 : showOneButtons ? 2 : 0;
@@ -971,18 +985,18 @@ namespace Phinix.TradeExtension.Client
                 Rect itemNameRect = new Rect(iconRect.xMax + DEFAULT_SPACING, rowRect.yMin,
                     Mathf.Max(0f, buttonAreaRect.xMin - iconRect.xMax - DEFAULT_SPACING * 2), rowRect.height);
 
-                if (showTenButtons && Widgets.ButtonText(btnMinus10, "-10")) stack.Selected = Clamp(stack.Selected - 10, 0, stack.Count);
-                if (showOneButtons && Widgets.ButtonText(btnMinus1, "-1")) stack.Selected = Clamp(stack.Selected - 1, 0, stack.Count);
+                if (showTenButtons && ClientWidgets.Button(btnMinus10, "-10", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected - 10, 0, stack.Count);
+                if (showOneButtons && ClientWidgets.Button(btnMinus1, "-1", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected - 1, 0, stack.Count);
                 string buf = stack.Selected == 0 ? "" : stack.Selected.ToString();
-                buf = Widgets.TextField(quantityFieldRect, buf, 100, itemCountInputRegex);
+                buf = ClientWidgets.TextField(quantityFieldRect, buf, TradeTheme.Current, maxLength: 100, inputValidator: itemCountInputRegex);
                 stack.Selected = string.IsNullOrEmpty(buf) ? 0 : int.TryParse(buf, out int parsedCount)
                     ? Clamp(parsedCount, 0, stack.Count) : stack.Count;
                 SaveTextFormat();
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Widgets.Label(availableCountRect, "/ " + stack.Count);
                 RestoreTextFormat();
-                if (showOneButtons && Widgets.ButtonText(btnPlus1, "+1")) stack.Selected = Clamp(stack.Selected + 1, 0, stack.Count);
-                if (showTenButtons && Widgets.ButtonText(btnPlus10, "+10")) stack.Selected = Clamp(stack.Selected + 10, 0, stack.Count);
+                if (showOneButtons && ClientWidgets.Button(btnPlus1, "+1", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected + 1, 0, stack.Count);
+                if (showTenButtons && ClientWidgets.Button(btnPlus10, "+10", TradeTheme.Current)) stack.Selected = Clamp(stack.Selected + 10, 0, stack.Count);
                 if (Event.current != null && Event.current.type == EventType.MouseDown && Event.current.button == 1 && Mouse.IsOver(rowRect))
                 {
                     DrawAvailableItemContextMenu(stack);

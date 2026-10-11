@@ -1,7 +1,8 @@
-﻿// Original file provided by Longwelwind (https://github.com/Longwelwind)
+// Original file provided by Longwelwind (https://github.com/Longwelwind)
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
 using System;
+using PhinixClient.Framework;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using Verse;
@@ -26,6 +27,7 @@ namespace PhinixClient.GUI
         /// Text validator to apply to the value as it is being changed.
         /// </summary>
         private Regex validator;
+        private readonly string controlName = "phinix.host.field." + Guid.NewGuid().ToString("N");
 
         /// <summary>
         /// Creates a new <see cref="TextFieldWidget"/> with the given initial text and change handler.
@@ -53,8 +55,13 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true)) DrawContents(inRect);
+        }
+        private void DrawContents(Rect inRect)
+        {
             // Draw the text field
-            string newText = Widgets.TextField(inRect, Text, int.MaxValue, validator);
+            string newText = ClientWidgets.TextField(inRect, Text, HostThemeDrawing.Current, controlName: controlName, inputValidator: validator);
 
             // Check if the content has changed
             if (newText != Text)

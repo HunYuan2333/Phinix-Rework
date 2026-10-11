@@ -29,6 +29,16 @@ namespace Phinix.TradeExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (TradeTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = TradeTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             tradeList.Draw(inRect);
         }
     }

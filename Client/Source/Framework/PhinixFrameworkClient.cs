@@ -11,7 +11,7 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
-    public class PhinixFrameworkClient : ILoggable, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink, IItemCodecProvider, IDisposable
+    public class PhinixFrameworkClient : ILoggable, IClientMessageSubmission, IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle, IClientDisplayMessageStore, IClientDisplayMessageFeed, IDisplayMessageSink, IItemCodecProvider, IDisposable
     {
         public event EventHandler<LogEventArgs> OnLogEntry;
 
@@ -104,6 +104,7 @@ namespace PhinixClient.Framework
             try
             {
                 this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
+                this.extensionHostContext.AddService<IClientMessageSubmission>(this);
                 this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
                 this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
                 this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
@@ -318,6 +319,43 @@ namespace PhinixClient.Framework
             RaiseLogEntry(new LogEventArgs(
                 $"[Phinix] TryHandleOutgoingMessage: no handler ultimately processed the message — returning false",
                 LogLevel.WARNING));
+            return false;
+        }
+
+        public bool TrySubmitMessage(FrameworkPacket message)
+        {
+            if (!UnityData.IsInMainThread) throw new InvalidOperationException("Message submission requires the game main thread.");
+            if (disposed || message == null || !netClient.Connected || !authenticator.Authenticated || !userManager.LoggedIn) return false;
+            var context = new ClientFrameworkContext
+            {
+                CompatibilityMode = CompatibilityMode, SenderUuid = userManager.Uuid, SessionId = authenticator.SessionId,
+                RemoteCapabilities = remoteCapabilities.ToArray(), HasRemoteCapability = hasRemoteCapability,
+                Log = (text, level) => RaiseLogEntry(new LogEventArgs(text, level))
+            };
+            foreach (var handler in discoveredExtensions.Extensions.OfType<IClientOutgoingMessageHandler>().OrderBy(h => h.Priority))
+            {
+                try
+                {
+                    if (!handler.CanHandleOutgoingMessage(message)) continue;
+                    var result = handler.HandleOutgoingMessage(message, context);
+                    if (result == null || result.Action == MessageHandlingResultAction.Continue) continue;
+                    if (result.Action != MessageHandlingResultAction.Handled) return false;
+                    if (result.Message != null)
+                    {
+                        result.Message.Flow = global::Phinix.Framework.FrameworkFlow.Message;
+                        result.Message.Kind = FrameworkProtocol.KindMessage;
+                        result.Message.SessionId = authenticator.SessionId;
+                        result.Message.SenderUuid = userManager.Uuid;
+                        netClient.Send(FrameworkProtocol.ModuleName, FrameworkSerialization.SerializePacket(result.Message));
+                    }
+                    return true;
+                }
+                catch (Exception error)
+                {
+                    RaiseLogEntry(new LogEventArgs("Message submission failed in " + handler.GetType().FullName + ": " + error, LogLevel.ERROR));
+                    return false;
+                }
+            }
             return false;
         }
 

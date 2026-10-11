@@ -99,6 +99,16 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             int currentUnread = GetUnreadCount();
 
             EnsureHeaderCache(currentUnread);
@@ -114,7 +124,7 @@ namespace Phinix.ChatExtension.Client
 
             Widgets.Label(titleRect, cachedTitle);
 
-            if (currentUnread > 0 && markAllRect.width > 0f && markAllRect.height > 0f && Widgets.ButtonText(markAllRect, cachedMarkAllLabel))
+            if (currentUnread > 0 && markAllRect.width > 0f && markAllRect.height > 0f && ClientWidgets.Button(markAllRect, cachedMarkAllLabel, ChatTheme.Current))
             {
                 MarkAllRead();
             }
@@ -175,7 +185,7 @@ namespace Phinix.ChatExtension.Client
                     GUIUtils.SaveTextFormat();
                     Text.Font = GameFont.Tiny;
                     Text.Anchor = TextAnchor.UpperLeft;
-                    Widgets.Label(timeRect, GetRelativeTime(entry));
+                    ClientWidgets.Label(timeRect, GetRelativeTime(entry), ChatTheme.ReplyQuoteText);
                     GUIUtils.RestoreTextFormat();
 
                     Rect textRect = new Rect(rowRect.x + 8f, rowRect.y + 16f, rowRect.width - 16f, rowHeight - 18f);
@@ -308,7 +318,7 @@ namespace Phinix.ChatExtension.Client
                 string relativeTime = bucket == 0
                     ? translationKey.Translate()
                     : translationKey.Translate(bucket % 1000);
-                entry.RelativeTimeText = relativeTime.Colorize(ChatTheme.ReplyQuoteText);
+                entry.RelativeTimeText = relativeTime;
                 entry.RelativeTimeBucket = bucket;
                 entry.RelativeTimeLanguage = language;
             }

@@ -90,10 +90,12 @@
     <Compile Include="ChatCommandHandler.cs" />
     <Compile Include="ChatMainTabProvider.cs" />
     <Compile Include="ChatMentionUtility.cs" />
+    <Compile Include="ChatMessageSubmissionAdapter.cs" />
     <Compile Include="ChatMessageHandler.cs" />
     <Compile Include="ChatMessageList.cs" />
     <Compile Include="ChatImageDownloadQueue.cs" />
     <Compile Include="ChatMessageRenderer.cs" />
+    <Compile Include="ChatSettingsInputAdapter.cs" />
     <Compile Include="ChatSettingsPanelProvider.cs" />
     <Compile Include="ChatSidebarProvider.cs" />
     <Compile Include="ChatTheme.cs" />

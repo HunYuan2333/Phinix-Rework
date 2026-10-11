@@ -1,6 +1,7 @@
 ﻿// Original file provided by Longwelwind (https://github.com/Longwelwind)
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -32,7 +33,8 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
-            Widgets.ThingIcon(inRect.ScaledBy(scale), thing);
+            using (new ClientGuiScope(true))
+            { UnityEngine.GUI.color = Color.white; Widgets.ThingIcon(inRect.ScaledBy(scale), thing); }
         }
 
         /// <inheritdoc />

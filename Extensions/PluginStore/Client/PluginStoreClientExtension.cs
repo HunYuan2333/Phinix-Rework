@@ -18,6 +18,7 @@ namespace Phinix.PluginStore
         private PluginStoreUpdateBanner updateBanner;
         private ManagedStoreController managedController;
         private IClientLocalizer localizer;
+        private IClientThemeRegistration themeRegistration;
         private StoreBadgeIcons badgeIcons;
         private StoreReleaseNotice releaseNotice;
 
@@ -50,7 +51,7 @@ namespace Phinix.PluginStore
                 var settings=hostContext.GetRequiredService<IClientSettingsContext>();
                 var dispatcher=hostContext.GetRequiredService<IClientMainThreadDispatcher>();
                 var windows=hostContext.GetRequiredService<IClientWindowService>();
-                var theme=hostContext.GetRequiredService<IUiTheme>();
+                var theme=hostContext.GetRequiredService<IClientTheme>();
                 activationComposition=hostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local=>
                 {
                     local.Borrow<IPhinixExtensionModule>(this);
@@ -60,6 +61,8 @@ namespace Phinix.PluginStore
                     local.Borrow(dispatcher);
                     local.Borrow(windows);
                     local.Borrow(theme);
+                    local.Borrow(hostContext.GetRequiredService<IClientThemePackageService>());
+                    local.Borrow(hostContext.GetRequiredService<IClientThemeWindowService>());
                     local.Borrow(hostContext.GetRequiredService<IClientLocalizationService>());
                     local.Borrow(hostContext.GetRequiredService<IClientExtensionManagementWindowService>());
                     IClientExtensionControlService controls;
@@ -76,16 +79,18 @@ namespace Phinix.PluginStore
                     local.Register<StoreReleaseNoticeLease,StoreReleaseNoticeLease>();
                 });
                 localizer=activationComposition.Resolve<IClientLocalizer>();
-                theme.RegisterColor("plugin-store.badge.official",new UnityEngine.Color(.94f,.76f,.36f));
-                theme.RegisterColor("plugin-store.badge.managed",new UnityEngine.Color(.43f,.81f,.77f));
-                theme.RegisterColor("plugin-store.badge.workshop",new UnityEngine.Color(.53f,.73f,.96f));
-                theme.RegisterColor("plugin-store.badge.local",new UnityEngine.Color(.96f,.49f,.61f));
+                themeRegistration = hostContext.GetRequiredService<IClientThemeRegistry>().RegisterModule(this, "plugin-store", "Phinix_theme_owner_store");
+                themeRegistration.RegisterColor("plugin-store.badge.official",new UnityEngine.Color(.94f,.76f,.36f), label: "Phinix_theme_label_plugin_store_badge_official", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_official");
+                themeRegistration.RegisterColor("plugin-store.badge.managed",new UnityEngine.Color(.43f,.81f,.77f), label: "Phinix_theme_label_plugin_store_badge_managed", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_managed");
+                themeRegistration.RegisterColor("plugin-store.badge.workshop",new UnityEngine.Color(.53f,.73f,.96f), label: "Phinix_theme_label_plugin_store_badge_workshop", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_workshop");
+                themeRegistration.RegisterColor("plugin-store.badge.local",new UnityEngine.Color(.96f,.49f,.61f), label: "Phinix_theme_label_plugin_store_badge_local", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_local");
+                themeRegistration.Commit();
                 managedController=activationComposition.Resolve<StoreControllerLease>().Controller;
                 badgeIcons=activationComposition.Resolve<StoreBadgeIcons>();
                 var views=activationComposition.Resolve<StoreViewFactory>();
                 tab.Initialize(views.Create());
-                panel.Initialize(windows,dispatcher,views.Create);
-                updateBanner.Initialize(managedController,panel.Open);
+                panel.Initialize(theme,windows,dispatcher,views.Create);
+                updateBanner.Initialize(theme,managedController,panel.Open);
                 releaseNotice=activationComposition.Resolve<StoreReleaseNoticeLease>().Notice;
                 releaseNotice.Start();
                 // Capture game/translation-sensitive facts before background work.
@@ -113,6 +118,7 @@ namespace Phinix.PluginStore
 
         private void StopActivation()
         {
+            themeRegistration?.Dispose(); themeRegistration = null;
             var failures=new List<Exception>();
             Release(()=>releaseNotice?.Stop(),failures);
             releaseNotice=null;

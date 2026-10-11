@@ -127,8 +127,7 @@ namespace Phinix.ChatExtension.Client
         private readonly ISet<string> blockedUsersView;
         private readonly Action<string> createTrade;
         private readonly Action<LogEventArgs> log;
-        private readonly IFrameworkChatClientApi chatApi;
-        private readonly IFrameworkClientTransport transport;
+        private readonly IChatMessageSender messageSender;
         private readonly IClientUserDirectory userDirectory;
         private volatile bool started;
         private event EventHandler disconnected;
@@ -146,8 +145,7 @@ namespace Phinix.ChatExtension.Client
             IClientUserEventStream userEvents,
             Action<string> createTrade,
             Action<LogEventArgs> log,
-            IFrameworkChatClientApi chatApi,
-            IFrameworkClientTransport transport,
+            IChatMessageSender messageSender,
             IClientUserDirectory userDirectory)
         {
             this.chatService = chatService ?? throw new ArgumentNullException(nameof(chatService));
@@ -156,8 +154,7 @@ namespace Phinix.ChatExtension.Client
             this.userEvents = userEvents ?? throw new ArgumentNullException(nameof(userEvents));
             this.createTrade = createTrade ?? throw new ArgumentNullException(nameof(createTrade));
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.chatApi = chatApi ?? throw new ArgumentNullException(nameof(chatApi));
-            this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
+            this.messageSender = messageSender ?? throw new ArgumentNullException(nameof(messageSender));
             this.userDirectory = userDirectory ?? throw new ArgumentNullException(nameof(userDirectory));
             blockedUsersView = new ReadOnlyBlockedUserSet(this);
         }
@@ -262,30 +259,9 @@ namespace Phinix.ChatExtension.Client
             ReplyTargetChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        public void SendChatMessage(string text, IEnumerable<string> mentionedUuids)
+        public bool SendChatMessage(string text, IEnumerable<string> mentionedUuids)
         {
-            if (!started) return;
-            if (string.IsNullOrWhiteSpace(text)) return;
-
-            // 设计哲学 §3.7：优先走 handler 管线。
-            // - Legacy 模式：通过 TryHandleOutgoingMessage → LegacyAdapter 翻译协议
-            // - FrameworkV2 模式：因为 ChatMessageHandler 当前不支持 mentionedUuids/reply
-            //   参数，暂时走直接路径。TODO: 扩展 IClientMessageHandler.HandleOutgoingText
-            //   使其支持附加元数据后，统一走管线。
-            if (!transport.HasRemoteCapability(FrameworkChatProtocol.MessageType))
-            {
-                log?.Invoke(new LogEventArgs(
-                    "[ChatUiHostContext] Server lacks framework chat capability, routing through handler pipeline (Legacy mode).",
-                    LogLevel.DEBUG));
-                if (transport.TryHandleOutgoingMessage(text))
-                {
-                    ClearReplyTarget();
-                    return;
-                }
-                log?.Invoke(new LogEventArgs(
-                    "[ChatUiHostContext] TryHandleOutgoingMessage returned false — falling through to direct FrameworkPacket send.",
-                    LogLevel.WARNING));
-            }
+            if (!started || string.IsNullOrWhiteSpace(text)) return false;
 
             string replyToId = ReplyTarget?.MessageId;
             string replyToSnippet = null;
@@ -295,14 +271,9 @@ namespace Phinix.ChatExtension.Client
                 replyToSnippet = snippet.Length > 50 ? snippet.Substring(0, 50) + "..." : snippet;
             }
 
-            FrameworkPacket packet = chatApi.CreateOutgoingMessage(text, new ClientFrameworkContext
-            {
-                SessionId = session.SessionId,
-                SenderUuid = session.Uuid,
-                CompatibilityMode = FrameworkCompatibilityMode.FrameworkV2
-            }, mentionedUuids, replyToId, replyToSnippet);
-
-            transport.SendFrameworkPacket(packet);
+            bool sent = messageSender.TrySend(new ChatMessageIntent(text, mentionedUuids, replyToId, replyToSnippet));
+            if (sent) ClearReplyTarget();
+            return sent;
         }
 
         private void refreshBlockedUsers()

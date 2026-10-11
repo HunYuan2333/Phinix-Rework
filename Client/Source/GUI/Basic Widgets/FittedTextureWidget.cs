@@ -1,3 +1,4 @@
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -24,7 +25,8 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
-            Widgets.DrawTextureFitted(inRect, texture, scale);
+            using (new ClientGuiScope(true))
+            { UnityEngine.GUI.color = Color.white; Widgets.DrawTextureFitted(inRect, texture, scale); }
         }
     }
 }

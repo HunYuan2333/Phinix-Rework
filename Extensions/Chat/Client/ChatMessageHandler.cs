@@ -4,7 +4,7 @@ using Utils.Framework;
 
 namespace Phinix.ChatExtension.Client
 {
-    internal sealed class ChatMessageHandler : IClientMessageHandler
+    internal sealed class ChatMessageHandler : IClientMessageHandler, IClientOutgoingMessageHandler
     {
         private readonly IFrameworkChatClientApi chatApi;
 
@@ -35,6 +35,15 @@ namespace Phinix.ChatExtension.Client
                 Action = MessageHandlingResultAction.Handled,
                 Message = chatApi.CreateOutgoingMessage(rawMessage, context)
             };
+        }
+
+        public bool CanHandleOutgoingMessage(FrameworkPacket message)
+            => message != null && message.MessageType == FrameworkChatProtocol.MessageType;
+        public ClientOutgoingMessageResult HandleOutgoingMessage(FrameworkPacket message, ClientFrameworkContext context)
+        {
+            if (context.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2)
+                return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.LegacyFallback };
+            return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Handled, Message = message };
         }
 
         public bool CanHandleIncomingMessage(FrameworkPacket message)

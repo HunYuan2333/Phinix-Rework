@@ -19,7 +19,9 @@ namespace Phinix.TradeExtension.Client
         private int activationGeneration;
         private TradeClientItemPipeline itemPipeline;
         private IFrameworkTradeClientApi tradeApi;
-        private FrameworkLegacyTradeClientAdapter legacyTradeAdapter;
+        private IClientTheme currentTheme;
+        private IClientThemeRegistration themeRegistration;
+        private Action themeChanged;
         private IClientTradeService tradeFacade;
         private ClientTradeUiHostContext tradeUiHostContext;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
@@ -54,7 +56,6 @@ namespace Phinix.TradeExtension.Client
                 local.Borrow(log);
                 local.Register<ITradeItemPayloadEncoder, TradeClientItemPipeline>();
                 local.Register<IFrameworkTradeClientApi, PhinixFrameworkTradeClientService>();
-                local.Register<FrameworkLegacyTradeClientAdapter, FrameworkLegacyTradeClientAdapter>();
                 local.Register<IClientTradeService, FrameworkClientTradeServiceAdapter>();
                 local.Register<ITradeUiHostContext, ClientTradeUiHostContext>();
                 local.Register<IMainTabProvider, TradeMainTabProvider>();
@@ -62,7 +63,6 @@ namespace Phinix.TradeExtension.Client
             });
             itemPipeline = composition.Resolve<TradeClientItemPipeline>();
             tradeApi = composition.Resolve<IFrameworkTradeClientApi>();
-            legacyTradeAdapter = composition.Resolve<FrameworkLegacyTradeClientAdapter>();
             tradeFacade = composition.Resolve<IClientTradeService>();
             tradeUiHostContext = composition.Resolve<ClientTradeUiHostContext>();
             IMainTabProvider tab = composition.Resolve<IMainTabProvider>();
@@ -70,9 +70,7 @@ namespace Phinix.TradeExtension.Client
 
             builder.RegisterApi(tradeApi);
             builder.RegisterApi<IFrameworkTradeUpdateResultApi>((IFrameworkTradeUpdateResultApi)tradeApi);
-            builder.RegisterApi<IFrameworkLegacyTradeRepositoryApi>(legacyTradeAdapter);
-            builder.RegisterApi<IFrameworkLegacyTradeCompletionApi>(legacyTradeAdapter);
-            builder.RegisterApi<IFrameworkLegacyTradeDeliveryApi>(legacyTradeAdapter);
+            builder.RegisterApi<ITradeStateInput>((ITradeStateInput)tradeApi);
             builder.RegisterApi(tradeFacade);
             builder.RegisterApi<ITradeRequestApi>((ITradeRequestApi)tradeFacade);
             builder.RegisterApi(tradeUiHostContext);
@@ -80,7 +78,7 @@ namespace Phinix.TradeExtension.Client
             builder.AddCapabilityProvider(this);
             builder.AddClientCommandHandler(this);
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanelProvider);
-            builder.RegisterApi<IClientLegacySettingsMigrator>(settingsPanelProvider);
+            builder.RegisterApi<IClientLegacySettingsMigrator>(new TradeSettingsInputAdapter());
         }
 
         public void Activate(ExtensionHostContext hostContext)
@@ -98,9 +96,13 @@ namespace Phinix.TradeExtension.Client
             {
                 hostLog = hostContext.Log;
 
-                IUiTheme theme = hostContext.GetRequiredService<IUiTheme>();
-                RegisterThemeDefaults(theme);
-                theme.Reload();
+                IClientTheme theme = hostContext.GetRequiredService<IClientTheme>();
+                themeRegistration = hostContext.GetRequiredService<IClientThemeRegistry>().RegisterModule(this, "trade", "Phinix_theme_owner_trade");
+                RegisterThemeDefaults(themeRegistration);
+                themeRegistration.Commit();
+                currentTheme = theme;
+                themeChanged = () => TradeTheme.Refresh(theme);
+                theme.Changed += themeChanged;
                 TradeTheme.Refresh(theme);
 
                 frameworkClient = hostContext.GetRequiredService<IFrameworkClientTransport>();
@@ -194,6 +196,10 @@ namespace Phinix.TradeExtension.Client
         public void Shutdown(ExtensionHostContext hostContext)
         {
             activated = false;
+            if (currentTheme != null && themeChanged != null) currentTheme.Changed -= themeChanged;
+            currentTheme = null; themeChanged = null;
+            TradeTheme.Release();
+            themeRegistration?.Dispose(); themeRegistration = null;
             System.Threading.Interlocked.Increment(ref activationGeneration);
             var failures = new List<Exception>();
             TradeLifetimeCleanup.Try(() => (tradeFacade as IDisposable)?.Dispose(), failures);
@@ -212,7 +218,6 @@ namespace Phinix.TradeExtension.Client
             defaultTradeBehaviour = null;
             itemPipeline = null;
             tradeApi = null;
-            legacyTradeAdapter = null;
             tradeFacade = null;
             tradeUiHostContext = null;
             frameworkClient = null;
@@ -258,18 +263,18 @@ namespace Phinix.TradeExtension.Client
 
         }
 
-        private static void RegisterThemeDefaults(IUiTheme theme)
+        private static void RegisterThemeDefaults(IClientThemeRegistration theme)
         {
-            theme.RegisterColor("trade.ourOfferAccent", new Color(0.30f, 0.65f, 0.35f, 0.70f));
-            theme.RegisterColor("trade.theirOfferAccent", new Color(0.45f, 0.75f, 1.00f, 0.70f));
-            theme.RegisterColor("trade.ourOfferBg", new Color(0.30f, 0.65f, 0.35f, 0.04f));
-            theme.RegisterColor("trade.theirOfferBg", new Color(0.45f, 0.75f, 1.00f, 0.04f));
-            theme.RegisterColor("trade.cancelButton", new Color(0.85f, 0.30f, 0.25f, 1.00f));
-            theme.RegisterColor("trade.acceptedBadge", new Color(0.30f, 0.65f, 0.35f, 1.00f));
-            theme.RegisterColor("trade.pendingBadge", new Color(0.55f, 0.52f, 0.48f, 0.80f));
-            theme.RegisterColor("trade.rowHoverBg", new Color(1.00f, 1.00f, 1.00f, 0.04f));
-            theme.RegisterColor("trade.panelBg", new Color(1.00f, 1.00f, 1.00f, 0.03f));
-            theme.RegisterColor("trade.searchPlaceholder", new Color(0.55f, 0.52f, 0.48f, 0.50f));
+            theme.RegisterColor("trade.ourOfferAccent", new Color(0.30f, 0.65f, 0.35f, 0.70f), label: "Phinix_theme_label_trade_ourOfferAccent", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_ourOfferAccent");
+            theme.RegisterColor("trade.theirOfferAccent", new Color(0.45f, 0.75f, 1.00f, 0.70f), label: "Phinix_theme_label_trade_theirOfferAccent", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_theirOfferAccent");
+            theme.RegisterColor("trade.ourOfferBg", new Color(0.30f, 0.65f, 0.35f, 0.04f), label: "Phinix_theme_label_trade_ourOfferBg", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_ourOfferBg");
+            theme.RegisterColor("trade.theirOfferBg", new Color(0.45f, 0.75f, 1.00f, 0.04f), label: "Phinix_theme_label_trade_theirOfferBg", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_theirOfferBg");
+            theme.RegisterColor("trade.cancelButton", new Color(0.85f, 0.30f, 0.25f, 1.00f), fallbackKey: "ui.error", label: "Phinix_theme_label_trade_cancelButton", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_cancelButton");
+            theme.RegisterColor("trade.acceptedBadge", new Color(0.30f, 0.65f, 0.35f, 1.00f), fallbackKey: "ui.success", label: "Phinix_theme_label_trade_acceptedBadge", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_acceptedBadge");
+            theme.RegisterColor("trade.pendingBadge", new Color(0.55f, 0.52f, 0.48f, 0.80f), fallbackKey: "ui.pending", label: "Phinix_theme_label_trade_pendingBadge", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_pendingBadge");
+            theme.RegisterColor("trade.rowHoverBg", new Color(1.00f, 1.00f, 1.00f, 0.04f), fallbackKey: "ui.hover", label: "Phinix_theme_label_trade_rowHoverBg", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_rowHoverBg");
+            theme.RegisterColor("trade.panelBg", new Color(1.00f, 1.00f, 1.00f, 0.03f), fallbackKey: "ui.surface", label: "Phinix_theme_label_trade_panelBg", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_panelBg");
+            theme.RegisterColor("trade.searchPlaceholder", new Color(0.55f, 0.52f, 0.48f, 0.50f), fallbackKey: "ui.text.secondary", label: "Phinix_theme_label_trade_searchPlaceholder", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_searchPlaceholder");
         }
 
         public IEnumerable<string> GetCapabilities()

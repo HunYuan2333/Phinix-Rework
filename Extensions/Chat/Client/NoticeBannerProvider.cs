@@ -67,6 +67,16 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             float currentTime = Time.realtimeSinceStartup;
             lock (noticesLock)
             {
@@ -88,11 +98,11 @@ namespace Phinix.ChatExtension.Client
 
                     float remaining = notice.DurationSeconds - (currentTime - notice.StartTime);
                     remaining = Mathf.Max(0f, remaining);
-                    Rect progressRect = new Rect(inRect.xMin, noticeRect.yMax - 3f, inRect.width * (remaining / notice.DurationSeconds), 3f);
-                    Widgets.DrawBoxSolid(progressRect, ChatTheme.NoticeProgress);
+                    Rect progressRect = new Rect(inRect.xMin, noticeRect.yMax - 3f, inRect.width, 3f);
+                    ClientWidgets.Progress(progressRect, remaining / notice.DurationSeconds, ChatTheme.Current, ChatTheme.NoticeProgress);
 
                     Rect closeRect = new Rect(inRect.xMax - Mathf.Min(CloseButtonWidth, inRect.width), cursorY, Mathf.Min(CloseButtonWidth, inRect.width), visibleHeight);
-                    if (Widgets.ButtonText(closeRect, "×"))
+                    if (ClientWidgets.Button(closeRect, "×", ChatTheme.Current))
                     {
                         activeNotices.RemoveAt(i);
                         layoutDirty = true;

@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8'?>
+<LanguageData>
+  <Phinix_theme_title>主题与配色</Phinix_theme_title>
+  <Phinix_theme_open>打开主题设置</Phinix_theme_open>
+  <Phinix_theme_default>默认主题</Phinix_theme_default>
+  <Phinix_theme_migrated>我的配色</Phinix_theme_migrated>
+  <Phinix_theme_preview>预览：文字、背景与状态色</Phinix_theme_preview>
+  <Phinix_theme_import>导入</Phinix_theme_import>
+  <Phinix_theme_export>导出</Phinix_theme_export>
+  <Phinix_theme_imported>主题已导入，请在列表中选择。</Phinix_theme_imported>
+  <Phinix_theme_exported>主题已导出。</Phinix_theme_exported>
+  <Phinix_theme_refresh>刷新列表</Phinix_theme_refresh>
+  <Phinix_theme_reset>清除本主题覆盖</Phinix_theme_reset>
+  <Phinix_theme_apply>应用</Phinix_theme_apply>
+  <Phinix_theme_cancel>取消</Phinix_theme_cancel>
+  <Phinix_theme_applied>主题已应用。</Phinix_theme_applied>
+  <Phinix_theme_clear>清除用户覆盖</Phinix_theme_clear>
+  <Phinix_theme_invalidColor>RGBA 各分量须为 0 到 1 之间的数值。</Phinix_theme_invalidColor>
+  <Phinix_theme_searchThemes>搜索主题名称或来源</Phinix_theme_searchThemes>
+  <Phinix_theme_searchItems>搜索配色名称、模块、分组或 key</Phinix_theme_searchItems>
+  <Phinix_theme_unfinishedInput>有无效或未完成的输入。修正输入，或清除该项／重置当前主题的覆盖。</Phinix_theme_unfinishedInput>
+  <Phinix_theme_missingDraftTheme>当前主题文件已缺失，草稿仍保留。恢复文件并刷新后再应用。</Phinix_theme_missingDraftTheme>
+  <Phinix_theme_resetDone>已清除当前主题的用户覆盖，尚未应用。</Phinix_theme_resetDone>
+  <Phinix_theme_unusedCount>未使用的主题键：{0}</Phinix_theme_unusedCount>
+  <Phinix_theme_unusedTip>这些键尚未注册，或值类型暂不支持。原始值与用户覆盖会保留，注册匹配后恢复。</Phinix_theme_unusedTip>
+  <Phinix_theme_selectItem>选择一个颜色或参数进行编辑。切换主题保留窗口内草稿；取消会丢弃未应用修改。</Phinix_theme_selectItem>
+  <Phinix_theme_itemUnavailable>此项暂未注册；草稿与输入仍保留，可清除用户覆盖。</Phinix_theme_itemUnavailable>
+  <Phinix_theme_parameterRange>参数范围 [{0}, {1}]</Phinix_theme_parameterRange>
+  <Phinix_theme_invalidInput>输入无效</Phinix_theme_invalidInput>
+  <Phinix_theme_forcedInheritance>已选择恢复继承／默认值</Phinix_theme_forcedInheritance>
+  <Phinix_theme_parameterClamped>该值已按注册范围限制</Phinix_theme_parameterClamped>
+  <Phinix_theme_restoreInheritance>恢复继承</Phinix_theme_restoreInheritance>
+  <Phinix_theme_restoreDefault>使用注册默认值</Phinix_theme_restoreDefault>
+  <Phinix_theme_clearTip>只清除用户覆盖；主题文件有显式值时仍使用文件值。</Phinix_theme_clearTip>
+  <Phinix_theme_restoreTip>跳过此项的主题文件值，使用通用角色或注册默认值；点击应用后保存。</Phinix_theme_restoreTip>
+  <Phinix_theme_source_UserOverride>用户覆盖</Phinix_theme_source_UserOverride>
+  <Phinix_theme_source_Theme>当前主题文件</Phinix_theme_source_Theme>
+  <Phinix_theme_source_BuiltInTheme>默认主题文件</Phinix_theme_source_BuiltInTheme>
+  <Phinix_theme_source_Inherited>继承</Phinix_theme_source_Inherited>
+  <Phinix_theme_source_Default>注册默认值</Phinix_theme_source_Default>
+  <Phinix_theme_copyPath>复制导出路径</Phinix_theme_copyPath>
+  <Phinix_theme_openFolder>打开导出文件夹</Phinix_theme_openFolder>
+  <Phinix_theme_openFolderFailed>未能启动文件管理器，可复制路径查找已导出的文件。</Phinix_theme_openFolderFailed>
+  <Phinix_theme_exportPackage>导出本地主题包</Phinix_theme_exportPackage>
+  <Phinix_theme_packageName>主题名称</Phinix_theme_packageName>
+  <Phinix_theme_packageAuthor>作者</Phinix_theme_packageAuthor>
+  <Phinix_theme_packageId>包 ID</Phinix_theme_packageId>
+  <Phinix_theme_packageVersion>版本</Phinix_theme_packageVersion>
+  <Phinix_theme_packagePath>ZIP 路径</Phinix_theme_packagePath>
+  <Phinix_theme_exportPackageTip>导出为可在商店本地安装的 ZIP。更新自己的包请复用包 ID 并修改版本；已有目标文件不会被覆盖。此操作不会上传或上架。</Phinix_theme_exportPackageTip>
+</LanguageData>

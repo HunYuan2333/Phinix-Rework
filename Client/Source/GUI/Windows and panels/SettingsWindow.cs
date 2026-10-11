@@ -77,6 +77,17 @@ namespace PhinixClient
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background);
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             if (inRect.width <= 0f || inRect.height <= 0f) return;
             RebuildLayoutIfNeeded(Mathf.Max(1f, inRect.width - 16f));
             bool connected = Client.Instance.Connected;
@@ -202,7 +213,7 @@ namespace PhinixClient
             }
             Widgets.Label(labelRect, connectedText);
             TooltipHandler.TipRegion(labelRect, connectedText);
-            if (Widgets.ButtonText(buttonRect, disconnectLabel)) Client.Instance.Disconnect();
+            if (ClientWidgets.Button(buttonRect, disconnectLabel, HostThemeDrawing.Current)) Client.Instance.Disconnect();
             return rect.height;
         }
 
@@ -211,19 +222,19 @@ namespace PhinixClient
             float labelWidth = Mathf.Min(120f, rect.width * 0.28f);
             ResponsiveFormResult address = ResponsiveFormLayout.Calculate(rect, labelWidth, 140f, 0f, RowHeight, Spacing, 0f);
             Widgets.Label(address.LabelRect, addressLabel);
-            serverAddress = Widgets.TextField(address.InputRect, serverAddress);
+            serverAddress = ClientWidgets.TextField(address.InputRect, serverAddress, HostThemeDrawing.Current, controlName: "phinix.connection.address");
 
             Rect portBase = new Rect(rect.x, rect.y + address.Height + Spacing, rect.width,
                 Mathf.Max(0f, rect.height - address.Height - Spacing));
             float connectWidth = Mathf.Min(portBase.width, Mathf.Max(100f, Text.CalcSize(connectLabel).x + 24f));
             ResponsiveFormResult port = ResponsiveFormLayout.Calculate(portBase, labelWidth, 70f, connectWidth, RowHeight, Spacing, 0f);
             Widgets.Label(port.LabelRect, portLabel);
-            string candidate = Widgets.TextField(port.InputRect, serverPortString);
+            string candidate = ClientWidgets.TextField(port.InputRect, serverPortString, HostThemeDrawing.Current, controlName: "phinix.connection.port");
             if (ServerPortRegex.IsMatch(candidate)) serverPortString = candidate;
             bool valid = int.TryParse(serverPortString, out int portValue) && portValue > 0 &&
                 portValue <= 65535 && !string.IsNullOrWhiteSpace(serverAddress);
             bool connecting = Client.Instance.Connecting;
-            if (Widgets.ButtonText(port.ActionRect, connectLabel, active: valid && !connecting) && valid && !connecting)
+            if (ClientWidgets.Button(port.ActionRect, connectLabel, HostThemeDrawing.Current, enabled: valid && !connecting) && valid && !connecting)
             {
                 string addressValue = serverAddress;
                 Client.Instance.Settings.ServerAddress = addressValue;
@@ -245,13 +256,13 @@ namespace PhinixClient
             ResponsiveFormResult form = ResponsiveFormLayout.Calculate(rect, Mathf.Min(160f, rect.width * 0.35f),
                 140f, buttonWidth, RowHeight, Spacing, 0f);
             Widgets.Label(form.LabelRect, displayNameLabel);
-            string value = Widgets.TextField(form.InputRect, Client.Instance.Settings.DisplayName);
+            string value = ClientWidgets.TextField(form.InputRect, Client.Instance.Settings.DisplayName, HostThemeDrawing.Current, controlName: "phinix.connection.name");
             if (value != Client.Instance.Settings.DisplayName)
             {
                 Client.Instance.Settings.DisplayName = value;
                 Client.Instance.Settings.AcceptChanges();
             }
-            if (Widgets.ButtonText(form.ActionRect, setNameLabel)) Client.Instance.UpdateDisplayName(value);
+            if (ClientWidgets.Button(form.ActionRect, setNameLabel, HostThemeDrawing.Current)) Client.Instance.UpdateDisplayName(value);
             if (!string.Equals(cachedPreviewName, value, StringComparison.Ordinal))
             {
                 cachedPreviewName = value;

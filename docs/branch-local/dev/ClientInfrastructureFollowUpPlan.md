@@ -1,6 +1,6 @@
 # Client Infrastructure and Follow-up Implementation Plan
 
-Updated: 2026-10-09. Current branch: `dev`. [中文](后续实施计划.md).
+Updated: 2026-10-10. Current branch: `dev`. [中文](后续实施计划.md).
 
 This document is the baseline schedule and technical record for Phinix Rework infrastructure refactoring, physical repository separation, and follow-up deliverables.
 
@@ -20,6 +20,7 @@ This document is the baseline schedule and technical record for Phinix Rework in
 | **F6-M** | Management and Store State Synchronization | ✅ **Accepted**. Introduced `IClientExtensionControlService`, separated package intent from module settings commands, revision-driven bidirectional refresh, passed 1000 runtime assertions and game acceptance. |
 | **F6-S** | Mandatory Plugin Signing Admission | ❌ **Canceled**. Explicitly canceled by the user on 2026-10-08; mandatory signature gating is not implemented, retaining existing hash and integrity checks. |
 | **F7** | Author Experience & Automated Builds | 🔄 **Developer foundations first**. Plugin/Index Actions are live and verified. Local sideloading leads the next batch; skills and new author tooling are blocked until the minimum development loop passes acceptance. |
+| **F8** | Theme System & Public Plugin APIs | 📝 **Design draft**. Theme settings, public themed UI, Store themes and API boundary remediation. New business uses one current contract; old interfaces are adapted at boundaries and removed after maintained consumers migrate. See the [stage plan](Theme-and-Plugin-Api-Stage-Plan.md) and [boundary audit](Compatibility-Interface-Boundary-Audit.md); documentation only. |
 
 ---
 
@@ -79,7 +80,7 @@ The user explicitly scheduled branch management and automated compilation for `P
 
 - F4 was closed at the user's accepted scope; this does not invent individual F4-G/F4-H game-step results.
 - Whole-mod ZIP installation was canceled as a direction. That scope decision is not evidence that legacy installer code was removed or its boundary defects repaired. Steam/RimWorld manages Workshop mods; the Store lists their metadata.
-- Third-party theme selection and Store theme downloads remain later enhancement evaluation, without a new selector, payload kind or download capability.
+- On 2026-10-10, the user requested F8 theme/API planning, then clarified that no third-party plugins require indefinite old API support. New business and UI use one current contract without legacy information; adapters cover all old interfaces, not just the protocol plugin. Migrate maintained consumers and assess deletion; preserve historical data and supported external behavior. See the [stage plan](Theme-and-Plugin-Api-Stage-Plan.md) and [boundary audit](Compatibility-Interface-Boundary-Audit.md). Steam clients update together; this is documentation only.
 - The first stable client entry deprecation release was planned as host 0.9.8. A target version or local change is not a published Release; recheck actual versions when publishing.
 
 ### 3.3 Optional Release Event Discovery (Deferred Evaluation)
@@ -99,8 +100,12 @@ The following items remain open work and are not considered closed by this docum
    - Relies on Harmony patches for pawn lifecycle interception.
    - Active marketplace listings and rental records are tracked in a save-local `GameComponent`. Uninstalling while transactions are in-flight can corrupt save data.
 4. **Standalone Plugin DI Migration**: Example, Red Packet, and Talent Trade currently run via legacy `IPhinixExtensionModule.Register`. The Example migration belongs to the developer baseline; RedPacket/TalentTrade migration is separate from defect repair.
-5. **Client Legacy Entry Removal Gate**: Planned for host 1.0 / abstractions 2.0. Prerequisites: all maintained plugins migrated, rollback pathways verified, and game acceptance completed.
+5. **Client Legacy Entry Removal Gate**: The 2026-10-10 F8 decision requires one current contract. Remove old client entries after maintained consumers, pinned release inputs and game acceptance are complete; do not wait for the previous 1.0/2.0 milestone solely to support nonexistent third-party callers. Shared/Server registration and historical data readers have separate gates; see the [boundary audit](Compatibility-Interface-Boundary-Audit.md).
 
 ## 5. Developer Foundation Implementation Entry
 
 - **Local plugin ZIP import in developer mode**: Gate the Store action with RimWorld's `Verse.Prefs.DevMode` for development and game acceptance. Reuse managed package validation and installation transactions, mark local development provenance, and keep installed packages manageable after developer mode is disabled. Planning only; this now leads the next development batch and blocks skills and other new author tooling. See [Local development package installation plan](plugin-store/Local-Development-Package-Install-Plan.md).
+
+## UI/UX refactor delivery gate
+
+The latest user correction restores local T4/T5 implementation, maintained plugin theme adapters, candidate packaging and author examples. UI/UX refactoring belongs to other work. Online delivery and Index publication remain deferred; formal UI stability is not promised before the refactor settles. Existing online features remain enabled. See [the current delivery boundary](UI-UX-Refactor-Delivery-Gates.md).

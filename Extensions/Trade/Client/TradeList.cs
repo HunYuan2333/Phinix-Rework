@@ -92,6 +92,16 @@ namespace Phinix.TradeExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (TradeTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = TradeTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             if (inRect.width <= 0f || inRect.height <= 0f) return;
             EnsureTextCache();
             if (tradesChanged)
@@ -112,8 +122,10 @@ namespace Phinix.TradeExtension.Client
             // Draw a placeholder if there are no trades
             if (filteredTrades == null || filteredTrades.Count == 0)
             {
-                Widgets.DrawMenuSection(inRect);
-                Widgets.NoneLabelCenteredVertically(inRect, "Phinix_trade_noActiveTradesPlaceholder".Translate());
+                ClientWidgets.Surface(inRect, TradeTheme.Current);
+                ClientWidgets.Border(inRect, TradeTheme.Current);
+                Text.Anchor = TextAnchor.MiddleCenter;
+                ClientWidgets.Label(inRect, "Phinix_trade_noActiveTradesPlaceholder".Translate(), TradeTheme.Current, secondary: true);
                 return;
             }
 
@@ -129,6 +141,8 @@ namespace Phinix.TradeExtension.Client
             if (scrollRequired) contentRect.width = Mathf.Max(0f, inRect.width - SCROLLBAR_WIDTH);
 
             if (scrollRequired) Widgets.BeginScrollView(inRect, ref scrollPos, contentRect);
+            try
+            {
             VirtualListRange visibleRange = VirtualListLayout.GetFixedRange(filteredTrades.Count, rowHeight, scrollRequired ? scrollPos.y : 0f, inRect.height, VIRTUAL_OVERSCAN);
             for (int i = visibleRange.FirstIndex; i < visibleRange.EndIndexExclusive; i++)
             {
@@ -144,7 +158,7 @@ namespace Phinix.TradeExtension.Client
                 Rect acceptedStateRect = new Rect(rowRect.xMin, tradeTitleRect.yMax, textWidth, ACCEPTED_STATE_LABEL_HEIGHT);
 
                 // Background highlight
-                if (i % 2 != 0) Widgets.DrawHighlight(rowRect);
+                if (i % 2 != 0) ClientWidgets.Fill(rowRect, TradeTheme.PanelBg);
                 else if (Mouse.IsOver(rowRect)) Widgets.DrawBoxSolid(rowRect, TradeTheme.RowHoverBg);
 
                 // Save the current text settings
@@ -173,18 +187,19 @@ namespace Phinix.TradeExtension.Client
                 float actionWidth = Mathf.Max(0f, (buttonAreaRect.width - DEFAULT_SPACING) / 2f);
                 Rect openRect = new Rect(buttonAreaRect.xMin, buttonAreaRect.yMin, actionWidth, buttonAreaRect.height);
                 Rect cancelRect = new Rect(openRect.xMax + DEFAULT_SPACING, buttonAreaRect.yMin, actionWidth, buttonAreaRect.height);
-                if (Widgets.ButtonText(openRect, cachedOpenLabel))
+                if (ClientWidgets.Button(openRect, cachedOpenLabel, TradeTheme.Current))
                 {
                     hostContext.OpenTradeWindow(trade);
                 }
 
                 // Cancel button
-                if (Widgets.ButtonText(cancelRect, cachedCancelLabel))
+                if (ClientWidgets.Button(cancelRect, cachedCancelLabel, TradeTheme.Current, ClientButtonKind.Danger))
                 {
                     tradeService.CancelTrade(trade.TradeId);
                 }
             }
-            if (scrollRequired) Widgets.EndScrollView();
+            }
+            finally { if (scrollRequired) Widgets.EndScrollView(); }
         }
 
         private void EnsureTextCache()

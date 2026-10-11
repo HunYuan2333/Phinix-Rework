@@ -7,6 +7,26 @@ using PhinixClient;
 using PhinixClient.Framework;
 namespace Phinix.ChatExtension.Client
 {
+    public sealed class ChatMessageIntent
+    {
+        public ChatMessageIntent(string text, IEnumerable<string> mentionedUuids = null, string replyToMessageId = null, string replyToSnippet = null)
+        {
+            Text = text;
+            MentionedUuids = new List<string>(mentionedUuids ?? new string[0]).AsReadOnly();
+            ReplyToMessageId = replyToMessageId; ReplyToSnippet = replyToSnippet;
+        }
+        public string Text { get; }
+        public IReadOnlyList<string> MentionedUuids { get; }
+        public string ReplyToMessageId { get; }
+        public string ReplyToSnippet { get; }
+    }
+
+    /// <summary>Current chat intent API. A successful send means dispatched, not acknowledged.</summary>
+    public interface IChatMessageSender
+    {
+        bool TrySend(ChatMessageIntent intent);
+    }
+
     public interface IFrameworkChatClientApi
     {
         FrameworkPacket CreateOutgoingMessage(string rawMessage, ClientFrameworkContext context);
@@ -78,7 +98,7 @@ namespace Phinix.ChatExtension.Client
 
         event EventHandler ReplyTargetChanged;
 
-        void SendChatMessage(string text, IEnumerable<string> mentionedUuids);
+        bool SendChatMessage(string text, IEnumerable<string> mentionedUuids);
     }
 
 }

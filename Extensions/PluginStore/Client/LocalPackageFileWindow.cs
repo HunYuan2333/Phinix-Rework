@@ -1,4 +1,6 @@
 using System;
+using PhinixClient.Framework;
+using PhinixClient;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,48 +9,54 @@ using Verse;
 
 namespace Phinix.PluginStore
 {
-    // Explicit path selection works on Windows and Linux without external dialog dependencies.
+    // In-game path selection has no native desktop dialog dependency.
     internal sealed class LocalPackageFileWindow : Window
     {
         private readonly Action<string> selected;
+        private readonly IClientTheme themeSource;
+        private IClientThemeReader theme;
         private string path="", message;
+        private readonly bool developerOnly;
         private string[] entries=new string[0];
         private Vector2 scroll;
-        internal LocalPackageFileWindow(Action<string> selected)
-        { this.selected=selected; forcePause=true; absorbInputAroundWindow=true; doCloseX=true; closeOnAccept=false; }
-        public override Vector2 InitialSize => new Vector2(700,460);
+        internal LocalPackageFileWindow(IClientTheme theme, Action<string> selected,bool developerOnly=true)
+        { this.themeSource=theme; this.selected=selected;this.developerOnly=developerOnly; forcePause=true; absorbInputAroundWindow=true; doCloseX=true; closeOnAccept=false; }
+        public override Vector2 InitialSize => new Vector2(Mathf.Min(700, UiScreenSafeArea.Current.width), Mathf.Min(460, UiScreenSafeArea.Current.height));
+        public override void WindowUpdate()
+        { base.WindowUpdate(); windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(320,320)); }
         private static string T(string key) => ("Phinix_store2_"+key).Translate();
         public override void DoWindowContents(Rect rect)
         {
-            var font=Text.Font;
-            try { DrawContents(rect); }
-            finally { Text.Font=font; }
+            theme=themeSource.Capture();
+            using (new ClientGuiScope(true))
+            { GUI.color=theme.PrimaryText; DrawContents(rect); }
         }
         private void DrawContents(Rect rect)
         {
-            if(!Prefs.DevMode) { Close(); return; }
+            if(developerOnly && !Prefs.DevMode) { Close(); return; }
             Text.Font=GameFont.Small;
-            Widgets.Label(new Rect(0,0,rect.width,28),T("localImport"));
-            path=Widgets.TextField(new Rect(0,36,Mathf.Max(0,rect.width-110),32),path,4096);
-            if(Widgets.ButtonText(new Rect(rect.width-104,36,104,32),T("localBrowse"))) Browse(path);
+            Widgets.Label(new Rect(0,0,rect.width,28),T(developerOnly?"localImport":"themeChooseZip"));
+            path=ClientWidgets.TextField(new Rect(0,36,Mathf.Max(0,rect.width-110),32),path,theme,controlName: "phinix.store.local.path",maxLength:4096);
+            if(ClientWidgets.Button(new Rect(rect.width-104,36,104,32),T("localBrowse"),theme)) Browse(path);
             var viewport=new Rect(0,78,rect.width,Mathf.Max(0,rect.height-150));
             Widgets.BeginScrollView(viewport,ref scroll,new Rect(0,0,Mathf.Max(0,viewport.width-18),entries.Length*32));
             try
             {
-                for(int i=0;i<entries.Length;i++)
+                var range=VirtualListLayout.GetFixedRange(entries.Length,32,scroll.y,viewport.height,1);
+                for(int i=range.FirstIndex;i<range.EndIndexExclusive;i++)
                 {
                     string entry=entries[i]; string name=Path.GetFileName(entry);
-                    if(Widgets.ButtonText(new Rect(0,i*32,Mathf.Max(0,viewport.width-18),28),name))
+                    if(ClientWidgets.Button(new Rect(0,i*32,Mathf.Max(0,viewport.width-18),28),name,theme))
                     { path=entry; if(Directory.Exists(entry)) Browse(entry); }
                 }
             }
             finally { Widgets.EndScrollView(); }
             if(message!=null) Widgets.Label(new Rect(0,rect.height-64,rect.width,24),message);
-            if(Widgets.ButtonText(new Rect(0,rect.height-34,rect.width,32),T("localSelect")))
+            if(ClientWidgets.Button(new Rect(0,rect.height-34,rect.width,32),T("localSelect"),theme))
             {
                 try
                 {
-                    if(!Prefs.DevMode) return;
+                    if(developerOnly && !Prefs.DevMode) return;
                     string full=PhinixClient.Framework.ClientEnvironmentPaths.NormalizeAbsolute(path);
                     if(!File.Exists(full) || !string.Equals(Path.GetExtension(full),".zip",StringComparison.OrdinalIgnoreCase))
                     { message=T("localInvalidSelection"); return; }

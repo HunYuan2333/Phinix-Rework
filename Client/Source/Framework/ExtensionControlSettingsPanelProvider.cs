@@ -19,14 +19,16 @@ namespace PhinixClient.Framework
     internal sealed class ExtensionControlSettingsPanelProvider : IClientSettingsPanelProvider
     {
         private readonly IClientExtensionManagementWindowService management;
+        private readonly IClientTheme theme;
+        private bool[] cachedHintWarning;
 
-        public ExtensionControlSettingsPanelProvider(IClientExtensionManagementWindowService management)
+        public ExtensionControlSettingsPanelProvider(IClientTheme theme, IClientExtensionManagementWindowService management)
         {
-            this.management = management;
+            this.management = management; this.theme = theme;
         }
 
-        // 布局缓存（设计哲学 §8.3）：设置面板每帧重绘，排序、文本拼接、颜色标记只在
-        // 扩展结果数量或设置版本变化时重建一次，Draw 路径零分配。
+        // 布局缓存（设计哲学 §8.3）：设置面板每帧重绘，排序与无颜色文本只在
+        // 扩展结果数量或设置版本变化时重建；颜色从当前绘制快照读取。
         private List<ExtensionDiscoveryResult> cachedSortedResults;
         private string[] cachedLabels;
         private string cachedManagementLabel;
@@ -50,6 +52,10 @@ namespace PhinixClient.Framework
         }
 
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
+        {
+            using (new ClientGuiScope(true)) DrawSettingsContents(listing, settings, theme.Capture());
+        }
+        private void DrawSettingsContents(Listing_Standard listing, IClientSettingsContext settings, IClientThemeReader palette)
         {
             PhinixFrameworkClient frameworkClient = Client.Instance?.FrameworkClient;
             if (frameworkClient == null)
@@ -84,7 +90,7 @@ namespace PhinixClient.Framework
                 return;
             }
 
-            if (listing.ButtonText(cachedManagementLabel))
+            if (ClientWidgets.Button(listing.GetRect(30f), cachedManagementLabel, palette))
             {
                 management.OpenExtensionManagerWindow();
             }
@@ -104,7 +110,7 @@ namespace PhinixClient.Framework
                 if (canToggle)
                 {
                     Rect rowRect = listing.GetRect(cachedLabelHeights[i]);
-                    Widgets.CheckboxLabeled(rowRect, cachedLabels[i], ref newEnabled);
+                    ClientWidgets.Checkbox(rowRect, cachedLabels[i], ref newEnabled, palette);
                     if (newEnabled != isEnabled && hostSettings != null)
                     {
                         Client.Instance?.SetModuleEnabled(extensionId,newEnabled,controlState?.Revision);
@@ -113,19 +119,19 @@ namespace PhinixClient.Framework
                 else
                 {
                     Rect rowRect = listing.GetRect(cachedLabelHeights[i]);
-                    Widgets.Label(rowRect, cachedLabels[i]);
+                    ClientWidgets.Label(rowRect, cachedLabels[i], palette, secondary: true);
                 }
 
                 if (cachedHints[i] != null)
                 {
                     Rect hintRect = listing.GetRect(cachedHintHeights[i]);
-                    Widgets.Label(hintRect, cachedHints[i]);
+                    ClientWidgets.Label(hintRect, cachedHints[i], cachedHintWarning[i] ? palette.Warning : palette.SecondaryText);
                     TooltipHandler.TipRegion(hintRect, cachedHints[i]);
                 }
             }
 
             listing.Gap(4f);
-            listing.Label("Phinix_modSettings_extensionsRestartRequired".Translate().Colorize(Color.gray));
+            ClientWidgets.Label(listing.GetRect(30f), "Phinix_modSettings_extensionsRestartRequired".Translate(), palette, secondary: true);
         }
 
         /// <summary>
@@ -147,6 +153,7 @@ namespace PhinixClient.Framework
             int count = cachedSortedResults.Count;
             cachedLabels = new string[count];
             cachedHints = new string[count];
+            cachedHintWarning = new bool[count];
             cachedLabelHeights = new float[count];
             cachedHintHeights = new float[count];
 
@@ -159,16 +166,17 @@ namespace PhinixClient.Framework
                     : $"{result.DisplayName} ({extensionId})";
 
                 ExtensionDisplayState display = ExtensionDisplayState.Compute(result, disabledIds, dependencyGraph);
+                cachedHintWarning[i] = display.PendingChange != ExtensionPendingChange.None || display.Reason == ExtensionDisplayReason.DependencyDisabled;
                 if (result.AssemblyName == null)
-                    cachedHints[i] = "Phinix_extensions_disabledSettingRecovery".Translate().Colorize(Color.gray);
+                    cachedHints[i] = "Phinix_extensions_disabledSettingRecovery".Translate();
 
                 if (display.PendingChange == ExtensionPendingChange.WillDisableAfterRestart)
                 {
-                    cachedHints[i] = ("  " + "Phinix_extensions_pendingDisable".Translate()).Colorize(Color.yellow);
+                    cachedHints[i] = ("  " + "Phinix_extensions_pendingDisable".Translate());
                 }
                 else if (display.PendingChange == ExtensionPendingChange.WillEnableAfterRestart)
                 {
-                    cachedHints[i] = ("  " + "Phinix_extensions_pendingEnable".Translate()).Colorize(new Color(0.55f, 0.75f, 1f));
+                    cachedHints[i] = ("  " + "Phinix_extensions_pendingEnable".Translate());
                 }
                 else if (display.Reason == ExtensionDisplayReason.DependencyDisabled)
                 {
@@ -177,7 +185,7 @@ namespace PhinixClient.Framework
                     {
                         detail = "Phinix_extensions_depDisabledHint".Translate();
                     }
-                    cachedHints[i] = ("  ⚠ " + detail).Colorize(Color.yellow);
+                    cachedHints[i] = ("  ⚠ " + detail);
                 }
 
                 var owner=controlState?.FindModuleOwner(extensionId);
@@ -190,7 +198,7 @@ namespace PhinixClient.Framework
                 // 老插件未声明依赖关系提示
                 if (dependencyGraph != null && dependencyGraph.IsUndeclared(extensionId))
                 {
-                    string undeclaredHint = ("  " + "Phinix_extensions_undeclaredDeps".Translate()).Colorize(Color.gray);
+                    string undeclaredHint = ("  " + "Phinix_extensions_undeclaredDeps".Translate());
                     cachedHints[i] = cachedHints[i] == null
                         ? undeclaredHint
                         : cachedHints[i] + "\n" + undeclaredHint;

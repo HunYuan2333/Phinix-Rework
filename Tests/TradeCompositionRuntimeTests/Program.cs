@@ -20,12 +20,12 @@ internal static partial class Program
     {
         try
         {
-            bool legacy=args.Length>0 && args[0]=="--legacy";
+            if (args.Length > 0 && args[0] == "--legacy") throw new ArgumentException("Only the current client contract is supported.");
             string dll=args.Length>1?args[1]:Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"TradeExtension.Client.dll");
             Type type=Assembly.LoadFrom(Path.GetFullPath(dll)).GetType("Phinix.TradeExtension.Client.BuiltInTradeClientExtension",true);
             Assert(Path.GetFullPath(type.Assembly.Location)==Path.GetFullPath(dll),"Probe must load the requested actual DLL.");
             var facts=new List<string>();
-            foreach(string scenario in legacy?new[]{"success"}:new[]{"success","resolve-failure","register-failure","missing-factory"})
+            foreach(string scenario in new[]{"success","resolve-failure","register-failure","missing-factory"})
             using(var inner=new ClientCompositionFactory(()=>true,error=>{throw error;}))
             {
                 var factory=new Factory(inner,scenario=="resolve-failure"); var host=new ExtensionHostContext();
@@ -36,22 +36,22 @@ internal static partial class Program
                 Assert(failed==(scenario!="success"),"Expected construction outcome: "+scenario);
                 if(scenario=="success")
                 {
-                    Assert(builder.Items.Count==11,"Same eleven API registrations.");
+                    Assert(builder.Items.Count==9,"Nine current API registrations.");
                     object service=builder.Items[typeof(IFrameworkTradeClientApi)];
                     object facade=builder.Items[typeof(IClientTradeService)];
-                    object bridge=builder.Items[typeof(IFrameworkLegacyTradeRepositoryApi)];
+                    object bridge=builder.Items[typeof(ITradeStateInput)];
                     Assert(ReferenceEquals(service,builder.Items[typeof(IFrameworkTradeUpdateResultApi)]),"One framework facade.");
-                    Assert(ReferenceEquals(bridge,builder.Items[typeof(IFrameworkLegacyTradeCompletionApi)]) && ReferenceEquals(bridge,builder.Items[typeof(IFrameworkLegacyTradeDeliveryApi)]),"One legacy facade.");
+                    Assert(ReferenceEquals(bridge,service),"One current authoritative state input.");
                     Assert(ReferenceEquals(facade,builder.Items[typeof(ITradeRequestApi)]),"One domain/request facade.");
-                    Assert(ReferenceEquals(builder.Items[typeof(IClientSettingsPanelProvider)],builder.Items[typeof(IClientLegacySettingsMigrator)]),"One settings/migration provider.");
-                    Assert(ReferenceEquals(Field(bridge,"tradeService"),service) && ReferenceEquals(Field(facade,"tradeService"),service),"Adapters share the framework service.");
+                    Assert(!ReferenceEquals(builder.Items[typeof(IClientSettingsPanelProvider)],builder.Items[typeof(IClientLegacySettingsMigrator)]),"Historical settings input is separate from business UI.");
+                    Assert(ReferenceEquals(Field(facade,"tradeService"),service),"Adapters share the framework service.");
                     Assert(ReferenceEquals(((ITradeUiHostContext)Field(module,"tradeUiHostContext")).TradeService,facade),"UI shares the domain facade.");
                     Assert(builder.Capabilities.Count==1 && ReferenceEquals(builder.Capabilities[0],module) && builder.Commands.Count==1 && ReferenceEquals(builder.Commands[0],module),"Same capability and command owner.");
-                    Assert(Field(module,"lifecycle")==null && Field(module,legacy?"inventoryCodecRegistration":"inventoryRegistrations")==null && Field(module,"defaultTradeBehaviour")==null,"Composition starts no connection, inventory registration or behavior.");
+                    Assert(Field(module,"lifecycle")==null && Field(module,"inventoryRegistrations")==null && Field(module,"defaultTradeBehaviour")==null,"Composition starts no connection, inventory registration or behavior.");
                     service.GetType().GetMethod("InitializeUserDirectory",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(service,new object[]{new Users()});
-                    var repo=(IFrameworkLegacyTradeRepositoryApi)bridge;
+                    var repo=(ITradeStateInput)bridge;
                     repo.UpsertTrade(new FrameworkTradeStateSnapshot{TradeId="test",Participants=new List<FrameworkTradeParticipantSnapshot>{new FrameworkTradeParticipantSnapshot{Uuid="local"},new FrameworkTradeParticipantSnapshot{Uuid="remote"}}});
-                    Assert(((IFrameworkTradeClientApi)service).GetTradeIds().SequenceEqual(new[]{"test"}) && ((IClientTradeService)facade).GetTradeIds().SequenceEqual(new[]{"test"}),"Legacy update reaches framework and domain views.");
+                    Assert(((IFrameworkTradeClientApi)service).GetTradeIds().SequenceEqual(new[]{"test"}) && ((IClientTradeService)facade).GetTradeIds().SequenceEqual(new[]{"test"}),"Authoritative state reaches both views.");
                     repo.RemoveTrade("test");
                     Assert(((IFrameworkTradeClientApi)service).GetTradeIds().Length==0,"Removal reaches shared repository.");
                     var outgoing=(IClientOutgoingCommandHandler)module;
@@ -59,7 +59,7 @@ internal static partial class Program
                     Assert(outgoing.CanHandleOutgoingCommand(packet) && !outgoing.CanHandleOutgoingCommand(null),"Outgoing command classification unchanged.");
                     var result=outgoing.HandleOutgoingCommand(packet,null);
                     Assert(result.Action==MessageHandlingResultAction.Handled && ReferenceEquals(result.Command,packet),"Outgoing packet is passed through unchanged.");
-                    Assert(Field(module,"lifecycle")==null && Field(module,legacy?"inventoryCodecRegistration":"inventoryRegistrations")==null && Field(module,"defaultTradeBehaviour")==null,"Composition starts no connection, inventory registration or behavior.");
+                    Assert(Field(module,"lifecycle")==null && Field(module,"inventoryRegistrations")==null && Field(module,"defaultTradeBehaviour")==null,"Composition starts no connection, inventory registration or behavior.");
                     string[] serviceEvents={"OnTradesSynced","OnTradeCancelled","OnTradeCompleted","OnTradeCreationSuccess","OnTradeUpdateFailure","OnTradeUpdateSuccess"};
                     object ui=Field(module,"tradeUiHostContext");
                     foreach(string name in serviceEvents) Assert(Subscribers(service,name)==1,"One passive list subscription: "+name);
@@ -87,7 +87,7 @@ internal static partial class Program
             }
             CheckActivationLifetime(type,legacy,facts);
             foreach(string fact in facts) Console.WriteLine("FACT "+fact);
-            Console.WriteLine("Trade composition passed: "+assertions+" assertions; "+(legacy?"before":"after"));return 0;
+            Console.WriteLine("Trade composition passed: "+assertions+" assertions; "+"current");return 0;
         }
         catch(Exception error) { Console.Error.WriteLine(error);return 1; }
     }

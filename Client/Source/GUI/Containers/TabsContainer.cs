@@ -2,6 +2,7 @@
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
 using System;
+using PhinixClient.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 using Verse;
@@ -68,6 +69,11 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true)) DrawContents(inRect);
+        }
+        private void DrawContents(Rect inRect)
+        {
             // Do nothing if there's no tabs
             if (tabs.Count == 0) return;
 
@@ -85,7 +91,7 @@ namespace PhinixClient.GUI
             Rect contentRect = new Rect(inRect.xMin, inRect.yMin + tabHeight, inRect.width, Mathf.Max(0f, inRect.height - tabHeight));
             if (inRect.width > 0f)
             {
-                TabDrawer.DrawTabsOverflow(inRect, tabRecords, 80f, 200f);
+                ClientWidgets.Tabs(inRect, tabRecords, 80f, 200f, HostThemeDrawing.Current);
             }
 
             // We draw the selected tab

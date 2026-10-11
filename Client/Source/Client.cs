@@ -186,7 +186,7 @@ namespace PhinixClient
             windowService = new ClientWindowService();
             userEventStream = new ClientUserEventStream();
             shellEventStream = new ClientShellEventStream();
-            mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)));
+            mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)), () => UnityData.IsInMainThread);
             IClientSoundService soundService = new ClientSoundService(this);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
             {
@@ -201,6 +201,7 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientUserEventStream>(userEventStream);
             extensionHostContext.AddService<IClientShellEventStream>(shellEventStream);
             extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
+            extensionHostContext.AddService<IClientTaskService>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientWindowService>(windowService);
             extensionHostContext.AddService<IClientSettingsWindowService>((IClientSettingsWindowService)windowService);
@@ -233,7 +234,7 @@ namespace PhinixClient
                 // ProcessExit can run after Unity's main thread has stopped. Only
                 // release game-independent host resources here.
                 try { localizationService?.Dispose(); }
-                finally { managedExtensionRuntime?.Dispose(); }
+                finally { apiDirectory?.Dispose(); themePackages?.Dispose(); managedExtensionRuntime?.Dispose(); }
             };
             AppDomain.CurrentDomain.ProcessExit += processExitHandler;
             quittingHandler = () =>
@@ -333,6 +334,10 @@ namespace PhinixClient
 
         }
 
+        internal IClientTheme Theme { get; private set; }
+        private ClientThemePackageService themePackages;
+        private ClientApiDirectory apiDirectory;
+
         private void InitializeExtensions(string modRoot, ExtensionHostContext extensionHostContext)
         {
             if(extensionInitializationAttempted) return;
@@ -340,8 +345,20 @@ namespace PhinixClient
             extensionInitializationAttempted=true;
             try
             {
-                IUiTheme uiTheme = new UiTheme(modRoot);
-                extensionHostContext.AddService<IUiTheme>(uiTheme);
+                string themeDirectory = System.IO.Path.Combine(GenFilePaths.SaveDataFolderPath, "Phinix", "Themes");
+                var uiTheme = new UiTheme(System.IO.Path.Combine(GenFilePaths.SaveDataFolderPath, "Phinix", "theme-settings.xml"), themeDirectory,
+                    () => ThemeSources.Discover(modRoot, themeDirectory).Concat(themePackages?.Sources() ?? Enumerable.Empty<ThemeSource>()), message => Verse.Log.Warning("[Phinix] " + message),
+                    () => { if (!UnityData.IsInMainThread) throw new InvalidOperationException("Theme mutations require the game main thread."); });
+                Theme = uiTheme;
+                themePackages = new ClientThemePackageService(uiTheme, GenFilePaths.SaveDataFolderPath, message => Verse.Log.Warning("[Phinix] " + message));
+                extensionHostContext.AddService<IClientThemePackageService>(themePackages);
+                extensionHostContext.AddService<IClientThemePackageExporter>(uiTheme);
+                uiTheme.Refresh();
+                extensionHostContext.AddService<IClientTheme>(uiTheme);
+                extensionHostContext.AddService<IClientThemeRegistry>(uiTheme);
+                extensionHostContext.AddService<IClientThemeCatalog>(uiTheme);
+                var themeWindows = new ClientThemeWindowService(uiTheme, uiTheme, uiTheme, extensionHostContext.GetRequiredService<IClientSettingsContext>());
+                extensionHostContext.AddService<IClientThemeWindowService>(themeWindows);
                 Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
                 extensionAssemblyScope = ExtensionAssemblyLoader.LoadOwnedAssemblies(
                     GetExtensionProbeDirectories(modRoot),
@@ -415,7 +432,18 @@ namespace PhinixClient
                 localizationGameLanguage=LanguageDatabase.activeLanguage;
                 localizationService.UpdateLanguage(ClientGameLanguage.CurrentLocale());
                 extensionHostContext.AddService<IClientLocalizationService>(localizationService);
-                extensionHostContext.AddService<IExtensionModuleLifecycleObserver>(localizationService);
+                var extensionPoints=new ClientExtensionPointService(() => UnityData.IsInMainThread,
+                    message => Verse.Log.Warning("[Phinix] "+message));
+                extensionPoints.SetModuleTypes(candidateModuleTypes);
+                extensionHostContext.AddService<IClientExtensionPointService>(extensionPoints);
+                var lifetimeService=new ClientLifetimeService(()=>UnityData.IsInMainThread,message=>Verse.Log.Warning("[Phinix] "+message));
+                lifetimeService.SetModuleTypes(candidateModuleTypes);
+                extensionHostContext.AddService<IClientLifetimeService>(lifetimeService);
+                apiDirectory=new ClientApiDirectory((ExtensionApiRegistry)extensionHostContext.ApiRegistry,()=>frameworkClient?.ExtensionResults,candidateModuleTypes,()=>UnityData.IsInMainThread);
+                extensionHostContext.AddService<IClientApiDirectory>(apiDirectory);
+                uiTheme.SetModuleTypes(candidateModuleTypes);
+                mainThreadDispatcher.SetModuleTypes(candidateModuleTypes);
+                extensionHostContext.AddService<IExtensionModuleLifecycleObserver>(new ClientModuleLifecycleObservers(localizationService, uiTheme, mainThreadDispatcher, extensionPoints,lifetimeService));
                 ExtensionDependencyGraph dependencyGraph = ExtensionDependencyGraph.Build(candidateModuleTypes);
                 foreach (string graphWarning in dependencyGraph.BuildWarnings)
                 {
@@ -432,10 +460,11 @@ namespace PhinixClient
                 // host 核心的扩展管理设置面板（Mod Settings 页，Order=50）。
                 // 与 ExtensionManagerTab 共用 ExtensionDisplayState 静态计算，勾选后两处显示一致。
                 extensionHostContext.ApiRegistry.RegisterApi<IClientSettingsPanelProvider>(
-                    "builtin.host", new ExtensionControlSettingsPanelProvider((IClientExtensionManagementWindowService)windowService));
+                    "builtin.host", new ExtensionControlSettingsPanelProvider(uiTheme, (IClientExtensionManagementWindowService)windowService));
                 // 通用 UI 主题同时注册为 API——扩展管理 Tab 等 host UI 通过 ResolveExtensionApis 解析。
-                // 插件仍通过 GetRequiredService&lt;IUiTheme&gt; 使用服务方式，两种通道并存，互不冲突。
-                extensionHostContext.ApiRegistry.RegisterApi<IUiTheme>("builtin.host", uiTheme);
+                // 插件通过构造注入消费同一主题实例；host UI 从 API 注册表取得该实例。
+                extensionHostContext.ApiRegistry.RegisterApi<IClientTheme>("builtin.host", uiTheme);
+                extensionHostContext.ApiRegistry.RegisterApi<IClientSettingsPanelProvider>("builtin.host", new ThemeSettingsPanel(uiTheme, themeWindows));
 
                 Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
                 frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
@@ -491,7 +520,7 @@ namespace PhinixClient
                 try { localizationService?.Dispose(); }
                 finally
                 {
-                    try { extensionControls?.Dispose(); managedExtensionRuntime?.Dispose(); }
+                    try { apiDirectory?.Dispose(); themePackages?.Dispose(); extensionControls?.Dispose(); managedExtensionRuntime?.Dispose(); }
                     finally { extensionAssemblyScope?.Dispose(); extensionAssemblyScope = null; }
                 }
             }
@@ -546,6 +575,16 @@ namespace PhinixClient
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                DrawModSettingsContents(inRect);
+            }
+        }
+
+        private void DrawModSettingsContents(Rect inRect)
+        {
             // Host 核心设置：连接、显示名称、音效等通用配置。
             // 设计哲学 §1.3：host 只做通用服务；§2.3：减少硬编码。
             if (inRect.width <= 0f || inRect.height <= 0f) return;
@@ -562,79 +601,82 @@ namespace PhinixClient
 
             Listing_Standard listing = modSettingsListing;
             listing.ColumnWidth = listingWidth;
-            listing.Begin(viewRect);
-
-            listing.Label("Phinix_modSettings_serverAddressTitle".Translate());
-            Settings.ServerAddress = listing.TextEntry(Settings.ServerAddress);
-
-            listing.Label("Phinix_modSettings_serverPortTitle".Translate());
-            string portStr = Settings.ServerPort.ToString();
-            portStr = listing.TextEntry(portStr);
-            int.TryParse(portStr, out int serverPort);
-            Settings.ServerPort = serverPort;
-
-            listing.Label("Phinix_modSettings_displayNameTitle".Translate());
-            Settings.DisplayName = listing.TextEntry(Settings.DisplayName);
-
-            // 插件化设置面板：动态收集各扩展注册的 IClientSettingsPanelProvider，
-            // 按 Order 排序后在同一 listing 流内绘制。不再硬编码 Chat/Trade 设置键。
-            if (frameworkClient != null)
+            try
             {
-                int extensionCount = frameworkClient.ExtensionResults?.Count ?? 0;
-                if (!ReferenceEquals(cachedSettingsPanelFramework, frameworkClient) ||
-                    cachedSettingsExtensionCount != extensionCount)
+                listing.Begin(viewRect);
+
+                listing.Label("Phinix_modSettings_serverAddressTitle".Translate());
+                Settings.ServerAddress = ClientWidgets.TextField(listing.GetRect(30f), Settings.ServerAddress, HostThemeDrawing.Current, controlName: "phinix.settings.address");
+
+                listing.Label("Phinix_modSettings_serverPortTitle".Translate());
+                string portStr = Settings.ServerPort.ToString();
+                portStr = ClientWidgets.TextField(listing.GetRect(30f), portStr, HostThemeDrawing.Current, controlName: "phinix.settings.port");
+                int.TryParse(portStr, out int serverPort);
+                Settings.ServerPort = serverPort;
+
+                listing.Label("Phinix_modSettings_displayNameTitle".Translate());
+                Settings.DisplayName = ClientWidgets.TextField(listing.GetRect(30f), Settings.DisplayName, HostThemeDrawing.Current, controlName: "phinix.settings.name");
+
+                // 插件化设置面板：动态收集各扩展注册的 IClientSettingsPanelProvider，
+                // 按 Order 排序后在同一 listing 流内绘制。不再硬编码 Chat/Trade 设置键。
+                if (frameworkClient != null)
                 {
-                    IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
-                    sortedSettingsPanels.Clear();
-                    for (int i = 0; i < panels.Count; i++) sortedSettingsPanels.Add(panels[i]);
-                    sortedSettingsPanels.Sort((left, right) => left.Order.CompareTo(right.Order));
-                    cachedSettingsPanelFramework = frameworkClient;
-                    cachedSettingsExtensionCount = extensionCount;
+                    int extensionCount = frameworkClient.ExtensionResults?.Count ?? 0;
+                    if (!ReferenceEquals(cachedSettingsPanelFramework, frameworkClient) ||
+                        cachedSettingsExtensionCount != extensionCount)
+                    {
+                        IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
+                        sortedSettingsPanels.Clear();
+                        for (int i = 0; i < panels.Count; i++) sortedSettingsPanels.Add(panels[i]);
+                        sortedSettingsPanels.Sort((left, right) => left.Order.CompareTo(right.Order));
+                        cachedSettingsPanelFramework = frameworkClient;
+                        cachedSettingsExtensionCount = extensionCount;
+                    }
+                    bool firstPanel = true;
+                    for (int panelIndex = 0; panelIndex < sortedSettingsPanels.Count; panelIndex++)
+                    {
+                        IClientSettingsPanelProvider panel = sortedSettingsPanels[panelIndex];
+                        if (!panel.IsVisible(settingsContext))
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            if (firstPanel)
+                            {
+                                firstPanel = false;
+                                ClientWidgets.Separator(listing.GetRect(1f), HostThemeDrawing.Current);
+                                listing.Gap(6f);
+                            }
+                            else
+                            {
+                                listing.Gap(6f);
+                            }
+
+                            // Technical IDs are for registration; panels render their own localized title.
+                            // Preserve host headings for providers that explicitly use a Verse translation key.
+                            string sectionId = panel.SectionId.ToString();
+                            if (Translator.CanTranslate(sectionId))
+                            {
+                                listing.Label(sectionId.Translate(), -1f, TaggedString.Empty);
+                            }
+                            using (new ClientGuiScope(true)) panel.DrawSettings(listing, settingsContext);
+                        }
+                        catch (Exception ex)
+                        {
+                            Verse.Log.Error($"[Phinix] Settings panel '{panel.SectionId}' (Order={panel.Order}) threw: {ex}");
+                        }
+                    }
                 }
-                bool firstPanel = true;
-                for (int panelIndex = 0; panelIndex < sortedSettingsPanels.Count; panelIndex++)
+
+                float measuredHeight = listing.CurHeight + 8f;
+                if (!Mathf.Approximately(modSettingsContentHeight, measuredHeight))
                 {
-                    IClientSettingsPanelProvider panel = sortedSettingsPanels[panelIndex];
-                    if (!panel.IsVisible(settingsContext))
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        if (firstPanel)
-                        {
-                            firstPanel = false;
-                            listing.GapLine();
-                        }
-                        else
-                        {
-                            listing.Gap(6f);
-                        }
-
-                        // Technical IDs are for registration; panels render their own localized title.
-                        // Preserve host headings for providers that explicitly use a Verse translation key.
-                        string sectionId = panel.SectionId.ToString();
-                        if (Translator.CanTranslate(sectionId))
-                        {
-                            listing.Label(sectionId.Translate(), -1f, TaggedString.Empty);
-                        }
-                        panel.DrawSettings(listing, settingsContext);
-                    }
-                    catch (Exception ex)
-                    {
-                        Verse.Log.Error($"[Phinix] Settings panel '{panel.SectionId}' (Order={panel.Order}) threw: {ex}");
-                    }
+                    modSettingsContentHeight = Mathf.Max(inRect.height, measuredHeight);
                 }
             }
-
-            float measuredHeight = listing.CurHeight + 8f;
-            listing.End();
-            Widgets.EndScrollView();
-            if (!Mathf.Approximately(modSettingsContentHeight, measuredHeight))
-            {
-                modSettingsContentHeight = Mathf.Max(inRect.height, measuredHeight);
-            }
+            finally { try { listing.End(); } finally { Widgets.EndScrollView(); } }
         }
 
         public override void WriteSettings()

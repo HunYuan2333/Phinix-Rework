@@ -21,7 +21,8 @@ namespace Phinix.PluginStore
         private long observedControlRevision=-1, renderedControlRevision=-1;
         private ClientExtensionPackageState selectedState;
         private readonly IClientLocalizer localizer;
-        private readonly IUiTheme theme;
+        private readonly IClientTheme themeSource;
+        private IClientThemeReader theme;
         private readonly IClientLinkService links;
         private readonly StoreMaintainerRegistry maintainers;
         private readonly StoreBadgeIcons badgeIcons;
@@ -29,8 +30,8 @@ namespace Phinix.PluginStore
         private bool selectedOfficial;
         private float officialLabelWidth, managedLabelWidth, workshopLabelWidth, localLabelWidth;
         private string linkNotice;
-        private readonly Rect[] toolbarRects = new Rect[4];
-        private readonly float[] toolbarWidths = new float[4];
+        private readonly Rect[] toolbarRects = new Rect[5];
+        private readonly float[] toolbarWidths = new float[5];
         private long observedLocalRevision=-1;
         private bool localImportActive;
         private readonly HashSet<string> updateIds = new HashSet<string>(StringComparer.Ordinal);
@@ -65,12 +66,23 @@ namespace Phinix.PluginStore
         private bool renderedInventoryKnown;
         private bool InventoryKnown => controlState?.InventoryKnown??controller.InventoryKnown;
         private bool stopped;
-        internal void Stop() { stopped=true; installIntent=null; }
-        internal ManagedPluginStoreView(ManagedStoreController controller,IClientEnvironmentService environment,IClientSettingsContext settings,
-            IClientExtensionManagementWindowService management,IClientLocalizer localizer,IUiTheme theme,
-            IClientLinkService links,StoreMaintainerRegistry maintainers,StoreBadgeIcons badgeIcons,IClientExtensionControlService controls=null)
+        private LocalPackageFileWindow localWindow;
+        private LocalThemePackagesWindow themeWindow;
+        private readonly IClientThemePackageService themes;
+        private readonly IClientThemeWindowService themeWindows;
+        internal void Stop()
         {
-            this.controller=controller; this.environment=environment; this.settings=settings; this.management=management; this.localizer=localizer; this.theme=theme;
+            stopped=true; installIntent=null; theme=null;
+            if(themeWindow?.IsOpen==true) themeWindow.Close();themeWindow=null;
+            var closing=localWindow; localWindow=null;
+            if(closing != null && closing.IsOpen) closing.Close();
+        }
+        internal ManagedPluginStoreView(ManagedStoreController controller,IClientEnvironmentService environment,IClientSettingsContext settings,
+            IClientExtensionManagementWindowService management,IClientLocalizer localizer,IClientTheme theme,
+            IClientLinkService links,StoreMaintainerRegistry maintainers,StoreBadgeIcons badgeIcons,IClientExtensionControlService controls=null,IClientThemePackageService themes=null,IClientThemeWindowService themeWindows=null)
+        {
+            this.themes=themes;this.themeWindows=themeWindows;
+            this.controller=controller; this.environment=environment; this.settings=settings; this.management=management; this.localizer=localizer; this.themeSource=theme;
             this.links=links; this.maintainers=maintainers; this.badgeIcons=badgeIcons; this.controls=controls;
             accessMethod=settings.Get("plugin-store.officialAccessMethod","github")=="cloudflare"?RepositoryAccessMethod.Cloudflare:RepositoryAccessMethod.GitHub;
         }
@@ -79,6 +91,7 @@ namespace Phinix.PluginStore
         internal void Draw(Rect rect)
         {
             if(stopped) return;
+            theme = themeSource.Capture();
             var font=Text.Font; var anchor=Text.Anchor; var wrap=Text.WordWrap; var color=GUI.color; bool enabled=GUI.enabled;
             try
             {
@@ -122,8 +135,8 @@ namespace Phinix.PluginStore
                 var searchRect = new Rect(rect.x, y, searchWidth, 32);
                 GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
                 float clearWidth=string.IsNullOrEmpty(search)?0:Mathf.Min(28,searchWidth);
-                string nextSearch = Widgets.TextField(new Rect(searchRect.x,searchRect.y,Mathf.Max(0,searchWidth-clearWidth),32), search, 128);
-                if(clearWidth>0 && Widgets.ButtonText(new Rect(searchRect.xMax-clearWidth,searchRect.y,clearWidth,32),"×")) nextSearch="";
+                string nextSearch = ClientWidgets.TextField(new Rect(searchRect.x,searchRect.y,Mathf.Max(0,searchWidth-clearWidth),32), search, theme, controlName: "phinix.store.search", maxLength: 128);
+                if(clearWidth>0 && ClientWidgets.Button(new Rect(searchRect.xMax-clearWidth,searchRect.y,clearWidth,32),"×", theme)) nextSearch="";
                 if (string.IsNullOrEmpty(search)) {
                     GUI.color = theme.SecondaryText;
                     Text.WordWrap=false; Widgets.Label(new Rect(searchRect.x+8, searchRect.y+4, Mathf.Max(0, searchWidth-16), 24), T(searchWidth<320?"searchShort":"search")); Text.WordWrap=true;
@@ -131,7 +144,7 @@ namespace Phinix.PluginStore
                 }
                 TooltipHandler.TipRegion(searchRect, T("search"));
                 GUI.enabled = enabled && !snapshot.Busy && controlState?.Busy!=true;
-                if (Widgets.ButtonText(new Rect(rect.xMax-filterWidth, y, filterWidth, 32), T("filter"+filter))) ChooseFilter();
+                if (ClientWidgets.Button(new Rect(rect.xMax-filterWidth, y, filterWidth, 32), T("filter"+filter), theme)) ChooseFilter();
                 GUI.enabled = enabled;
                 if (nextSearch != search) { search=nextSearch; listScroll=Vector2.zero; }
                 Rebuild(snapshot); // Search results update in the same GUI event.
@@ -152,24 +165,27 @@ namespace Phinix.PluginStore
                 toolbarWidths[0]=Mathf.Max(120,Text.CalcSize(T("refresh")).x+24);
                 toolbarWidths[1]=Mathf.Max(160,Mathf.Max(Text.CalcSize(T("accessGithub")).x,Text.CalcSize(T("accessCloudflare")).x)+32);
                 toolbarWidths[2]=Mathf.Max(140,Text.CalcSize(T("management")).x+24);
-                toolbarWidths[3]=Mathf.Max(180,Text.CalcSize(T("localImport")).x+24);
+                toolbarWidths[3]=Mathf.Max(150,Text.CalcSize(T("localThemes")).x+24);
+                toolbarWidths[4]=Mathf.Max(180,Text.CalcSize(T("localImport")).x+24);
             }
             // One row on desktop, wrap/overflow on smaller windows using the host-neutral helper.
-            int count=Prefs.DevMode?4:3;
+            int count=Prefs.DevMode?5:4;
             var bar=ResponsiveToolbarLayout.Calculate(rect,toolbarWidths,count,1,32,6,2,40,toolbarRects);
             height=Mathf.Min(rect.height,bar.Height);
             GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             for(int i=0;i<bar.VisibleActionCount;i++)
             {
-                string text=T(i==0?"refresh":i==1?(accessMethod==RepositoryAccessMethod.GitHub?"accessGithub":"accessCloudflare"):i==2?"management":"localImport");
+                GUI.enabled=enabled && (i==3 || !snapshot.Busy && controlState?.Busy!=true);
+                string text=T(i==0?"refresh":i==1?(accessMethod==RepositoryAccessMethod.GitHub?"accessGithub":"accessCloudflare"):i==2?"management":i==3?"localThemes":"localImport");
                 if(i==1) text+=" ▾";
-                if(Widgets.ButtonText(toolbarRects[i],text)) ToolbarAction(i);
+                if(ClientWidgets.Button(toolbarRects[i],text, theme)) ToolbarAction(i);
                 TooltipHandler.TipRegion(toolbarRects[i],i==1?T("accessExplanation")+(accessMethod==RepositoryAccessMethod.GitHub?"\n"+T("githubAccessGuidance"):""):text);
             }
-            if(bar.HasOverflow && Widgets.ButtonText(bar.OverflowButtonRect,"⋯"))
+            GUI.enabled=enabled;
+            if(bar.HasOverflow && ClientWidgets.Button(bar.OverflowButtonRect,"⋯", theme))
             {
                 var options=new List<FloatMenuOption>();
-                for(int i=bar.VisibleActionCount;i<count;i++) { int action=i; options.Add(new FloatMenuOption(T(i==0?"refresh":i==1?"accessCurrent":i==2?"management":"localImport"),()=>ToolbarAction(action))); }
+                for(int i=bar.VisibleActionCount;i<count;i++) { int action=i; options.Add(new FloatMenuOption(T(i==0?"refresh":i==1?"accessCurrent":i==2?"management":i==3?"localThemes":"localImport"),()=>ToolbarAction(action))); }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
             GUI.enabled=enabled;
@@ -195,18 +211,25 @@ namespace Phinix.PluginStore
         }
         private void ToolbarAction(int action)
         {
-            if(controller.Snapshot.Busy) return;
+            if(controller.Snapshot.Busy && action!=3) return;
             if(action==0) Refresh(false);
             else if(action==2) Act(()=>management.OpenExtensionManagerWindow());
             else if(action==3)
             {
+                if(stopped || themes==null || themeWindows==null || themeWindow?.IsOpen==true) return;
+                Act(()=> {themeWindow=new LocalThemePackagesWindow(themeSource,themes,themeWindows,()=>!stopped);Find.WindowStack.Add(themeWindow);});
+            }
+            else if(action==4)
+            {
                 if(!Prefs.DevMode || stopped) return;
-                Find.WindowStack.Add(new LocalPackageFileWindow(path=>Act(()=>
+                if(localWindow != null && localWindow.IsOpen) return;
+                localWindow = new LocalPackageFileWindow(themeSource, path=>Act(()=>
                 {
                     if(stopped || !Prefs.DevMode) return;
                     installIntent=null; localImportActive=true;
                     controller.PrepareLocal(path,environment.Capture(),Prefs.DevMode);
-                })));
+                }));
+                Find.WindowStack.Add(localWindow);
             }
             else Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> {
                 new FloatMenuOption(T("accessGithub"),()=>SwitchAccess(RepositoryAccessMethod.GitHub)),
@@ -229,12 +252,12 @@ namespace Phinix.PluginStore
             Label(messageRect,text,theme.PrimaryText);
             if(statusHeight>messageRect.height) TooltipHandler.TipRegion(messageRect,text);
             GUI.enabled=enabled;
-            if(diagnostic && Widgets.ButtonText(new Rect(rect.xMax-actionWidth-4,rect.y+4,actionWidth,Mathf.Max(0,height-8)),T("errorDetails")))
+            if(diagnostic && ClientWidgets.Button(new Rect(rect.xMax-actionWidth-4,rect.y+4,actionWidth,Mathf.Max(0,height-8)),T("errorDetails"), theme))
             {
                 string summary=ErrorDetails(snapshot);
                 Find.WindowStack.Add(new Dialog_MessageBox(Clean(summary),T("copySummary"),()=>GUIUtility.systemCopyBuffer=summary));
             }
-            else if(snapshot.Busy && Widgets.ButtonText(new Rect(rect.xMax-actionWidth-4,rect.y+4,actionWidth,Mathf.Max(0,height-8)),T("cancel")))
+            else if(snapshot.Busy && ClientWidgets.Button(new Rect(rect.xMax-actionWidth-4,rect.y+4,actionWidth,Mathf.Max(0,height-8)),T("cancel"), theme))
             { installIntent=null; controller.Cancel(); }
             if(snapshot.Busy && snapshot.Progress!=null && rect.height-height>=50)
             {
@@ -242,8 +265,7 @@ namespace Phinix.PluginStore
                 var labelRect=new Rect(rect.x+8,rect.y+height+4,Mathf.Max(0,rect.width-16),22);
                 Text.WordWrap=false; Label(labelRect,progressCaption,theme.PrimaryText); TooltipHandler.TipRegion(labelRect,progressCaption); Text.WordWrap=true;
                 Text.Font=GameFont.Tiny; Label(new Rect(rect.x+8,rect.y+height+26,Mathf.Max(0,rect.width-16),18),progressBytes,theme.SecondaryText); Text.Font=GameFont.Small;
-                Widgets.DrawBoxSolid(new Rect(rect.x,rect.y+height+46,rect.width,4),theme.Separator);
-                Widgets.DrawBoxSolid(new Rect(rect.x,rect.y+height+46,rect.width*p.Fraction,4),theme.Warning);
+                ClientWidgets.Progress(new Rect(rect.x,rect.y+height+46,rect.width,4),p.Fraction,theme,theme.Warning);
                 height+=50;
             }
             return height;
@@ -452,7 +474,7 @@ namespace Phinix.PluginStore
             Widgets.DrawBoxSolid(rect,theme.Surface);
             var regions=ManagedStoreLayout.DetailRegions(rect,compact,selected!=null);
             GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
-            if(regions.Back.height>0 && Widgets.ButtonText(regions.Back,T("backToList")))
+            if(regions.Back.height>0 && ClientWidgets.Button(regions.Back,T("backToList"), theme))
             { selected=null; installIntent=null; cached=null; GUI.enabled=enabled; return; }
             GUI.enabled=enabled;
             if(regions.Content.height>0)
@@ -479,7 +501,7 @@ namespace Phinix.PluginStore
                         DrawBadges(new Rect(12,y,width,24),selectedOfficial,selected.IsWorkshop,selected.IsLocalDevelopment); y+=32;
                         GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
                         if(selected.IsInstalledOnly) Label(new Rect(12,y,width,30),T("version")+" "+Clean(selected.Version),theme.SecondaryText);
-                        else if(!selected.IsWorkshop && Widgets.ButtonText(new Rect(12,y,width,30),T("version")+" "+selected.Version+" ▾")) ChooseVersion(snapshot);
+                        else if(!selected.IsWorkshop && ClientWidgets.Button(new Rect(12,y,width,30),T("version")+" "+selected.Version+" ▾", theme)) ChooseVersion(snapshot);
                         else if(selected.IsWorkshop) Label(new Rect(12,y,width,30),T("workshop"),theme.SecondaryText);
                         GUI.enabled=enabled; y+=44;
                     }
@@ -530,19 +552,19 @@ namespace Phinix.PluginStore
             { caption=T("management"); action=()=>Act(()=>management.OpenExtensionManagerWindow()); }
             else
             { caption=T(enable?"enable":"disable"); GUI.enabled=GUI.enabled && (selectedState?.CanRestoreSingleModule==true || (enable?local.EnableBlockCode:local.DisableBlockCode)==null); action=()=>SetEnabled(local,enable); }
-            if(Widgets.ButtonText(primary,caption)) action();
+            if(selected.IsWorkshop ? ClientWidgets.Link(primary,caption,theme) : ClientWidgets.Button(primary,caption,theme)) action();
             TooltipHandler.TipRegion(primary,selectedOwned && undo?T("cancelRemovalTip"):caption);
             GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true;
             float y=primary.yMax+6;
             if(local!=null && selectedOwned && rect.yMax-y>=28)
             {
                 float menuWidth=width>=360?width*.55f:width;
-                if(Widgets.ButtonText(new Rect(rect.x+padding,y,menuWidth,28),T("manageInstalled"))) OpenInstalledMenu(local,enable);
+                if(ClientWidgets.Button(new Rect(rect.x+padding,y,menuWidth,28),T("manageInstalled"), theme)) OpenInstalledMenu(local,enable);
                 if(width>=360)
                 {
                     GUI.enabled=enabled && !snapshot.Busy && controlState?.Busy!=true && (undo?local.DisableBlockCode:local.RemovalBlockCode)==null;
                     var removalRect=new Rect(rect.x+padding+menuWidth+6,y,Mathf.Max(0,width-menuWidth-6),28);
-                    if(Widgets.ButtonText(removalRect,T(undo?"cancelRemoval":"uninstall"))) { if(undo) CancelRemoval(local); else ConfirmUninstall(local); }
+                    if(ClientWidgets.Button(removalRect,T(undo?"cancelRemoval":"uninstall"), theme)) { if(undo) CancelRemoval(local); else ConfirmUninstall(local); }
                     if(undo) TooltipHandler.TipRegion(removalRect,T("cancelRemovalTip"));
                 }
                 y+=34;

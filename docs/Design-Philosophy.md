@@ -41,7 +41,7 @@ Network layer (NetClient)
 Extension discovery & lifecycle (PhinixExtensionRegistry, IExtensionActivationPolicy)
 General services (IClientSessionContext, IClientSettingsContext, IClientUserDirectory,
            IClientUserEventStream, IClientMainThreadDispatcher, IClientWindowService,
-           IClientSoundService, IClientLinkService, IClientEnvironmentService, IClientLocalizationService, IClientExtensionManagementWindowService, IUiTheme, IDisplayMessageSink)
+           IClientSoundService, IClientLinkService, IClientEnvironmentService, IClientLocalizationService, IClientExtensionManagementWindowService, IClientTheme, IClientThemeCatalog, IClientThemeWindowService, IDisplayMessageSink)
 ServerTab (general shell, collects IMainTabProvider / IServerSidebarProvider / INoticeBannerProvider / IUiAcceptKeyHandler for dynamic rendering)
 Basic UI (SettingsWindow, CredentialsWindow, ExtensionManagerWindow/ExtensionManagerTab, ExtensionControlSettingsPanelProvider)
 ```
@@ -229,7 +229,7 @@ When communicating with the server, plugins **must go through the framework-defi
 **Correct approach:**
 
 - Outbound messages: return `FrameworkPacket` through `IClientMessageHandler.HandleOutgoingText()`, letting `PhinixFrameworkClient.TryHandleOutgoingMessage()` send uniformly
-- Outbound commands (Trade, etc.): through the `IClientCommandHandler` pipeline, or through `IFrameworkClientLifecycle.CompatibilityMode` to determine the routing strategy after checking the current mode
+- Outbound commands (Trade, etc.): business submits through one current operation port and pipeline. Protocol selection, mode checks and old-interface conversion belong to adapters/infrastructure; business must not route by `CompatibilityMode`.
 - Inbound messages: distributed by the framework from `NetClient` to the handler pipeline after reception; plugins do not register `NetClient` handlers themselves to intercept inbound traffic (except Legacy protocol adaptation, since Legacy inbound traffic is entirely outside the Framework pipeline)
 
 **Sole exception**: The Legacy protocol adapter can register raw module handlers through `ILegacyModuleTransport.RegisterHandler()`, because Legacy inbound data does not pass through the Framework pipeline at all (old servers send `"Chat"` / `"Trading"` module packets, not `"PhinixFramework"` packets).
@@ -324,7 +324,7 @@ The main package owns one copy of Phinix.ClientComposition and all eight support
 
 New client authors derive from `ClientExtensionModule` and override `Compose(IExtensionBuilder)` (ClientExtensionAbstractions 1.9). Its explicit, nonvirtual shared Register bridge checks host composition availability and invokes Compose once through the ordinary registry. Chat now adopts this entry. Constructors stay passive; Activate/Shutdown and scope ownership remain explicit. Old direct Register modules and server modules retain their existing path during migration. Managed metadata recognizes only the trusted client contract/base assembly identity, not arbitrary external inheritance. The 1.9 API/CLR version prevents new authors from binding to older contract assemblies; deploy a matching full package.
 
-F4-H development status: maintained Chat/Inventory/Trade/Store/LegacyAdapter and both samples use Compose. Direct client Register is deprecated; LegacyClientExtensionModule is an Obsolete source compatibility adapter, and registered old client modules receive one migration warning per startup. The shared server registry remains unchanged. Planned first stable deprecation: host 0.9.8; conditional removal: host 1.0 / client abstractions 2.0 after independent plugin migration, distribution/rollback and game gates. This is not a published version bump or removal. The 1.9 composition contract/runtime set is a freeze candidate; open game/boundary gates must remain explicit.
+F8 development status (2026-10-10): client authors use Compose only. LegacyClientExtensionModule is deleted; client discovery rejects shared Register entries before constructing them. Shared/server Register remains available. Client abstractions source declares 2.0.0, and maintained plugins must be rebuilt against the matching host. This is unpublished source work; game and distribution gates remain open.
 
 ### 3.13 Store operation transitions
 
@@ -640,3 +640,10 @@ The host provides package-scoped localization: plugins bind during Activate, res
 RimWorld selects and loads ordinary mods and their effective version/conditional folders. The client discovers Phinix modules in assemblies already loaded by the game; it does not proactively scan other mods' root `Assemblies` directories or the game executable directory. Proactive Phinix loading uses its own `ModContentPack.RootDir` runtime/bundle roots.
 
 The owned loader prepares complete assembly identities before loading, handles only owned requesters and declared exact references, and detaches its resolver after plugin shutdown. This is an ownership boundary for our loader, not CLR isolation. Managed plugin payload verification and startup conflict/dependency gates remain separate. The legacy server loader remains available until a separate migration is accepted.
+
+## F8 boundary decision — 2026-10-10
+
+The user confirmed that Steam clients update together and no third-party plugins require indefinite old API support. New business/UI uses one current contract. Adapters cover all old interfaces, data formats and external systems, not only the LegacyAdapter plugin. Maintained callers migrate before obsolete interfaces/duplicate paths are removed; preserve persisted data and supported wire behavior. The previous conditional removal milestone is historical, not a reason to retain unused client APIs. See the [boundary audit](branch-local/dev/Compatibility-Interface-Boundary-Audit.md). This is a design constraint; current leaks remain pending remediation.
+
+
+F8 过渡更新：维护插件采用同一包内部 adapter 支持 API 1.9/2.0；当前核心接口仍是 2.0，CLR 绑定身份暂时保持 1.9.0.0，文件/API 版本与绑定身份分开。客户端更新完成后再结束该过渡，不恢复核心旧 API。当前详情见 branch-local/dev/F8-Implementation-Progress.md。

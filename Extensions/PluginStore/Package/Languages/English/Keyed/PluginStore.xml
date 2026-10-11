@@ -239,4 +239,14 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_LocalPackageDowngrade>Local package version downgrade is not allowed.</Phinix_store2_LocalPackageDowngrade>
   <Phinix_store2_ManagedReplacementIdentityInvalid>The existing package must be enabled and verified before replacing it.</Phinix_store2_ManagedReplacementIdentityInvalid>
   <Phinix_store2_copySummary>Copy summary</Phinix_store2_copySummary>
+  <Phinix_store2_localThemes>Local theme packages</Phinix_store2_localThemes>
+  <Phinix_store2_themeChooseZip>Choose theme ZIP</Phinix_store2_themeChooseZip>
+  <Phinix_store2_themeSelector>Theme selector</Phinix_store2_themeSelector>
+  <Phinix_store2_themeCandidate>Local candidate verified</Phinix_store2_themeCandidate>
+  <Phinix_store2_themeLocalSource>Source: local file, without official store approval. Select its theme after installation to apply it immediately.</Phinix_store2_themeLocalSource>
+  <Phinix_store2_themeRemoveConfirm>Uninstall this theme package? Its selected theme returns to default. User overrides are preserved.</Phinix_store2_themeRemoveConfirm>
+  <Phinix_store2_themeRemoved>Theme package removed; catalog refreshed.</Phinix_store2_themeRemoved>
+  <Phinix_store2_themeInstall>Install local theme package</Phinix_store2_themeInstall>
+  <Phinix_store2_themeUpdate>Update local theme package</Phinix_store2_themeUpdate>
+  <Phinix_store2_themeInstalled>Theme package saved. Choose it in the theme selector; no restart is required.</Phinix_store2_themeInstalled>
 </LanguageData>

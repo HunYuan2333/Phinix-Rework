@@ -40,8 +40,7 @@ namespace Phinix.LegacyAdapter.Client
         private readonly IDisplayMessageSink displaySink;
         private readonly IClientSessionContext sessionContext;
         private readonly IFrameworkTradeClientApi tradeApi;
-        private readonly IFrameworkLegacyTradeRepositoryApi legacyRepositoryApi;
-        private readonly IFrameworkLegacyTradeDeliveryApi legacyDeliveryApi;
+        private readonly ITradeStateInput stateInput;
         private readonly IFrameworkClientLifecycle lifecycle;
         private readonly System.Action<string, Utils.LogLevel> log;
         private const string TradingModuleName = "Trading";
@@ -52,8 +51,7 @@ namespace Phinix.LegacyAdapter.Client
             IDisplayMessageSink displaySink,
             IClientSessionContext sessionContext,
             IFrameworkTradeClientApi tradeApi,
-            IFrameworkLegacyTradeRepositoryApi legacyRepositoryApi,
-            IFrameworkLegacyTradeDeliveryApi legacyDeliveryApi,
+            ITradeStateInput stateInput,
             IFrameworkClientLifecycle lifecycle,
             System.Action<string, Utils.LogLevel> log)
         {
@@ -61,8 +59,7 @@ namespace Phinix.LegacyAdapter.Client
             this.displaySink = displaySink;
             this.sessionContext = sessionContext;
             this.tradeApi = tradeApi;
-            this.legacyRepositoryApi = legacyRepositoryApi;
-            this.legacyDeliveryApi = legacyDeliveryApi;
+            this.stateInput = stateInput;
             this.lifecycle = lifecycle;
             this.log = log;
         }
@@ -333,7 +330,7 @@ namespace Phinix.LegacyAdapter.Client
                     }
                 };
 
-                legacyRepositoryApi?.UpsertTrade(snapshot);
+                stateInput?.UpsertTrade(snapshot);
 
                 log?.Invoke($"[LegacyAdapter] Trade created: {packet.TradeId} with {packet.OtherPartyUuid}", LogLevel.DEBUG);
                 displaySink.Enqueue(new FrameworkDisplayMessage
@@ -359,14 +356,14 @@ namespace Phinix.LegacyAdapter.Client
         {
             if (packet == null) return;
 
-            if (legacyDeliveryApi == null)
+            if (stateInput == null)
             {
                 log?.Invoke("[LegacyAdapter] Legacy trade completion cannot be delivered because the canonical delivery API is unavailable.", LogLevel.ERROR);
                 return;
             }
 
             List<FrameworkItemPayload> completionItems = ConvertProtoThings(packet.Items);
-            legacyDeliveryApi.CompleteTrade(packet.TradeId, packet.Success, packet.OtherPartyUuid, completionItems);
+            stateInput.CompleteTrade(packet.TradeId, packet.Success, packet.OtherPartyUuid, completionItems);
 
             string verb = packet.Success ? "完成" : "取消";
             displaySink.Enqueue(new FrameworkDisplayMessage
@@ -407,7 +404,7 @@ namespace Phinix.LegacyAdapter.Client
             }
 
             local.ItemsOnOffer = CloneFrameworkItems(items);
-            legacyRepositoryApi?.UpsertTrade(target);
+            stateInput?.UpsertTrade(target);
             log?.Invoke(
                 $"[LegacyAdapter] Confirmed local offer updated for {tradeId}, items={local.ItemsOnOffer.Count}",
                 LogLevel.DEBUG);
@@ -495,7 +492,7 @@ namespace Phinix.LegacyAdapter.Client
                 local.ItemsOnOffer = ConvertProtoThings(packet.OtherPartyItems);
             }
 
-            legacyRepositoryApi?.UpsertTrade(target);
+            stateInput?.UpsertTrade(target);
             log?.Invoke($"[LegacyAdapter] Trade items updated: {packet.TradeId}", LogLevel.DEBUG);
         }
 
@@ -622,11 +619,11 @@ namespace Phinix.LegacyAdapter.Client
             // 如果 trade 已被取消，从 repo 移除
             if (packet.Cancelled)
             {
-                legacyRepositoryApi?.RemoveTrade(packet.TradeId);
+                stateInput?.RemoveTrade(packet.TradeId);
             }
             else
             {
-                legacyRepositoryApi?.UpsertTrade(target);
+                stateInput?.UpsertTrade(target);
             }
 
             log?.Invoke($"[LegacyAdapter] Trade status updated: {packet.TradeId} accepted={packet.Accepted} cancelled={packet.Cancelled}", LogLevel.DEBUG);
@@ -641,7 +638,7 @@ namespace Phinix.LegacyAdapter.Client
                 if (string.IsNullOrEmpty(legacyTrade.TradeId)) continue;
 
                 var snapshot = ConvertTradeProto(legacyTrade);
-                legacyRepositoryApi?.UpsertTrade(snapshot);
+                stateInput?.UpsertTrade(snapshot);
             }
 
             log?.Invoke($"[LegacyAdapter] Synced {packet.Trades.Count} active trade(s)", LogLevel.DEBUG);

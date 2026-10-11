@@ -88,7 +88,9 @@ internal static class Program
             builder.HostContext.AddService<IClientSettingsWindowService>(host);
             builder.HostContext.AddService<IClientMainThreadDispatcher>(host);
             builder.HostContext.AddService<IFrameworkClientTransport>(host);
-            builder.HostContext.AddService<IUiTheme>(host);
+            builder.HostContext.AddService<IClientMessageSubmission>(host);
+            builder.HostContext.AddService<IClientTheme>(host);
+            builder.HostContext.AddService<IClientThemeRegistry>(host);
             module.Compose(builder);
             Assert(host.SubscriptionCount == 0,
                 "The actual complete Chat graph must construct without starting host subscriptions.");
@@ -104,7 +106,7 @@ internal static class Program
 
     private sealed class RegistrationHost : IClientDisplayMessageFeed, IClientDisplayMessageStore,
         IClientSessionContext, IClientSettingsContext, IClientUserDirectory, IClientUserEventStream,
-        IClientSettingsWindowService, IClientMainThreadDispatcher, IFrameworkClientTransport, IUiTheme
+        IClientSettingsWindowService, IClientMainThreadDispatcher, IFrameworkClientTransport, IClientMessageSubmission, IClientTheme,IClientThemeRegistry
     {
         public event EventHandler<FrameworkDisplayMessageEventArgs> DisplayMessageReceived;
         public event EventHandler Disconnected;
@@ -133,10 +135,15 @@ internal static class Program
         public void UnBlockUser(string uuid) { }
         public bool HasRemoteCapability(string capability) => false;
         public void SendFrameworkPacket(FrameworkPacket packet) { throw new Exception("Unexpected registration send"); }
+        public bool TrySubmitMessage(FrameworkPacket message) => false;
         public bool TryHandleOutgoingMessage(string rawMessage) => false;
         public bool TryHandleOutgoingItem(FrameworkItemPayload payload) => false;
         public void OpenSettingsWindow() { throw new Exception("Unexpected registration window"); }
         public void Enqueue(Action action) { throw new Exception("Unexpected registration dispatch"); }
+        public long Version => 0;
+        public event Action Changed { add { } remove { } }
+        public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
         public Color PrimaryText => default(Color);
         public Color SecondaryText => default(Color);
         public Color Background => default(Color);
@@ -147,12 +154,9 @@ internal static class Program
         public Color Error => default(Color);
         public Color Success => default(Color);
         public Color Warning => default(Color);
-        public void RegisterColor(string key, Color color) { throw new Exception("Unexpected registration theme"); }
         public Color GetColor(string key) => default(Color);
         public bool TryGetColor(string key, out Color color) { color = default(Color); return false; }
-        public void RegisterFloat(string key, float value) { throw new Exception("Unexpected registration theme"); }
         public float GetFloat(string key, float value = 0f) => value;
-        public void Reload() { throw new Exception("Unexpected registration theme reload"); }
     }
 
     private static void AssertReplayDoesNotRepeatNotifications()
@@ -282,4 +286,12 @@ internal static class Program
     {
         if (!condition) throw new InvalidOperationException(message);
     }
+}
+
+internal sealed class TestThemeRegistration : PhinixClient.Framework.IClientThemeRegistration
+{
+    public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+    public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
+    public void Commit() { }
+    public void Dispose() { }
 }

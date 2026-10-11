@@ -14,8 +14,6 @@ namespace Phinix.ChatExtension.Client
         private const float StatusBarHeight = 22f;
         private const float StatusDotSize = 10f;
         private const string UserSearchControl = "PhinixChatUserSearchInput";
-        private static readonly Color OnlineStatusColor = new Color(0.35f, 0.8f, 0.4f, 1f);
-        private static readonly Color OfflineStatusColor = new Color(0.6f, 0.6f, 0.6f, 1f);
 
         private readonly IChatUiHostContext hostContext;
         private readonly IClientSessionContext sessionContext;
@@ -51,6 +49,16 @@ namespace Phinix.ChatExtension.Client
 
         public void Draw(Rect inRect)
         {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             inRect.width = Mathf.Max(0f, inRect.width);
             inRect.height = Mathf.Max(0f, inRect.height);
             bool online = sessionContext.Authenticated && sessionContext.LoggedIn;
@@ -67,7 +75,7 @@ namespace Phinix.ChatExtension.Client
                 Mathf.Min(StatusDotSize, statusRect.height));
             if (statusDotRect.width > 0f && statusDotRect.height > 0f)
             {
-                Widgets.DrawBoxSolid(statusDotRect, online ? OnlineStatusColor : OfflineStatusColor);
+                Widgets.DrawBoxSolid(statusDotRect, online ? ChatTheme.Current.Success : ChatTheme.Current.SecondaryText);
             }
 
             Rect statusTextRect = new Rect(
@@ -79,7 +87,7 @@ namespace Phinix.ChatExtension.Client
             Text.Anchor = TextAnchor.MiddleLeft;
             if (statusTextRect.width > 0f && statusTextRect.height > 0f)
             {
-                Widgets.Label(statusTextRect, cachedStatusText);
+                ClientWidgets.Label(statusTextRect, cachedStatusText, ChatTheme.ReplyQuoteText);
             }
             Text.Anchor = oldStatusAnchor;
 
@@ -93,7 +101,7 @@ namespace Phinix.ChatExtension.Client
 
             Rect userListRect = new Rect(inRect.x, Mathf.Min(cursorY, inRect.yMax), inRect.width, Mathf.Max(0f, inRect.yMax - cursorY));
 
-            if (settingsButtonRect.height > 0f && Widgets.ButtonText(settingsButtonRect, cachedSettingsLabel))
+            if (settingsButtonRect.height > 0f && ClientWidgets.Button(settingsButtonRect, cachedSettingsLabel, ChatTheme.Current))
             {
                 settingsWindowService?.OpenSettingsWindow();
             }
@@ -102,7 +110,7 @@ namespace Phinix.ChatExtension.Client
             if (userSearchRect.height > 0f)
             {
                 GUI.SetNextControlName(UserSearchControl);
-                userSearch = Widgets.TextField(userSearchRect, userSearch);
+                userSearch = ClientWidgets.TextField(userSearchRect, userSearch, ChatTheme.Current, controlName: "phinix.chat.users.search");
             }
             if (!userSearch.Equals(userSearchOld, StringComparison.Ordinal))
             {
@@ -127,7 +135,8 @@ namespace Phinix.ChatExtension.Client
             {
                 if (userListRect.width > 0f && userListRect.height > 0f)
                 {
-                    Widgets.DrawMenuSection(userListRect);
+                    ClientWidgets.Surface(userListRect, ChatTheme.Current);
+                    ClientWidgets.Border(userListRect, ChatTheme.Current);
                 }
             }
         }
@@ -147,7 +156,7 @@ namespace Phinix.ChatExtension.Client
                 string status = online
                     ? "Phinix_chat_onlineCount".Translate(onlineCount)
                     : "Phinix_chat_notConnected".Translate();
-                cachedStatusText = status.Colorize(ChatTheme.ReplyQuoteText);
+                cachedStatusText = status;
                 cachedStatusOnline = online;
                 cachedOnlineCount = onlineCount;
             }

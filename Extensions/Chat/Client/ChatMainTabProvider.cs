@@ -40,6 +40,7 @@ namespace Phinix.ChatExtension.Client
         private string lastAutocompleteText = "";
         private bool chatInputOwned;
         private int refocusAttemptsRemaining;
+        private long replyThemeVersion = -1;
         private UIChatMessage cachedReplyTarget;
         private object cachedReplyLanguage;
         private float cachedReplyWidth = -1f;
@@ -78,6 +79,16 @@ namespace Phinix.ChatExtension.Client
 
 
         public void Draw(Rect inRect)
+        {
+            using (ChatTheme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
         {
             inRect.width = Mathf.Max(0f, inRect.width);
             inRect.height = Mathf.Max(0f, inRect.height);
@@ -140,19 +151,21 @@ namespace Phinix.ChatExtension.Client
                 TooltipHandler.TipRegion(labelRect, cachedReplyTooltip);
 
                 Rect closeRect = replyBarRect.RightPartPixels(Mathf.Min(REPLY_CLOSE_WIDTH, replyBarRect.width));
-                if (Widgets.ButtonText(closeRect, "×"))
+                if (ClientWidgets.Button(closeRect, "×", ChatTheme.Current))
                 {
                     hostContext.ClearReplyTarget();
                 }
             }
 
             GUIUtility.GetControlID(CHAT_INPUT_CONTROL_BOUNDARY, FocusType.Passive);
-            GUI.SetNextControlName(CHAT_INPUT_CONTROL);
-            message = Widgets.TextField(messageBoxRect, message);
+            using (new ClientGuiScope(true))
+            {
+                message = ClientWidgets.TextField(messageBoxRect, message, ChatTheme.Current, controlName: CHAT_INPUT_CONTROL, textColor: ChatTheme.InputText);
+            }
             UpdateInputOwnership(messageBoxRect);
             TryRefocusAfterAccept();
 
-            if (sendButtonRect.width > 0f && sendButtonRect.height > 0f && Widgets.ButtonText(sendButtonRect, cachedSendLabel))
+            if (sendButtonRect.width > 0f && sendButtonRect.height > 0f && ClientWidgets.Button(sendButtonRect, cachedSendLabel, ChatTheme.Current))
             {
                 sendChatMessage();
             }
@@ -163,7 +176,7 @@ namespace Phinix.ChatExtension.Client
         private float GetReplyBarHeight(UIChatMessage replyTarget, float availableWidth)
         {
             object language = LanguageDatabase.activeLanguage;
-            if (!ReferenceEquals(replyTarget, cachedReplyTarget) ||
+            if (replyThemeVersion != ChatTheme.Version || !ReferenceEquals(replyTarget, cachedReplyTarget) ||
                 !ReferenceEquals(language, cachedReplyLanguage) ||
                 !Mathf.Approximately(availableWidth, cachedReplyWidth))
             {
@@ -178,6 +191,7 @@ namespace Phinix.ChatExtension.Client
                 cachedReplyLabel = ("↩ " + displayName + ": " + snippet).Colorize(ChatTheme.ReplyQuoteText);
                 float textWidth = Mathf.Max(1f, availableWidth - REPLY_LINE_WIDTH - REPLY_CLOSE_WIDTH - REPLY_TEXT_PADDING * 2f);
                 cachedReplyHeight = Mathf.Clamp(Text.CalcHeight(cachedReplyLabel, textWidth) + 4f, MINIMUM_REPLY_BAR_HEIGHT, MAXIMUM_REPLY_BAR_HEIGHT);
+                replyThemeVersion = ChatTheme.Version;
                 cachedReplyTarget = replyTarget;
                 cachedReplyLanguage = language;
                 cachedReplyWidth = availableWidth;
@@ -312,10 +326,13 @@ namespace Phinix.ChatExtension.Client
             if (!string.IsNullOrEmpty(message))
             {
                 HashSet<string> mentionedUuids = ParseMentions(message);
-                hostContext.SendChatMessage(message, mentionedUuids);
+                if (!hostContext.SendChatMessage(message, mentionedUuids))
+                {
+                    Messages.Message("Phinix_chat_sendUnavailable".Translate(), RimWorld.MessageTypeDefOf.RejectInput, false);
+                    return;
+                }
                 chatMessageList.ScrollToBottom();
                 message = "";
-                hostContext.ClearReplyTarget();
             }
         }
 

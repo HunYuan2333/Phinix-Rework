@@ -11,27 +11,28 @@ namespace Phinix.PluginStore
         public void Dispose() { Stop(); }
 
         private ManagedStoreController controller;
+        private IClientTheme themeSource;
         private Action open;
         private bool dismissed;
-        internal void Initialize(ManagedStoreController controller,Action open)
-        { this.controller=controller; this.open=open; dismissed=false; }
-        internal void Stop() { controller=null; open=null; dismissed=false; }
+        internal void Initialize(IClientTheme theme,ManagedStoreController controller,Action open)
+        { this.themeSource=theme; this.controller=controller; this.open=open; dismissed=false; }
+        internal void Stop() { controller=null; open=null; themeSource=null; dismissed=false; }
         public float CurrentHeight => !dismissed && controller?.Updates.Count>0?32:0;
         public void Draw(Rect rect)
         {
             if(CurrentHeight==0 || rect.width<=0 || rect.height<=0) return;
-            var font=Text.Font; var anchor=Text.Anchor; bool wrap=Text.WordWrap,enabled=GUI.enabled; var color=GUI.color;
-            try
+            var theme=themeSource.Capture();
+            using (new ClientGuiScope(true))
             {
                 Text.Font=GameFont.Small; Text.Anchor=TextAnchor.MiddleLeft; Text.WordWrap=false; GUI.color=Color.white;
                 string message=string.Format("Phinix_store2_updateNotice".Translate(),controller.Updates.Count);
                 float close=Mathf.Min(32,rect.width);
                 var body=new Rect(rect.x,rect.y,Mathf.Max(0,rect.width-close-4),Mathf.Min(32,rect.height));
-                Widgets.DrawBoxSolid(body,new Color(.24f,.28f,.17f)); Widgets.Label(body,message); TooltipHandler.TipRegion(body,message);
+                ClientWidgets.Surface(body,theme); ClientWidgets.Label(body,message,theme.Warning); TooltipHandler.TipRegion(body,message);
                 if(Widgets.ButtonInvisible(body)) open?.Invoke();
-                if(Widgets.ButtonText(new Rect(rect.xMax-close,rect.y,close,Mathf.Min(32,rect.height)),"×")) dismissed=true;
+                if(ClientWidgets.Button(new Rect(rect.xMax-close,rect.y,close,Mathf.Min(32,rect.height)),"×",theme)) dismissed=true;
             }
-            finally { Text.Font=font; Text.Anchor=anchor; Text.WordWrap=wrap; GUI.color=color; GUI.enabled=enabled; }
+
         }
     }
 }

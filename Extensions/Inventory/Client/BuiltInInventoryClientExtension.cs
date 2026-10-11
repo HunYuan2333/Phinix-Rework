@@ -26,6 +26,7 @@ namespace Phinix.InventoryExtension.Client
         private IClientCompositionScope composition;
         private InventoryTab tab;
         private InventorySettingsPanel settingsPanel;
+        private InventoryTheme theme;
         private readonly Dictionary<string, IInventoryCodec> codecs = new Dictionary<string, IInventoryCodec>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, IInventorySourcePresenter> sourcePresenters = new Dictionary<string, IInventorySourcePresenter>(StringComparer.OrdinalIgnoreCase);
         private readonly object registrationLock = new object();
@@ -39,6 +40,7 @@ namespace Phinix.InventoryExtension.Client
         private IClientShellEventStream shellEvents;
         private IClientWindowService windowService;
         private bool deliveryChoiceOpen;
+        private InventoryDeliveryChoiceDialog deliveryChoiceDialog;
         private volatile int mainThreadId;
         private int activationGeneration;
         private string fault;
@@ -63,11 +65,15 @@ namespace Phinix.InventoryExtension.Client
                 local.Borrow(context.GetRequiredService<IClientMainThreadDispatcher>());
                 local.Borrow(context.GetRequiredService<IClientShellEventStream>());
                 local.Borrow(context.GetRequiredService<IClientWindowService>());
+                local.Borrow(context.GetRequiredService<IClientTheme>());
+                local.Borrow(context.GetRequiredService<IClientThemeRegistry>());
+                local.Register<InventoryTheme, InventoryTheme>();
                 local.Register<InventoryTab, InventoryTab>();
                 local.Register<InventorySettingsPanel, InventorySettingsPanel>();
             });
             tab = composition.Resolve<InventoryTab>();
             settingsPanel = composition.Resolve<InventorySettingsPanel>();
+            theme = composition.Resolve<InventoryTheme>();
             settings = composition.Resolve<IClientSettingsContext>();
             dispatcher = composition.Resolve<IClientMainThreadDispatcher>();
             shellEvents = composition.Resolve<IClientShellEventStream>();
@@ -86,6 +92,7 @@ namespace Phinix.InventoryExtension.Client
         public void Activate(ExtensionHostContext hostContext)
         {
             host = hostContext;
+            theme.Start(this);
             active = this;
             int generation = Interlocked.Increment(ref activationGeneration);
             harmony = new Harmony("phinix.inventory.save-identity");
@@ -109,6 +116,9 @@ namespace Phinix.InventoryExtension.Client
             Interlocked.Increment(ref activationGeneration);
             if (active == this) active = null;
             var failures = new List<Exception>();
+            InventoryDeliveryChoiceDialog oldDialog = deliveryChoiceDialog;
+            deliveryChoiceDialog = null;
+            Release(() => oldDialog?.Close(), failures);
             InventoryJournal oldJournal = journal;
             journal = null;
             attachedSave = null;
@@ -136,6 +146,7 @@ namespace Phinix.InventoryExtension.Client
             composition = null;
             tab = null;
             settingsPanel = null;
+            theme = null;
             Release(() => oldComposition?.Dispose(), failures);
             if (failures.Count != 0) throw new AggregateException("Inventory shutdown failed.", failures);
         }
@@ -151,15 +162,18 @@ namespace Phinix.InventoryExtension.Client
             string current = settings?.Get<string>(InventoryDeliveryPreference.SettingKey, null);
             if (InventoryDeliveryPreference.IsValid(current) || deliveryChoiceOpen || windowService == null) return;
             deliveryChoiceOpen = true;
-            windowService.Open(new InventoryDeliveryChoiceDialog(
+            deliveryChoiceDialog = new InventoryDeliveryChoiceDialog(
+                theme,
                 SetDeliveryPreference,
-                () => deliveryChoiceOpen = false));
+                () => { deliveryChoiceOpen = false; deliveryChoiceDialog = null; });
+            windowService.Open(deliveryChoiceDialog);
         }
 
         private void SetDeliveryPreference(string value)
         {
             settings?.Set(InventoryDeliveryPreference.SettingKey, value);
             deliveryChoiceOpen = false;
+            deliveryChoiceDialog = null;
         }
 
         internal static void AttachSave(InventoryGameComponent component)
@@ -618,14 +632,7 @@ namespace Phinix.InventoryExtension.Client
             ledger.Publish(reserved);
             try
             {
-                InventoryDeliveryResult delivery;
-                if (codec is IInventoryVerifiedDeliveryCodec verifiedCodec)
-                    delivery = verifiedCodec.DeliverVerified(thing, map, spot);
-                else
-                {
-                    codec.Deliver(thing, map, spot);
-                    delivery = InventoryDropDelivery.InspectCustody(new[] { thing }, map, spot);
-                }
+                InventoryDeliveryResult delivery = codec.DeliverVerified(thing, map, spot);
 
                 if (delivery == null || delivery.Status == InventoryDeliveryStatus.Uncertain)
                 {

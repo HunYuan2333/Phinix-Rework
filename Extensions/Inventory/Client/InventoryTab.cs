@@ -15,10 +15,7 @@ namespace Phinix.InventoryExtension.Client
         private const float Spacing = 8f;
         private static readonly UiLayoutHints Hints = new UiLayoutHints(
             new Vector2(360f, 300f), new Vector2(780f, 560f), true);
-        private static readonly Color InfoBackground = new Color(0.18f, 0.38f, 0.58f, 0.16f);
-        private static readonly Color InfoAccent = new Color(0.32f, 0.66f, 0.95f, 1f);
-        private static readonly Color EditorBackground = new Color(0.12f, 0.12f, 0.12f, 0.66f);
-        private static readonly Color NoticeBackground = new Color(0.55f, 0.42f, 0.12f, 0.2f);
+        private readonly InventoryTheme theme;
 
         private readonly BuiltInInventoryClientExtension inventory;
         private bool disposed;
@@ -50,9 +47,10 @@ namespace Phinix.InventoryExtension.Client
         private string scheduleQuantityText = "1";
         private string dayTickText = "30000";
 
-        public InventoryTab(BuiltInInventoryClientExtension inventory)
+        public InventoryTab(BuiltInInventoryClientExtension inventory, InventoryTheme theme)
         {
             this.inventory = inventory;
+            this.theme = theme;
             // The tab and inventory share one extension lifetime. Also refresh on codec activation changes.
             inventory.InventoryChanged += InvalidateRows;
             inventory.AvailabilityChanged += InvalidateRows;
@@ -72,6 +70,17 @@ namespace Phinix.InventoryExtension.Client
         public UiLayoutHints LayoutHints => Hints;
 
         public void Draw(Rect inRect)
+        {
+            if (disposed) return;
+            using (theme.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                GUI.color = theme.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
         {
             if (inventory.HasPendingRecovery)
             {
@@ -97,7 +106,7 @@ namespace Phinix.InventoryExtension.Client
             if (inventory.Fault != null)
             {
                 DrawMessageCard(inRect, "Phinix_inventory_unavailableTitle".Translate(), inventory.Fault,
-                    new Color(0.75f, 0.28f, 0.25f, 1f));
+                    theme.Current.Error);
                 return;
             }
 
@@ -112,10 +121,10 @@ namespace Phinix.InventoryExtension.Client
                 float pendingHeight = Mathf.Max(36f,
                     Text.CalcHeight(pending, Mathf.Max(1f, inRect.width - 24f)) + 12f);
                 Rect pendingRect = new Rect(inRect.x, top, inRect.width, pendingHeight);
-                Widgets.DrawBoxSolid(pendingRect, NoticeBackground);
-                Widgets.DrawBoxSolid(new Rect(pendingRect.x, pendingRect.y, 3f, pendingRect.height),
-                    new Color(0.95f, 0.72f, 0.2f, 1f));
-                Widgets.Label(pendingRect.ContractedBy(8f), pending);
+                ClientWidgets.Fill(pendingRect, theme.NoticeBackground);
+                ClientWidgets.Fill(new Rect(pendingRect.x, pendingRect.y, 3f, pendingRect.height),
+                    theme.Current.Warning);
+                ClientWidgets.Label(pendingRect.ContractedBy(8f), pending, theme.Current);
                 top += pendingHeight + Spacing;
             }
 
@@ -124,10 +133,10 @@ namespace Phinix.InventoryExtension.Client
                 float noticeHeight = Mathf.Max(36f,
                     Text.CalcHeight(notice, Mathf.Max(1f, inRect.width - 24f)) + 12f);
                 Rect noticeRect = new Rect(inRect.x, top, inRect.width, noticeHeight);
-                Widgets.DrawBoxSolid(noticeRect, NoticeBackground);
-                Widgets.DrawBoxSolid(new Rect(noticeRect.x, noticeRect.y, 3f, noticeRect.height),
-                    new Color(0.95f, 0.72f, 0.2f, 1f));
-                Widgets.Label(noticeRect.ContractedBy(8f), notice);
+                ClientWidgets.Fill(noticeRect, theme.NoticeBackground);
+                ClientWidgets.Fill(new Rect(noticeRect.x, noticeRect.y, 3f, noticeRect.height),
+                    theme.Current.Warning);
+                ClientWidgets.Label(noticeRect.ContractedBy(8f), notice, theme.Current);
                 top += noticeHeight + Spacing;
             }
 
@@ -254,8 +263,8 @@ namespace Phinix.InventoryExtension.Client
 
         private void DrawGroupRow(InventoryDisplayGroup group, Rect rect)
         {
-            Widgets.DrawBoxSolid(rect, InfoBackground);
-            Widgets.DrawBoxSolid(new Rect(rect.x, rect.y, 3f, rect.height), InfoAccent);
+            ClientWidgets.Fill(rect, theme.InfoBackground);
+            ClientWidgets.Fill(new Rect(rect.x, rect.y, 3f, rect.height), theme.InfoAccent);
             float buttonWidth = Mathf.Clamp(rect.width * 0.23f, 80f, 126f);
             Rect button = new Rect(rect.xMax - buttonWidth - 6f, rect.y + 10f, buttonWidth, 34f);
             Rect text = new Rect(rect.x + 10f, rect.y + 4f, Mathf.Max(0f, button.x - rect.x - 20f), rect.height - 8f);
@@ -267,15 +276,14 @@ namespace Phinix.InventoryExtension.Client
             {
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
-                Widgets.LabelEllipses(new Rect(text.x, text.y, text.width, 27f), labels[0]);
+                ClientWidgets.LabelEllipses(new Rect(text.x, text.y, text.width, 27f), labels[0], theme.Current);
                 Text.Font = GameFont.Tiny;
-                GUI.color = new Color(0.76f, 0.76f, 0.76f, 1f);
-                Widgets.LabelEllipses(new Rect(text.x, text.y + 25f, text.width, 20f), labels[1]);
+                ClientWidgets.LabelEllipses(new Rect(text.x, text.y + 25f, text.width, 20f), labels[1], theme.Current, secondary: true);
             }
             finally { Text.Font = oldFont; Text.Anchor = oldAnchor; GUI.color = oldColor; }
             TooltipHandler.TipRegion(text, labels[2]);
             bool expanded = expandedGroups.Contains(group.Key);
-            if (Widgets.ButtonText(button, (expanded ? "Phinix_inventory_collapse" : "Phinix_inventory_expand").Translate()))
+            if (ClientWidgets.Button(button, (expanded ? "Phinix_inventory_collapse" : "Phinix_inventory_expand").Translate(), theme.Current))
             {
                 if (expanded) expandedGroups.Remove(group.Key); else expandedGroups.Add(group.Key);
                 RebuildVisibleRows();
@@ -284,8 +292,8 @@ namespace Phinix.InventoryExtension.Client
 
         private void DrawHeader(Rect rect)
         {
-            Widgets.DrawBoxSolid(rect, InfoBackground);
-            Widgets.DrawBoxSolid(new Rect(rect.x, rect.y, 3f, rect.height), InfoAccent);
+            ClientWidgets.Fill(rect, theme.InfoBackground);
+            ClientWidgets.Fill(new Rect(rect.x, rect.y, 3f, rect.height), theme.InfoAccent);
             Rect inner = rect.ContractedBy(8f);
             GameFont oldFont = Text.Font;
             TextAnchor oldAnchor = Text.Anchor;
@@ -293,26 +301,26 @@ namespace Phinix.InventoryExtension.Client
             {
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
-                Widgets.Label(new Rect(inner.x, inner.y, Mathf.Max(0f, inner.width - 110f), 24f),
-                    "Phinix_inventory_currentSaveTitle".Translate());
+                ClientWidgets.Label(new Rect(inner.x, inner.y, Mathf.Max(0f, inner.width - 110f), 24f),
+                    "Phinix_inventory_currentSaveTitle".Translate(), theme.Current);
                 Text.Font = GameFont.Tiny;
-                Widgets.Label(new Rect(inner.x, inner.y + 23f, inner.width, 20f),
-                    "Phinix_inventory_saveOnly".Translate());
+                ClientWidgets.Label(new Rect(inner.x, inner.y + 23f, inner.width, 20f),
+                    "Phinix_inventory_saveOnly".Translate(), theme.Current, secondary: true);
                 Text.Anchor = TextAnchor.MiddleRight;
                 Text.Font = GameFont.Small;
-                Widgets.Label(new Rect(inner.xMax - 110f, inner.y, 110f, 24f),
-                    "Phinix_inventory_entryCount".Translate(groups.Count));
+                ClientWidgets.Label(new Rect(inner.xMax - 110f, inner.y, 110f, 24f),
+                    "Phinix_inventory_entryCount".Translate(groups.Count), theme.Current);
             }
             finally { Text.Font = oldFont; Text.Anchor = oldAnchor; }
         }
 
         private void DrawRow(int index, InventoryEntry entry, Rect rect)
         {
-            if ((index & 1) != 0) Widgets.DrawHighlight(rect);
+            if ((index & 1) != 0) ClientWidgets.Fill(rect, theme.AlternateBackground);
             if (string.Equals(entry.EntryId, selectedEntryId, StringComparison.Ordinal))
-                Widgets.DrawBoxSolid(rect, new Color(0.25f, 0.55f, 0.82f, 0.14f));
-            else if (Mouse.IsOver(rect)) Widgets.DrawHighlight(rect);
-            Widgets.DrawBox(rect, 1);
+                ClientWidgets.Fill(rect, theme.SelectedBackground);
+            else if (Mouse.IsOver(rect)) ClientWidgets.Fill(rect, theme.Current.HoverHighlight);
+            ClientWidgets.Border(rect, theme.Current);
 
             float actionWidth = Mathf.Clamp(rect.width * 0.17f, 68f, 98f);
             float actionsWidth = actionWidth * 2f + 6f;
@@ -331,27 +339,26 @@ namespace Phinix.InventoryExtension.Client
                 float balanceWidth = Mathf.Min(100f, textRect.width * 0.34f);
                 Rect titleRect = new Rect(textRect.x, textRect.y,
                     Mathf.Max(0f, textRect.width - balanceWidth - 6f), 27f);
-                Widgets.LabelEllipses(titleRect, rowTitles[index]);
+                ClientWidgets.LabelEllipses(titleRect, rowTitles[index], theme.Current);
                 Text.Anchor = TextAnchor.UpperRight;
-                Widgets.Label(new Rect(titleRect.xMax + 6f, titleRect.y, balanceWidth, 27f),
-                    "Phinix_inventory_balance".Translate(checked(rowAvailable[index] * itemPresentations[index].ItemsPerUnit)));
+                ClientWidgets.Label(new Rect(titleRect.xMax + 6f, titleRect.y, balanceWidth, 27f),
+                    "Phinix_inventory_balance".Translate(checked(rowAvailable[index] * itemPresentations[index].ItemsPerUnit)), theme.Current);
 
                 Text.Font = GameFont.Tiny;
                 Text.Anchor = TextAnchor.LowerLeft;
-                GUI.color = new Color(0.76f, 0.76f, 0.76f, 1f);
-                Widgets.LabelEllipses(new Rect(textRect.x, textRect.y + 25f, textRect.width, 20f),
+                ClientWidgets.LabelEllipses(new Rect(textRect.x, textRect.y + 25f, textRect.width, 20f),
                     string.IsNullOrEmpty(rowDetails[index])
-                        ? "Phinix_inventory_originUnavailable".Translate().ToString() : rowDetails[index]);
+                        ? "Phinix_inventory_originUnavailable".Translate().ToString() : rowDetails[index], theme.Current, secondary: true);
             }
             finally { GUI.color = oldColor; Text.Font = oldFont; Text.Anchor = oldAnchor; }
 
             TooltipHandler.TipRegion(textRect, rowTooltips[index]);
-            if (Widgets.ButtonText(planRect, "Phinix_inventory_plan".Translate())) OpenScheduleEditor(entry);
+            if (ClientWidgets.Button(planRect, "Phinix_inventory_plan".Translate(), theme.Current)) OpenScheduleEditor(entry);
             bool previousEnabled = GUI.enabled;
             GUI.enabled = previousEnabled && rowAvailable[index] > 0;
             try
             {
-                if (Widgets.ButtonText(extractRect, "Phinix_inventory_extractStack".Translate())) OpenExtractionEditor(entry);
+                if (ClientWidgets.Button(extractRect, "Phinix_inventory_extractStack".Translate(), theme.Current)) OpenExtractionEditor(entry);
             }
             finally { GUI.enabled = previousEnabled; }
         }
@@ -368,10 +375,10 @@ namespace Phinix.InventoryExtension.Client
             float fieldWidth = Mathf.Clamp(inner.width * 0.22f, 70f, 130f);
             float buttonWidth = Mathf.Max(70f, (inner.width - fieldWidth - 12f) / 2f);
             float rowY = inner.y + 38f;
-            extractQuantityText = Widgets.TextField(new Rect(inner.x, rowY, fieldWidth, 30f), extractQuantityText);
+            extractQuantityText = ClientWidgets.TextField(new Rect(inner.x, rowY, fieldWidth, 30f), extractQuantityText, theme.Current, controlName: "phinix.inventory.extract.quantity");
             float buttonX = inner.x + fieldWidth + 6f;
-            if (Widgets.ButtonText(new Rect(buttonX, rowY, buttonWidth, 30f),
-                "Phinix_inventory_extractConfirm".Translate()))
+            if (ClientWidgets.Button(new Rect(buttonX, rowY, buttonWidth, 30f),
+                "Phinix_inventory_extractConfirm".Translate(), theme.Current))
             {
                 if (!long.TryParse(extractQuantityText, out long quantity) || quantity < 1)
                     notice = "Phinix_inventory_extractInvalid".Translate();
@@ -385,8 +392,8 @@ namespace Phinix.InventoryExtension.Client
                     shownVersion = -1;
                 }
             }
-            if (Widgets.ButtonText(new Rect(buttonX + buttonWidth + 6f, rowY, buttonWidth, 30f),
-                "Phinix_inventory_cancel".Translate())) CloseEditor();
+            if (ClientWidgets.Button(new Rect(buttonX + buttonWidth + 6f, rowY, buttonWidth, 30f),
+                "Phinix_inventory_cancel".Translate(), theme.Current)) CloseEditor();
             top += height + Spacing;
         }
 
@@ -402,22 +409,22 @@ namespace Phinix.InventoryExtension.Client
             float columnWidth = (inner.width - 6f) / 2f;
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(inner.x, inner.y + 31f, columnWidth, 20f),
+            ClientWidgets.Label(new Rect(inner.x, inner.y + 31f, columnWidth, 20f),
                 GetPresentation(entry.EntryId).ItemsPerUnit > 1
                     ? "Phinix_inventory_scheduleStackQuantity".Translate(GetPresentation(entry.EntryId).ItemsPerUnit)
-                    : "Phinix_inventory_scheduleQuantity".Translate());
-            Widgets.Label(new Rect(inner.x + columnWidth + 6f, inner.y + 31f, columnWidth, 20f),
-                "Phinix_inventory_scheduleTime".Translate());
+                    : "Phinix_inventory_scheduleQuantity".Translate(), theme.Current);
+            ClientWidgets.Label(new Rect(inner.x + columnWidth + 6f, inner.y + 31f, columnWidth, 20f),
+                "Phinix_inventory_scheduleTime".Translate(), theme.Current);
             Text.Font = oldFont;
-            scheduleQuantityText = Widgets.TextField(new Rect(inner.x, inner.y + 52f, columnWidth, 28f),
-                scheduleQuantityText);
-            dayTickText = Widgets.TextField(new Rect(inner.x + columnWidth + 6f, inner.y + 52f, columnWidth, 28f),
-                dayTickText);
+            scheduleQuantityText = ClientWidgets.TextField(new Rect(inner.x, inner.y + 52f, columnWidth, 28f),
+                scheduleQuantityText, theme.Current, controlName: "phinix.inventory.schedule.quantity");
+            dayTickText = ClientWidgets.TextField(new Rect(inner.x + columnWidth + 6f, inner.y + 52f, columnWidth, 28f),
+                dayTickText, theme.Current, controlName: "phinix.inventory.schedule.tick");
 
             float buttonY = inner.y + 88f;
             bool hasSchedule = FindSchedule(entry.EntryId) != null;
-            if (Widgets.ButtonText(new Rect(inner.x, buttonY, columnWidth, 30f),
-                "Phinix_inventory_savePlan".Translate()))
+            if (ClientWidgets.Button(new Rect(inner.x, buttonY, columnWidth, 30f),
+                "Phinix_inventory_savePlan".Translate(), theme.Current))
             {
                 if (!long.TryParse(scheduleQuantityText, out long quantity) ||
                     !int.TryParse(dayTickText, out int tick) ||
@@ -425,8 +432,8 @@ namespace Phinix.InventoryExtension.Client
                     notice = "Phinix_inventory_planInvalid".Translate();
                 else { notice = "Phinix_inventory_planSaved".Translate(); shownVersion = -1; }
             }
-            if (Widgets.ButtonText(new Rect(inner.x + columnWidth + 6f, buttonY, columnWidth, 30f),
-                hasSchedule ? "Phinix_inventory_removePlan".Translate() : "Phinix_inventory_cancel".Translate()))
+            if (ClientWidgets.Button(new Rect(inner.x + columnWidth + 6f, buttonY, columnWidth, 30f),
+                hasSchedule ? "Phinix_inventory_removePlan".Translate() : "Phinix_inventory_cancel".Translate(), theme.Current))
             {
                 if (!hasSchedule)
                 {
@@ -450,58 +457,58 @@ namespace Phinix.InventoryExtension.Client
                 Text.CalcHeight(description, Mathf.Max(1f, inRect.width - 28f)));
             Rect card = new Rect(inRect.x, inRect.y, inRect.width,
                 Mathf.Min(descriptionHeight + 104f, inRect.height));
-            Widgets.DrawBoxSolid(card, NoticeBackground);
-            Widgets.DrawBoxSolid(new Rect(card.x, card.y, 4f, card.height),
-                new Color(0.95f, 0.72f, 0.2f, 1f));
+            ClientWidgets.Fill(card, theme.NoticeBackground);
+            ClientWidgets.Fill(new Rect(card.x, card.y, 4f, card.height),
+                theme.Current.Warning);
             Rect inner = card.ContractedBy(14f);
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 32f), title);
+            ClientWidgets.Label(new Rect(inner.x, inner.y, inner.width, 32f), title, theme.Current);
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(inner.x, inner.y + 38f, inner.width, descriptionHeight), description);
+            ClientWidgets.Label(new Rect(inner.x, inner.y + 38f, inner.width, descriptionHeight), description, theme.Current);
             Text.Font = oldFont;
 
             float buttonWidth = (inner.width - 8f) / 2f;
             float buttonY = inner.y + 42f + descriptionHeight;
-            if (Widgets.ButtonText(new Rect(inner.x, buttonY, buttonWidth, 34f), firstButton))
+            if (ClientWidgets.Button(new Rect(inner.x, buttonY, buttonWidth, 34f), firstButton, theme.Current))
                 notice = firstAction() ? null : "Phinix_inventory_operationFailed".Translate();
-            if (Widgets.ButtonText(new Rect(inner.x + buttonWidth + 8f, buttonY, buttonWidth, 34f), secondButton))
+            if (ClientWidgets.Button(new Rect(inner.x + buttonWidth + 8f, buttonY, buttonWidth, 34f), secondButton, theme.Current))
                 notice = secondAction() ? null : "Phinix_inventory_operationFailed".Translate();
             if (!string.IsNullOrEmpty(notice))
-                Widgets.Label(new Rect(inner.x, buttonY + 40f, inner.width, 28f), notice);
+                ClientWidgets.Label(new Rect(inner.x, buttonY + 40f, inner.width, 28f), notice, theme.Current);
             shownVersion = -1;
         }
 
-        private static void DrawMessageCard(Rect rect, string title, string description, Color accent)
+        private void DrawMessageCard(Rect rect, string title, string description, Color accent)
         {
-            Widgets.DrawBoxSolid(rect, new Color(accent.r, accent.g, accent.b, 0.13f));
-            Widgets.DrawBoxSolid(new Rect(rect.x, rect.y, 4f, rect.height), accent);
+            ClientWidgets.Fill(rect, theme.ErrorBackground);
+            ClientWidgets.Fill(new Rect(rect.x, rect.y, 4f, rect.height), accent);
             Rect inner = rect.ContractedBy(14f);
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, 34f), title);
+            ClientWidgets.Label(new Rect(inner.x, inner.y, inner.width, 34f), title, theme.Current);
             Text.Font = GameFont.Small;
-            Widgets.Label(new Rect(inner.x, inner.y + 42f, inner.width, inner.height - 42f), description);
+            ClientWidgets.Label(new Rect(inner.x, inner.y + 42f, inner.width, inner.height - 42f), description, theme.Current);
             Text.Font = oldFont;
         }
 
-        private static void DrawEditorBackground(Rect card)
+        private void DrawEditorBackground(Rect card)
         {
-            Widgets.DrawBoxSolid(card, EditorBackground);
-            Widgets.DrawBoxSolid(new Rect(card.x, card.y, 3f, card.height), InfoAccent);
-            Widgets.DrawBox(card, 1);
+            ClientWidgets.Fill(card, theme.EditorBackground);
+            ClientWidgets.Fill(new Rect(card.x, card.y, 3f, card.height), theme.InfoAccent);
+            ClientWidgets.Border(card, theme.Current);
         }
 
-        private static void DrawEditorTitle(Rect inner, string title)
+        private void DrawEditorTitle(Rect inner, string title)
         {
             GameFont oldFont = Text.Font;
             Text.Font = GameFont.Small;
-            Widgets.LabelEllipses(new Rect(inner.x, inner.y, inner.width, 28f), title);
+            ClientWidgets.LabelEllipses(new Rect(inner.x, inner.y, inner.width, 28f), title, theme.Current);
             TooltipHandler.TipRegion(new Rect(inner.x, inner.y, inner.width, 28f), title);
             Text.Font = oldFont;
         }
 
-        private static void DrawEmptyState(Rect rect)
+        private void DrawEmptyState(Rect rect)
         {
             GameFont oldFont = Text.Font;
             TextAnchor oldAnchor = Text.Anchor;
@@ -510,8 +517,7 @@ namespace Phinix.InventoryExtension.Client
             {
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                GUI.color = new Color(0.72f, 0.72f, 0.72f, 1f);
-                Widgets.Label(rect, "Phinix_inventory_empty".Translate());
+                ClientWidgets.Label(rect, "Phinix_inventory_empty".Translate(), theme.Current, secondary: true);
             }
             finally { Text.Font = oldFont; Text.Anchor = oldAnchor; GUI.color = oldColor; }
         }

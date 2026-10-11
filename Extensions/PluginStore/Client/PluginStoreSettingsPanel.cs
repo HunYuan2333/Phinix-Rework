@@ -11,6 +11,7 @@ namespace Phinix.PluginStore
         public void Dispose() { Stop(); }
 
         private IClientWindowService windows;
+        private IClientTheme theme;
         private IClientMainThreadDispatcher dispatcher;
         private object language;
         private string openLabel;
@@ -21,8 +22,8 @@ namespace Phinix.PluginStore
         public float Order => 180f;
         public bool IsVisible(IClientSettingsContext settings) => createView != null;
 
-        public void Initialize(IClientWindowService windows,IClientMainThreadDispatcher dispatcher,Func<ManagedPluginStoreView> createView)
-        { this.windows=windows; this.dispatcher=dispatcher; this.createView=createView; }
+        public void Initialize(IClientTheme theme,IClientWindowService windows,IClientMainThreadDispatcher dispatcher,Func<ManagedPluginStoreView> createView)
+        { this.theme=theme; this.windows=windows; this.dispatcher=dispatcher; this.createView=createView; }
 
         public void Stop()
         {
@@ -32,6 +33,7 @@ namespace Phinix.PluginStore
             windows = null;
             dispatcher = null;
             createView=null;
+            theme=null;
             if (closing != null) closingDispatcher?.Enqueue(() => closing.Close());
         }
 
@@ -39,7 +41,7 @@ namespace Phinix.PluginStore
         {
             if (!ReferenceEquals(language, LanguageDatabase.activeLanguage) || openLabel == null)
             { language = LanguageDatabase.activeLanguage; openLabel = "Phinix_store_open".Translate(); }
-            if (createView == null || !listing.ButtonText(openLabel)) return;
+            if (createView == null || !ClientWidgets.Button(listing.GetRect(30f), openLabel, theme.Capture())) return;
             Open();
         }
         internal void Open()

@@ -29,7 +29,7 @@ internal static partial class Program
                 host.AddService<IClientCompositionFactory>(factory);
                 host.AddService<IClientLocalizationService>(services); host.AddService<IClientEnvironmentService>(services);
                 host.AddService<IClientSettingsContext>(services); host.AddService<IClientMainThreadDispatcher>(services);
-                host.AddService<IClientWindowService>(services); host.AddService<IUiTheme>(services);
+                host.AddService<IClientWindowService>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                 host.AddService<IClientExtensionManagementWindowService>(services);
                 if(scenario!="missing-service")host.AddService<IClientLinkService>(services);
                 host.AddService<IManagedExtensionManagementService>(services); host.AddService<IManagedExtensionInstallationService>(services);
@@ -96,7 +96,7 @@ internal static partial class Program
         throw new InvalidOperationException("Startup operation did not finish.");
     }
     private sealed class StoreHost:IClientLocalizationService,IClientEnvironmentService,IClientSettingsContext,
-        IClientMainThreadDispatcher,IClientWindowService,IUiTheme,IClientExtensionManagementWindowService,IClientLinkService,
+        IClientMainThreadDispatcher,IClientWindowService,IClientTheme,IClientThemeRegistry,IClientExtensionManagementWindowService,IClientLinkService,
         IManagedExtensionManagementService,IManagedExtensionInstallationService,IDisposable
     {
         public string Scenario; public object Module,LastController,LastIcons;
@@ -128,10 +128,14 @@ internal static partial class Program
         {Interlocked.Increment(ref Refreshes);return (ManagedExtensionManagementSnapshot)typeof(ManagedExtensionManagementSnapshot).GetConstructors(BindingFlags.NonPublic|BindingFlags.Instance)[0].Invoke(new object[]{null,null});}
         public ManagedExtensionStateChangeResult ChangeDesiredState(ManagedExtensionPackageSnapshot expected,ManagedExtensionDesiredState state,IEnumerable<string> disabled,CancellationToken token){throw new NotSupportedException();}
         public ManagedExtensionInstallResult Install(ManagedExtensionInstallRequest request,IEnumerable<string> disabled,CancellationToken token){throw new NotSupportedException();}
+        public long Version => 0;
+        public event Action Changed { add { } remove { } }
+        public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
         public Color PrimaryText=>default(Color);public Color SecondaryText=>default(Color);public Color Background=>default(Color);public Color Surface=>default(Color);public Color Separator=>default(Color);
         public Color HoverHighlight=>default(Color);public Color Pending=>default(Color);public Color Error=>default(Color);public Color Success=>default(Color);public Color Warning=>default(Color);
-        public void RegisterColor(string key,Color value){}public Color GetColor(string key)=>default(Color);public bool TryGetColor(string key,out Color value){value=default(Color);return true;}
-        public void RegisterFloat(string key,float value){}public float GetFloat(string key,float defaultValue=0f)=>defaultValue;public void Reload(){}
+        public Color GetColor(string key)=>default(Color);public bool TryGetColor(string key,out Color value){value=default(Color);return true;}
+        public float GetFloat(string key,float defaultValue=0f)=>defaultValue;
         public void Dispose(){Disposed++;}
     }
     private sealed class StoreText:IClientLocalizer
@@ -140,4 +144,12 @@ internal static partial class Program
         public string Text(string key,string fallback=null)=>fallback??key;public string Format(string key,params object[] values)=>key;
         public void Dispose(){Disposes++;if(Fail)throw new InvalidOperationException("Injected scoped text release failure.");}
     }
+}
+
+internal sealed class TestThemeRegistration : PhinixClient.Framework.IClientThemeRegistration
+{
+    public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+    public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
+    public void Commit() { }
+    public void Dispose() { }
 }

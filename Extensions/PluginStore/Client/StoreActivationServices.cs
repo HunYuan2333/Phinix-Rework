@@ -53,17 +53,20 @@ namespace Phinix.PluginStore
         private readonly IClientSettingsContext settings;
         private readonly IClientExtensionManagementWindowService management;
         private readonly IClientLocalizer localizer;
-        private readonly IUiTheme theme;
+        private readonly IClientTheme theme;
         private readonly IClientLinkService links;
         private readonly StoreBadgeIcons icons;
         private readonly StoreMaintainerRegistry maintainers;
         private readonly List<System.WeakReference<ManagedPluginStoreView>> views=new List<System.WeakReference<ManagedPluginStoreView>>();
         private readonly IClientExtensionControlService controls;
+        private readonly IClientThemePackageService themes;
+        private readonly IClientThemeWindowService themeWindows;
         private bool disposed;
         public StoreViewFactory(StoreControllerLease controller,IClientEnvironmentService environment,IClientSettingsContext settings,
-            IClientExtensionManagementWindowService management,IClientLocalizer localizer,IUiTheme theme,IClientLinkService links,
-            StoreBadgeIcons icons,StoreActivationDiagnostics diagnostics,IClientExtensionControlService controls=null)
+            IClientExtensionManagementWindowService management,IClientLocalizer localizer,IClientTheme theme,IClientLinkService links,
+            StoreBadgeIcons icons,StoreActivationDiagnostics diagnostics,IClientThemePackageService themes,IClientThemeWindowService themeWindows,IClientExtensionControlService controls=null)
         {
+            this.themes=themes;this.themeWindows=themeWindows;
             this.controller=controller; this.environment=environment; this.settings=settings; this.management=management; this.controls=controls;
             this.localizer=localizer; this.theme=theme; this.links=links; this.icons=icons;
             maintainers=StoreMaintainerRegistry.Empty;
@@ -73,7 +76,7 @@ namespace Phinix.PluginStore
         internal ManagedPluginStoreView Create()
         {
             if(disposed) throw new ObjectDisposedException(nameof(StoreViewFactory));
-            var view=new ManagedPluginStoreView(controller.Controller,environment,settings,management,localizer,theme,links,maintainers,icons,controls);
+            var view=new ManagedPluginStoreView(controller.Controller,environment,settings,management,localizer,theme,links,maintainers,icons,controls,themes,themeWindows);
             if(views.Count>=32) views.RemoveAll(reference=> { ManagedPluginStoreView target; return !reference.TryGetTarget(out target); });
             views.Add(new System.WeakReference<ManagedPluginStoreView>(view)); return view;
         }

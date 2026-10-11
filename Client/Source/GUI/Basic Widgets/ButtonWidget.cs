@@ -2,6 +2,7 @@
 // as a part of the RimWorld mod Phi (https://github.com/Longwelwind/Phi)
 
 using System;
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
@@ -37,24 +38,13 @@ namespace PhinixClient.GUI
         /// <inheritdoc />
         public override void Draw(Rect inRect)
         {
-            // Handle wrapping properly since ButtonText won't (as per #45)
-            if (!drawBackground)
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
             {
-                // Draw the text
-                Widgets.Label(inRect, Mouse.IsOver(inRect) ? label.Colorize(Widgets.MouseoverOptionColor) : label);
-
-                // Overlay a button
-                if (Widgets.ButtonInvisible(inRect))
-                {
-                    clickAction();
-                }
-            }
-            else
-            {
-                if (Widgets.ButtonText(inRect, label, drawBackground))
-                {
-                    clickAction();
-                }
+                bool clicked = drawBackground
+                    ? ClientWidgets.Button(inRect, label, HostThemeDrawing.Current)
+                    : ClientWidgets.Link(inRect, label, HostThemeDrawing.Current);
+                if (clicked) clickAction?.Invoke();
             }
         }
 

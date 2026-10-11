@@ -25,7 +25,8 @@ namespace PhinixClient
         private readonly List<CachedLogLine> logLines = new List<CachedLogLine>();
         private Vector2 listScroll;
         private Vector2 logScroll;
-        private IUiTheme theme;
+        private IClientTheme themeSource;
+        private IClientThemeReader theme;
         private int resultCount = -1;
         private int settingsVersion = -1;
         private long controlVersion=-1;
@@ -52,6 +53,15 @@ namespace PhinixClient
 
         public void Draw(Rect inRect)
         {
+            ResolveTheme(Client.Instance?.FrameworkClient);
+            if (themeSource == null) return;
+            theme = themeSource.Capture();
+            using (new ClientGuiScope(true)) DrawContents(inRect);
+        }
+
+        private void DrawContents(Rect inRect)
+        {
+            UnityEngine.GUI.color = theme.PrimaryText;
             inRect.width = Mathf.Max(0f, inRect.width);
             inRect.height = Mathf.Max(0f, inRect.height);
             if (inRect.width <= 0f || inRect.height <= 0f) return;
@@ -61,11 +71,11 @@ namespace PhinixClient
             float navigationHeight=Mathf.Min(30f,inRect.height);
             float navigationGap=Mathf.Min(6f,inRect.width);
             float navigationWidth=Mathf.Max(0f,(inRect.width-navigationGap)/2f);
-            if(Widgets.ButtonText(new Rect(inRect.x,inRect.y,navigationWidth,navigationHeight),modulesLabel)) showManaged=false;
-            if(Widgets.ButtonText(new Rect(inRect.x+navigationWidth+navigationGap,inRect.y,navigationWidth,navigationHeight),packagesLabel)) showManaged=true;
+            if(ClientWidgets.Button(new Rect(inRect.x,inRect.y,navigationWidth,navigationHeight),modulesLabel, theme)) showManaged=false;
+            if(ClientWidgets.Button(new Rect(inRect.x+navigationWidth+navigationGap,inRect.y,navigationWidth,navigationHeight),packagesLabel, theme)) showManaged=true;
             inRect=new Rect(inRect.x,inRect.y+navigationHeight+6f,inRect.width,Mathf.Max(0f,inRect.height-navigationHeight-6f));
             managedView.Update();
-            if(showManaged) { managedView.Draw(inRect); return; }
+            if(showManaged) { managedView.Draw(inRect, theme); return; }
 
             PhinixFrameworkClient framework = Client.Instance?.FrameworkClient;
             Settings settings = Client.Instance?.Settings;
@@ -159,7 +169,7 @@ namespace PhinixClient
                 {
                     CachedLogLine line = logLines[i];
                     Rect rect = new Rect(0f, i * LogLineHeight, contentWidth, LogLineHeight);
-                    UnityEngine.GUI.color = line.Color;
+                    UnityEngine.GUI.color = GetLogColor(line.Level);
                     Widgets.Label(rect, line.Text);
                     TooltipHandler.TipRegion(rect, line.Tooltip);
                 }
@@ -174,17 +184,17 @@ namespace PhinixClient
 
         private void DrawCard(Rect rect, CachedRow row, bool compact)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.12f, 0.12f, 0.12f, 0.5f));
+            ClientWidgets.Surface(rect, theme);
             Rect inner = rect.ContractedBy(6f);
             Color oldColor = UnityEngine.GUI.color;
             GameFont oldFont = Text.Font;
             try
             {
-                float checkbox = Mathf.Min(18f, inner.height);
+                float checkbox = Mathf.Min(24f, inner.height);
                 bool enabled = row.Checked;
                 if (row.CanToggle && !managedView.Busy && controlState?.Busy!=true)
                 {
-                    Widgets.Checkbox(new Vector2(inner.x, inner.y + 4f), ref enabled, checkbox);
+                    ClientWidgets.Checkbox(new Rect(inner.x, inner.y + 4f, checkbox, checkbox), "", ref enabled, theme);
                     if (enabled != row.Checked && Client.Instance?.Settings != null)
                     {
                         if(!Client.Instance.SetModuleEnabled(row.Result.ExtensionId,enabled,controlState?.Revision).Succeeded) return;
@@ -196,12 +206,12 @@ namespace PhinixClient
                 else
                 {
                     Widgets.DrawBoxSolid(new Rect(inner.x, inner.y + 4f, checkbox, checkbox),
-                        new Color(0.3f, 0.3f, 0.3f, 0.3f));
+                        theme.GetColor("ui.control.disabled"));
                 }
 
                 float textX = inner.x + checkbox + Spacing;
                 float textWidth = Mathf.Max(0f, inner.xMax - textX);
-                UnityEngine.GUI.color = row.StateColor;
+                UnityEngine.GUI.color = GetStatusColor(row.RuntimeState, theme);
                 Widgets.Label(new Rect(textX, inner.y, 22f, 24f), row.StatusIcon);
                 UnityEngine.GUI.color = oldColor;
                 textX += 22f;
@@ -209,16 +219,16 @@ namespace PhinixClient
                 if (compact)
                 {
                     float stateWidth = Mathf.Min(110f, textWidth * 0.35f);
-                    UnityEngine.GUI.color = new Color(0.8f, 0.85f, 1f);
+                    UnityEngine.GUI.color = theme.GetColor("ui.accent");
                     Widgets.Label(new Rect(textX, inner.y, Mathf.Max(0f, inner.xMax - textX - stateWidth), 24f), row.ExtensionId);
-                    UnityEngine.GUI.color = row.StateColor;
+                    UnityEngine.GUI.color = GetStatusColor(row.RuntimeState, theme);
                     Widgets.Label(new Rect(inner.xMax - stateWidth, inner.y, stateWidth, 24f), row.StateText);
                     UnityEngine.GUI.color = oldColor;
                     Widgets.Label(new Rect(textX, inner.y + 25f, Mathf.Max(0f, inner.xMax - textX), 22f),
                         row.DisplayName + (string.IsNullOrEmpty(row.Version) ? "" : "  " + row.Version));
                     Text.Font = GameFont.Tiny;
                     Widgets.Label(new Rect(textX, inner.y + 48f, Mathf.Max(0f, inner.xMax - textX), 18f), row.Source);
-                    UnityEngine.GUI.color = row.DependencyColor;
+                    UnityEngine.GUI.color = (row.MissingDeclaration ? theme.Warning : theme.SecondaryText);
                     Widgets.Label(new Rect(textX, inner.y + 66f, Mathf.Max(0f, inner.xMax - textX), 18f), row.Dependencies);
                 }
                 else
@@ -229,16 +239,16 @@ namespace PhinixClient
                     float versionWidth = available * 0.12f;
                     float sourceWidth = available * 0.18f;
                     float stateWidth = Mathf.Max(0f, available - idWidth - nameWidth - versionWidth - sourceWidth);
-                    UnityEngine.GUI.color = new Color(0.8f, 0.85f, 1f);
+                    UnityEngine.GUI.color = theme.GetColor("ui.accent");
                     Widgets.Label(new Rect(textX, inner.y, idWidth, 24f), row.ExtensionId);
                     UnityEngine.GUI.color = oldColor;
                     Widgets.Label(new Rect(textX + idWidth, inner.y, nameWidth, 24f), row.DisplayName);
                     Widgets.Label(new Rect(textX + idWidth + nameWidth, inner.y, versionWidth, 24f), row.Version);
                     Widgets.Label(new Rect(textX + idWidth + nameWidth + versionWidth, inner.y, sourceWidth, 24f), row.Source);
-                    UnityEngine.GUI.color = row.StateColor;
+                    UnityEngine.GUI.color = GetStatusColor(row.RuntimeState, theme);
                     Widgets.Label(new Rect(inner.xMax - stateWidth, inner.y, stateWidth, 24f), row.StateText);
                     Text.Font = GameFont.Tiny;
-                    UnityEngine.GUI.color = row.DependencyColor;
+                    UnityEngine.GUI.color = (row.MissingDeclaration ? theme.Warning : theme.SecondaryText);
                     Widgets.Label(new Rect(textX, inner.y + 27f, available, 18f), row.Dependencies);
                 }
             }
@@ -267,15 +277,15 @@ namespace PhinixClient
                     ? new Rect(rect.x, rect.y + 18f, rect.width, 18f)
                     : new Rect(summaryRect.xMax + Spacing, rect.y,
                         Mathf.Max(0f, rect.xMax - summaryRect.xMax - Spacing), 18f);
-                if (hasWarnings) UnityEngine.GUI.color = theme?.GetColor("ext.logWarning") ?? new Color(1f, 0.6f, 0.3f);
+                if (hasWarnings) UnityEngine.GUI.color = theme.GetColor("ext.logWarning");
                 Widgets.Label(summaryRect, summary);
                 TooltipHandler.TipRegion(summaryRect, summary);
-                UnityEngine.GUI.color = new Color(0.6f, 0.6f, 0.6f);
+                UnityEngine.GUI.color = theme.SecondaryText;
                 Widgets.Label(hintRect, restartHint);
                 TooltipHandler.TipRegion(hintRect, restartHint);
                 if (!string.IsNullOrEmpty(impact))
                 {
-                    UnityEngine.GUI.color = theme?.GetColor("ext.logWarning") ?? new Color(1f, 0.6f, 0.3f);
+                    UnityEngine.GUI.color = theme.GetColor("ext.logWarning");
                     Rect impactRect = new Rect(rect.x, stacked ? rect.y + 38f : rect.y + 20f, rect.width, 18f);
                     Widgets.Label(impactRect, impact);
                     TooltipHandler.TipRegion(impactRect, impact);
@@ -291,9 +301,9 @@ namespace PhinixClient
 
         private void ResolveTheme(PhinixFrameworkClient framework)
         {
-            if (theme != null || framework == null) return;
-            IReadOnlyList<IUiTheme> themes = framework.ResolveExtensionApis<IUiTheme>();
-            if (themes != null && themes.Count > 0) theme = themes[0];
+            if (themeSource != null || framework == null) return;
+            IReadOnlyList<IClientTheme> themes = framework.ResolveExtensionApis<IClientTheme>();
+            if (themes != null && themes.Count > 0) themeSource = themes[0];
         }
 
         private void RebuildRows(IReadOnlyList<ExtensionDiscoveryResult> results,
@@ -357,8 +367,8 @@ namespace PhinixClient
                         (string.IsNullOrEmpty(pendingText) ? "" : " · " + pendingText),
                     StatusIcon = GetStatusIcon(display.RuntimeState),
                     Dependencies = dependencies,
-                    StateColor = GetStatusColor(display.RuntimeState, theme),
-                    DependencyColor = missingDeclaration ? new Color(0.7f, 0.7f, 0.45f) : new Color(0.6f, 0.6f, 0.6f),
+                    RuntimeState = display.RuntimeState,
+                    MissingDeclaration = missingDeclaration,
                     CanToggle = !packageGated && result.State != ExtensionModuleState.DependencyDisabled,
                     Checked = disabled==null || !System.Linq.Enumerable.Contains(disabled,id,StringComparer.OrdinalIgnoreCase),
                     Tooltip = tooltip
@@ -417,7 +427,7 @@ namespace PhinixClient
                         {
                             Text = Truncate(full, available),
                             Tooltip = full,
-                            Color = GetLogColor(entry.Level)
+                            Level = entry.Level
                         });
                     }
                 }
@@ -426,7 +436,7 @@ namespace PhinixClient
             if (logLines.Count == 0)
             {
                 string empty = "Phinix_extensions_logEmpty".Translate();
-                logLines.Add(new CachedLogLine { Text = empty, Tooltip = empty, Color = new Color(0.55f, 0.55f, 0.55f) });
+                logLines.Add(new CachedLogLine { Text = empty, Tooltip = empty, Level = LogLevel.DEBUG });
             }
         }
 
@@ -467,15 +477,15 @@ namespace PhinixClient
             return value.Substring(0, low) + ellipsis;
         }
 
-        private static Color GetLogColor(LogLevel level)
+        private Color GetLogColor(LogLevel level)
         {
             switch (level)
             {
-                case LogLevel.WARNING: return new Color(1f, 0.75f, 0.3f);
+                case LogLevel.WARNING: return theme.Warning;
                 case LogLevel.ERROR:
-                case LogLevel.FATAL: return new Color(1f, 0.35f, 0.3f);
-                case LogLevel.DEBUG: return new Color(0.55f, 0.55f, 0.55f);
-                default: return new Color(0.7f, 0.7f, 0.7f);
+                case LogLevel.FATAL: return theme.Error;
+                case LogLevel.DEBUG: return theme.SecondaryText;
+                default: return theme.PrimaryText;
             }
         }
 
@@ -494,16 +504,16 @@ namespace PhinixClient
             }
         }
 
-        private static Color GetStatusColor(ExtensionModuleState state, IUiTheme theme)
+        private static Color GetStatusColor(ExtensionModuleState state, IClientThemeReader theme)
         {
             switch (state)
             {
-                case ExtensionModuleState.Active: return theme?.GetColor("ext.statusActive") ?? new Color(0.3f, 0.85f, 0.4f);
-                case ExtensionModuleState.Failed: return theme?.GetColor("ext.statusFailed") ?? new Color(1f, 0.35f, 0.3f);
-                case ExtensionModuleState.Disabled: return theme?.GetColor("ext.statusDisabled") ?? new Color(0.45f, 0.45f, 0.45f);
-                case ExtensionModuleState.DependencyDisabled: return theme?.GetColor("ext.statusDependencyDisabled") ?? new Color(0.95f, 0.75f, 0.25f);
-                case ExtensionModuleState.Registered: return theme?.GetColor("ext.statusRegistered") ?? new Color(0.8f, 0.8f, 0.35f);
-                default: return theme?.GetColor("ext.statusDefault") ?? new Color(0.6f, 0.6f, 0.6f);
+                case ExtensionModuleState.Active: return theme.GetColor("ext.statusActive");
+                case ExtensionModuleState.Failed: return theme.GetColor("ext.statusFailed");
+                case ExtensionModuleState.Disabled: return theme.GetColor("ext.statusDisabled");
+                case ExtensionModuleState.DependencyDisabled: return theme.GetColor("ext.statusDependencyDisabled");
+                case ExtensionModuleState.Registered: return theme.GetColor("ext.statusRegistered");
+                default: return theme.GetColor("ext.statusDefault");
             }
         }
 
@@ -533,8 +543,8 @@ namespace PhinixClient
             public string StatusIcon;
             public string Dependencies;
             public string Tooltip;
-            public Color StateColor;
-            public Color DependencyColor;
+            public ExtensionModuleState RuntimeState;
+            public bool MissingDeclaration;
             public bool CanToggle;
             public bool Checked;
         }
@@ -543,7 +553,7 @@ namespace PhinixClient
         {
             public string Text;
             public string Tooltip;
-            public Color Color;
+            public LogLevel Level;
         }
     }
 }

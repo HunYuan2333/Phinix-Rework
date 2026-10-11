@@ -11,7 +11,7 @@ internal sealed class PackageConfiguration
     {
         var result=new PackageConfiguration {
             Compatibility=new {rimWorldVersions=new[]{"1.6"},phinixRange=">=0.9.7 <1.0.0",
-                abstractionsRange=options.ContainsKey("--abstractions-range")?options["--abstractions-range"]:">=1.7.0 <2.0.0"},
+                abstractionsRange=options.ContainsKey("--abstractions-range")?options["--abstractions-range"]:">=2.0.0 <3.0.0"},
             Dependencies=new object[0],ExternalMods=new object[0]};
         string path;
         if(!options.TryGetValue("--config",out path)) return result;

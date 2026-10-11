@@ -27,6 +27,20 @@ namespace PhinixClient.Framework
         bool TryHandleOutgoingItem(FrameworkItemPayload itemPayload);
     }
 
+    // Transport adapter boundary: prepared messages retain reply/mention metadata.
+    public interface IClientMessageSubmission
+    {
+        // True means dispatched, not server acknowledged. Failures never select another protocol.
+        bool TrySubmitMessage(FrameworkPacket message);
+    }
+
+    public interface IClientOutgoingMessageHandler
+    {
+        int Priority { get; }
+        bool CanHandleOutgoingMessage(FrameworkPacket message);
+        ClientOutgoingMessageResult HandleOutgoingMessage(FrameworkPacket message, ClientFrameworkContext context);
+    }
+
     public interface IFrameworkClientCommandTransport
     {
         /// <summary>
@@ -134,6 +148,7 @@ namespace PhinixClient.Framework
     {
         int PendingCount { get; }
 
+        // Capacity rejections across the shared queue; cancellation/closed scopes are not overflow.
         long DroppedCount { get; }
     }
 

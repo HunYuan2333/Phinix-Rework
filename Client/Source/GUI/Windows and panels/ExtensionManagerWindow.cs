@@ -40,6 +40,17 @@ namespace PhinixClient
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (HostThemeDrawing.BeginDraw())
+            using (new ClientGuiScope(true))
+            {
+                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background);
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                DrawContents(inRect);
+            }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
             GameFont oldFont = Text.Font;
             TextAnchor oldAnchor = Text.Anchor;
             bool oldWrap = Text.WordWrap;

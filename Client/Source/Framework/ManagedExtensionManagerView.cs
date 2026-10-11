@@ -26,8 +26,10 @@ namespace PhinixClient.Framework
         private string refreshLabel, status, shortStatus, empty, confirm, confirmTitle, moduleLabel;
         internal bool Busy => controller.Busy;
         internal void Update() { controller.Poll(); }
-        public void Draw(Rect rect)
+        private IClientThemeReader theme;
+        public void Draw(Rect rect, IClientThemeReader palette)
         {
+            theme = palette;
             var service=Client.Instance?.ManagedExtensionManagement;
             var settings=Client.Instance?.Settings;
             controlState=Client.Instance?.ExtensionControls?.Capture();
@@ -45,10 +47,10 @@ namespace PhinixClient.Framework
             bool oldEnabled=UnityEngine.GUI.enabled, oldWrap=Text.WordWrap; GameFont oldFont=Text.Font; Color oldColor=UnityEngine.GUI.color;
             try
             {
-                Text.WordWrap=false; Text.Font=GameFont.Small;
+                Text.WordWrap=false; Text.Font=GameFont.Small; UnityEngine.GUI.color=theme.PrimaryText;
                 float top=Mathf.Min(32f,Mathf.Max(0f,rect.height));
                 UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && controlState?.Busy!=true;
-                if(Widgets.ButtonText(new Rect(rect.x,rect.y,Mathf.Min(110f,Mathf.Max(0f,rect.width)),top),refreshLabel)) controller.Refresh(service,settings?.DisabledExtensions);
+                if(ClientWidgets.Button(new Rect(rect.x,rect.y,Mathf.Min(110f,Mathf.Max(0f,rect.width)),top),refreshLabel, theme)) controller.Refresh(service,settings?.DisabledExtensions);
                 UnityEngine.GUI.enabled=oldEnabled;
                 Rect statusRect=new Rect(rect.x+Mathf.Min(116f,rect.width),rect.y,Mathf.Max(0f,rect.width-116f),top);
                 Widgets.Label(statusRect,shortStatus); TooltipHandler.TipRegion(statusRect,status);
@@ -72,13 +74,13 @@ namespace PhinixClient.Framework
         }
         private void DrawRow(Rect rect,Row row,IManagedExtensionManagementService service,Settings settings)
         {
-            Widgets.DrawBoxSolid(rect,new Color(0.12f,0.12f,0.12f,0.5f));
+            ClientWidgets.Surface(rect,theme);
             var layout=ManagedExtensionManagerLayout.Card(rect);
             Widgets.Label(layout.Title,row.Title); Widgets.Label(layout.State,row.State);
             Text.Font=GameFont.Tiny; Widgets.Label(layout.Modules,row.Modules); Widgets.Label(layout.Diagnostic,row.Diagnostic); Text.Font=GameFont.Small;
             TooltipHandler.TipRegion(rect,row.Tooltip);
             float copyWidth=Mathf.Min(100,layout.Diagnostic.width);
-            if(Widgets.ButtonText(new Rect(layout.Diagnostic.xMax-copyWidth,layout.Diagnostic.y,copyWidth,layout.Diagnostic.height),"Phinix_managed_copySummary".Translate()))
+            if(ClientWidgets.Button(new Rect(layout.Diagnostic.xMax-copyWidth,layout.Diagnostic.y,copyWidth,layout.Diagnostic.height),"Phinix_managed_copySummary".Translate(), theme))
             {
                 var host=Client.Instance;
                 GUIUtility.systemCopyBuffer=ManagedExtensionDiagnosticSummary.Build(row.Model,controlState,
@@ -89,7 +91,7 @@ namespace PhinixClient.Framework
             {
                 var model=row.Model;
                 UnityEngine.GUI.enabled=oldEnabled && InventoryKnown && !controller.Busy && controlState?.Busy!=true && model.ModuleSettingsBlockCode==null;
-                if(Widgets.ButtonText(layout.ModuleButton,moduleLabel))
+                if(ClientWidgets.Button(layout.ModuleButton,moduleLabel, theme))
                 {
                     var options=new List<FloatMenuOption>();
                     foreach(var module in model.Package.Manifest.Modules)
@@ -108,10 +110,10 @@ namespace PhinixClient.Framework
                 bool enable=model.Package.DesiredState!=ManagedExtensionDesiredState.Enabled;
                 string block=enable?model.EnableBlockCode:model.DisableBlockCode;
                 UnityEngine.GUI.enabled=oldEnabled && InventoryKnown && !controller.Busy && controlState?.Busy!=true && block==null;
-                if(Widgets.ButtonText(layout.Toggle,row.Toggle)) controller.Change(service,model.Package,enable?ManagedExtensionDesiredState.Enabled:ManagedExtensionDesiredState.Disabled,settings?.DisabledExtensions);
+                if(ClientWidgets.Button(layout.Toggle,row.Toggle, theme)) controller.Change(service,model.Package,enable?ManagedExtensionDesiredState.Enabled:ManagedExtensionDesiredState.Disabled,settings?.DisabledExtensions);
                 bool undo=model.Package.DesiredState==ManagedExtensionDesiredState.PendingRemoval;
                 UnityEngine.GUI.enabled=oldEnabled && InventoryKnown && !controller.Busy && controlState?.Busy!=true && (undo?model.DisableBlockCode:model.RemovalBlockCode)==null;
-                if(Widgets.ButtonText(layout.Removal,row.Removal))
+                if(ClientWidgets.Button(layout.Removal,row.Removal, theme))
                 {
                     if(undo) controller.Change(service,model.Package,ManagedExtensionDesiredState.Disabled,settings?.DisabledExtensions);
                     else Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(confirm.Translate(Safe(model.Package.Manifest?.Name??model.Package.PackageId)),
