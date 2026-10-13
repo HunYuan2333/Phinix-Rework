@@ -14,6 +14,20 @@ namespace Phinix.TradeExtension.Client
     internal sealed class ClientTradeUiHostContext : ITradeUiHostContext, IDisposable
     {
         private readonly IClientTradeService tradeService;
+        internal TradeOfferOperations OfferOperations {get;private set;}
+        internal TradeClientItemPipeline ItemPipeline {get;private set;}
+        internal TradeInventoryDelivery OfferDelivery {get;private set;}
+        internal void ConfigureOfferOperations(TradeOfferOperations owner,TradeClientItemPipeline pipeline){OfferOperations=owner;ItemPipeline=pipeline;}
+        internal void ConfigureOfferDelivery(TradeInventoryDelivery delivery){OfferDelivery=delivery;}
+        internal TradeOfferPresentationFactory OfferPresentation {get;private set;}
+        internal void ConfigureOfferPresentation(TradeOfferPresentationFactory factory){OfferPresentation=factory;}
+        internal bool IsStarted=>started;
+        internal TradeOfferGameScope CaptureOfferGameScope()
+        {
+            int expected = generation;
+            return new TradeOfferGameScope(() => Current.Game, () => started && expected == generation);
+        }
+        internal bool DropCurrentMap=>started&&settingsContext.Get("trade.dropCurrentMap",false);
         private IClientSettingsContext settingsContext;
         private IClientUserEventStream userEvents;
         private IClientMainThreadDispatcher dispatcher;
@@ -64,10 +78,12 @@ namespace Phinix.TradeExtension.Client
 
         internal void Stop()
         {
-            if (!started) return;
+            var failures = new List<Exception>();
+            var oldPresentation=OfferPresentation;OfferPresentation=null;
+            TradeLifetimeCleanup.Try(()=>oldPresentation?.Dispose(),failures);
+            if (!started) {TradeLifetimeCleanup.ThrowIfFailed(failures);return;}
             started = false;
             System.Threading.Interlocked.Increment(ref generation);
-            var failures = new List<Exception>();
             TradeLifetimeCleanup.Try(() => userEvents.Disconnected -= onDisconnected, failures);
             TradeLifetimeCleanup.Try(() => userEvents.UserDisplayNameChanged -= onUserDisplayNameChanged, failures);
             TradeLifetimeCleanup.ThrowIfFailed(failures);
@@ -104,16 +120,20 @@ namespace Phinix.TradeExtension.Client
 
         public LookTargets DropPods(IEnumerable<Thing> verseThings)
         {
-            if (!started) throw new InvalidOperationException("Trade has stopped.");
+            InventoryDeliveryResult result=DeliverPhysical(verseThings);
+            if(!result.Succeeded)throw new InvalidOperationException(result.Reason??"Drop-pod delivery failed.");
+            return new LookTargets(result.DropSpot,result.Map);
+        }
+
+        internal InventoryDeliveryResult DeliverPhysical(IEnumerable<Thing> verseThings)
+        {
+            if (!started)return new InventoryDeliveryResult {Status=InventoryDeliveryStatus.Rejected,Reason="Trade has stopped."};
             Map map = settingsContext.Get("trade.dropCurrentMap", false)
                 ? Find.CurrentMap
                 : Find.AnyPlayerHomeMap ?? Find.CurrentMap;
             if (!InventoryDropDelivery.TryResolveTradeDropTarget(map, out IntVec3 dropSpot, out string reason))
-                throw new InvalidOperationException(reason);
-            InventoryDeliveryResult result = InventoryDropDelivery.DeliverThings(verseThings, map, dropSpot);
-            if (!result.Succeeded) throw new InvalidOperationException(result.Reason ?? "Drop-pod delivery failed.");
-
-            return new LookTargets(dropSpot, map);
+                return new InventoryDeliveryResult {Status=InventoryDeliveryStatus.Rejected,Reason=reason,Map=map};
+            return InventoryDropDelivery.DeliverThings(verseThings,map,dropSpot);
         }
 
         public void RunOnMainThread(Action action)

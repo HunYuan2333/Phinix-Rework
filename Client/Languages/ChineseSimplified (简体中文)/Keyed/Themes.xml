@@ -18,12 +18,12 @@
   <Phinix_theme_invalidColor>RGBA 各分量须为 0 到 1 之间的数值。</Phinix_theme_invalidColor>
   <Phinix_theme_searchThemes>搜索主题名称或来源</Phinix_theme_searchThemes>
   <Phinix_theme_searchItems>搜索配色名称、模块、分组或 key</Phinix_theme_searchItems>
-  <Phinix_theme_unfinishedInput>有无效或未完成的输入。修正输入，或清除该项／重置当前主题的覆盖。</Phinix_theme_unfinishedInput>
+  <Phinix_theme_unfinishedInput>请修正无效或未填完的输入，或清除对应修改。</Phinix_theme_unfinishedInput>
   <Phinix_theme_missingDraftTheme>当前主题文件已缺失，草稿仍保留。恢复文件并刷新后再应用。</Phinix_theme_missingDraftTheme>
   <Phinix_theme_resetDone>已清除当前主题的用户覆盖，尚未应用。</Phinix_theme_resetDone>
   <Phinix_theme_unusedCount>未使用的主题键：{0}</Phinix_theme_unusedCount>
   <Phinix_theme_unusedTip>这些键尚未注册，或值类型暂不支持。原始值与用户覆盖会保留，注册匹配后恢复。</Phinix_theme_unusedTip>
-  <Phinix_theme_selectItem>选择一个颜色或参数进行编辑。切换主题保留窗口内草稿；取消会丢弃未应用修改。</Phinix_theme_selectItem>
+  <Phinix_theme_selectItem>选择颜色或参数进行编辑。切换主题会保留草稿，取消会丢弃未应用的修改。</Phinix_theme_selectItem>
   <Phinix_theme_itemUnavailable>此项暂未注册；草稿与输入仍保留，可清除用户覆盖。</Phinix_theme_itemUnavailable>
   <Phinix_theme_parameterRange>参数范围 [{0}, {1}]</Phinix_theme_parameterRange>
   <Phinix_theme_invalidInput>输入无效</Phinix_theme_invalidInput>
@@ -31,8 +31,8 @@
   <Phinix_theme_parameterClamped>该值已按注册范围限制</Phinix_theme_parameterClamped>
   <Phinix_theme_restoreInheritance>恢复继承</Phinix_theme_restoreInheritance>
   <Phinix_theme_restoreDefault>使用注册默认值</Phinix_theme_restoreDefault>
-  <Phinix_theme_clearTip>只清除用户覆盖；主题文件有显式值时仍使用文件值。</Phinix_theme_clearTip>
-  <Phinix_theme_restoreTip>跳过此项的主题文件值，使用通用角色或注册默认值；点击应用后保存。</Phinix_theme_restoreTip>
+  <Phinix_theme_clearTip>清除个人修改，恢复主题文件中的值。</Phinix_theme_clearTip>
+  <Phinix_theme_restoreTip>忽略主题文件中的此项，使用继承值或默认值。点击应用后保存。</Phinix_theme_restoreTip>
   <Phinix_theme_source_UserOverride>用户覆盖</Phinix_theme_source_UserOverride>
   <Phinix_theme_source_Theme>当前主题文件</Phinix_theme_source_Theme>
   <Phinix_theme_source_BuiltInTheme>默认主题文件</Phinix_theme_source_BuiltInTheme>
@@ -48,4 +48,6 @@
   <Phinix_theme_packageVersion>版本</Phinix_theme_packageVersion>
   <Phinix_theme_packagePath>ZIP 路径</Phinix_theme_packagePath>
   <Phinix_theme_exportPackageTip>导出为可在商店本地安装的 ZIP。更新自己的包请复用包 ID 并修改版本；已有目标文件不会被覆盖。此操作不会上传或上架。</Phinix_theme_exportPackageTip>
+  <Phinix_theme_chooseTheme>选择主题（仅切换草稿）</Phinix_theme_chooseTheme>
+  <Phinix_theme_noThemes>没有匹配的主题。</Phinix_theme_noThemes>
 </LanguageData>

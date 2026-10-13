@@ -52,4 +52,96 @@
     <Phinix_error_tradeCreationFailedMessage>Could not start a trade: {0} ({1})</Phinix_error_tradeCreationFailedMessage>
     <Phinix_error_tradeUpdateFailedTitle>Trade update failed</Phinix_error_tradeUpdateFailedTitle>
     <Phinix_error_tradeUpdateFailedMessage>Could not update your trade with {0}: {1} ({2})\nYour items have been shipped back to you.</Phinix_error_tradeUpdateFailedMessage>
+    <Phinix_trade_listSearch>Search party or trade ID</Phinix_trade_listSearch>
+    <Phinix_trade_listDetails>Trade details</Phinix_trade_listDetails>
+    <Phinix_trade_listSelectTrade>Select a trade to view its current offer state.</Phinix_trade_listSelectTrade>
+    <Phinix_trade_listStackCounts>Our offer: {0} stacks · Their offer: {1} stacks</Phinix_trade_listStackCounts>
+    <Phinix_trade_listCancelPending>Cancellation requested. Waiting for the result; items have not been returned yet.</Phinix_trade_listCancelPending>
+    <Phinix_trade_listCancelUncertain>Cancellation submission failed or is uncertain; check the authoritative trade state.</Phinix_trade_listCancelUncertain>
+    <Phinix_trade_listWaiting>Awaiting result</Phinix_trade_listWaiting>
+    <Phinix_trade_listCancelConfirmation>Cancel the trade with {0}? Wait for the cancellation result and item return.</Phinix_trade_listCancelConfirmation>
+    <Phinix_trade_listKeepTrade>Keep trade</Phinix_trade_listKeepTrade>
+    <Phinix_trade_listAuthorityNote>Offer confirmation is not completion. Open the trade to edit or confirm its offer.</Phinix_trade_listAuthorityNote>
+    <Phinix_trade_listDisconnected>Disconnected. Awaiting a new trade snapshot.</Phinix_trade_listDisconnected>
+    <Phinix_trade_listFinished>A trade completion result was received; local item delivery is handled separately.</Phinix_trade_listFinished>
+    <Phinix_trade_listPartyUnavailable>The other party data is unavailable; offer editing cannot be opened.</Phinix_trade_listPartyUnavailable>
+    <Phinix_trade_listOfferPending>The offer result is unconfirmed. Do not submit it again; its items remain held.</Phinix_trade_listOfferPending>
+    <Phinix_trade_listOfferRecovery>Offer operation</Phinix_trade_listOfferRecovery>
+    <Phinix_trade_listRetrySettlement>Retry local settlement</Phinix_trade_listRetrySettlement>
+    <Phinix_trade_listRetrySettlementConfirm>Retry the unfinished item handling? This does not resend the offer. Retry is unavailable when delivery is uncertain.</Phinix_trade_listRetrySettlementConfirm>
+    <Phinix_trade_listOffer_Preparing>Preparing offer</Phinix_trade_listOffer_Preparing>
+    <Phinix_trade_listOffer_AwaitingResult>Waiting for offer result</Phinix_trade_listOffer_AwaitingResult>
+    <Phinix_trade_listOffer_Unknown>Offer result or local handling is uncertain</Phinix_trade_listOffer_Unknown>
+    <Phinix_trade_listOffer_LocalSettlementPending>Offer result confirmed; item handling unfinished</Phinix_trade_listOffer_LocalSettlementPending>
+    <Phinix_trade_listEntryCounts>{0} trades · {1} offer operations</Phinix_trade_listEntryCounts>
+    <Phinix_trade_operation_TradeOfferLocalSettlementBlocked>Local item handling is blocked. Resolve the reported cause, then retry local handling.</Phinix_trade_operation_TradeOfferLocalSettlementBlocked>
+    <Phinix_trade_operation_TradeOfferSendUncertain>The offer submission failed or is uncertain. Items remain held until a known result.</Phinix_trade_operation_TradeOfferSendUncertain>
+    <Phinix_trade_operation_TradeResetResultNotEmpty>The received result does not show an empty offer. No items have been returned.</Phinix_trade_operation_TradeResetResultNotEmpty>
+    <Phinix_trade_operation_TradeFinishedBeforeOfferResult>The trade finished before this offer result was known. No automatic return is performed.</Phinix_trade_operation_TradeFinishedBeforeOfferResult>
+    <Phinix_trade_operation_TradeOfferOwnerStopped>Trade has stopped; the unresolved operation was not automatically returned.</Phinix_trade_operation_TradeOfferOwnerStopped>
+    <Phinix_trade_operation_TradeOfferPreparationAborted>Offer preparation failed before submission. Staged items still need local handling.</Phinix_trade_operation_TradeOfferPreparationAborted>
+    <Phinix_trade_operation_TradeOfferLocalSettlementUncertain>Local delivery is uncertain. Repeating it could duplicate items, so retry is unavailable.</Phinix_trade_operation_TradeOfferLocalSettlementUncertain>
+    <Phinix_trade_operation_TradeOfferLocalSettlementThrew>Local handling raised an error; its outcome needs verification.</Phinix_trade_operation_TradeOfferLocalSettlementThrew>
+    <Phinix_trade_operation_TradeOfferGameScopeExpired>The originating game or Trade lifetime is no longer active. Items were not settled into the current game; this operation needs recovery evidence.</Phinix_trade_operation_TradeOfferGameScopeExpired>
+    <Phinix_trade_quoteInvalid>Invalid item record</Phinix_trade_quoteInvalid>
+    <Phinix_trade_quoteUnknown>Definition unavailable</Phinix_trade_quoteUnknown>
+    <Phinix_trade_quoteMaterial>Material</Phinix_trade_quoteMaterial>
+    <Phinix_trade_quoteQuality>Quality</Phinix_trade_quoteQuality>
+    <Phinix_trade_quoteHitPoints>Reported hit points</Phinix_trade_quoteHitPoints>
+    <Phinix_trade_quoteContains>Contains</Phinix_trade_quoteContains>
+    <Phinix_trade_quoteHasState>Additional item state</Phinix_trade_quoteHasState>
+    <Phinix_trade_quoteInvalidQuantity>Invalid reported quantity</Phinix_trade_quoteInvalidQuantity>
+    <Phinix_trade_quotePreviewNote>Snapshot summary only. Additional item state is not decoded here; these rows do not confirm receipt.</Phinix_trade_quotePreviewNote>
+    <Phinix_trade_quoteEmpty>No items on this side of the offer.</Phinix_trade_quoteEmpty>
+    <Phinix_trade_quoteQuality_Awful>Awful</Phinix_trade_quoteQuality_Awful>
+    <Phinix_trade_quoteQuality_Poor>Poor</Phinix_trade_quoteQuality_Poor>
+    <Phinix_trade_quoteQuality_Normal>Normal</Phinix_trade_quoteQuality_Normal>
+    <Phinix_trade_quoteQuality_Good>Good</Phinix_trade_quoteQuality_Good>
+    <Phinix_trade_quoteQuality_Excellent>Excellent</Phinix_trade_quoteQuality_Excellent>
+    <Phinix_trade_quoteQuality_Masterwork>Masterwork</Phinix_trade_quoteQuality_Masterwork>
+    <Phinix_trade_quoteQuality_Legendary>Legendary</Phinix_trade_quoteQuality_Legendary>
+    <Phinix_trade_inventoryRecoveryTitle>Inventory offer reservation</Phinix_trade_inventoryRecoveryTitle>
+    <Phinix_trade_inventoryRecoveryJournal>Inventory journal</Phinix_trade_inventoryRecoveryJournal>
+    <Phinix_trade_inventoryRecovery_Reserved>Held in inventory</Phinix_trade_inventoryRecovery_Reserved>
+    <Phinix_trade_inventoryRecovery_Uncertain>Uncertain reservation</Phinix_trade_inventoryRecovery_Uncertain>
+    <Phinix_trade_inventoryRecoveryReservation>Reservation ID</Phinix_trade_inventoryRecoveryReservation>
+    <Phinix_trade_inventoryRecoveryOperation>Stored operation ID</Phinix_trade_inventoryRecoveryOperation>
+    <Phinix_trade_inventoryRecoveryEvidence>Ledger note (does not confirm the trade result)</Phinix_trade_inventoryRecoveryEvidence>
+    <Phinix_trade_inventoryRecoveryNote>This journal record is not proof of acceptance or rejection. No automatic unlock, refund or retry is available here. Physical escrow and Reset returns are separate.</Phinix_trade_inventoryRecoveryNote>
+    <Phinix_trade_inventoryRecoveryCount>{0} inventory reservations</Phinix_trade_inventoryRecoveryCount>
+    <Phinix_trade_inventoryRecoveryUnits>Reserved codec units: {0}</Phinix_trade_inventoryRecoveryUnits>
+    <Phinix_trade_inventoryRecoveryLines>Reserved inventory entries</Phinix_trade_inventoryRecoveryLines>
+    <Phinix_trade_inventoryRecoveryNoLines>The journal record has no entry lines.</Phinix_trade_inventoryRecoveryNoLines>
+    <Phinix_trade_browsePrevious>Previous</Phinix_trade_browsePrevious>
+    <Phinix_trade_browseNext>Next</Phinix_trade_browseNext>
+    <Phinix_trade_browsePage>Page {0} / {1}</Phinix_trade_browsePage>
+  <Phinix_trade_editorTitle>Trade offer</Phinix_trade_editorTitle>
+  <Phinix_trade_editorAvailable>Available items</Phinix_trade_editorAvailable>
+  <Phinix_trade_editorWaiting>Waiting for the result. Do not submit again.</Phinix_trade_editorWaiting>
+  <Phinix_trade_editorOfferSubmitted>Offer submitted. Waiting for confirmation.</Phinix_trade_editorOfferSubmitted>
+  <Phinix_trade_editorResetSubmitted>Offer reset requested. Items will be returned after confirmation.</Phinix_trade_editorResetSubmitted>
+  <Phinix_trade_editorSelectQuantity>Select an item and enter a quantity</Phinix_trade_editorSelectQuantity>
+  <Phinix_trade_editorWithdraw>Withdraw confirmation</Phinix_trade_editorWithdraw>
+  <Phinix_trade_editorRefresh>Refresh items</Phinix_trade_editorRefresh>
+  <Phinix_trade_editorQuantityInvalid>Enter a whole number from 0 to {0}.</Phinix_trade_editorQuantityInvalid>
+  <Phinix_trade_editorUnits>Draft {0} / available {1}</Phinix_trade_editorUnits>
+  <Phinix_trade_editorInventory>Inventory</Phinix_trade_editorInventory>
+  <Phinix_trade_editorMap>Map</Phinix_trade_editorMap>
+  <Phinix_trade_editorDraftNote>Quantities are local drafts. Update adds them to the quote. Refresh clears drafts; closing does not cancel the trade.</Phinix_trade_editorDraftNote>
+  <Phinix_trade_editorConfirmNote>Check both lists. After both sides confirm, wait for the items to arrive.</Phinix_trade_editorConfirmNote>
+  <Phinix_trade_editorCancelConfirm>Cancel this trade? Wait for the result. Closing the window does not cancel the trade or return items.</Phinix_trade_editorCancelConfirm>
+  <Phinix_trade_editorResetConfirm>Clear your offer? Items are returned only after success is confirmed. They remain held if the result is uncertain.</Phinix_trade_editorResetConfirm>
+<Phinix_trade_editorQuantityTools>Quantity presets</Phinix_trade_editorQuantityTools>
+<Phinix_trade_editorPreparationFailed>The request could not be prepared. Check the Trade operation record; this is not confirmation of cancellation or return.</Phinix_trade_editorPreparationFailed>
+
+  <Phinix_trade_editorSubmitQuote>Submit offer</Phinix_trade_editorSubmitQuote>
+  <Phinix_trade_editorCloseNote>Closing the window keeps the trade open.</Phinix_trade_editorCloseNote>
+  <Phinix_trade_editorConfirmed>Confirmed</Phinix_trade_editorConfirmed>
+  <Phinix_trade_editorUnconfirmed>Not confirmed</Phinix_trade_editorUnconfirmed>
+  <Phinix_trade_editorLocalDraft>Local draft · submit and await acknowledgement. Refresh clears drafts.</Phinix_trade_editorLocalDraft>
+  <Phinix_trade_editorAcknowledgedQuote>Current offer · separate from local drafts</Phinix_trade_editorAcknowledgedQuote>
+  <Phinix_trade_editorYouGive>You give</Phinix_trade_editorYouGive>
+  <Phinix_trade_editorYouReceive>You receive</Phinix_trade_editorYouReceive>
+  <Phinix_trade_editorTradeActions>Trade actions</Phinix_trade_editorTradeActions>
+  <Phinix_trade_editorQuotes>Both offers</Phinix_trade_editorQuotes>
 </LanguageData>

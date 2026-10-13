@@ -87,7 +87,7 @@ internal static partial class Program
                 var controls=new ClientExtensionControlSnapshot(1,false,true,inventory,null,new[]{"test.managed"},null);
                 string summary=ManagedExtensionDiagnosticSummary.Build(inventory.Packages.Single(),controls,null,"0.9.7","1.6");
                 Assert(summary.Contains("Source: local-development") && summary.Contains(prepared.LocalPackage.Sha256) && summary.Contains("Current ZIP SHA-256: not loaded"),"Diagnostic summary distinguishes installed build and current session");
-                Assert(summary.Contains("abstractions: 1.9.0") && summary.Contains("Module dependencies: builtin.host") && summary.Contains("active: True"),"Summary includes host, dependency and module state facts");
+                Assert(summary.Contains("abstractions: " + ClientAbstractionsCompatibility.Version) && summary.Contains("Module dependencies: builtin.host") && summary.Contains("active: True"),"Summary includes host, dependency and module state facts");
                 Assert(!summary.Contains(root) && !summary.Contains("changed after validation"),"Summary never exports local paths or input content");
                 Assert(!Directory.EnumerateFiles(Path.Combine(environment.Paths.GetExtensionDataDirectory("phinix.plugin-store"),"local-import")).Any(),"Temporary ZIPs are cleaned up");
                 developer=false;

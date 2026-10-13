@@ -17,145 +17,145 @@
   <Phinix_theme_owner_inventory>Inventory</Phinix_theme_owner_inventory>
   <Phinix_theme_owner_store>Plugin Store</Phinix_theme_owner_store>
   <Phinix_theme_label_ui_text_primary>ui / text / primary</Phinix_theme_label_ui_text_primary>
-  <Phinix_theme_desc_ui_text_primary>Controls ui / text / primary. Appearance changes do not submit operations.</Phinix_theme_desc_ui_text_primary>
+  <Phinix_theme_desc_ui_text_primary>Controls ui / text / primary.</Phinix_theme_desc_ui_text_primary>
   <Phinix_theme_label_ui_text_secondary>ui / text / secondary</Phinix_theme_label_ui_text_secondary>
-  <Phinix_theme_desc_ui_text_secondary>Controls ui / text / secondary. Appearance changes do not submit operations.</Phinix_theme_desc_ui_text_secondary>
+  <Phinix_theme_desc_ui_text_secondary>Controls ui / text / secondary.</Phinix_theme_desc_ui_text_secondary>
   <Phinix_theme_label_ui_background>ui / background</Phinix_theme_label_ui_background>
-  <Phinix_theme_desc_ui_background>Controls ui / background. Appearance changes do not submit operations.</Phinix_theme_desc_ui_background>
+  <Phinix_theme_desc_ui_background>Controls ui / background.</Phinix_theme_desc_ui_background>
   <Phinix_theme_label_ui_surface>ui / surface</Phinix_theme_label_ui_surface>
-  <Phinix_theme_desc_ui_surface>Controls ui / surface. Appearance changes do not submit operations.</Phinix_theme_desc_ui_surface>
+  <Phinix_theme_desc_ui_surface>Controls ui / surface.</Phinix_theme_desc_ui_surface>
   <Phinix_theme_label_ui_separator>ui / separator</Phinix_theme_label_ui_separator>
-  <Phinix_theme_desc_ui_separator>Controls ui / separator. Appearance changes do not submit operations.</Phinix_theme_desc_ui_separator>
+  <Phinix_theme_desc_ui_separator>Controls ui / separator.</Phinix_theme_desc_ui_separator>
   <Phinix_theme_label_ui_hover>ui / hover</Phinix_theme_label_ui_hover>
-  <Phinix_theme_desc_ui_hover>Controls ui / hover. Appearance changes do not submit operations.</Phinix_theme_desc_ui_hover>
+  <Phinix_theme_desc_ui_hover>Controls ui / hover.</Phinix_theme_desc_ui_hover>
   <Phinix_theme_label_ui_pending>ui / pending</Phinix_theme_label_ui_pending>
-  <Phinix_theme_desc_ui_pending>Controls ui / pending. Appearance changes do not submit operations.</Phinix_theme_desc_ui_pending>
+  <Phinix_theme_desc_ui_pending>Controls ui / pending.</Phinix_theme_desc_ui_pending>
   <Phinix_theme_label_ui_error>ui / error</Phinix_theme_label_ui_error>
-  <Phinix_theme_desc_ui_error>Controls ui / error. Appearance changes do not submit operations.</Phinix_theme_desc_ui_error>
+  <Phinix_theme_desc_ui_error>Controls ui / error.</Phinix_theme_desc_ui_error>
   <Phinix_theme_label_ui_success>ui / success</Phinix_theme_label_ui_success>
-  <Phinix_theme_desc_ui_success>Controls ui / success. Appearance changes do not submit operations.</Phinix_theme_desc_ui_success>
+  <Phinix_theme_desc_ui_success>Controls ui / success.</Phinix_theme_desc_ui_success>
   <Phinix_theme_label_ui_warning>ui / warning</Phinix_theme_label_ui_warning>
-  <Phinix_theme_desc_ui_warning>Controls ui / warning. Appearance changes do not submit operations.</Phinix_theme_desc_ui_warning>
+  <Phinix_theme_desc_ui_warning>Controls ui / warning.</Phinix_theme_desc_ui_warning>
   <Phinix_theme_label_ui_accent>ui / accent</Phinix_theme_label_ui_accent>
   <Phinix_theme_desc_ui_accent>Accent for links, sliders, module names and hovered user names.</Phinix_theme_desc_ui_accent>
   <Phinix_theme_label_ext_statusActive>ext / status Active</Phinix_theme_label_ext_statusActive>
-  <Phinix_theme_desc_ext_statusActive>Controls ext / status Active. Appearance changes do not submit operations.</Phinix_theme_desc_ext_statusActive>
+  <Phinix_theme_desc_ext_statusActive>Controls ext / status Active.</Phinix_theme_desc_ext_statusActive>
   <Phinix_theme_label_ext_statusFailed>ext / status Failed</Phinix_theme_label_ext_statusFailed>
-  <Phinix_theme_desc_ext_statusFailed>Controls ext / status Failed. Appearance changes do not submit operations.</Phinix_theme_desc_ext_statusFailed>
+  <Phinix_theme_desc_ext_statusFailed>Controls ext / status Failed.</Phinix_theme_desc_ext_statusFailed>
   <Phinix_theme_label_ext_statusDisabled>ext / status Disabled</Phinix_theme_label_ext_statusDisabled>
-  <Phinix_theme_desc_ext_statusDisabled>Controls ext / status Disabled. Appearance changes do not submit operations.</Phinix_theme_desc_ext_statusDisabled>
+  <Phinix_theme_desc_ext_statusDisabled>Controls ext / status Disabled.</Phinix_theme_desc_ext_statusDisabled>
   <Phinix_theme_label_ext_statusDependencyDisabled>ext / status Dependency Disabled</Phinix_theme_label_ext_statusDependencyDisabled>
-  <Phinix_theme_desc_ext_statusDependencyDisabled>Controls ext / status Dependency Disabled. Appearance changes do not submit operations.</Phinix_theme_desc_ext_statusDependencyDisabled>
+  <Phinix_theme_desc_ext_statusDependencyDisabled>Controls ext / status Dependency Disabled.</Phinix_theme_desc_ext_statusDependencyDisabled>
   <Phinix_theme_label_ext_statusRegistered>ext / status Registered</Phinix_theme_label_ext_statusRegistered>
-  <Phinix_theme_desc_ext_statusRegistered>Controls ext / status Registered. Appearance changes do not submit operations.</Phinix_theme_desc_ext_statusRegistered>
+  <Phinix_theme_desc_ext_statusRegistered>Controls ext / status Registered.</Phinix_theme_desc_ext_statusRegistered>
   <Phinix_theme_label_ext_statusDefault>ext / status Default</Phinix_theme_label_ext_statusDefault>
-  <Phinix_theme_desc_ext_statusDefault>Controls ext / status Default. Appearance changes do not submit operations.</Phinix_theme_desc_ext_statusDefault>
+  <Phinix_theme_desc_ext_statusDefault>Controls ext / status Default.</Phinix_theme_desc_ext_statusDefault>
   <Phinix_theme_label_ext_logDiagnostic>ext / log Diagnostic</Phinix_theme_label_ext_logDiagnostic>
-  <Phinix_theme_desc_ext_logDiagnostic>Controls ext / log Diagnostic. Appearance changes do not submit operations.</Phinix_theme_desc_ext_logDiagnostic>
+  <Phinix_theme_desc_ext_logDiagnostic>Controls ext / log Diagnostic.</Phinix_theme_desc_ext_logDiagnostic>
   <Phinix_theme_label_ext_logWarning>ext / log Warning</Phinix_theme_label_ext_logWarning>
-  <Phinix_theme_desc_ext_logWarning>Controls ext / log Warning. Appearance changes do not submit operations.</Phinix_theme_desc_ext_logWarning>
+  <Phinix_theme_desc_ext_logWarning>Controls ext / log Warning.</Phinix_theme_desc_ext_logWarning>
   <Phinix_theme_label_ext_headerText>ext / header Text</Phinix_theme_label_ext_headerText>
-  <Phinix_theme_desc_ext_headerText>Controls ext / header Text. Appearance changes do not submit operations.</Phinix_theme_desc_ext_headerText>
+  <Phinix_theme_desc_ext_headerText>Controls ext / header Text.</Phinix_theme_desc_ext_headerText>
   <Phinix_theme_label_ext_summaryText>ext / summary Text</Phinix_theme_label_ext_summaryText>
-  <Phinix_theme_desc_ext_summaryText>Controls ext / summary Text. Appearance changes do not submit operations.</Phinix_theme_desc_ext_summaryText>
+  <Phinix_theme_desc_ext_summaryText>Controls ext / summary Text.</Phinix_theme_desc_ext_summaryText>
   <Phinix_theme_label_chat_messageText>chat / message Text</Phinix_theme_label_chat_messageText>
   <Phinix_theme_desc_chat_messageText>Base color of confirmed message text. Explicit rich text colors and mention highlights are preserved.</Phinix_theme_desc_chat_messageText>
   <Phinix_theme_label_chat_inputText>chat / input Text</Phinix_theme_label_chat_inputText>
-  <Phinix_theme_desc_chat_inputText>Controls chat / input Text. Appearance changes do not submit operations.</Phinix_theme_desc_chat_inputText>
+  <Phinix_theme_desc_chat_inputText>Controls chat / input Text.</Phinix_theme_desc_chat_inputText>
   <Phinix_theme_label_chat_nameColor_saturation>chat / name Color / saturation</Phinix_theme_label_chat_nameColor_saturation>
   <Phinix_theme_desc_chat_nameColor_saturation>Adjusts UUID-based name colors. Rich text names and your own name keep their separate styles.</Phinix_theme_desc_chat_nameColor_saturation>
   <Phinix_theme_label_chat_nameColor_value>chat / name Color / value</Phinix_theme_label_chat_nameColor_value>
   <Phinix_theme_desc_chat_nameColor_value>Adjusts UUID-based name colors. Rich text names and your own name keep their separate styles.</Phinix_theme_desc_chat_nameColor_value>
   <Phinix_theme_label_chat_mentionText>chat / mention Text</Phinix_theme_label_chat_mentionText>
-  <Phinix_theme_desc_chat_mentionText>Controls chat / mention Text. Appearance changes do not submit operations.</Phinix_theme_desc_chat_mentionText>
+  <Phinix_theme_desc_chat_mentionText>Controls chat / mention Text.</Phinix_theme_desc_chat_mentionText>
   <Phinix_theme_label_chat_mentionSelfBg>chat / mention Self Bg</Phinix_theme_label_chat_mentionSelfBg>
-  <Phinix_theme_desc_chat_mentionSelfBg>Controls chat / mention Self Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_mentionSelfBg>
+  <Phinix_theme_desc_chat_mentionSelfBg>Controls chat / mention Self Bg.</Phinix_theme_desc_chat_mentionSelfBg>
   <Phinix_theme_label_chat_selfName>chat / self Name</Phinix_theme_label_chat_selfName>
-  <Phinix_theme_desc_chat_selfName>Controls chat / self Name. Appearance changes do not submit operations.</Phinix_theme_desc_chat_selfName>
+  <Phinix_theme_desc_chat_selfName>Controls chat / self Name.</Phinix_theme_desc_chat_selfName>
   <Phinix_theme_label_chat_selfMessageBg>chat / self Message Bg</Phinix_theme_label_chat_selfMessageBg>
-  <Phinix_theme_desc_chat_selfMessageBg>Controls chat / self Message Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_selfMessageBg>
+  <Phinix_theme_desc_chat_selfMessageBg>Controls chat / self Message Bg.</Phinix_theme_desc_chat_selfMessageBg>
   <Phinix_theme_label_chat_rowHoverBg>chat / row Hover Bg</Phinix_theme_label_chat_rowHoverBg>
-  <Phinix_theme_desc_chat_rowHoverBg>Controls chat / row Hover Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_rowHoverBg>
+  <Phinix_theme_desc_chat_rowHoverBg>Controls chat / row Hover Bg.</Phinix_theme_desc_chat_rowHoverBg>
   <Phinix_theme_label_chat_groupIndentLine>chat / group Indent Line</Phinix_theme_label_chat_groupIndentLine>
-  <Phinix_theme_desc_chat_groupIndentLine>Controls chat / group Indent Line. Appearance changes do not submit operations.</Phinix_theme_desc_chat_groupIndentLine>
+  <Phinix_theme_desc_chat_groupIndentLine>Controls chat / group Indent Line.</Phinix_theme_desc_chat_groupIndentLine>
   <Phinix_theme_label_chat_replyQuoteBorder>chat / reply Quote Border</Phinix_theme_label_chat_replyQuoteBorder>
-  <Phinix_theme_desc_chat_replyQuoteBorder>Controls chat / reply Quote Border. Appearance changes do not submit operations.</Phinix_theme_desc_chat_replyQuoteBorder>
+  <Phinix_theme_desc_chat_replyQuoteBorder>Controls chat / reply Quote Border.</Phinix_theme_desc_chat_replyQuoteBorder>
   <Phinix_theme_label_chat_replyQuoteBg>chat / reply Quote Bg</Phinix_theme_label_chat_replyQuoteBg>
-  <Phinix_theme_desc_chat_replyQuoteBg>Controls chat / reply Quote Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_replyQuoteBg>
+  <Phinix_theme_desc_chat_replyQuoteBg>Controls chat / reply Quote Bg.</Phinix_theme_desc_chat_replyQuoteBg>
   <Phinix_theme_label_chat_replyQuoteText>chat / reply Quote Text</Phinix_theme_label_chat_replyQuoteText>
-  <Phinix_theme_desc_chat_replyQuoteText>Controls chat / reply Quote Text. Appearance changes do not submit operations.</Phinix_theme_desc_chat_replyQuoteText>
+  <Phinix_theme_desc_chat_replyQuoteText>Controls chat / reply Quote Text.</Phinix_theme_desc_chat_replyQuoteText>
   <Phinix_theme_label_chat_noticeAccent>chat / notice Accent</Phinix_theme_label_chat_noticeAccent>
-  <Phinix_theme_desc_chat_noticeAccent>Controls chat / notice Accent. Appearance changes do not submit operations.</Phinix_theme_desc_chat_noticeAccent>
+  <Phinix_theme_desc_chat_noticeAccent>Controls chat / notice Accent.</Phinix_theme_desc_chat_noticeAccent>
   <Phinix_theme_label_chat_noticeBg>chat / notice Bg</Phinix_theme_label_chat_noticeBg>
-  <Phinix_theme_desc_chat_noticeBg>Controls chat / notice Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_noticeBg>
+  <Phinix_theme_desc_chat_noticeBg>Controls chat / notice Bg.</Phinix_theme_desc_chat_noticeBg>
   <Phinix_theme_label_chat_noticeBannerBg>chat / notice Banner Bg</Phinix_theme_label_chat_noticeBannerBg>
-  <Phinix_theme_desc_chat_noticeBannerBg>Controls chat / notice Banner Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_noticeBannerBg>
+  <Phinix_theme_desc_chat_noticeBannerBg>Controls chat / notice Banner Bg.</Phinix_theme_desc_chat_noticeBannerBg>
   <Phinix_theme_label_chat_noticeProgress>chat / notice Progress</Phinix_theme_label_chat_noticeProgress>
-  <Phinix_theme_desc_chat_noticeProgress>Controls chat / notice Progress. Appearance changes do not submit operations.</Phinix_theme_desc_chat_noticeProgress>
+  <Phinix_theme_desc_chat_noticeProgress>Controls chat / notice Progress.</Phinix_theme_desc_chat_noticeProgress>
   <Phinix_theme_label_chat_inputReplyBorder>chat / input Reply Border</Phinix_theme_label_chat_inputReplyBorder>
-  <Phinix_theme_desc_chat_inputReplyBorder>Controls chat / input Reply Border. Appearance changes do not submit operations.</Phinix_theme_desc_chat_inputReplyBorder>
+  <Phinix_theme_desc_chat_inputReplyBorder>Controls chat / input Reply Border.</Phinix_theme_desc_chat_inputReplyBorder>
   <Phinix_theme_label_chat_inputReplyBg>chat / input Reply Bg</Phinix_theme_label_chat_inputReplyBg>
-  <Phinix_theme_desc_chat_inputReplyBg>Controls chat / input Reply Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_inputReplyBg>
+  <Phinix_theme_desc_chat_inputReplyBg>Controls chat / input Reply Bg.</Phinix_theme_desc_chat_inputReplyBg>
   <Phinix_theme_label_chat_blockedBg>chat / blocked Bg</Phinix_theme_label_chat_blockedBg>
-  <Phinix_theme_desc_chat_blockedBg>Controls chat / blocked Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_blockedBg>
+  <Phinix_theme_desc_chat_blockedBg>Controls chat / blocked Bg.</Phinix_theme_desc_chat_blockedBg>
   <Phinix_theme_label_chat_blockedName>chat / blocked Name</Phinix_theme_label_chat_blockedName>
-  <Phinix_theme_desc_chat_blockedName>Controls chat / blocked Name. Appearance changes do not submit operations.</Phinix_theme_desc_chat_blockedName>
+  <Phinix_theme_desc_chat_blockedName>Controls chat / blocked Name.</Phinix_theme_desc_chat_blockedName>
   <Phinix_theme_label_chat_pendingMessage>chat / pending Message</Phinix_theme_label_chat_pendingMessage>
-  <Phinix_theme_desc_chat_pendingMessage>Controls chat / pending Message. Appearance changes do not submit operations.</Phinix_theme_desc_chat_pendingMessage>
+  <Phinix_theme_desc_chat_pendingMessage>Controls chat / pending Message.</Phinix_theme_desc_chat_pendingMessage>
   <Phinix_theme_label_chat_deniedMessage>chat / denied Message</Phinix_theme_label_chat_deniedMessage>
-  <Phinix_theme_desc_chat_deniedMessage>Controls chat / denied Message. Appearance changes do not submit operations.</Phinix_theme_desc_chat_deniedMessage>
+  <Phinix_theme_desc_chat_deniedMessage>Controls chat / denied Message.</Phinix_theme_desc_chat_deniedMessage>
   <Phinix_theme_label_chat_imagePlaceholderBg>chat / image Placeholder Bg</Phinix_theme_label_chat_imagePlaceholderBg>
-  <Phinix_theme_desc_chat_imagePlaceholderBg>Controls chat / image Placeholder Bg. Appearance changes do not submit operations.</Phinix_theme_desc_chat_imagePlaceholderBg>
+  <Phinix_theme_desc_chat_imagePlaceholderBg>Controls chat / image Placeholder Bg.</Phinix_theme_desc_chat_imagePlaceholderBg>
   <Phinix_theme_label_chat_imageFailedText>chat / image Failed Text</Phinix_theme_label_chat_imageFailedText>
-  <Phinix_theme_desc_chat_imageFailedText>Controls chat / image Failed Text. Appearance changes do not submit operations.</Phinix_theme_desc_chat_imageFailedText>
+  <Phinix_theme_desc_chat_imageFailedText>Controls chat / image Failed Text.</Phinix_theme_desc_chat_imageFailedText>
   <Phinix_theme_label_trade_ourOfferAccent>trade / our Offer Accent</Phinix_theme_label_trade_ourOfferAccent>
-  <Phinix_theme_desc_trade_ourOfferAccent>Controls trade / our Offer Accent. Appearance changes do not submit operations.</Phinix_theme_desc_trade_ourOfferAccent>
+  <Phinix_theme_desc_trade_ourOfferAccent>Controls trade / our Offer Accent.</Phinix_theme_desc_trade_ourOfferAccent>
   <Phinix_theme_label_trade_theirOfferAccent>trade / their Offer Accent</Phinix_theme_label_trade_theirOfferAccent>
-  <Phinix_theme_desc_trade_theirOfferAccent>Controls trade / their Offer Accent. Appearance changes do not submit operations.</Phinix_theme_desc_trade_theirOfferAccent>
+  <Phinix_theme_desc_trade_theirOfferAccent>Controls trade / their Offer Accent.</Phinix_theme_desc_trade_theirOfferAccent>
   <Phinix_theme_label_trade_ourOfferBg>trade / our Offer Bg</Phinix_theme_label_trade_ourOfferBg>
-  <Phinix_theme_desc_trade_ourOfferBg>Controls trade / our Offer Bg. Appearance changes do not submit operations.</Phinix_theme_desc_trade_ourOfferBg>
+  <Phinix_theme_desc_trade_ourOfferBg>Controls trade / our Offer Bg.</Phinix_theme_desc_trade_ourOfferBg>
   <Phinix_theme_label_trade_theirOfferBg>trade / their Offer Bg</Phinix_theme_label_trade_theirOfferBg>
-  <Phinix_theme_desc_trade_theirOfferBg>Controls trade / their Offer Bg. Appearance changes do not submit operations.</Phinix_theme_desc_trade_theirOfferBg>
+  <Phinix_theme_desc_trade_theirOfferBg>Controls trade / their Offer Bg.</Phinix_theme_desc_trade_theirOfferBg>
   <Phinix_theme_label_trade_cancelButton>trade / cancel Button</Phinix_theme_label_trade_cancelButton>
-  <Phinix_theme_desc_trade_cancelButton>Controls trade / cancel Button. Appearance changes do not submit operations.</Phinix_theme_desc_trade_cancelButton>
+  <Phinix_theme_desc_trade_cancelButton>Controls trade / cancel Button.</Phinix_theme_desc_trade_cancelButton>
   <Phinix_theme_label_trade_acceptedBadge>trade / accepted Badge</Phinix_theme_label_trade_acceptedBadge>
-  <Phinix_theme_desc_trade_acceptedBadge>Controls trade / accepted Badge. Appearance changes do not submit operations.</Phinix_theme_desc_trade_acceptedBadge>
+  <Phinix_theme_desc_trade_acceptedBadge>Controls trade / accepted Badge.</Phinix_theme_desc_trade_acceptedBadge>
   <Phinix_theme_label_trade_pendingBadge>trade / pending Badge</Phinix_theme_label_trade_pendingBadge>
-  <Phinix_theme_desc_trade_pendingBadge>Controls trade / pending Badge. Appearance changes do not submit operations.</Phinix_theme_desc_trade_pendingBadge>
+  <Phinix_theme_desc_trade_pendingBadge>Controls trade / pending Badge.</Phinix_theme_desc_trade_pendingBadge>
   <Phinix_theme_label_trade_rowHoverBg>trade / row Hover Bg</Phinix_theme_label_trade_rowHoverBg>
-  <Phinix_theme_desc_trade_rowHoverBg>Controls trade / row Hover Bg. Appearance changes do not submit operations.</Phinix_theme_desc_trade_rowHoverBg>
+  <Phinix_theme_desc_trade_rowHoverBg>Controls trade / row Hover Bg.</Phinix_theme_desc_trade_rowHoverBg>
   <Phinix_theme_label_trade_panelBg>trade / panel Bg</Phinix_theme_label_trade_panelBg>
-  <Phinix_theme_desc_trade_panelBg>Controls trade / panel Bg. Appearance changes do not submit operations.</Phinix_theme_desc_trade_panelBg>
+  <Phinix_theme_desc_trade_panelBg>Controls trade / panel Bg.</Phinix_theme_desc_trade_panelBg>
   <Phinix_theme_label_trade_searchPlaceholder>trade / search Placeholder</Phinix_theme_label_trade_searchPlaceholder>
-  <Phinix_theme_desc_trade_searchPlaceholder>Controls trade / search Placeholder. Appearance changes do not submit operations.</Phinix_theme_desc_trade_searchPlaceholder>
+  <Phinix_theme_desc_trade_searchPlaceholder>Controls trade / search Placeholder.</Phinix_theme_desc_trade_searchPlaceholder>
   <Phinix_theme_label_inventory_infoBackground>inventory / info Background</Phinix_theme_label_inventory_infoBackground>
-  <Phinix_theme_desc_inventory_infoBackground>Controls inventory / info Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_infoBackground>
+  <Phinix_theme_desc_inventory_infoBackground>Controls inventory / info Background.</Phinix_theme_desc_inventory_infoBackground>
   <Phinix_theme_label_inventory_infoAccent>inventory / info Accent</Phinix_theme_label_inventory_infoAccent>
-  <Phinix_theme_desc_inventory_infoAccent>Controls inventory / info Accent. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_infoAccent>
+  <Phinix_theme_desc_inventory_infoAccent>Controls inventory / info Accent.</Phinix_theme_desc_inventory_infoAccent>
   <Phinix_theme_label_inventory_editorBackground>inventory / editor Background</Phinix_theme_label_inventory_editorBackground>
-  <Phinix_theme_desc_inventory_editorBackground>Controls inventory / editor Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_editorBackground>
+  <Phinix_theme_desc_inventory_editorBackground>Controls inventory / editor Background.</Phinix_theme_desc_inventory_editorBackground>
   <Phinix_theme_label_inventory_noticeBackground>inventory / notice Background</Phinix_theme_label_inventory_noticeBackground>
-  <Phinix_theme_desc_inventory_noticeBackground>Controls inventory / notice Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_noticeBackground>
+  <Phinix_theme_desc_inventory_noticeBackground>Controls inventory / notice Background.</Phinix_theme_desc_inventory_noticeBackground>
   <Phinix_theme_label_inventory_errorBackground>inventory / error Background</Phinix_theme_label_inventory_errorBackground>
-  <Phinix_theme_desc_inventory_errorBackground>Controls inventory / error Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_errorBackground>
+  <Phinix_theme_desc_inventory_errorBackground>Controls inventory / error Background.</Phinix_theme_desc_inventory_errorBackground>
   <Phinix_theme_label_inventory_selectedBackground>inventory / selected Background</Phinix_theme_label_inventory_selectedBackground>
-  <Phinix_theme_desc_inventory_selectedBackground>Controls inventory / selected Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_selectedBackground>
+  <Phinix_theme_desc_inventory_selectedBackground>Controls inventory / selected Background.</Phinix_theme_desc_inventory_selectedBackground>
   <Phinix_theme_label_inventory_alternateBackground>inventory / alternate Background</Phinix_theme_label_inventory_alternateBackground>
-  <Phinix_theme_desc_inventory_alternateBackground>Controls inventory / alternate Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_alternateBackground>
+  <Phinix_theme_desc_inventory_alternateBackground>Controls inventory / alternate Background.</Phinix_theme_desc_inventory_alternateBackground>
   <Phinix_theme_label_inventory_choiceBackground>inventory / choice Background</Phinix_theme_label_inventory_choiceBackground>
-  <Phinix_theme_desc_inventory_choiceBackground>Controls inventory / choice Background. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_choiceBackground>
+  <Phinix_theme_desc_inventory_choiceBackground>Controls inventory / choice Background.</Phinix_theme_desc_inventory_choiceBackground>
   <Phinix_theme_label_inventory_directDeliveryAccent>inventory / direct Delivery Accent</Phinix_theme_label_inventory_directDeliveryAccent>
-  <Phinix_theme_desc_inventory_directDeliveryAccent>Controls inventory / direct Delivery Accent. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_directDeliveryAccent>
+  <Phinix_theme_desc_inventory_directDeliveryAccent>Controls inventory / direct Delivery Accent.</Phinix_theme_desc_inventory_directDeliveryAccent>
   <Phinix_theme_label_inventory_storedDeliveryAccent>inventory / stored Delivery Accent</Phinix_theme_label_inventory_storedDeliveryAccent>
-  <Phinix_theme_desc_inventory_storedDeliveryAccent>Controls inventory / stored Delivery Accent. Appearance changes do not submit operations.</Phinix_theme_desc_inventory_storedDeliveryAccent>
+  <Phinix_theme_desc_inventory_storedDeliveryAccent>Controls inventory / stored Delivery Accent.</Phinix_theme_desc_inventory_storedDeliveryAccent>
   <Phinix_theme_label_plugin_store_badge_official>store / badge / official</Phinix_theme_label_plugin_store_badge_official>
-  <Phinix_theme_desc_plugin_store_badge_official>Controls store / badge / official. Appearance changes do not submit operations.</Phinix_theme_desc_plugin_store_badge_official>
+  <Phinix_theme_desc_plugin_store_badge_official>Controls store / badge / official.</Phinix_theme_desc_plugin_store_badge_official>
   <Phinix_theme_label_plugin_store_badge_managed>store / badge / managed</Phinix_theme_label_plugin_store_badge_managed>
-  <Phinix_theme_desc_plugin_store_badge_managed>Controls store / badge / managed. Appearance changes do not submit operations.</Phinix_theme_desc_plugin_store_badge_managed>
+  <Phinix_theme_desc_plugin_store_badge_managed>Controls store / badge / managed.</Phinix_theme_desc_plugin_store_badge_managed>
   <Phinix_theme_label_plugin_store_badge_workshop>store / badge / workshop</Phinix_theme_label_plugin_store_badge_workshop>
-  <Phinix_theme_desc_plugin_store_badge_workshop>Controls store / badge / workshop. Appearance changes do not submit operations.</Phinix_theme_desc_plugin_store_badge_workshop>
+  <Phinix_theme_desc_plugin_store_badge_workshop>Controls store / badge / workshop.</Phinix_theme_desc_plugin_store_badge_workshop>
   <Phinix_theme_label_plugin_store_badge_local>store / badge / local</Phinix_theme_label_plugin_store_badge_local>
-  <Phinix_theme_desc_plugin_store_badge_local>Controls store / badge / local. Appearance changes do not submit operations.</Phinix_theme_desc_plugin_store_badge_local>
+  <Phinix_theme_desc_plugin_store_badge_local>Controls store / badge / local.</Phinix_theme_desc_plugin_store_badge_local>
   <Phinix_theme_group_controls>Shared controls</Phinix_theme_group_controls>
   <Phinix_theme_label_ui_button_background>Button background</Phinix_theme_label_ui_button_background>
   <Phinix_theme_desc_ui_button_background>Button fill when the pointer is elsewhere.</Phinix_theme_desc_ui_button_background>

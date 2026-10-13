@@ -79,3 +79,28 @@ dotnet exec --runtimeconfig Tests/LegacyTradeRuntimeTests/runtimeconfig.json Tes
 - 用户侧栏缓存、锁、GUI 清理、扩展能力筛选和回调隔离。
 
 后续迁移须逐项更新本文件的完成情况，不能通过关闭功能、吞异常或降低确认标准换取表面兼容。
+
+
+## UI compatibility scope — 2026-10-12 user decision
+
+The user explicitly removed the requirement to preserve unused old theme data and UI protocols. New presentation/UI contracts and theme structure may be refactored directly around current consumers; do not introduce legacy-mode branches or a parallel renderer to preserve those unused formats. Current theme capabilities remain required. This does not authorize business wire/save/authority changes; the explicitly maintained red-packet and pawn-trade internal 1.9 adapters remain. Latest implementation and acceptance status is in roadmap §16.13.
+
+
+## 2026-10-12 B19 主题呈现边界
+
+主题是永久 Host 服务，Editor/Selector/Export 消费普通公共 presentation session 与 typed contribution point。内部 builtin.host principal 由 Host 成对激活/终止，不进入 optional plugin discovery；没有 renderer owner 白名单、第二动作系统或 Store 存在前提。公开 ClientThemePresentationActionContext 只给贡献者只读投影事实，不移交 draft/Apply/export 权威。公共滑块回发原文输入意图，主题 owner 验证；被动颜色样本不保存状态。原 catalog/readers/registry/package/exporter 继续处理 keys/fallback/inherit/unknown/profiles/T5，保存规则和协议不变。
+
+
+## 2026-10-12 B21 Trade operation owner 边界
+
+TradeOfferOperations/TradeOfferEscrow 属 Trade plugin；Host 只消费通用呈现，不引用 Trade Contracts 或管理 Thing/quote/ledger。公开 ITradeOfferOperationApi 提供只读 operation facts 与有明确依据的本地重试；未知结果不能被该 API 强行确认。shared facade 拦截本会话已持 operation 的冲突 update/status/cancel，owner 的同 token 提交放行一次；不新增协议或对独立客户端/custom raw packet 的协调保证。关闭视图只释放 view/actions；模块 stop 撤销回调并标 unknown，不自动返还。保存 schema/wire/adapters 未改，physical escrow 和 correlation 仍为会话内；跨存档/切游戏持久恢复是未完成门槛。维护的 1.9 adapters 未要求新 renderer/新能力。
+
+
+## 2026-10-12 B22 原 Game 边界
+
+Trade offer 本地资源绑定发起 Game 与 activation；失效后不写当前 Inventory ledger、不返还到新地图，scope 永久失效，原窗口关闭仅清理视图。现有 journal/保存协议未改；持久重建 escrow 与独立 completion 跨存档绑定仍未完成。详见 roadmap §16.30 和 Trade-R44-Save-Boundary-2026-10-12.md。该 guard 不能充当服务端结果证据。
+
+
+## 2026-10-12 B25 库存恢复核对边界
+
+ITradeInventoryRecoveryApi 是 Trade 普通只读 API，读取既有 Inventory reservation journal，未改变保存格式。它不是自动恢复/物理托管档案/结果权威；不 Resolve/Restore/Materialize/退款。公共恢复 context 不继承同 ID 活跃 Trade 的官方操作，数量为 codec units，game/lifetime/cache 与来源事件配对。Host 保持中立，使用原公共 list/typed point；完整恢复与编辑门槛见 roadmap §16.33。

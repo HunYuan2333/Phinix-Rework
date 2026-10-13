@@ -61,11 +61,20 @@ namespace Phinix.PluginStore
         private readonly IClientExtensionControlService controls;
         private readonly IClientThemePackageService themes;
         private readonly IClientThemeWindowService themeWindows;
+        private readonly IPhinixExtensionModule owner;
+        private readonly IClientPresentationService renderer;
+        private readonly IClientExtensionPointService points;
+        private readonly IClientExtensionPointScope presentationScope;
+        private readonly IClientActionPoint<PluginStorePresentationActionContext> presentationPoint;
         private bool disposed;
         public StoreViewFactory(StoreControllerLease controller,IClientEnvironmentService environment,IClientSettingsContext settings,
             IClientExtensionManagementWindowService management,IClientLocalizer localizer,IClientTheme theme,IClientLinkService links,
-            StoreBadgeIcons icons,StoreActivationDiagnostics diagnostics,IClientThemePackageService themes,IClientThemeWindowService themeWindows,IClientExtensionControlService controls=null)
+            StoreBadgeIcons icons,StoreActivationDiagnostics diagnostics,IClientThemePackageService themes,IClientThemeWindowService themeWindows, IPhinixExtensionModule owner, IClientPresentationService renderer, IClientExtensionPointService points, IClientExtensionControlService controls=null)
         {
+            this.owner=owner; this.renderer=renderer; this.points=points;
+            presentationScope = points.ForModule(owner);
+            presentationPoint = presentationScope.DefineActions<PluginStorePresentationActionContext>(PluginStorePresentationActionContext.PointId);
+            presentationScope.ContributeActions<PluginStorePresentationActionContext>(PluginStorePresentationActionContext.PointId, context => context.OwnerActions);
             this.themes=themes;this.themeWindows=themeWindows;
             this.controller=controller; this.environment=environment; this.settings=settings; this.management=management; this.controls=controls;
             this.localizer=localizer; this.theme=theme; this.links=links; this.icons=icons;
@@ -77,11 +86,12 @@ namespace Phinix.PluginStore
         {
             if(disposed) throw new ObjectDisposedException(nameof(StoreViewFactory));
             var view=new ManagedPluginStoreView(controller.Controller,environment,settings,management,localizer,theme,links,maintainers,icons,controls,themes,themeWindows);
+            view.ConfigurePresentation(owner, renderer, points, presentationPoint);
             if(views.Count>=32) views.RemoveAll(reference=> { ManagedPluginStoreView target; return !reference.TryGetTarget(out target); });
             views.Add(new System.WeakReference<ManagedPluginStoreView>(view)); return view;
         }
         public void Dispose()
-        { if(disposed) return; disposed=true; foreach(var reference in views) { ManagedPluginStoreView view; if(reference.TryGetTarget(out view)) view.Stop(); } views.Clear(); }
+        { if(disposed) return; disposed=true; foreach(var reference in views) { ManagedPluginStoreView view; if(reference.TryGetTarget(out view)) view.Stop(); } views.Clear(); presentationScope.Dispose(); }
     }
 
     internal sealed class StoreReleaseNoticeLease : IDisposable

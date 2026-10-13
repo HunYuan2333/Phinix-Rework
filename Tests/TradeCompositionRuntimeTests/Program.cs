@@ -21,9 +21,18 @@ internal static partial class Program
         try
         {
             if (args.Length > 0 && args[0] == "--legacy") throw new ArgumentException("Only the current client contract is supported.");
+            bool legacy=false; // Current-contract probe only; historical CLI mode is rejected above.
             string dll=args.Length>1?args[1]:Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"TradeExtension.Client.dll");
             Type type=Assembly.LoadFrom(Path.GetFullPath(dll)).GetType("Phinix.TradeExtension.Client.BuiltInTradeClientExtension",true);
             Assert(Path.GetFullPath(type.Assembly.Location)==Path.GetFullPath(dll),"Probe must load the requested actual DLL.");
+            CheckOfferGameScope(type);
+            CheckQuotePreview(type);
+            CheckInventoryRecovery(type);
+            CheckOfferCorrelation();
+            var matches=typeof(TradeWindow).GetMethod("CompletionMatches",BindingFlags.Static|BindingFlags.NonPublic);
+            Assert((bool)matches.Invoke(null,new object[]{"one","ONE"}),"Matching completion ID follows existing case-insensitive trade identity.");
+            Assert(!(bool)matches.Invoke(null,new object[]{"one","two"}),"Another trade completion cannot close this window.");
+            Assert(!(bool)matches.Invoke(null,new object[]{"one",null}),"Missing completion identity is rejected.");
             var facts=new List<string>();
             foreach(string scenario in new[]{"success","resolve-failure","register-failure","missing-factory"})
             using(var inner=new ClientCompositionFactory(()=>true,error=>{throw error;}))
@@ -36,7 +45,9 @@ internal static partial class Program
                 Assert(failed==(scenario!="success"),"Expected construction outcome: "+scenario);
                 if(scenario=="success")
                 {
-                    Assert(builder.Items.Count==9,"Nine current API registrations.");
+                    Assert(builder.Items.Count==11,"Eleven current API registrations including ordinary Trade offer status API.");
+                    Assert(ReferenceEquals(builder.Items[typeof(ITradeInventoryRecoveryApi)],Field(module,"inventoryRecovery")),"Recovery inspection API is a normal singleton registration, not a Host shortcut.");
+                    Assert(ReferenceEquals(builder.Items[typeof(ITradeOfferOperationApi)],Field(module,"offerOperations")),"One ordinary Trade-owned status/retry API instance; not a window-owned owner.");
                     object service=builder.Items[typeof(IFrameworkTradeClientApi)];
                     object facade=builder.Items[typeof(IClientTradeService)];
                     object bridge=builder.Items[typeof(ITradeStateInput)];

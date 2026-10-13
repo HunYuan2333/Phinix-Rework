@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_presentation_stale>The page has updated. Select the action again.</Phinix_presentation_stale>
+  <Phinix_presentation_failed>Could not complete this action. See the tooltip for details.</Phinix_presentation_failed>
+  <Phinix_presentation_inputPending>Checking your input…</Phinix_presentation_inputPending>
+  <Phinix_theme_label_badge_maintained>Phinix maintained</Phinix_theme_label_badge_maintained>
+  <Phinix_theme_label_badge_development>Local development</Phinix_theme_label_badge_development>
+  <Phinix_theme_label_badge_external>Workshop source</Phinix_theme_label_badge_external>
+  <Phinix_theme_label_badge_managed>Managed source</Phinix_theme_label_badge_managed>
+</LanguageData>

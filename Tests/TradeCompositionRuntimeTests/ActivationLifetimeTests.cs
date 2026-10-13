@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using Phinix.InventoryExtension;
@@ -24,6 +25,7 @@ internal static partial class Program
             {
                 var host = new ExtensionHostContext();
                 host.AddService<IClientCompositionFactory>(factory);
+                host.AddService<IClientPresentationService>(services);host.AddService<IClientExtensionPointService>(services);
                 host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                 host.AddService<IFrameworkClientTransport>(services);
                 host.AddService<IFrameworkClientCommandTransport>(services);
@@ -54,7 +56,10 @@ internal static partial class Program
                 if (success)
                 {
                     Assert(inventory.Codecs == 1 && inventory.Sources == 1, "Activation registers one codec/source.");
-                    Assert(services.Count("compatibility") == 1 && services.Count("users") == 1 && services.Count("disconnected") == 2 && services.Count("name") == 1 && services.Count("settings") == 2 && inventory.AvailabilityCount == 1,
+                    Assert(services.DefinedPoints.Count(id=>id==TradeOfferPresentationActionContext.PointId)==1,"Offer editor defines one ordinary public action point per activation.");
+                    var orphan=new TradeOfferPresentationActionContext("closed-view",1,"test",null,0,0,false,false,false);
+                    Assert(!services.OfferContributions(orphan).Any(),"A closed or foreign editor context cannot collect official commands.");
+                    Assert(services.Count("compatibility") == 1 && services.Count("users") == 1 && services.Count("disconnected") == 2 && services.Count("name") == 1 && services.Count("settings") == 2 && inventory.AvailabilityCount == 2,
                         "Connection, UI and behavior subscriptions match original startup.");
                     Assert(services.Commands.Count == 1 && services.Commands[0].MessageType == FrameworkTradeProtocol.SnapshotType, "Negotiated startup requests trade snapshot.");
                     Assert(services.AcceptingUpdates == 1, "Initial accepting-trades update occurs once.");
@@ -69,6 +74,61 @@ internal static partial class Program
                     services.Drain();
                     Assert(services.Commands.Count == 3 && services.Commands[2].MessageType == FrameworkTradeProtocol.CompletionAckRequestType,
                         "Successful empty/idempotent delivery acknowledges through command pipeline.");
+                    services.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop);services.Drain();
+                    int beforeDirect=services.Commands.Count;
+                    completed.Invoke(liveBehavior,new object[] {null,new TradeCompletionEventArgs("empty-direct-completion",true,"remote",new TradeItemSnapshot[0])});
+                    Assert(services.Commands.Count==beforeDirect,"Empty direct completion still waits for main-thread delivery.");services.Drain();
+                    Assert(services.Commands.Count==beforeDirect+1 && services.Commands.Last().MessageType==FrameworkTradeProtocol.CompletionAckRequestType,"Empty gift direct completion acknowledges without a map or drop pod.");
+                    var cancelled=liveBehavior.GetType().GetMethod("onTradeCancelled",BindingFlags.Instance|BindingFlags.NonPublic);
+                    cancelled.Invoke(liveBehavior,new object[] {null,new TradeCompletionEventArgs("empty-direct-cancel",false,"remote",new TradeItemSnapshot[0])});services.Drain();
+                    Assert(services.Commands.Count==beforeDirect+2 && services.Commands.Last().MessageType==FrameworkTradeProtocol.CompletionAckRequestType,"Empty cancelled return follows the same no-delivery acknowledgement chain.");
+                    var delivery=Field(liveBehavior,"inventoryDelivery");
+                    var direct=delivery.GetType().GetMethod("DeliverDirect");
+                    var missing=(InventoryDeliveryResult)direct.Invoke(delivery,new object[]{new TradeCompletionEventArgs("",true,"remote",new TradeItemSnapshot[0]),false});
+                    Assert(!missing.Succeeded,"Empty completion without stable trade ID cannot acknowledge.");
+                    var bad=new FrameworkItemPayload {CodecId="missing.codec",PayloadBytes=new byte[]{1}};
+                    var badDirectResult=(InventoryDeliveryResult)direct.Invoke(delivery,new object[]{new TradeCompletionEventArgs("bad-direct",true,"remote",new TradeItemSnapshot[0],null,new[]{bad}),false});
+                    Assert(!badDirectResult.Succeeded && badDirectResult.Status==InventoryDeliveryStatus.Rejected,"Nonempty unavailable codec remains a rejected delivery.");
+                    int beforeBad=services.Commands.Count;
+                    var pendingType=liveBehavior.GetType().GetNestedType("PendingCompletion",BindingFlags.NonPublic);
+                    var failedArgs=new TradeCompletionEventArgs("bad-direct",true,"remote",new TradeItemSnapshot[0],null,new[]{bad});
+                    ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Add("completed:bad-direct",Activator.CreateInstance(pendingType,new object[]{failedArgs,"remote",true,true}));
+                    // Retry without native notification; real Unity localization cannot run in this harness.
+                    liveBehavior.GetType().GetMethod("tryDepositPending",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(liveBehavior,new object[]{"completed:bad-direct",false});
+                    Assert(services.Commands.Count==beforeBad && ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Count==1,"Nonempty delivery failure remains pending and emits no acknowledgement.");
+                    if(scenario=="success")
+                    {
+                        object facade=Field(module,"tradeFacade");var oldGuard=Field(facade,"offerSubmissionGuard");
+                        var setGuard=facade.GetType().GetMethod("SetOfferSubmissionGuard",BindingFlags.Instance|BindingFlags.NonPublic);
+                        setGuard.Invoke(facade,new object[]{(Func<string,string,bool,bool>)((id,token,offer)=>id!="guarded")});
+                        var domain=(IClientTradeService)facade;int beforeGuard=services.Commands.Count;bool denied=false;
+                        try {domain.CancelTrade("guarded");}catch(InvalidOperationException){denied=true;}
+                        Assert(denied&&services.Commands.Count==beforeGuard,"Shared facade rejects conflicting cancellation before dispatch.");denied=false;
+                        try {domain.UpdateTradeStatus("guarded",true);}catch(InvalidOperationException){denied=true;}
+                        Assert(denied&&services.Commands.Count==beforeGuard,"Shared facade rejects conflicting confirmation before dispatch.");denied=false;
+                        try {domain.UpdateTradeItems("guarded",Array.Empty<TradeItemSnapshot>(),"copied-token");}catch(InvalidOperationException){denied=true;}
+                        Assert(denied&&services.Commands.Count==beforeGuard,"Shared facade rejects conflicting quote update before encoding or dispatch.");
+                        setGuard.Invoke(facade,new[]{oldGuard});
+                        object scopeGame=new object();
+                        var escrowType=type.Assembly.GetType("Phinix.TradeExtension.Client.TradeOfferEscrow",true);
+                        var escrow=Activator.CreateInstance(escrowType,BindingFlags.Instance|BindingFlags.NonPublic,null,new[]{Field(module,"tradeUiHostContext"),NewGameScope(type,()=>scopeGame,()=>true)},null);
+                        escrowType.GetField("ReservationId",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(escrow,"blocked-reservation");
+                        escrowType.GetField("Token",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(escrow,"blocked-token");
+                        // A sentinel would fault if physical handling were reached. The actual adapter must
+                        // stop before touching map resources when the real inventory port reports failure.
+                        var held=(System.Collections.IList)Field(escrow,"Physical");held.Add(null);
+                        Assert(escrowType.GetMethod("Commit",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(escrow,null).ToString()=="Blocked"&&held.Count==1,"Ledger commit failure preserves escrow and performs no physical destruction.");
+                        Assert(escrowType.GetMethod("Restore",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(escrow,null).ToString()=="Blocked"&&held.Count==1,"Ledger restore failure preserves escrow and performs no physical return.");
+                        escrowType.GetMethod("Abort",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(escrow,null);
+                        Assert(inventory.ResolutionEvidence=="trade-not-sent:blocked-token","Preparation rollback records no-send evidence rather than a fabricated server rejection.");
+                        inventory.ResolutionEvidence=null;scopeGame=new object();
+                        foreach(string method in new[]{"Commit","Restore","Abort"})
+                            Assert(escrowType.GetMethod(method,BindingFlags.Instance|BindingFlags.NonPublic).Invoke(escrow,null).ToString()=="Uncertain" && inventory.ResolutionEvidence==null && held.Count==1,"Expired game scope prevents inventory and physical settlement: "+method);
+                        escrowType.GetMethod("Unknown",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(escrow,null);
+                        Assert(inventory.ResolutionEvidence==null,"Unknown marking cannot write a reservation into another game's ledger.");
+                        Assert(escrowType.GetMethod("ReturnFrozen",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(escrow,new object[]{null}).ToString()=="Uncertain","Expired reset return stops before decoding or choosing a map.");
+
+                    }
                     if (scenario == "success") facts.Add("activation=" + services.Subscriptions + ";inventory=" + inventory.AvailabilityCount + ";commands=" + services.Commands.Count + ";accepting=" + services.AcceptingUpdates);
                     var callback = (EventHandler<FrameworkCompatibilityModeChangedEventArgs>)services.Listener("compatibility");
                     staleCompatibility = () => callback(services, new FrameworkCompatibilityModeChangedEventArgs(FrameworkCompatibilityMode.FrameworkV2));
@@ -78,7 +138,7 @@ internal static partial class Program
                         object behavior = Field(module, "defaultTradeBehaviour");
                         ((IActivatablePhinixExtensionModule)module).Activate(host);
                         behavior.GetType().GetMethod("Start").Invoke(behavior, null);
-                        Assert(services.Subscriptions == count && inventory.Codecs == 1 && inventory.AvailabilityCount == 1, "Repeated activation/Start is idempotent.");
+                        Assert(services.Subscriptions == count && inventory.Codecs == 1 && inventory.AvailabilityCount == 2, "Repeated activation/Start is idempotent.");
                         int ran = 0;
                         behavior.GetType().GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(behavior, new object[] { (Action)(() => ran++) });
                         var ui = (ITradeUiHostContext)Field(module, "tradeUiHostContext");
@@ -95,19 +155,20 @@ internal static partial class Program
                         if (scenario == "stop-failure") services.FailRemove = "compatibility";
                         ((IActivatablePhinixExtensionModule)module).Shutdown(host);
                         services.Drain(); staleCompatibility();
-                        Assert(ran == 1 && services.Commands.Count == 3, "Shutdown rejects queued work and captured connection callback.");
+                        Assert(ran == 1 && services.Commands.Count == beforeDirect+2, "Shutdown rejects queued work and captured connection callback.");
                         Assert(inventory.Deposits == 0, "Shutdown does not deposit/ack an old queued operation.");
                         int rejected = 0;
                         foreach (Action send in new Action[] { () => ((ITradeRequestApi)facade).CreateTrade("remote"), () => facade.CancelTrade("old"),
                             () => facade.UpdateTradeItems("old", new TradeItemSnapshot[0]), () => facade.UpdateTradeStatus("old", true) })
                             try { send(); } catch (InvalidOperationException) { rejected++; }
-                        Assert(rejected == 4 && services.Commands.Count == 3, "Stopped public facade rejects all mutation entry points.");
+                        Assert(rejected == 4 && services.Commands.Count == beforeDirect+2, "Stopped public facade rejects all mutation entry points.");
                         int queued = services.Queue.Count; ui.RunOnMainThread(() => ran++);
                         Assert(services.Queue.Count == queued, "Stopped UI does not queue new work.");
                     }
                 }
                 ((IActivatablePhinixExtensionModule)module).Shutdown(host);
                 ((IActivatablePhinixExtensionModule)module).Shutdown(host);
+                Assert(services.LivePointScopes==0,"All editor/list contribution scopes detach on repeated and partial shutdown.");
                 Assert(services.Subscriptions == 0 && inventory.AvailabilityCount == 0, "All host/inventory subscriptions detached, including failure paths.");
                 Assert(inventory.CodecReleases == inventory.Codecs && inventory.SourceReleases == inventory.Sources, "All acquired inventory tokens released once.");
                 Assert(services.Disposed == 0 && inventory.Disposed == 0, "Borrowed host and inventory APIs survive scope shutdown.");
@@ -122,8 +183,25 @@ internal static partial class Program
 
     private sealed class TradeHost : IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle,
         IClientSessionContext, IClientSettingsContext, IClientUserEventStream, IClientUserDirectory,
-        IClientMainThreadDispatcher, IClientWindowService, IClientTheme,IClientThemeRegistry, IDisposable
+        IClientMainThreadDispatcher, IClientWindowService, IClientTheme,IClientThemeRegistry,IClientPresentationService,IClientExtensionPointService, IDisposable
     {
+        public IClientPresentationSession Open(IPhinixExtensionModule owner,string page)=>throw new InvalidOperationException("Native view not exercised by activation probe");
+        public long Revision=>0;
+        public IReadOnlyList<ClientExtensionPointInfo> CapturePoints()=>Array.Empty<ClientExtensionPointInfo>();
+        public int LivePointScopes;
+        public readonly List<string> DefinedPoints=new List<string>();
+        public Func<TradeOfferPresentationActionContext,IEnumerable<ClientActionDefinition>> OfferContributions;
+        public IClientExtensionPointScope ForModule(IPhinixExtensionModule module){LivePointScopes++;return new ProbePointScope(this);}
+        private sealed class ProbePointScope : IClientExtensionPointScope
+        {
+            private readonly TradeHost host; private bool disposed;
+            public ProbePointScope(TradeHost host){this.host=host;}
+            public void Dispose() {if(!disposed){disposed=true;host.LivePointScopes--;}}
+            public IClientActionPoint<T> DefineActions<T>(string id) where T:class {host.DefinedPoints.Add(id);return new ProbePoint<T>();}
+            public void ContributeActions<T>(string id,Func<T,IEnumerable<ClientActionDefinition>> factory,float order=0) where T:class {if(id==TradeOfferPresentationActionContext.PointId)host.OfferContributions=(Func<TradeOfferPresentationActionContext,IEnumerable<ClientActionDefinition>>)(object)factory;}
+        }
+        private sealed class ProbePoint<T> : IClientActionPoint<T> where T:class
+        {public IClientActionSet Collect(T context,Func<bool> current=null)=>throw new InvalidOperationException("Projection not exercised by activation probe");}
         private readonly Dictionary<string, Delegate> listeners = new Dictionary<string, Delegate>();
         private readonly Dictionary<string, object> values = new Dictionary<string, object>();
         public readonly List<Action> Queue = new List<Action>();
@@ -174,22 +252,28 @@ internal static partial class Program
     private sealed class InventoryHost : IInventoryRegistrationApi, IInventoryDepositApi, IInventoryReadApi, IInventoryReservationApi, IDisposable
     {
         private EventHandler availability;
-        public bool FailSource, FailRelease;
+        public bool FailSource, FailRelease;public string ResolutionEvidence;public int ResolutionCalls;
+        public InventoryStatus Status=new InventoryStatus();public IReadOnlyList<InventoryReservation> Reservations=new InventoryReservation[0];
         public int Codecs, Sources, CodecReleases, SourceReleases, Deposits, Disposed;
+        public void RaiseAvailability()=>availability?.Invoke(this,EventArgs.Empty);
         public int AvailabilityCount => availability?.GetInvocationList().Length ?? 0;
+        private EventHandler inventoryChanged;
+        public int ChangeCount=>inventoryChanged?.GetInvocationList().Length??0;
+        public int ReservationReads;
+        public void RaiseInventoryChanged()=>inventoryChanged?.Invoke(this,EventArgs.Empty);
         public event EventHandler AvailabilityChanged { add { availability += value; } remove { availability -= value; } }
-        public event EventHandler InventoryChanged { add { } remove { } }
+        public event EventHandler InventoryChanged { add { inventoryChanged+=value; } remove { inventoryChanged-=value; } }
         public IDisposable RegisterCodecScoped(IInventoryCodec codec) { Codecs++; return new Token(() => CodecReleases++); }
         public IDisposable RegisterSourcePresenter(IInventorySourcePresenter source)
         { if (FailSource) throw new InvalidOperationException("Injected source failure."); Sources++; return new Token(() => { SourceReleases++; if (FailRelease) throw new InvalidOperationException("Injected release failure."); }); }
         public InventoryDepositResult CheckDeposit(InventoryDeposit deposit) { throw new NotSupportedException(); }
         public InventoryDepositResult TryDeposit(InventoryDeposit deposit) { Deposits++; throw new NotSupportedException(); }
-        public IReadOnlyList<InventoryEntry> GetSnapshot() => new InventoryEntry[0]; public InventoryStatus GetStatus() => new InventoryStatus(); public InventoryCapabilities GetCapabilities() => new InventoryCapabilities();
-        public IReadOnlyList<InventoryEntry> GetAvailableSnapshot() => new InventoryEntry[0]; public IReadOnlyList<InventoryReservation> GetReservations() => new InventoryReservation[0];
+        public IReadOnlyList<InventoryEntry> GetSnapshot() => new InventoryEntry[0]; public InventoryStatus GetStatus() => Status; public InventoryCapabilities GetCapabilities() => new InventoryCapabilities();
+        public IReadOnlyList<InventoryEntry> GetAvailableSnapshot() => new InventoryEntry[0]; public IReadOnlyList<InventoryReservation> GetReservations() {ReservationReads++;return Reservations;}
         public InventoryReservationResult TryReserve(InventoryReservationRequest request) { throw new NotSupportedException(); }
         public InventoryMaterializationResult CreatePreview(string entryId) { throw new NotSupportedException(); }
         public InventoryMaterializationResult MaterializeReservation(string reservationId) { throw new NotSupportedException(); }
-        public InventoryReservationResolutionResult ResolveReservation(string id, InventoryReservationResolution resolution, string evidence) { throw new NotSupportedException(); }
+        public InventoryReservationResolutionResult ResolveReservation(string id, InventoryReservationResolution resolution, string evidence) {ResolutionCalls++;ResolutionEvidence=evidence;return new InventoryReservationResolutionResult {Succeeded=false,Reason="Injected ledger write failure"};}
         public void Dispose() { Disposed++; }
     }
     private sealed class Token : IDisposable

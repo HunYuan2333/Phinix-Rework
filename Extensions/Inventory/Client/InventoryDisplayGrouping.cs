@@ -36,7 +36,8 @@ namespace Phinix.InventoryExtension.Client
                 // Keep individually valid entries separate if their combined count cannot be represented.
                 if (group == null || items > long.MaxValue - group.AvailableItems)
                 {
-                    group = new InventoryDisplayGroup { Key = key ?? "entry:" + entry.EntryId };
+                    group = new InventoryDisplayGroup { Key = key == null ? "entry:" + entry.EntryId :
+                        group == null ? key : key + "overflow:" + Part(entry.EntryId) };
                     groups.Add(group);
                     if (key != null) byKey[key] = group;
                 }

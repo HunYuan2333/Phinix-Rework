@@ -29,6 +29,9 @@ internal static partial class Program
                 host.AddService<IClientCompositionFactory>(factory);
                 host.AddService<IClientLocalizationService>(services); host.AddService<IClientEnvironmentService>(services);
                 host.AddService<IClientSettingsContext>(services); host.AddService<IClientMainThreadDispatcher>(services);
+                var themePackages = new ThemePackageProbe();
+                host.AddService<IClientThemePackageService>(themePackages); host.AddService<IClientThemeWindowService>(themePackages);
+                host.AddService<IClientPresentationService>(services); host.AddService<IClientExtensionPointService>(services);
                 host.AddService<IClientWindowService>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                 host.AddService<IClientExtensionManagementWindowService>(services);
                 if(scenario!="missing-service")host.AddService<IClientLinkService>(services);
@@ -51,7 +54,7 @@ internal static partial class Program
                     if(!legacy) Assert(ReferenceEquals(Field(oldView,"controls"),scenario=="without-controls"?null:controls) && ReferenceEquals(Field(secondView,"controls"),scenario=="without-controls"?null:controls),"F6-M both Store views borrow the same host control boundary.");
                     oldView.GetType().GetField("search",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(oldView,"tab-search");
                     Assert((string)Field(secondView,"search")=="","Tab/window searches do not leak across views.");
-                    Assert(ReferenceEquals(Field(oldView,"localizer"),Field(secondView,"localizer")) && ReferenceEquals(Field(oldView,"badgeIcons"),icons),"Views share activation-owned resources.");
+                    Assert(ReferenceEquals(Field(oldView,"localizer"),Field(secondView,"localizer")) && ReferenceEquals(Field(oldView,"renderer"),Field(secondView,"renderer")) && ReferenceEquals(Field(oldView,"actionPoint"),Field(secondView,"actionPoint")),"Views share localization, the public Host renderer and one contribution point.");
                     services.LastController=controller;services.LastIcons=icons;
                     if(scenario=="success") facts.Add("activation=captures:"+services.Captures+";refreshes:"+services.Refreshes+";independentViews:"+!ReferenceEquals(oldView,secondView));
                     if(scenario=="success" && !legacy)
@@ -95,10 +98,34 @@ internal static partial class Program
         }
         throw new InvalidOperationException("Startup operation did not finish.");
     }
+    private sealed class ThemePackageProbe : IClientThemePackageService, IClientThemeWindowService
+    {
+        public IReadOnlyList<Utils.Framework.Themes.InstalledThemePackage> Packages => Array.Empty<Utils.Framework.Themes.InstalledThemePackage>();
+        public IReadOnlyList<string> Diagnostics => Array.Empty<string>();
+        public void Refresh() { throw new InvalidOperationException("Activation must not scan theme packages."); }
+        public Utils.Framework.Themes.ThemePackage Inspect(string path) { throw new NotSupportedException(); }
+        public void Install(Utils.Framework.Themes.ThemePackage package, string expected) { throw new NotSupportedException(); }
+        public void Uninstall(string id, string expected) { throw new NotSupportedException(); }
+        public void OpenThemeWindow() { throw new InvalidOperationException("Activation must not open themes."); }
+    }
     private sealed class StoreHost:IClientLocalizationService,IClientEnvironmentService,IClientSettingsContext,
         IClientMainThreadDispatcher,IClientWindowService,IClientTheme,IClientThemeRegistry,IClientExtensionManagementWindowService,IClientLinkService,
-        IManagedExtensionManagementService,IManagedExtensionInstallationService,IDisposable
+        IManagedExtensionManagementService,IManagedExtensionInstallationService,IClientPresentationService,IClientExtensionPointService,IDisposable
     {
+        public IClientPresentationSession Open(IPhinixExtensionModule owner, string id) { throw new InvalidOperationException("Activation must not open a presentation view."); }
+        IClientExtensionPointScope IClientExtensionPointService.ForModule(IPhinixExtensionModule owner) => new PresentationScope();
+        public long Revision => 0;
+        public IReadOnlyList<ClientExtensionPointInfo> CapturePoints() => Array.Empty<ClientExtensionPointInfo>();
+        private sealed class PresentationScope : IClientExtensionPointScope
+        {
+            public void Dispose() { }
+            public IClientActionPoint<T> DefineActions<T>(string id) where T : class => new PresentationPoint<T>();
+            public void ContributeActions<T>(string id, Func<T, IEnumerable<ClientActionDefinition>> factory, float order = 0) where T : class { }
+        }
+        private sealed class PresentationPoint<T> : IClientActionPoint<T> where T : class
+        { public IClientActionSet Collect(T context, Func<bool> current = null) => new PresentationSet(); }
+        private sealed class PresentationSet : IClientActionSet
+        { public IReadOnlyList<IClientContributedAction> Actions => Array.Empty<IClientContributedAction>(); public void Dispose() { } }
         public string Scenario; public object Module,LastController,LastIcons;
         public readonly List<StoreText> Localizers=new List<StoreText>();public readonly List<Action> Queue=new List<Action>();
         public int Captures,Refreshes,Opened,Disposed;
@@ -131,7 +158,7 @@ internal static partial class Program
         public long Version => 0;
         public event Action Changed { add { } remove { } }
         public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
-        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
+        ClientThemeSnapshot IClientTheme.Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
         public Color PrimaryText=>default(Color);public Color SecondaryText=>default(Color);public Color Background=>default(Color);public Color Surface=>default(Color);public Color Separator=>default(Color);
         public Color HoverHighlight=>default(Color);public Color Pending=>default(Color);public Color Error=>default(Color);public Color Success=>default(Color);public Color Warning=>default(Color);
         public Color GetColor(string key)=>default(Color);public bool TryGetColor(string key,out Color value){value=default(Color);return true;}

@@ -484,3 +484,32 @@ Color：`inventory.infoBackground`、`inventory.infoAccent`、`inventory.editorB
 
 Color：`plugin-store.badge.official`、`plugin-store.badge.managed`、`plugin-store.badge.workshop`、`plugin-store.badge.local`。
 
+
+
+## 2026-10-12 范围覆盖说明
+
+本审计为历史状态。最新源码/验收以 roadmap §16.13 为准；用户已明确不要求兼容无人使用的旧主题数据/旧 UI 协议。保留当前主题能力与明确维护的红包/人才贸易 1.9 adapters，不添加新 UI legacy mode。B6 fix 外框/文字仍有用户截图反证，B7 源码修正未游戏复测。
+
+
+2026-10-12 B10 实机反馈更正：B9 商店单列投影的 UX 被用户截图否定，不能因公共 API 迁移/编译完成宣称视觉通过。现实现改为公共双栏、独立滚动与窄窗双入口；源码/检查完成，游戏待测。最新状态见 roadmap 16.17；聊天时间戳位置待办见 16.18。
+
+
+2026-10-12 B12 用户再次否定商店整栏滚动 UX：改为全局工具/搜索筛选/插件头部操作固定、目录与正文滚动；恢复原维护/来源 badge，去除空摘要卡片。公共固定区域与 badge 能力同批维护 Host/Example；最新状态见 roadmap 16.20，游戏待测。
+
+
+2026-10-12 B13：用户否定 B12 卡片密度、工具层级和徽章辨识度；商店采用公共 plain sections、owned action menu 分组、对齐双栏、四个注册 badge 色角色及原图标。源码/编译与非 GUI 完成，实机视觉待测。最新状态见 roadmap 16.21。
+
+
+2026-10-12 B15 响应式核对：共享导航/composer/确认/footer/徽章/metadata/表单及 Settings owner docking 修复见 roadmap 16.23。源码/编译与非 GUI 已检查，游戏待测。固定 icon 点击区不自动等于缺陷；尚未迁移的 private Draw 不宣称已全量重排。
+
+
+2026-10-12 B17：B16 可见时间/导航排版获用户确认；本地插件 ZIP 与本地主题包视图迁移同一公共 Host，单栏固定头与 Example 1.0.24 同批，见 roadmap 16.25。源码/编译与隔离检查通过，新增业务游戏待测；主题 editor/preview/export 仍待迁移，Trade 门槛不跳过。
+
+
+2026-10-12 B19：主题 Editor/Selector/Export 已消费同一公共 Host；slider/swatch 与 Example 1.0.26 同批。单向赠送合法空 direct completion 缺口修复，原非空交付校验/ACK 边界不变。源码/编译/隔离检查通过，游戏/T5 恢复专项待测，最新状态见 roadmap 16.27。
+
+
+2026-10-12 B20：Trade list/selection/cancel 使用同一公共 Host，完成 ID 过滤修复，Example 1.0.27 同批。147 stub/127 actual DLL assertions 通过，游戏待测。Reset 的前返还和 Window pending owner 是未过门槛，不以列表迁移替代报价整批完成；最新见 roadmap 16.28 与 Trade-R44-Semantics-Gate-2026-10-12.md。
+
+
+2026-10-12 B21：Trade pending 由插件 operation owner 持有，Reset 确认后返还、local settlement 失败保留、共享 facade 冲突拦截；公共恢复投影/确认和 Example 1.0.28 同批。180 stub/134 actual DLL checks 通过，游戏延期合批；跨存档 escrow 和完整报价 Host renderer 仍未完成，见 roadmap 16.29。

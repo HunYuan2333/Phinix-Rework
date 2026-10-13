@@ -1,0 +1,161 @@
+{
+  "date": "2026-10-12 Asia/Singapore",
+  "dirtyWorkingTree": true,
+  "checks": {
+    "clientRelease16": "passed; 0 errors, 3 existing SDK/NuGet warnings",
+    "example1016": "build/packager static and Host references passed",
+    "presentation": "65 checks; stub GUI, not game acceptance",
+    "storeComposition": "109 assertions; not native GUI",
+    "xmlAndZip": "parsed runtime XML and testzip passed",
+    "game": "B9 UX rejected by user screenshot; B10 pending; earlier unfinished checks remain pending",
+    "publication": "not performed"
+  },
+  "packages": [
+    {
+      "path": "local-plugin-packages/2026-10-12-b10/phinix-rework-b10-rimworld1.6.zip",
+      "bytes": 1419955,
+      "sha256": "f365cb18c9b92489d2e4c8921027956471ba8bbe2c7f6ef785a5e14754a98ba1"
+    },
+    {
+      "path": "local-plugin-packages/2026-10-12-b10/example-1.0.16.zip",
+      "bytes": 18398,
+      "sha256": "5c8c6b3fdb5ffa112a0a3ef1cf37738370ad3ed15751c3002cfdb98dcf6b7398"
+    }
+  ],
+  "source": [
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs",
+      "sha256": "1d625b3708c460f50b27416065f60dd63f0371a2c4453ca0c96e152b8b7de05d"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ClientPresentationService.cs",
+      "sha256": "430affbd6342b1c85ce0e529739dfb61248224604ab04d5fdec973e605afe4e0"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedStorePresentation.cs",
+      "sha256": "5e6b268b071e335f985e9798f58ca0bac71728677f04d543f5f3073950454cdc"
+    },
+    {
+      "path": "Phinix-Example-Plugin/example/ExamplePresentation.cs",
+      "sha256": "a9f96868d7194eed29cdd78ef3b97698374db8c67f56231b2256d89962f0c1c0"
+    }
+  ],
+  "runtimeDlls": [
+    {
+      "path": "1.6/Assemblies/13-PhinixClient.dll",
+      "sha256": "8bd87b58d08e0570867d7701bb498b8bb24f940e585ce11cd66c17b8e5891682"
+    },
+    {
+      "path": "Common/Assemblies/01-LiteNetLib.dll",
+      "sha256": "c4ad697e3032a221892d894f1f225738a819b4c061b3de7f8ac4437b01b9e0c8"
+    },
+    {
+      "path": "Common/Assemblies/02-Protobuf.dll",
+      "sha256": "7ee052619ec28ca606da410b04c0ed1453080f64c4417137d2fa54b78a2b27da"
+    },
+    {
+      "path": "Common/Assemblies/03-Utils.dll",
+      "sha256": "c3ce5d26a6b5a2a9cd66c81543b7b1b9d50af26b6d71d19b747578da1b4a7db4"
+    },
+    {
+      "path": "Common/Assemblies/04-Connections.dll",
+      "sha256": "945c0d0aea947a7d8edcd512511031a1835d9946c27f98fd79cd676ada16dbc2"
+    },
+    {
+      "path": "Common/Assemblies/05-Connections.Client.dll",
+      "sha256": "ec379bfb9b1c2bc331054d159d0d6b1b69f75ace8a1edfef0ada687e7da7fce0"
+    },
+    {
+      "path": "Common/Assemblies/06-Authentication.dll",
+      "sha256": "29990c7077fc78a9c545755246653f18430daf6aa5cc51c7fcd13a09c2bc801a"
+    },
+    {
+      "path": "Common/Assemblies/07-Authentication.Client.dll",
+      "sha256": "ac70e07b42f6f83c87e4c91fd5b8fe5ad0f28990a89353322979aa9f7c0b96b6"
+    },
+    {
+      "path": "Common/Assemblies/08-UserManagement.dll",
+      "sha256": "58eb08c523cf14aacca14391bed5fa69dd61c2883787628f8ac6ea3cb84faef0"
+    },
+    {
+      "path": "Common/Assemblies/09-UserManagement.Client.dll",
+      "sha256": "4d6da25fc8e7d7bb0982bd34b6b8ec28fec056feb11043c2ba9980f3991b97c0"
+    },
+    {
+      "path": "Common/Assemblies/10-ClientExtensionAbstractions.dll",
+      "sha256": "d9abb5e87ebde1c086c65e8c0cf309244d452e782fa378b05f93f35eb64f9945"
+    },
+    {
+      "path": "Common/Assemblies/Autofac.dll",
+      "sha256": "5eb99880aa6fc7deb49f3592c613f467c3890c130aaa72ac3ce45e8cd00a518a"
+    },
+    {
+      "path": "Common/Assemblies/Microsoft.Bcl.AsyncInterfaces.dll",
+      "sha256": "80678203bd0203a6594f4e330b22543c0de5059382bb1c9334b7868b8f31b1bc"
+    },
+    {
+      "path": "Common/Assemblies/Phinix.ClientComposition.dll",
+      "sha256": "37ab246134bf24c19240b6f25bae7f218cdb0e52b2165b1cc68bfbdcf32be3c1"
+    },
+    {
+      "path": "Common/Assemblies/Stateless.dll",
+      "sha256": "da16bebb822af420779a43a108d05088840e9fd38832e10a506c82af1c29713b"
+    },
+    {
+      "path": "Common/Assemblies/System.Buffers.dll",
+      "sha256": "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb"
+    },
+    {
+      "path": "Common/Assemblies/System.Diagnostics.DiagnosticSource.dll",
+      "sha256": "1887592615fc08bbc91ad62307c8c11dfc14c45bf120d271d66be4a0d1a149a7"
+    },
+    {
+      "path": "Common/Assemblies/System.Memory.dll",
+      "sha256": "bf3fb84664f4097f1a8a9bc71a51dcf8cf1a905d4080a4d290da1730866e856f"
+    },
+    {
+      "path": "Common/Assemblies/System.Numerics.Vectors.dll",
+      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+    },
+    {
+      "path": "Common/Assemblies/System.Runtime.CompilerServices.Unsafe.dll",
+      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+    },
+    {
+      "path": "Common/Assemblies/System.Threading.Tasks.Extensions.dll",
+      "sha256": "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6"
+    },
+    {
+      "path": "Common/Extensions/08-ChatExtension.dll",
+      "sha256": "0305943669742743841d07d3833a6c663e1241179dfb394d1725d53529891d18"
+    },
+    {
+      "path": "Common/Extensions/09-TradeExtension.dll",
+      "sha256": "d86f8a3733ec0e968f7afa52398d85d62df880063d8ecb2bb3dd150d0943ff6a"
+    },
+    {
+      "path": "Common/Extensions/10-InventoryExtension.dll",
+      "sha256": "5126e14370692a1e71ef0c3107d0200e714c924a1554f72b31e3be7af568dbd4"
+    },
+    {
+      "path": "Common/Extensions/10-LegacyAdapter.Client.dll",
+      "sha256": "8587acbed5d66ce32a53d174fb00adc16194e78d25df323b3df2df2b21ad1c80"
+    },
+    {
+      "path": "Common/Extensions/11-ChatExtension.Client.dll",
+      "sha256": "91d4e65849c1c7971aaee0d57019ad9ec2a6668e23d3569585824ecd2fc5ee1c"
+    },
+    {
+      "path": "Common/Extensions/11-InventoryExtension.Client.dll",
+      "sha256": "1cea8de04c09d4f7c2d3ca5812cb765995c734f9391c9ac64aad4c4c21071fa6"
+    },
+    {
+      "path": "Common/Extensions/12-TradeExtension.Client.dll",
+      "sha256": "3eb7435a37bb7165aa44985a7c45d3444bfc42b9bb36c19c25e957849e7d8572"
+    },
+    {
+      "path": "Common/Extensions/17-PluginStore.Client.dll",
+      "sha256": "acbfcfd72f49b3d6eeb2c3354bdf78ef7270c40a26b388a021530e93ef7ea447"
+    }
+  ]
+}

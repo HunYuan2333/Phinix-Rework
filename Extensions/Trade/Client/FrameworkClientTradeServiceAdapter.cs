@@ -113,6 +113,7 @@ namespace Phinix.TradeExtension.Client
         public void CancelTrade(string tradeId)
         {
             EnsureActive();
+            GuardOfferOperation(tradeId,null,false);
             log?.Invoke($"[TradeAdapter] CancelTrade: tradeId={tradeId}", LogLevel.DEBUG);
             SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
         }
@@ -137,9 +138,15 @@ namespace Phinix.TradeExtension.Client
 
         public bool TryGetItemsOnOffer(string tradeId, string uuid, out IEnumerable<TradeItemSnapshot> items) => tradeService.TryGetItemsOnOffer(tradeId, uuid, out items);
 
+        private Func<string,string,bool,bool> offerSubmissionGuard;
+        internal void SetOfferSubmissionGuard(Func<string,string,bool,bool> guard){offerSubmissionGuard=guard;}
+        private void GuardOfferOperation(string tradeId,string token,bool offer)
+        {if(offerSubmissionGuard!=null&&!offerSubmissionGuard(tradeId,token,offer))throw new InvalidOperationException("TradeOfferAlreadyPending");}
+
         public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
         {
             EnsureActive();
+            GuardOfferOperation(tradeId,token,true);
             var tradeItems = items.ToList();
 
             if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
@@ -186,6 +193,7 @@ namespace Phinix.TradeExtension.Client
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)
         {
             EnsureActive();
+            GuardOfferOperation(tradeId,null,false);
             log?.Invoke($"[TradeAdapter] UpdateTradeStatus: tradeId={tradeId}, accepted={accepted}, cancelled={cancelled}", LogLevel.DEBUG);
             SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
         }

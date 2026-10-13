@@ -6,7 +6,7 @@
   <Phinix_inventory_entryCount>{0} groups</Phinix_inventory_entryCount>
   <Phinix_inventory_groupTitle>{0} · {1} available</Phinix_inventory_groupTitle>
   <Phinix_inventory_groupSummary>{0} records · states kept separately</Phinix_inventory_groupSummary>
-  <Phinix_inventory_groupHint>Display grouping only. Expand to extract or schedule each record. Durability, spoilage and special states remain independent; locked quantities are excluded from the available total.</Phinix_inventory_groupHint>
+  <Phinix_inventory_groupHint>Expand to withdraw individual records or set a daily plan. Durability, rot and special states remain separate; locked quantities are excluded from the available total.</Phinix_inventory_groupHint>
   <Phinix_inventory_expand>Show stacks</Phinix_inventory_expand>
   <Phinix_inventory_collapse>Collapse</Phinix_inventory_collapse>
   <Phinix_inventory_wholeStack>Extract whole stacks: {0} items each</Phinix_inventory_wholeStack>
@@ -14,7 +14,7 @@
   <Phinix_inventory_scheduleStackQuantity>Stacks per day ({0} items each)</Phinix_inventory_scheduleStackQuantity>
   <Phinix_inventory_entryId>Inventory record: {0}</Phinix_inventory_entryId>
   <Phinix_inventory_balance>× {0}</Phinix_inventory_balance>
-  <Phinix_inventory_transferPending>{0} outgoing inventory operation(s) are awaiting confirmation. Their quantities remain locked until the sending plugin confirms the result.</Phinix_inventory_transferPending>
+  <Phinix_inventory_transferPending>{0} sends are awaiting confirmation. Their items remain locked.</Phinix_inventory_transferPending>
   <Phinix_inventory_originUnavailable>Source details unavailable</Phinix_inventory_originUnavailable>
   <Phinix_inventory_empty>Your inventory is empty.\nChoose “Store in inventory” to keep incoming trade and red-packet items here.</Phinix_inventory_empty>
   <Phinix_inventory_extractStack>Extract</Phinix_inventory_extractStack>
@@ -45,11 +45,11 @@
   <Phinix_inventory_originEventId>Source event ID: {0}</Phinix_inventory_originEventId>
   <Phinix_inventory_originUserId>Source user ID: {0}</Phinix_inventory_originUserId>
   <Phinix_inventory_rewardStored>Reward stored in Phinix inventory.</Phinix_inventory_rewardStored>
-  <Phinix_inventory_pawnStored>Pawn stored in Phinix inventory.</Phinix_inventory_pawnStored>
-  <Phinix_inventory_pawnsStored>Pawns stored in Phinix inventory.</Phinix_inventory_pawnsStored>
+  <Phinix_inventory_pawnStored>Unit stored in Phinix inventory.</Phinix_inventory_pawnStored>
+  <Phinix_inventory_pawnsStored>Units stored in Phinix inventory.</Phinix_inventory_pawnsStored>
   <Phinix_inventory_recoveryTitle>Inventory records need review</Phinix_inventory_recoveryTitle>
   <Phinix_inventory_recoveryWarning>Local inventory records are newer than this save. Confirm that they belong to this game. Phinix will not merge them automatically, which prevents duplicate items.</Phinix_inventory_recoveryWarning>
-  <Phinix_inventory_recover>Restore transactions</Phinix_inventory_recover>
+  <Phinix_inventory_recover>Restore inventory records</Phinix_inventory_recover>
   <Phinix_inventory_keepSave>Keep this save</Phinix_inventory_keepSave>
   <Phinix_inventory_recoverFailed>Recovery failed; inventory remains read only.</Phinix_inventory_recoverFailed>
   <Phinix_inventory_operationFailed>The inventory change could not be saved.</Phinix_inventory_operationFailed>
@@ -70,4 +70,19 @@
   <Phinix_inventory_deliveryInventoryButton>Use item inventory</Phinix_inventory_deliveryInventoryButton>
   <Phinix_inventory_deliverySettingTitle>Receiving trade and red-packet items</Phinix_inventory_deliverySettingTitle>
   <Phinix_inventory_deliverySettingDesc>This global choice is shared across saves and takes effect immediately. Talent trading remains independent.</Phinix_inventory_deliverySettingDesc>
+  <Phinix_inventory_batchInvalid>Selection changed, invalid count, or another batch is running. Select again.</Phinix_inventory_batchInvalid>
+  <Phinix_inventory_batchStopped>Remaining extraction stopped. Delivered items are kept.</Phinix_inventory_batchStopped>
+  <Phinix_inventory_batchChanged>Save, delivery map or inventory changed. Remaining extraction stopped.</Phinix_inventory_batchChanged>
+  <Phinix_inventory_batchTitle>Extract this group</Phinix_inventory_batchTitle>
+  <Phinix_inventory_batchRecords>Records per batch (all available units from each record)</Phinix_inventory_batchRecords>
+  <Phinix_inventory_batchSome>Extract batch</Phinix_inventory_batchSome>
+  <Phinix_inventory_batchAll>Extract whole group</Phinix_inventory_batchAll>
+  <Phinix_inventory_batchSelection>{0} available records in this group; individual states are preserved.</Phinix_inventory_batchSelection>
+  <Phinix_inventory_batchConfirm>Extract all available items from {0} records, one legal stack per frame. Closing the view does not stop it. Failure stops remaining work; delivered items stay delivered and untouched records stay in inventory.</Phinix_inventory_batchConfirm>
+  <Phinix_inventory_batchPerformance>Large batches can cause stalls during restoration, delivery and journal writes, and may take time. Complex modded items can also be slow per stack. Consider a smaller batch first.</Phinix_inventory_batchPerformance>
+  <Phinix_inventory_batchProgressTitle>Batch extraction status</Phinix_inventory_batchProgressTitle>
+  <Phinix_inventory_batchProgress>Completed records {0}/{1} · {2} inventory units delivered</Phinix_inventory_batchProgress>
+  <Phinix_inventory_batchRunning>Delivering one stack per frame. You may close the view or stop remaining work.</Phinix_inventory_batchRunning>
+  <Phinix_inventory_batchCompleted>Batch completed.</Phinix_inventory_batchCompleted>
+  <Phinix_inventory_batchStop>Stop remaining extraction</Phinix_inventory_batchStop>
 </LanguageData>

@@ -18,9 +18,9 @@ using Verse;
 namespace Phinix.InventoryExtension.Client
 {
     [PhinixExtension("builtin.inventory")]
-    public sealed class BuiltInInventoryClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule,
+    public sealed partial class BuiltInInventoryClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule,
         IInventoryApi, IInventoryRegistrationApi, IInventoryDepositApi, IInventoryReadApi, IInventoryExtractionApi,
-        IInventoryReservationApi
+        IInventoryBatchExtractionApi, IInventoryReservationApi
     {
         private static BuiltInInventoryClientExtension active;
         private IClientCompositionScope composition;
@@ -83,6 +83,7 @@ namespace Phinix.InventoryExtension.Client
             builder.RegisterApi<IInventoryDepositApi>(this);
             builder.RegisterApi<IInventoryReadApi>(this);
             builder.RegisterApi<IInventoryExtractionApi>(this);
+            builder.RegisterApi<IInventoryBatchExtractionApi>(this);
             builder.RegisterApi<IInventoryReservationApi>(this);
             builder.RegisterApi<IMainTabProvider>(tab);
             builder.RegisterApi<IClientSettingsPanelProvider>(settingsPanel);
@@ -93,6 +94,8 @@ namespace Phinix.InventoryExtension.Client
         {
             host = hostContext;
             theme.Start(this);
+            tab.Start(this, hostContext.GetRequiredService<IClientPresentationService>(), hostContext.GetRequiredService<IClientExtensionPointService>());
+            settingsPanel.Start(this, hostContext.GetRequiredService<IClientPresentationService>(), hostContext.GetRequiredService<IClientExtensionPointService>(), settings);
             active = this;
             int generation = Interlocked.Increment(ref activationGeneration);
             harmony = new Harmony("phinix.inventory.save-identity");
@@ -112,6 +115,8 @@ namespace Phinix.InventoryExtension.Client
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            StopBatchExtraction();
+            extractionBatch = null; ReleaseBatchContext();
             // Invalidate queued work before releasing any owned resource.
             Interlocked.Increment(ref activationGeneration);
             if (active == this) active = null;
@@ -162,11 +167,21 @@ namespace Phinix.InventoryExtension.Client
             string current = settings?.Get<string>(InventoryDeliveryPreference.SettingKey, null);
             if (InventoryDeliveryPreference.IsValid(current) || deliveryChoiceOpen || windowService == null) return;
             deliveryChoiceOpen = true;
-            deliveryChoiceDialog = new InventoryDeliveryChoiceDialog(
-                theme,
-                SetDeliveryPreference,
-                () => { deliveryChoiceOpen = false; deliveryChoiceDialog = null; });
-            windowService.Open(deliveryChoiceDialog);
+            try
+            {
+                deliveryChoiceDialog = new InventoryDeliveryChoiceDialog(
+                    this, host.GetRequiredService<IClientPresentationService>(), host.GetRequiredService<IClientExtensionPointService>(),
+                    SetDeliveryPreference,
+                    () => { deliveryChoiceOpen = false; deliveryChoiceDialog = null; });
+                windowService.Open(deliveryChoiceDialog);
+            }
+            catch
+            {
+                var failedDialog = deliveryChoiceDialog;
+                deliveryChoiceDialog = null; deliveryChoiceOpen = false;
+                failedDialog?.Dispose();
+                throw;
+            }
         }
 
         private void SetDeliveryPreference(string value)
@@ -214,11 +229,14 @@ namespace Phinix.InventoryExtension.Client
             InventoryGameComponent component = InventoryGameComponent.Current;
             if (module.attachedSave == null && component != null && component.Initialized &&
                 InventoryGameComponent.BelongsTo(component, game)) module.Attach(component);
+            module.AdvanceBatchExtraction();
         }
 
         private void SynchronizeGame(Game game)
         {
             if (attachedSave == null || InventoryGameComponent.BelongsTo(attachedSave, game)) return;
+            StopBatchExtraction();
+            extractionBatch = null; ReleaseBatchContext();
             InventoryJournal oldJournal = journal;
             journal = null;
             attachedSave = null;

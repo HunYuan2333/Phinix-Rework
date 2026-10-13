@@ -17,7 +17,9 @@ namespace Phinix.PluginStore
 
         public override Vector2 InitialSize => new Vector2(Mathf.Min(780f, UI.screenWidth), Mathf.Min(720f, UI.screenHeight));
         protected override void SetInitialSizeAndPosition() { base.SetInitialSizeAndPosition(); Clamp(); }
-        public override void WindowUpdate() { base.WindowUpdate(); Clamp(); }
+        public override void WindowUpdate() { base.WindowUpdate(); Clamp(); managedView?.UpdatePresentation(); }
+        public override void PreOpen() { base.PreOpen(); managedView?.OpenPresentation(); }
+        public override void PostClose() { try { managedView?.ClosePresentation(); } finally { base.PostClose(); } }
         private void Clamp() { windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(320f, 320f)); }
         public override void DoWindowContents(Rect inRect) { managedView?.Draw(inRect); }
     }

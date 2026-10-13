@@ -6,7 +6,7 @@
   <Phinix_inventory_entryCount>{0} 组物品</Phinix_inventory_entryCount>
   <Phinix_inventory_groupTitle>{0} · 可用 {1} 个</Phinix_inventory_groupTitle>
   <Phinix_inventory_groupSummary>{0} 份记录 · 各自保留状态</Phinix_inventory_groupSummary>
-  <Phinix_inventory_groupHint>仅合并显示，展开后可逐份提取或设置计划。耐久、腐烂进度及特殊状态仍独立保留；待确认操作锁定的数量不计入可用总数。</Phinix_inventory_groupHint>
+  <Phinix_inventory_groupHint>展开可逐份提取或设置每日计划。各份物品的耐久、腐烂进度和特殊状态分别保留；锁定数量不计入可用总数。</Phinix_inventory_groupHint>
   <Phinix_inventory_expand>展开各堆</Phinix_inventory_expand>
   <Phinix_inventory_collapse>收起</Phinix_inventory_collapse>
   <Phinix_inventory_wholeStack>按整堆提取，每份 {0} 个</Phinix_inventory_wholeStack>
@@ -14,7 +14,7 @@
   <Phinix_inventory_scheduleStackQuantity>每天提取份数（每份 {0} 个）</Phinix_inventory_scheduleStackQuantity>
   <Phinix_inventory_entryId>库存记录：{0}</Phinix_inventory_entryId>
   <Phinix_inventory_balance>× {0}</Phinix_inventory_balance>
-  <Phinix_inventory_transferPending>有 {0} 笔库存发送正在等待确认；在发送插件确认结果前，相应数量会保持锁定。</Phinix_inventory_transferPending>
+  <Phinix_inventory_transferPending>有 {0} 笔发送等待确认，相关物品暂时锁定。</Phinix_inventory_transferPending>
   <Phinix_inventory_originUnavailable>来源信息不可用</Phinix_inventory_originUnavailable>
   <Phinix_inventory_empty>库存还是空的。\n选择“存入库存”后，收到的交易和红包物品会出现在这里。</Phinix_inventory_empty>
   <Phinix_inventory_extractStack>提取</Phinix_inventory_extractStack>
@@ -45,11 +45,11 @@
   <Phinix_inventory_originEventId>来源事件 ID：{0}</Phinix_inventory_originEventId>
   <Phinix_inventory_originUserId>来源用户 ID：{0}</Phinix_inventory_originUserId>
   <Phinix_inventory_rewardStored>奖励已存入 Phinix 库存。</Phinix_inventory_rewardStored>
-  <Phinix_inventory_pawnStored>Pawn 已存入 Phinix 库存。</Phinix_inventory_pawnStored>
-  <Phinix_inventory_pawnsStored>Pawn 已存入 Phinix 库存。</Phinix_inventory_pawnsStored>
+  <Phinix_inventory_pawnStored>单位已存入 Phinix 库存。</Phinix_inventory_pawnStored>
+  <Phinix_inventory_pawnsStored>单位已存入 Phinix 库存。</Phinix_inventory_pawnsStored>
   <Phinix_inventory_recoveryTitle>发现待恢复的库存记录</Phinix_inventory_recoveryTitle>
   <Phinix_inventory_recoveryWarning>本地库存记录比当前存档更新。请确认这些记录是否属于这次游戏；Phinix 不会自动合并，以免重复物品。</Phinix_inventory_recoveryWarning>
-  <Phinix_inventory_recover>恢复事务</Phinix_inventory_recover>
+  <Phinix_inventory_recover>恢复库存记录</Phinix_inventory_recover>
   <Phinix_inventory_keepSave>保留当前存档</Phinix_inventory_keepSave>
   <Phinix_inventory_recoverFailed>恢复失败，库存保持只读。</Phinix_inventory_recoverFailed>
   <Phinix_inventory_operationFailed>库存变更无法保存。</Phinix_inventory_operationFailed>
@@ -70,4 +70,19 @@
   <Phinix_inventory_deliveryInventoryButton>使用物品库存</Phinix_inventory_deliveryInventoryButton>
   <Phinix_inventory_deliverySettingTitle>交易与红包的接收方式</Phinix_inventory_deliverySettingTitle>
   <Phinix_inventory_deliverySettingDesc>全局设置，跨存档保存；切换后立即生效。人才交易保持独立，不受此选项影响。</Phinix_inventory_deliverySettingDesc>
+  <Phinix_inventory_batchInvalid>选择已变化、数量无效或已有批量提取正在执行。请重新选择。</Phinix_inventory_batchInvalid>
+  <Phinix_inventory_batchStopped>已停止剩余提取。已经交付的物品不撤销。</Phinix_inventory_batchStopped>
+  <Phinix_inventory_batchChanged>存档、投放地图或库存已变化，已停止剩余提取。</Phinix_inventory_batchChanged>
+  <Phinix_inventory_batchTitle>提取同类物品</Phinix_inventory_batchTitle>
+  <Phinix_inventory_batchRecords>本批记录数（每份记录提取全部可用数量）</Phinix_inventory_batchRecords>
+  <Phinix_inventory_batchSome>提取一批</Phinix_inventory_batchSome>
+  <Phinix_inventory_batchAll>提取本类全部</Phinix_inventory_batchAll>
+  <Phinix_inventory_batchSelection>本类有 {0} 份可提取记录；各自物品状态保持独立。</Phinix_inventory_batchSelection>
+  <Phinix_inventory_batchConfirm>将提取本类 {0} 份记录的全部可用物品，按帧逐堆交付。关闭页面不会停止；失败时停止剩余操作。已交付部分保留，未执行部分留在库存。</Phinix_inventory_batchConfirm>
+  <Phinix_inventory_batchPerformance>大量物品的还原、落地和日志写入可能引起卡顿，并需要较长时间；复杂模组物品单堆处理也可能较慢。建议先提取较小批次。</Phinix_inventory_batchPerformance>
+  <Phinix_inventory_batchProgressTitle>批量提取状态</Phinix_inventory_batchProgressTitle>
+  <Phinix_inventory_batchProgress>已完成记录 {0}/{1} · 已交付 {2} 个库存单位</Phinix_inventory_batchProgress>
+  <Phinix_inventory_batchRunning>正在逐堆交付。可关闭页面，或停止剩余提取。</Phinix_inventory_batchRunning>
+  <Phinix_inventory_batchCompleted>本批提取已完成。</Phinix_inventory_batchCompleted>
+  <Phinix_inventory_batchStop>停止剩余提取</Phinix_inventory_batchStop>
 </LanguageData>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_shell_settings>设置</Phinix_shell_settings>
+  <Phinix_shell_connection>连接设置</Phinix_shell_connection>
+  <Phinix_shell_fullSettings>全部设置</Phinix_shell_fullSettings>
+  <Phinix_shell_themes>主题与配色</Phinix_shell_themes>
+  <Phinix_shell_plugins>插件管理</Phinix_shell_plugins>
+  <Phinix_shell_noPages>暂无启用的页面。可从上方进入设置、主题和插件管理。</Phinix_shell_noPages>
+  <Phinix_shell_providerFailed>此插件页面暂时无法打开。请重新启用插件后重试。</Phinix_shell_providerFailed>
+  <Phinix_shell_showNotices>展开公告</Phinix_shell_showNotices>
+  <Phinix_shell_hideNotices>收起公告</Phinix_shell_hideNotices>
+  <Phinix_theme_label_ui_action_primary>主要操作</Phinix_theme_label_ui_action_primary>
+  <Phinix_theme_label_ui_navigation_selected>选中导航</Phinix_theme_label_ui_navigation_selected>
+</LanguageData>

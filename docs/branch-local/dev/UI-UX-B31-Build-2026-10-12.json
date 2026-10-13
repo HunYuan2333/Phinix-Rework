@@ -1,0 +1,266 @@
+{
+  "packages": [
+    {
+      "path": "local-plugin-packages/2026-10-12-b31/redpacket-1.1.6.zip",
+      "bytes": 86687,
+      "sha256": "a0637c947fdd6766c3668435785bf8719f85a1640f5b76cb54f90191c4f02b15"
+    }
+  ],
+  "checks": {
+    "compile": "SDK 1.9: 0 errors / 0 warnings",
+    "binding": "28 actual model/state notification checks, fake session/registry; not Unity game",
+    "staticZip": "1.9/current Host validation and CRC passed",
+    "game": "UI stability/confirmation and player local delivery pending",
+    "publication": "not performed"
+  },
+  "source": [
+    {
+      "path": "Phinix-Legacy-RedPacket/.github/workflows/release.yml",
+      "sha256": "0ec0aaa300844e0ea11e2b17f219c6cd24f5cd2de182e4a507a8d17f0b7d0b64"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/.gitignore",
+      "sha256": "6dd1d0eb2c558b1f0308aa6cbfce8e904549d8b2c8efc390d92aca3d1f45641a"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/CHANGELOG.md",
+      "sha256": "6b016a58f82f37e2355b20b3c0a2c8d2166773dc3a3228652a0645e2b7b10b45"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/BuiltInLegacyRedPacketClientExtension.cs",
+      "sha256": "21c5104a4a1dc0aec6dfc9a9cbb6d8b6f5af0f30c5b9c962ab1a1f990453a036"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/ClientAdapters.cs",
+      "sha256": "ec5e165a69c2a39438d3eb2b38ca73b0657882efdcd2a961dd62f98321ec7684"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/IRedPacketAnnouncementSender.cs",
+      "sha256": "3bca2bfb25f229607bcea2b460e48a5dd2f1f571e9c240d87bb7b4b73ee930c7"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/PresentationAdapter.cs",
+      "sha256": "f9ef26dd11ce11b45b53a137fef126ec7721e7dcbfc3428026c25b11e89dd8fb"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/ThemeAdapter.cs",
+      "sha256": "f5c3c8ab190e43ad561586401e7e02c2af8d5470a748c5229f56850313c751ac"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/LegacyRedPacketExtension.Client.csproj",
+      "sha256": "1eaf0c78214d4cde8aca8c79cc78c5eda980e4c2aad24805280941aab56fe9f2"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Properties/AssemblyInfo.cs",
+      "sha256": "c750004911859552b9b32f28a36fb5038ed6229e27a6d697b115d179e7359ff4"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacket.cs",
+      "sha256": "17c70b3edb0372551df3d23fc142cdd39fe5ac31c4b48234987680f1999f0778"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketAvailableItem.cs",
+      "sha256": "f4fe00f91aa1b52e091fa470c9508f4992c2a649e5507de963006bc2c0c6200e"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketClaimRowLayout.cs",
+      "sha256": "a715a981b3952aafdd012f57ee2895082bb87abe2bd0a02705e2934daca60b89"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketDetailWindow.cs",
+      "sha256": "388fbd57302428f22a39752e8bdd968cd932c2934a6359c565a3aad25fd1820b"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketDropHelper.cs",
+      "sha256": "4bafb36a3776c4fafe56818eac438557bcfdb79527752430a2f07604bf66e04c"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventoryCodec.cs",
+      "sha256": "f081c87ecdd5c6ef5619704ce4c5a4dedd382a4c66f92e534b07e28438d7f4b9"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventorySendStore.cs",
+      "sha256": "9569127722986736f733bcd9b4beccd3e556395aaea6f7e20a0f57d61d03f86f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventorySending.cs",
+      "sha256": "5785332065184f33ccf14c00c404a62668dda6973151614c568bcbfeaa340831"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketLimits.cs",
+      "sha256": "b2c27427427fb2a9b09a87227a51f5dc27ba844a6f1b38eebf7b7d054d1d0df2"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketLocalization.cs",
+      "sha256": "898a62ac0a4a051ef77d62c415e16c3d10f12730959a7bc36b2f8dd6cbb9680f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketPresentation.cs",
+      "sha256": "76d26da8d7bbeefc61632e5fd205bd4b5d76f121d432e04a41537a42e8cee788"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketPresentationRules.cs",
+      "sha256": "ce64e62e9c73ccdcef331bf3fe57ff6724065a8ae0ffd0f29baa080aa3f40faa"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketRelay.cs",
+      "sha256": "8cb66ef51f7b4b72f1649ed7f40b62fcd22d760df08b88d4f2ea1dfba771a789"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSettings.cs",
+      "sha256": "4c931eef538047a358662a57426d608e14c760a67f2bbb2dec3e766929382325"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSettingsPanel.cs",
+      "sha256": "438f1caab83497e8728e241b1d95c37911b0fad5a32c18389711f31f6d460b5c"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSnapshots.cs",
+      "sha256": "26187defa770fb5d39d1560ab40b6ea09098e44d2fdcca817d74f5f9a01600c2"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketStackTemplate.cs",
+      "sha256": "349b99e0622c3e5f12d6fea7fa3bf93fe9dab18e2c027896520a6180c6821ce0"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketStateMachine.cs",
+      "sha256": "de8ef5ae0d0195882c93beda5143749bec596275ae11af07902adc0ebb33d058"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSummaryQueue.cs",
+      "sha256": "310ee0383ab80c4b3c77d62105eabb493437e3b9421695464511ba9d3936de54"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketTab.cs",
+      "sha256": "1b3e165b723388148536a914c5285a930093fec53b9c7c8dc8bd1060de7d15db"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketTheme.cs",
+      "sha256": "3de8f85cb9559110c0738c3bf399e4fe3bc2618de4487b96e01c835dbdd926a9"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketUnreadBadge.cs",
+      "sha256": "c4fd302c84b75f976ec8e33b84140a1f8103a279abcafaea6d4d70507f67d45f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+      "sha256": "0f438bef08d8fb2b22d8ae9cab32f7bd0fc22f8825d8a8b50cdba3a8410cecc3"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+      "sha256": "8ef39c86c87ee2945c0d6d0afbc728575fcd9bdcfb39e4d11abd306459349064"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/localization.json",
+      "sha256": "9ec8808cc3d5b6e3063ec3b1fc44ddc555783b7df1bd05b1a51e62faa8236850"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Contracts/LegacyRedPacketExtension.csproj",
+      "sha256": "149b0cf8b3ff97d78b4231da5ac540c6a53e4444c113023da40f58840e0cbaa1"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Contracts/RedPacketCreateData.cs",
+      "sha256": "5b1c0081b8bd366b8b6ec540920c885efa1f9682536854b69d6694ac527982eb"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Contracts/RedPacketPresentationActionContext.cs",
+      "sha256": "2281f9da447327d7182f8a37b8dfd8317a5787e9879e660142fa676827042bcb"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Contracts/RedPacketProtocol.cs",
+      "sha256": "5302205f5dc51651e6162c10d724d9e9e71fddc1ab6fb375aaf9d218b355b90a"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Contracts/RedPacketType.cs",
+      "sha256": "97833e372920ccef9694d579f4d9b1022d742651468f9b4f1c2e6774d4436b2a"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Directory.Build.props",
+      "sha256": "75cca0fa98bc028e2a981663db825ebcbb8143a4b114165eb2e2be83f3058c51"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/README.md",
+      "sha256": "2295b35c2415d0289d0c2ada4c987ad31c7298aac3482352e2460cbcc3a8a50d"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/README.zh-CN.md",
+      "sha256": "52da1dcbafcb39ffb9011761771d79bb96e8260e8d5a876a18c7d6c17efc610f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketPresentationRuntimeTests/CurrentProbe.cs",
+      "sha256": "a57398e81b20544d5309d38cfcf0673f072bca3b34bf0e945dd81d540ef6e211"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketPresentationRuntimeTests/Directory.Build.props",
+      "sha256": "17284cb74605517cbec8a8153505da71a685b28694b67b5ef80608cd79b1c0ea"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketPresentationRuntimeTests/Program.cs",
+      "sha256": "61b2af6faf900ae7ca464168ca2f9f031c2450623d7afe9c7dffbdb5239084d8"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketPresentationRuntimeTests/RedPacketPresentationRuntimeTests.csproj",
+      "sha256": "de110ea9c9ffabbca0d0bf1429a4a32be093bd1298c254d72af83f4728538e96"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketRepairTests/Directory.Build.props",
+      "sha256": "1a6d1897564c3ad827b3c8502efa0d636fa0acea1c56afe98f9eb8fc53537591"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketRepairTests/GameStubs.cs",
+      "sha256": "eea545ff9f7604ba994d9b800cdb87e32618ec883dce1d370b5c9e0f968f0c58"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketRepairTests/Program.cs",
+      "sha256": "92ab6606cd792ab6b7008164d735fa503eb83064b5a72667969840326af9fccf"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketRepairTests/RedPacketRepairTests.csproj",
+      "sha256": "48010dcd6b8f24b27343137ec4117c0e41f097e9334e8d86811aa1fa6583c886"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/UI-UX-Host-Migration-2026-10-12.md",
+      "sha256": "5924da76da73677c2ec59b20c87e161abc91c6c6c46d80ab30bcc2411c0c35b6"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/check-source.py",
+      "sha256": "f1fd2bb90e367620ac622af4ad96edc6e24e20d977731755c4e8b2832919370e"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/INDEX-NOTIFICATION.md",
+      "sha256": "a64a05fee2bd8dbd5cec1088a19ae1b39b69586681becc1f6f0d80aa370b3784"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/build.py",
+      "sha256": "b84da522c7a143978c2ed070c2cae045a6d97f19b15e73578fdcda302baa0f5c"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/config.json",
+      "sha256": "acdcf68b9825378068bebc8e82787d6098bd482260d9119958a310f2782c7f3d"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/notify_index.py",
+      "sha256": "895680edf54f3ae2bfe1e139421d500725ba71c9d30d48437829377acfea7d9a"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/publish.py",
+      "sha256": "196e449c9263f368330c3eef2bb064eaff7e7e9b33c33e56427cb2c834480ce1"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/release.py",
+      "sha256": "c0aaa06f1b07ceef640c57510f76941d13c08557aceb1a0128c6994fb3f6b169"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/ci/tests/test_notify_index.py",
+      "sha256": "2954ce9110f369002cf1f371cc7b454684b92b4380def8e24c94d7a391253b8b"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/pack.py",
+      "sha256": "e4ad261e31f1f5840811ffcb8254b24a373c86fb62752461f0bd4343faf2936a"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/publication.json",
+      "sha256": "f29a9eb087ffe13923312b7e2fbf86bddde8650f85b795fc4b730da8dfd654f8"
+    }
+  ]
+}

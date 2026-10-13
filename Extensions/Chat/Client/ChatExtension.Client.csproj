@@ -93,6 +93,7 @@
     <Compile Include="ChatMessageSubmissionAdapter.cs" />
     <Compile Include="ChatMessageHandler.cs" />
     <Compile Include="ChatMessageList.cs" />
+    <Compile Include="ChatMessageActions.cs" />
     <Compile Include="ChatImageDownloadQueue.cs" />
     <Compile Include="ChatMessageRenderer.cs" />
     <Compile Include="ChatSettingsInputAdapter.cs" />

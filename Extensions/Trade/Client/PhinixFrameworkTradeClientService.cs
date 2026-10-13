@@ -325,7 +325,8 @@ namespace Phinix.TradeExtension.Client
                 pendingTradeUpdateTokensByTradeId[tradeId] = tokens;
             }
 
-            tokens.Add(token ?? string.Empty);
+            string pendingToken = token ?? string.Empty;
+            if (!tokens.Contains(pendingToken)) tokens.Add(pendingToken);
         }
 
         public void HandleSnapshot(FrameworkPacket packet)
@@ -344,10 +345,16 @@ namespace Phinix.TradeExtension.Client
             }
             else
             {
+                packet.TryGetMetadataValue(FrameworkMetadataKeys.CorrelationId, out string correlationId);
                 foreach (FrameworkTradeStateSnapshot trade in payload?.Trades ?? Enumerable.Empty<FrameworkTradeStateSnapshot>())
                 {
+                    if (!HasLocalDeltaParticipants(trade))
+                    {
+                        log?.Invoke(new LogEventArgs("[TradeService] Delta has invalid participants or no local participant; leaving operations unresolved.", LogLevel.WARNING));
+                        continue;
+                    }
                     repository.Upsert(trade);
-                    bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true);
+                    bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true, correlationId);
                     if (!emittedPendingEvent && TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
                     {
                         log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}", LogLevel.DEBUG));
@@ -406,9 +413,14 @@ namespace Phinix.TradeExtension.Client
             }
 
             log?.Invoke(new LogEventArgs($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}", LogLevel.DEBUG));
-            string token = packet.GetCorrelationId();
+            packet.TryGetMetadataValue(FrameworkMetadataKeys.CorrelationId, out string token);
             if (payload.Success)
             {
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    log?.Invoke(new LogEventArgs("[TradeService] Offer success has no correlation metadata; leaving operation unresolved.", LogLevel.WARNING));
+                    return;
+                }
                 TrackPendingTradeUpdate(payload.TradeId, token);
                 return;
             }
@@ -556,7 +568,17 @@ namespace Phinix.TradeExtension.Client
             else OnTradeCancelled?.Invoke(this, args);
         }
 
-        private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared)
+        private bool HasLocalDeltaParticipants(FrameworkTradeStateSnapshot snapshot)
+        {
+            var participants = snapshot?.Participants;
+            string local = userDirectory?.Uuid;
+            return !string.IsNullOrEmpty(snapshot?.TradeId) && !string.IsNullOrEmpty(local) && participants?.Count == 2 &&
+                participants.All(p => p != null && !string.IsNullOrEmpty(p.Uuid)) &&
+                !string.Equals(participants[0].Uuid, participants[1].Uuid, StringComparison.OrdinalIgnoreCase) &&
+                participants.Count(p => string.Equals(p.Uuid, local, StringComparison.Ordinal)) == 1;
+        }
+
+        private bool FlushPendingEventsForTrade(string tradeId, bool emitUpdateSuccessWhenPendingCleared, string correlationId = null)
         {
             if (string.IsNullOrEmpty(tradeId))
             {
@@ -571,11 +593,17 @@ namespace Phinix.TradeExtension.Client
                 emitted = true;
             }
 
-            if (pendingTradeUpdateTokensByTradeId.TryGetValue(tradeId, out List<string> tokens))
+            // Full sync and unrelated deltas refresh state; neither confirms another operation.
+            // Current server responses and their deltas already carry the same correlation ID.
+            if (emitUpdateSuccessWhenPendingCleared && !string.IsNullOrEmpty(correlationId) &&
+                pendingTradeUpdateTokensByTradeId.TryGetValue(tradeId, out List<string> tokens))
             {
-                pendingTradeUpdateTokensByTradeId.Remove(tradeId);
+                string[] matched = tokens.Where(token => string.Equals(token, correlationId, StringComparison.Ordinal) ||
+                    (token.Length == 0 && string.Equals(tradeId, correlationId, StringComparison.OrdinalIgnoreCase))).ToArray();
+                foreach (string token in matched) tokens.Remove(token);
+                if (tokens.Count == 0) pendingTradeUpdateTokensByTradeId.Remove(tradeId);
                 ClientTradeSnapshot trade = GetTradeOrPlaceholder(tradeId);
-                foreach (string token in tokens)
+                foreach (string token in matched)
                 {
                     OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(trade, token));
                     emitted = true;

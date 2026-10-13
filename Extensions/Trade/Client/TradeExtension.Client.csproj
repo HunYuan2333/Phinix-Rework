@@ -76,7 +76,6 @@
     <Compile Include="DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
     <Compile Include="FrameworkClientTradeServiceAdapter.cs" />
-    <Compile Include="PendingThings.cs" />
     <Compile Include="PoppedThing.cs" />
     <Compile Include="PhinixDefaultTradeBehaviour.cs" />
     <Compile Include="PhinixFrameworkTradeClientRepository.cs" />
@@ -91,11 +90,18 @@
     <Compile Include="TradeInventoryIntegration.cs" />
     <Compile Include="TradeThingStateSerializer.cs" />
     <Compile Include="TradeList.cs" />
+    <Compile Include="TradeQuoteRows.cs" />
+    <Compile Include="TradeInventoryRecovery.cs" />
+    <Compile Include="TradeOfferOperations.cs" />
+    <Compile Include="TradeOfferEscrow.cs" />
     <Compile Include="TradeMainTabProvider.cs" />
     <Compile Include="TradeSettingsInputAdapter.cs" />
     <Compile Include="TradeSettingsPanelProvider.cs" />
     <Compile Include="TradeTheme.cs" />
     <Compile Include="TradeWindow.cs" />
+    <Compile Include="TradeWindowPresentation.cs" />
+    <Compile Include="TradeOfferPresentationFactory.cs" />
+    <Compile Include="TradeQuantityDraft.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">

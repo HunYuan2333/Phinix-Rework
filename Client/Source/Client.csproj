@@ -201,8 +201,12 @@
     <Compile Include="UI\ThemePackageExportWindow.cs" />
     <Compile Include="UI\ThemeInputAdapter.cs" />
     <Compile Include="UI\ThemeSettingsWindow.cs" />
+    <Compile Include="UI\ThemePresentationWindow.cs" />
+    <Compile Include="UI\ThemeDraftValues.cs" />
     <Compile Include="UI\LocalFileLocationAdapter.cs" />
     <Compile Include="UI\HostThemeDrawing.cs" />
+    <Compile Include="UI\ClientPresentationService.cs" />
+    <Compile Include="UI\ClientPresentationFeedRenderer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
 
     <Content Include="..\About\**">

@@ -5,27 +5,19 @@ using PhinixClient.Framework;
 using UserManagement;
 using UnityEngine;
 using Utils;
+using Utils.Framework;
 using Verse;
 
 namespace Phinix.ChatExtension.Client
 {
-    public class ChatMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, IBadgeProvider, IUiAcceptKeyHandler
+    public class ChatMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, IBadgeProvider, IUiAcceptKeyHandler, IClientViewLifecycle, IClientNavigationMetadata, IDisposable
     {
-        private const float CHAT_TEXTBOX_HEIGHT = 30f;
-        private const float CHAT_SEND_BUTTON_WIDTH = 80f;
-        private const float DEFAULT_SPACING = 10f;
-        private const float MINIMUM_INPUT_WIDTH = 180f;
         private const float MINIMUM_REPLY_BAR_HEIGHT = 24f;
         private const float MAXIMUM_REPLY_BAR_HEIGHT = 84f;
         private const float REPLY_LINE_WIDTH = 3f;
         private const float REPLY_CLOSE_WIDTH = 24f;
         private const float REPLY_TEXT_PADDING = 4f;
-        // Dynamic/virtualized message rows allocate a variable number of IMGUI
-        // control IDs. Resynchronize the ID stream before the text input so an
-        // incoming message cannot move keyboard focus to a later control.
-        private const int CHAT_INPUT_CONTROL_BOUNDARY = 0x50484349;
-        private const string CHAT_INPUT_CONTROL = "PhinixChatMessageInput";
-        private const int REFOCUS_ATTEMPTS = 2;
+        private string CHAT_INPUT_CONTROL => composer?.ComposerControlName ?? "PhinixChatMessageInput";
 
         private static readonly UiLayoutHints CachedLayoutHints = new UiLayoutHints(
             new Vector2(360f, 260f),
@@ -38,8 +30,6 @@ namespace Phinix.ChatExtension.Client
 
         private string message = "";
         private string lastAutocompleteText = "";
-        private bool chatInputOwned;
-        private int refocusAttemptsRemaining;
         private long replyThemeVersion = -1;
         private UIChatMessage cachedReplyTarget;
         private object cachedReplyLanguage;
@@ -47,18 +37,91 @@ namespace Phinix.ChatExtension.Client
         private float cachedReplyHeight;
         private string cachedReplyLabel;
         private string cachedReplyTooltip;
-        private object cachedSendLanguage;
-        private string cachedSendLabel;
-        private float cachedSendWidth;
 
         public string TabLabel => "Phinix_tabs_chat".Translate();
         public float TabOrder => 0;
         public UiLayoutHints LayoutHints => CachedLayoutHints;
 
-        public bool WantsAcceptKey =>
-            chatInputOwned &&
-            !string.IsNullOrEmpty(message) &&
-            Find.WindowStack.FloatMenu == null;
+        public bool WantsAcceptKey => false; // Host composer consumes Enter/IME before shell accept handling.
+        public string NavigationId => "chat";
+        private readonly IClientPresentationService presentation;
+        private readonly IClientExtensionPointService points;
+        private IClientExtensionPointScope actionScope;
+        private IClientActionPoint<ChatComposerActionContext> composerPoint;
+        private IPhinixExtensionModule module;
+        private IClientPresentationSession composer;
+        private long composerRevision, publishedPoints = -1;
+        private string publishedMessage;
+        private UIChatMessage publishedReply;
+        private object publishedLanguage;
+        private bool publishedOnline;
+        private ClientActionExecutionResult publishedResult;
+        private Texture2D sendIcon;
+        internal void Start(IPhinixExtensionModule owner)
+        {
+            module = owner; actionScope = points.ForModule(owner);
+            composerPoint = actionScope.DefineActions<ChatComposerActionContext>(ChatComposerActionContext.PointId);
+            actionScope.ContributeActions<ChatComposerActionContext>(ChatComposerActionContext.PointId, context => new[] {
+                new ClientActionDefinition("send", "Phinix_chat_sendButton".Translate(), sendChatMessage,
+                    !hostContext.IsOnline ? "Phinix_chat_sendUnavailable".Translate().ToString() : string.IsNullOrEmpty(context.Text) ? "Phinix_chat_composePlaceholder".Translate().ToString() : null)
+            });
+            sendIcon = ContentFinder<Texture2D>.Get("UI/Phinix/Send", false);
+        }
+        public void ViewOpened()
+        {
+            if (module == null || composer != null && !composer.IsClosed) return;
+            composer = presentation.Open(module, "chat-composer"); publishedMessage = null; RefreshComposer(true);
+        }
+        public void ViewClosed()
+        {
+            (chatMessageList as ChatMessageList)?.ViewClosed();
+            var previous = composer;
+            if (previous != null && !previous.IsClosed) message = previous.ComposerDraft;
+            composer = null; previous?.Dispose();
+        }
+        public void ViewUpdate()
+        {
+            if (composer == null || composer.IsClosed) return;
+            (chatMessageList as ChatMessageList)?.ViewUpdate();
+            bool submit = false; string latestDraft = composer.ComposerDraft;
+            while (composer.TryDequeueInput(out var input))
+            {
+                if (input.Id != "message") continue;
+                latestDraft = input.Value;
+                if (input.Kind == ClientPresentationInputKind.SubmitRequested) submit = true;
+            }
+            message = latestDraft;
+            RefreshComposer(submit);
+            if (submit)
+            {
+                composer.InvokeAction("builtin.chat.send");
+                composer.RequestComposerFocus();
+                RefreshComposer(true);
+            }
+        }
+        private void RefreshComposer(bool force)
+        {
+            var reply = hostContext.ReplyTarget; var language = LanguageDatabase.activeLanguage;
+            bool online = hostContext.IsOnline; var result = composer.LastActionResult;
+            if (!force && publishedMessage == message && ReferenceEquals(reply, publishedReply) && ReferenceEquals(language, publishedLanguage) &&
+                publishedOnline == online && publishedPoints == points.Revision && ReferenceEquals(result, publishedResult)) return;
+            string text = message; long contributionRevision = points.Revision;
+            Func<bool> current = () => composer != null && !composer.IsClosed && message == text && ReferenceEquals(hostContext.ReplyTarget, reply) &&
+                hostContext.IsOnline == online && ReferenceEquals(LanguageDatabase.activeLanguage, language) && contributionRevision == points.Revision;
+            var actions = composerPoint.Collect(new ChatComposerActionContext(text, reply?.MessageId), current);
+            try
+            {
+                IClientContributedAction send = null; var extras = new List<ClientPresentationAction>();
+                foreach (var action in actions.Actions) if (action.OwnerId == module.ExtensionId && action.Id == "send") send = action; else extras.Add(new ClientPresentationAction(action.OwnerId + "." + action.Id, action));
+                if (send == null) throw new InvalidOperationException("ComposerSendMissing");
+                composer.Publish(new ClientPresentationPage("chat-composer", "", ++composerRevision, null,
+                    new ClientPresentationComposer(new ClientPresentationTextField("message", "", text, "Phinix_chat_composePlaceholder".Translate(), 4096),
+                        new ClientPresentationAction("builtin.chat.send", send, ClientButtonKind.Primary), sendIcon, extras)), actions, current);
+            }
+            catch { actions.Dispose(); throw; }
+            publishedMessage = message; publishedReply = reply; publishedLanguage = language; publishedOnline = online; publishedResult = result; publishedPoints = contributionRevision;
+        }
+        public void Dispose() { ViewClosed(); actionScope?.Dispose(); actionScope = null; composerPoint = null; module = null; sendIcon = null; }
 
         public string BadgeText
         {
@@ -70,11 +133,11 @@ namespace Phinix.ChatExtension.Client
             }
         }
 
-        public ChatMainTabProvider(IChatUiHostContext hostContext, IChatTabContent chatMessageList, IClientUserDirectory userDirectory)
+        public ChatMainTabProvider(IChatUiHostContext hostContext, IChatTabContent chatMessageList, IClientUserDirectory userDirectory, IClientPresentationService presentation, IClientExtensionPointService points)
         {
             this.hostContext = hostContext;
             this.chatMessageList = chatMessageList;
-            this.userDirectory = userDirectory;
+            this.userDirectory = userDirectory; this.presentation = presentation; this.points = points;
         }
 
 
@@ -95,45 +158,12 @@ namespace Phinix.ChatExtension.Client
 
             UIChatMessage replyTarget = hostContext.ReplyTarget;
             float replyBarHeight = replyTarget != null ? GetReplyBarHeight(replyTarget, inRect.width) : 0f;
-            EnsureSendLabelCache();
-            float sendButtonWidth = Mathf.Min(inRect.width, cachedSendWidth);
-            bool stackInput = inRect.width < sendButtonWidth + DEFAULT_SPACING + MINIMUM_INPUT_WIDTH;
-            float inputAreaHeight = stackInput
-                ? CHAT_TEXTBOX_HEIGHT * 2f + DEFAULT_SPACING
-                : CHAT_TEXTBOX_HEIGHT;
-
+            float inputAreaHeight = composer != null && !composer.IsClosed && inRect.width > 0 ? composer.MeasureComposerHeight(inRect.width) : 64;
             Rect inputAreaRect = inRect.BottomPartPixels(Mathf.Min(inputAreaHeight, inRect.height));
-            Rect messageBoxRect;
-            Rect sendButtonRect;
-            if (stackInput)
-            {
-                messageBoxRect = new Rect(inputAreaRect.xMin, inputAreaRect.yMin, inputAreaRect.width, Mathf.Min(CHAT_TEXTBOX_HEIGHT, inputAreaRect.height));
-                float buttonY = messageBoxRect.yMax + DEFAULT_SPACING;
-                sendButtonRect = new Rect(
-                    inputAreaRect.xMax - sendButtonWidth,
-                    buttonY,
-                    sendButtonWidth,
-                    Mathf.Min(CHAT_TEXTBOX_HEIGHT, Mathf.Max(0f, inputAreaRect.yMax - buttonY)));
-            }
-            else
-            {
-                sendButtonRect = inputAreaRect.RightPartPixels(sendButtonWidth);
-                messageBoxRect = new Rect(
-                    inputAreaRect.xMin,
-                    inputAreaRect.yMin,
-                    Mathf.Max(0f, inputAreaRect.width - sendButtonWidth - DEFAULT_SPACING),
-                    inputAreaRect.height);
-            }
-
             Rect replyBarRect = replyBarHeight > 0f
-                ? inRect.BottomPartPixels(Mathf.Min(inputAreaHeight + replyBarHeight, inRect.height)).TopPartPixels(Mathf.Min(replyBarHeight, Mathf.Max(0f, inRect.height - inputAreaHeight)))
-                : default;
-
-            float reservedHeight = inputAreaHeight + replyBarHeight + DEFAULT_SPACING;
-            Rect chatRect = inRect.TopPartPixels(Mathf.Max(0f, inRect.height - reservedHeight));
-
+                ? inRect.BottomPartPixels(Mathf.Min(inputAreaHeight + replyBarHeight, inRect.height)).TopPartPixels(Mathf.Min(replyBarHeight, Mathf.Max(0, inRect.height - inputAreaHeight))) : default;
+            Rect chatRect = inRect.TopPartPixels(Mathf.Max(0, inRect.height - inputAreaHeight - replyBarHeight - 8));
             chatMessageList.Draw(chatRect);
-
             if (replyTarget != null && replyBarRect.height > 0f)
             {
                 Rect lineRect = new Rect(replyBarRect.xMin, replyBarRect.yMin, REPLY_LINE_WIDTH, replyBarRect.height);
@@ -157,19 +187,7 @@ namespace Phinix.ChatExtension.Client
                 }
             }
 
-            GUIUtility.GetControlID(CHAT_INPUT_CONTROL_BOUNDARY, FocusType.Passive);
-            using (new ClientGuiScope(true))
-            {
-                message = ClientWidgets.TextField(messageBoxRect, message, ChatTheme.Current, controlName: CHAT_INPUT_CONTROL, textColor: ChatTheme.InputText);
-            }
-            UpdateInputOwnership(messageBoxRect);
-            TryRefocusAfterAccept();
-
-            if (sendButtonRect.width > 0f && sendButtonRect.height > 0f && ClientWidgets.Button(sendButtonRect, cachedSendLabel, ChatTheme.Current))
-            {
-                sendChatMessage();
-            }
-
+            composer?.Draw(inputAreaRect);
             HandleAtAutocomplete();
         }
 
@@ -200,96 +218,20 @@ namespace Phinix.ChatExtension.Client
             return cachedReplyHeight;
         }
 
-        private void EnsureSendLabelCache()
-        {
-            object language = LanguageDatabase.activeLanguage;
-            if (ReferenceEquals(language, cachedSendLanguage) && cachedSendLabel != null)
-            {
-                return;
-            }
-
-            cachedSendLanguage = language;
-            cachedSendLabel = "Phinix_chat_sendButton".Translate();
-            cachedSendWidth = Mathf.Max(CHAT_SEND_BUTTON_WIDTH, Text.CalcSize(cachedSendLabel).x + 24f);
-        }
-
-        public bool TryHandleAcceptKey()
-        {
-            if (!WantsAcceptKey)
-            {
-                return false;
-            }
-
-            sendChatMessage();
-            refocusAttemptsRemaining = REFOCUS_ATTEMPTS;
-            return true;
-        }
-
-        private void UpdateInputOwnership(Rect messageBoxRect)
-        {
-            Event current = Event.current;
-            bool mouseDown = current != null &&
-                (current.type == EventType.MouseDown || current.rawType == EventType.MouseDown);
-
-            if (mouseDown)
-            {
-                chatInputOwned = current.button == 0 && Mouse.IsOver(messageBoxRect);
-                refocusAttemptsRemaining = 0;
-                return;
-            }
-
-            bool currentlyFocused = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL;
-            if (currentlyFocused)
-            {
-                chatInputOwned = true;
-            }
-        }
-
-        private void TryRefocusAfterAccept()
-        {
-            if (refocusAttemptsRemaining <= 0)
-            {
-                return;
-            }
-
-            Event current = Event.current;
-            bool mouseDown = current != null &&
-                (current.type == EventType.MouseDown || current.rawType == EventType.MouseDown);
-            Window currentWindow = Find.WindowStack.currentlyDrawnWindow;
-            if (mouseDown ||
-                Find.WindowStack.FloatMenu != null ||
-                currentWindow == null ||
-                !Find.WindowStack.GetsInput(currentWindow))
-            {
-                refocusAttemptsRemaining = 0;
-                return;
-            }
-
-            if (current == null || current.type != EventType.Repaint)
-            {
-                return;
-            }
-
-            GUI.FocusControl(CHAT_INPUT_CONTROL);
-            refocusAttemptsRemaining--;
-            chatInputOwned = true;
-            if (GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL)
-            {
-                refocusAttemptsRemaining = 0;
-            }
-        }
+        public bool TryHandleAcceptKey() => false;
 
         private void HandleAtAutocomplete()
         {
             if (Event.current == null || Event.current.type != EventType.Repaint) return;
             string previousText = lastAutocompleteText;
-            lastAutocompleteText = message;
+            string draft = composer?.ComposerDraft ?? message;
+            lastAutocompleteText = draft;
 
             Window currentWindow = Find.WindowStack.currentlyDrawnWindow;
             bool canOpen = GUI.GetNameOfFocusedControl() == CHAT_INPUT_CONTROL &&
                 currentWindow != null && Find.WindowStack.GetsInput(currentWindow) &&
                 Find.WindowStack.FloatMenu == null;
-            if (!ChatMentionUtility.TryGetAutocompletePartial(message, previousText, canOpen, out string partial)) return;
+            if (!ChatMentionUtility.TryGetAutocompletePartial(draft, previousText, canOpen, out string partial)) return;
 
             if (userDirectory == null) return;
             ImmutableUser[] onlineUsers = userDirectory.GetUsers(loggedIn: true);
@@ -306,12 +248,12 @@ namespace Phinix.ChatExtension.Client
                 if (displayName.IndexOf(partial, StringComparison.InvariantCultureIgnoreCase) < 0) continue;
 
                 string capturedName = displayName;
-                string capturedMessage = message;
+                string capturedMessage = draft;
                 options.Add(new FloatMenuOption("@" + capturedName, () =>
                 {
-                    if (message != capturedMessage) return;
-                    message = ChatMentionUtility.ReplaceAtPartial(message, capturedName);
-                    refocusAttemptsRemaining = REFOCUS_ATTEMPTS;
+                    if (composer == null || composer.IsClosed || composer.ComposerDraft != capturedMessage) return;
+                    composer.SetComposerDraft(ChatMentionUtility.ReplaceAtPartial(capturedMessage, capturedName));
+                    composer.RequestComposerFocus();
                 }));
             }
 

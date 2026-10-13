@@ -180,9 +180,22 @@ namespace Phinix.TradeExtension.Client
             if (args == null)
                 return new InventoryDeliveryResult { Status = InventoryDeliveryStatus.Rejected, Reason = "Trade completion is missing." };
 
+            if (string.IsNullOrWhiteSpace(args.TradeId))
+                return new InventoryDeliveryResult { Status = InventoryDeliveryStatus.Rejected, Reason = "Trade completion has no stable ID." };
+
             FrameworkItemPayload[] payloads = args.ItemPayloads != null && args.ItemPayloads.Length > 0
                 ? args.ItemPayloads
                 : itemPipeline.EncodeTradeItems(args.Items ?? Array.Empty<TradeItemSnapshot>());
+            return DeliverFrozenOfferReturn(payloads,dropCurrentMap);
+        }
+
+        // Frozen business data for an acknowledged offer reset; no completion event or ACK is fabricated.
+        internal InventoryDeliveryResult DeliverFrozenOfferReturn(FrameworkItemPayload[] payloads,bool dropCurrentMap)
+        {
+            // An authoritative completion can legitimately give this party no items (gift/empty return).
+            // Finish the existing acknowledgement chain without requiring a map or spawning a pod.
+            if (payloads.Length == 0)
+                return new InventoryDeliveryResult { Status = InventoryDeliveryStatus.Delivered, DropSpot = IntVec3.Invalid };
             List<Thing> things = new List<Thing>(payloads.Length);
             try
             {

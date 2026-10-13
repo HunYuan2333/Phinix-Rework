@@ -22,11 +22,20 @@ namespace PhinixClient
         private string connectedText;
         private string cachedPreviewName;
         private string previewText;
+        private float addressRowHeight = RowHeight, portRowHeight = RowHeight, nameRowHeight = RowHeight, disconnectRowHeight = RowHeight, connectedLabelHeight = RowHeight;
+        private float connectionStatusHeight = RowHeight;
+        private string measuredDisplayName;
+        private bool connectedStacked;
         private float connectedHeight;
         private float connectionHeight;
         private float displayNameHeight;
         private readonly List<IClientQuickSettingsPanelProvider> quickSettingsPanels =
             new List<IClientQuickSettingsPanelProvider>();
+        private IReadOnlyList<IClientApiProvider<IClientQuickSettingsPanelProvider>> quickHandles;
+        private readonly Dictionary<IClientQuickSettingsPanelProvider, float> panelOrders = new Dictionary<IClientQuickSettingsPanelProvider, float>();
+        private readonly Dictionary<IClientQuickSettingsPanelProvider, string> panelIds = new Dictionary<IClientQuickSettingsPanelProvider, string>();
+        private int providerFrame = -100;
+        private readonly HashSet<IClientQuickSettingsPanelProvider> failedPanels = new HashSet<IClientQuickSettingsPanelProvider>();
         private string addressLabel;
         private string portLabel;
         private string connectLabel;
@@ -73,6 +82,7 @@ namespace PhinixClient
         {
             base.WindowUpdate();
             ClampToScreen();
+            if (Time.frameCount - providerFrame >= 30) RefreshQuickSettingsPanels();
         }
 
         public override void DoWindowContents(Rect inRect)
@@ -94,7 +104,7 @@ namespace PhinixClient
             bool online = Client.Instance.Online;
             bool showConnectionStatus = !connected &&
                 (Client.Instance.Connecting || Client.Instance.ConnectionAttemptFailed);
-            float formHeight = connectionHeight + (showConnectionStatus ? Spacing + RowHeight : 0f);
+            float formHeight = connectionHeight + (showConnectionStatus ? Spacing + connectionStatusHeight : 0f);
             float baseHeight = (connected ? connectedHeight : formHeight) +
                 (online ? Spacing + displayNameHeight : 0f);
             float contentHeight = baseHeight + GetQuickSettingsHeight(Mathf.Max(1f, inRect.width - 16f));
@@ -121,19 +131,25 @@ namespace PhinixClient
 
         private void RefreshQuickSettingsPanels()
         {
-            quickSettingsPanels.Clear();
-            PhinixFrameworkClient framework = Client.Instance.FrameworkClient;
-            if (framework == null) return;
-            IReadOnlyList<IClientQuickSettingsPanelProvider> providers =
-                framework.ResolveExtensionApis<IClientQuickSettingsPanelProvider>();
-            for (int i = 0; i < providers.Count; i++) quickSettingsPanels.Add(providers[i]);
-            quickSettingsPanels.Sort((left, right) =>
+            quickSettingsPanels.Clear(); panelOrders.Clear(); panelIds.Clear();
+            providerFrame = Time.frameCount;
+            quickHandles = Client.Instance.UiApiDirectory?.Capture<IClientQuickSettingsPanelProvider>();
+            if (quickHandles == null) return;
+            foreach (var handle in quickHandles)
             {
-                int order = left.Order.CompareTo(right.Order);
-                return order != 0
-                    ? order
-                    : string.Compare(left.SectionId, right.SectionId, StringComparison.Ordinal);
-            });
+                if (!handle.TryGet(out var panel)) continue;
+                float order = 0; string id = handle.OwnerId + "/" + handle.RegistrationId;
+                try { order = panel.Order; id = handle.OwnerId + "/" + panel.SectionId; }
+                catch (Exception error) { if (failedPanels.Add(panel)) Log.Warning("[Phinix] Quick settings metadata failed: " + error); }
+                quickSettingsPanels.Add(panel); panelOrders[panel] = order; panelIds[panel] = id;
+            }
+            quickSettingsPanels.Sort((left, right) => { int order = panelOrders[left].CompareTo(panelOrders[right]); return order != 0 ? order : string.CompareOrdinal(panelIds[left], panelIds[right]); });
+        }
+        private bool CurrentPanel(IClientQuickSettingsPanelProvider panel)
+        {
+            if (quickHandles != null) foreach (var handle in quickHandles)
+                if (handle.TryGet(out var api) && ReferenceEquals(api, panel)) return true;
+            return false;
         }
 
         private float GetQuickSettingsHeight(float width)
@@ -144,8 +160,10 @@ namespace PhinixClient
             for (int i = 0; i < quickSettingsPanels.Count; i++)
             {
                 IClientQuickSettingsPanelProvider panel = quickSettingsPanels[i];
+                if (!CurrentPanel(panel)) continue;
                 try
                 {
+                    if (failedPanels.Contains(panel)) { height += 40; continue; }
                     if (!panel.IsVisible(settings)) continue;
                     float panelHeight = Mathf.Max(0f, panel.GetQuickSettingsHeight(width));
                     if (panelHeight <= 0f) continue;
@@ -159,7 +177,8 @@ namespace PhinixClient
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[Phinix] Quick settings panel '{panel.SectionId}' failed to measure: {ex}");
+                    if (failedPanels.Add(panel)) Log.Warning("[Phinix] Quick settings measure failed: " + ex);
+                    height += 40;
                 }
             }
             return height;
@@ -172,8 +191,11 @@ namespace PhinixClient
             for (int i = 0; i < quickSettingsPanels.Count; i++)
             {
                 IClientQuickSettingsPanelProvider panel = quickSettingsPanels[i];
+                if (!CurrentPanel(panel)) continue;
                 try
                 {
+                    if (failedPanels.Contains(panel))
+                    { ClientWidgets.Label(new Rect(0, y, width, 32), "Phinix_shell_providerFailed".Translate(), HostThemeDrawing.Current, true); y += 40; continue; }
                     if (!panel.IsVisible(settings)) continue;
                     float panelHeight = Mathf.Max(0f, panel.GetQuickSettingsHeight(width));
                     if (panelHeight <= 0f) continue;
@@ -187,11 +209,11 @@ namespace PhinixClient
                     else y += Spacing;
                     Rect panelRect = new Rect(0f, y, width, panelHeight);
                     y += panelHeight;
-                    panel.DrawQuickSettings(panelRect, settings);
+                    using (new ClientGuiScope(true)) panel.DrawQuickSettings(panelRect, settings);
                 }
                 catch (Exception ex)
                 {
-                    Log.Error($"[Phinix] Quick settings panel '{panel.SectionId}' failed to draw: {ex}");
+                    if (failedPanels.Add(panel)) Log.Warning("[Phinix] Quick settings draw failed: " + ex);
                 }
             }
         }
@@ -199,13 +221,13 @@ namespace PhinixClient
         private float DrawConnected(Rect rect)
         {
             float buttonWidth = Mathf.Min(rect.width, Mathf.Max(100f, Text.CalcSize(disconnectLabel).x + 24f));
-            bool stacked = rect.width < 280f;
+            bool stacked = connectedStacked;
             Rect labelRect = stacked
-                ? new Rect(rect.x, rect.y, rect.width, RowHeight)
-                : new Rect(rect.x, rect.y, Mathf.Max(0f, rect.width - buttonWidth - Spacing), RowHeight);
+                ? new Rect(rect.x, rect.y, rect.width, connectedLabelHeight)
+                : new Rect(rect.x, rect.y, Mathf.Max(0f, rect.width - buttonWidth - Spacing), connectedLabelHeight);
             Rect buttonRect = stacked
-                ? new Rect(rect.x, rect.y + RowHeight + Spacing, rect.width, RowHeight)
-                : new Rect(rect.xMax - buttonWidth, rect.y, buttonWidth, RowHeight);
+                ? new Rect(rect.x, rect.y + connectedLabelHeight + Spacing, rect.width, disconnectRowHeight)
+                : new Rect(rect.xMax - buttonWidth, rect.y, buttonWidth, disconnectRowHeight);
             if (!string.Equals(cachedConnectedAddress, serverAddress, StringComparison.Ordinal))
             {
                 cachedConnectedAddress = serverAddress;
@@ -213,28 +235,28 @@ namespace PhinixClient
             }
             Widgets.Label(labelRect, connectedText);
             TooltipHandler.TipRegion(labelRect, connectedText);
-            if (ClientWidgets.Button(buttonRect, disconnectLabel, HostThemeDrawing.Current)) Client.Instance.Disconnect();
+            if (ClientWidgets.Button(buttonRect, disconnectLabel, HostThemeDrawing.Current, wrap: true)) Client.Instance.Disconnect();
             return rect.height;
         }
 
         private float DrawConnectionForm(Rect rect)
         {
             float labelWidth = Mathf.Min(120f, rect.width * 0.28f);
-            ResponsiveFormResult address = ResponsiveFormLayout.Calculate(rect, labelWidth, 140f, 0f, RowHeight, Spacing, 0f);
+            ResponsiveFormResult address = ResponsiveFormLayout.Calculate(rect, labelWidth, 140f, 0f, addressRowHeight, Spacing, 0f);
             Widgets.Label(address.LabelRect, addressLabel);
             serverAddress = ClientWidgets.TextField(address.InputRect, serverAddress, HostThemeDrawing.Current, controlName: "phinix.connection.address");
 
             Rect portBase = new Rect(rect.x, rect.y + address.Height + Spacing, rect.width,
                 Mathf.Max(0f, rect.height - address.Height - Spacing));
             float connectWidth = Mathf.Min(portBase.width, Mathf.Max(100f, Text.CalcSize(connectLabel).x + 24f));
-            ResponsiveFormResult port = ResponsiveFormLayout.Calculate(portBase, labelWidth, 70f, connectWidth, RowHeight, Spacing, 0f);
+            ResponsiveFormResult port = ResponsiveFormLayout.Calculate(portBase, labelWidth, 70f, connectWidth, portRowHeight, Spacing, 0f);
             Widgets.Label(port.LabelRect, portLabel);
             string candidate = ClientWidgets.TextField(port.InputRect, serverPortString, HostThemeDrawing.Current, controlName: "phinix.connection.port");
             if (ServerPortRegex.IsMatch(candidate)) serverPortString = candidate;
             bool valid = int.TryParse(serverPortString, out int portValue) && portValue > 0 &&
                 portValue <= 65535 && !string.IsNullOrWhiteSpace(serverAddress);
             bool connecting = Client.Instance.Connecting;
-            if (ClientWidgets.Button(port.ActionRect, connectLabel, HostThemeDrawing.Current, enabled: valid && !connecting) && valid && !connecting)
+            if (ClientWidgets.Button(port.ActionRect, connectLabel, HostThemeDrawing.Current, enabled: valid && !connecting, wrap: true) && valid && !connecting)
             {
                 string addressValue = serverAddress;
                 Client.Instance.Settings.ServerAddress = addressValue;
@@ -245,7 +267,7 @@ namespace PhinixClient
             if (Client.Instance.Connecting || Client.Instance.ConnectionAttemptFailed)
             {
                 string status = Client.Instance.Connecting ? connectingLabel : connectionFailedLabel;
-                Widgets.Label(new Rect(rect.x, portBase.y + port.Height + Spacing, rect.width, RowHeight), status);
+                Widgets.Label(new Rect(rect.x, portBase.y + port.Height + Spacing, rect.width, connectionStatusHeight), status);
             }
             return rect.height;
         }
@@ -254,7 +276,7 @@ namespace PhinixClient
         {
             float buttonWidth = Mathf.Min(rect.width, Mathf.Max(100f, Text.CalcSize(setNameLabel).x + 24f));
             ResponsiveFormResult form = ResponsiveFormLayout.Calculate(rect, Mathf.Min(160f, rect.width * 0.35f),
-                140f, buttonWidth, RowHeight, Spacing, 0f);
+                140f, buttonWidth, nameRowHeight, Spacing, 0f);
             Widgets.Label(form.LabelRect, displayNameLabel);
             string value = ClientWidgets.TextField(form.InputRect, Client.Instance.Settings.DisplayName, HostThemeDrawing.Current, controlName: "phinix.connection.name");
             if (value != Client.Instance.Settings.DisplayName)
@@ -262,7 +284,7 @@ namespace PhinixClient
                 Client.Instance.Settings.DisplayName = value;
                 Client.Instance.Settings.AcceptChanges();
             }
-            if (ClientWidgets.Button(form.ActionRect, setNameLabel, HostThemeDrawing.Current)) Client.Instance.UpdateDisplayName(value);
+            if (ClientWidgets.Button(form.ActionRect, setNameLabel, HostThemeDrawing.Current, wrap: true)) Client.Instance.UpdateDisplayName(value);
             if (!string.Equals(cachedPreviewName, value, StringComparison.Ordinal))
             {
                 cachedPreviewName = value;
@@ -277,11 +299,13 @@ namespace PhinixClient
         private void RebuildLayoutIfNeeded(float width)
         {
             object language = LanguageDatabase.activeLanguage;
-            if (Mathf.Approximately(cachedWidth, width) && ReferenceEquals(cachedLanguage, language)) return;
+            if (Mathf.Approximately(cachedWidth, width) && ReferenceEquals(cachedLanguage, language) && cachedConnectedAddress == serverAddress && measuredDisplayName == Client.Instance.Settings.DisplayName) return;
             cachedWidth = width;
             cachedLanguage = language;
             cachedConnectedAddress = null;
-            cachedPreviewName = null;
+            measuredDisplayName = Client.Instance.Settings.DisplayName;
+            cachedPreviewName = measuredDisplayName;
+            previewText = "Phinix_settings_displayNamePreview".Translate(cachedPreviewName).Resolve();
             addressLabel = "Phinix_settings_addressLabel".Translate();
             portLabel = "Phinix_settings_portLabel".Translate();
             connectLabel = "Phinix_settings_connectButton".Translate();
@@ -290,23 +314,46 @@ namespace PhinixClient
             disconnectLabel = "Phinix_settings_disconnectButton".Translate();
             setNameLabel = "Phinix_settings_setDisplayNameButton".Translate();
             displayNameLabel = "Phinix_modSettings_displayNameTitle".Translate();
-            connectedHeight = width < 280f ? RowHeight * 2f + Spacing : RowHeight;
+            cachedConnectedAddress = serverAddress;
+            connectedText = "Phinix_settings_connectedToLabel".Translate(serverAddress);
+            var disconnectSize = ClientWidgets.MeasureButton(disconnectLabel, width, minimumWidth: 100);
+            disconnectRowHeight = disconnectSize.y;
+            connectedStacked = width - disconnectSize.x - Spacing < 160;
+            connectedLabelHeight = Mathf.Max(RowHeight, Text.CalcHeight(connectedText, Mathf.Max(1, connectedStacked ? width : width - disconnectSize.x - Spacing)));
+            connectionStatusHeight = Mathf.Max(RowHeight, Mathf.Max(Text.CalcHeight(connectingLabel, width), Text.CalcHeight(connectionFailedLabel, width)));
+            connectedHeight = connectedStacked ? connectedLabelHeight + disconnectRowHeight + Spacing : Mathf.Max(connectedLabelHeight, disconnectRowHeight);
+            addressRowHeight = Mathf.Max(RowHeight, Text.CalcHeight(addressLabel, Mathf.Max(1, Mathf.Min(120, width * .28f))) + 4);
+            portRowHeight = Mathf.Max(ClientWidgets.MeasureButton(connectLabel, width, minimumWidth: 100).y, Text.CalcHeight(portLabel, Mathf.Max(1, Mathf.Min(120, width * .28f))) + 4);
+            nameRowHeight = Mathf.Max(ClientWidgets.MeasureButton(setNameLabel, width, minimumWidth: 100).y, Text.CalcHeight(displayNameLabel, Mathf.Max(1, Mathf.Min(160, width * .35f))) + 4);
             Rect probe = new Rect(0f, 0f, width, 500f);
             float labelWidth = Mathf.Min(120f, width * 0.28f);
-            ResponsiveFormResult address = ResponsiveFormLayout.Calculate(probe, labelWidth, 140f, 0f, RowHeight, Spacing, 0f);
+            ResponsiveFormResult address = ResponsiveFormLayout.Calculate(probe, labelWidth, 140f, 0f, addressRowHeight, Spacing, 0f);
             probe.y = address.Height + Spacing;
             ResponsiveFormResult port = ResponsiveFormLayout.Calculate(probe, labelWidth, 70f,
-                Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(connectLabel).x + 24f)), RowHeight, Spacing, 0f);
+                Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(connectLabel).x + 24f)), portRowHeight, Spacing, 0f);
             connectionHeight = address.Height + Spacing + port.Height;
             ResponsiveFormResult name = ResponsiveFormLayout.Calculate(new Rect(0f, 0f, width, 500f),
                 Mathf.Min(160f, width * 0.35f), 140f,
-                Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(setNameLabel).x + 24f)), RowHeight, Spacing, 0f);
-            displayNameHeight = name.Height + Spacing + RowHeight;
+                Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(setNameLabel).x + 24f)), nameRowHeight, Spacing, 0f);
+            displayNameHeight = name.Height + Spacing + Mathf.Max(RowHeight, Text.CalcHeight(previewText, width));
         }
 
         private void ClampToScreen()
         {
             windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(320f, 180f));
         }
+    }
+}
+
+namespace PhinixClient
+{
+    // Same complete settings contents and close-time save boundary as the existing mod settings surface.
+    internal sealed class FullClientSettingsWindow : Window
+    {
+        public FullClientSettingsWindow() { doCloseX = true; closeOnAccept = false; draggable = true; resizeable = true; }
+        public override Vector2 InitialSize => new Vector2(Mathf.Min(700, UiScreenSafeArea.Current.width), Mathf.Min(620, UiScreenSafeArea.Current.height));
+        public override void WindowUpdate() { base.WindowUpdate(); windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(320, 240)); }
+        public override void DoWindowContents(Rect rect) { Client.Instance.DoSettingsWindowContents(rect); }
+        public override void PreClose() { Client.Instance.WriteSettings(); base.PreClose(); }
     }
 }

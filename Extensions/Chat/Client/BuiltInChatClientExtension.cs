@@ -64,6 +64,9 @@ namespace Phinix.ChatExtension.Client
                 local.Borrow(host.GetRequiredService<IClientUserDirectory>());
                 local.Borrow(host.GetRequiredService<IClientUserEventStream>());
                 local.Borrow(host.GetRequiredService<IClientSettingsWindowService>());
+                local.Borrow(host.GetRequiredService<IClientPresentationService>());
+                local.Borrow(host.GetRequiredService<IClientExtensionPointService>());
+                local.Borrow(host.GetRequiredService<IClientApiDirectory>());
                 local.Borrow(host.GetRequiredService<IClientMainThreadDispatcher>());
                 local.Borrow<Action<string, LogLevel>>((message, level) => host.Log?.Invoke(message, level));
                 local.Borrow(host.GetRequiredService<IClientMessageSubmission>());
@@ -76,6 +79,7 @@ namespace Phinix.ChatExtension.Client
                 local.Register<IClientChatService, FrameworkClientChatServiceAdapter>();
                 local.Register<IChatMessageSender, ChatMessageSubmissionAdapter>();
                 local.Register<IChatUiHostContext, ChatUiHostContext>();
+                local.Register<ChatMessageActions, ChatMessageActions>();
                 local.Register<IChatTabContent, ChatMessageList>();
                 local.Register<UserList, UserList>();
                 local.Register<ChatSidebarProvider, ChatSidebarProvider>();
@@ -91,7 +95,10 @@ namespace Phinix.ChatExtension.Client
             chatService = composition.Resolve<IClientChatService>();
             chatUiHostContext = composition.Resolve<ChatUiHostContext>();
             chatTabContent = composition.Resolve<IChatTabContent>();
+            (chatTabContent as ChatMessageList).MessageActions = composition.Resolve<ChatMessageActions>();
+            (chatTabContent as ChatMessageList).FeedRenderer = host.GetRequiredService<IClientPresentationService>();
             chatSidebarProvider = composition.Resolve<ChatSidebarProvider>();
+            (chatTabContent as ChatMessageList).MemberActions = (chatSidebarProvider as ChatSidebarProvider).OpenMemberActions;
             chatMainTabProvider = composition.Resolve<ChatMainTabProvider>();
             noticeBannerProvider = composition.Resolve<NoticeBannerProvider>();
             noticeSidebarProvider = composition.Resolve<NoticeSidebarProvider>();
@@ -149,9 +156,12 @@ namespace Phinix.ChatExtension.Client
             active = true;
             (chatService as FrameworkClientChatServiceAdapter)?.Start();
             chatUiHostContext?.Start();
-            (chatSidebarProvider as ChatSidebarProvider)?.Start();
+            (chatSidebarProvider as ChatSidebarProvider)?.Start(this);
+            (chatMainTabProvider as ChatMainTabProvider)?.Start(this);
+            composition.Resolve<ChatMessageActions>().Start(this);
             noticeSidebarProvider?.Start();
             (chatTabContent as ChatMessageList)?.Start();
+            (chatTabContent as ChatMessageList)?.StartFeed(this);
 
             if (chatNotificationHandler == null)
             {

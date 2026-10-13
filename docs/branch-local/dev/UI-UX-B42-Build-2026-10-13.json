@@ -1,0 +1,230 @@
+{
+  "batch": "B42",
+  "sourceComplete": true,
+  "compiled": true,
+  "gamePassed": false,
+  "released": false,
+  "productVersion": "0.10.0",
+  "releaseBaselines": {
+    "redpacket": "1.2.0",
+    "talent": "1.2.0",
+    "example": "1.1.0"
+  },
+  "remaining": "Final game acceptance; freeze real final Host commit and update ci/config.json.hostCommit in three plugin repos; official version allocation by main-push CI",
+  "copyChanges": 258,
+  "checks": {
+    "host": 228,
+    "talent": 81,
+    "redRepair": 33,
+    "redPresentation": 29,
+    "example": 45,
+    "ciMockTests": [
+      16,
+      7,
+      7
+    ],
+    "resources": "XML/JSON parse + paired locale keys/slots + digests + source allowlists",
+    "packages": "CRC/static Host refs/production DLL bytes passed",
+    "limitations": "Not native GUI/business acceptance; no 1.7 assessment"
+  },
+  "packages": [
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b42/phinix-rework-b42-rimworld1.6.zip",
+      "bytes": 1460963,
+      "sha256": "98219f50c376e32bedb169b4ea3f79dc3d6203ae8181e40b4465ab94e470931e"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b42/talent-trade-1.1.8.zip",
+      "bytes": 90078,
+      "sha256": "1745371ca1359232e2eed646ae863d1ca2ad2c1d38554e0658da1adeeead191f"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b42/redpacket-1.1.12.zip",
+      "bytes": 89593,
+      "sha256": "89e58077f7a1acf67cfef19535239ead188424f802e61292498c062dad0922c8"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b42/phinix-example-basic-1.0.36.zip",
+      "bytes": 21148,
+      "sha256": "0cd9170c8db232c9e8f40befb3b5d3a7dec6b1cad7d42775487795ae6172f718"
+    }
+  ],
+  "source": [
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/.github/workflows/release.yml",
+      "sha256": "7c912319086d14a330089bc4966252865220c4c44dad3dda9b99db9cc35055ea"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/AGENTS.md",
+      "sha256": "01fc083b088d8992deaa6fe041ef383ce39d2a03ce690f5f2724ba7bfec29afe"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/ci/build.py",
+      "sha256": "1ebac1fdb80df4bf2a45c0e1dd71172d19b4699c195c8bbbc954158ce7016cec"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/ci/config.json",
+      "sha256": "23439460703850df0443d604dc4bba0269b2f2fa6c02e573da65b11bfbaa89a7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/ci/publish.py",
+      "sha256": "196e449c9263f368330c3eef2bb064eaff7e7e9b33c33e56427cb2c834480ce1"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/ci/release.py",
+      "sha256": "7c17a424150a88283838c20c82842d4d0944ef47dd157ba951ae92286645f3c7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/ci/tests/test_release_flow.py",
+      "sha256": "0d6a3e349fe2a6bca06249a43f7bc967e233e79e47943d4cb4a3f2a2815abf42"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+      "sha256": "16ee3a1387e7310fba61c9e4dd0e4f3b62c4a828b3b6280866034ec92f232c69"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+      "sha256": "473e2f409d7e4806f7da4cae9e1daf165fab68a7271062c31a643c4aca7fe5d7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/.github/workflows/release.yml",
+      "sha256": "f709128d4957b1d4131d7679c68b34c35e8647fb93f4797eced80f87fcb2e2b6"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/AGENTS.md",
+      "sha256": "72b1251ed1708d4358a096739edb978159e622526b3c8f3b962419f543718020"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+      "sha256": "a64710fb699b9c029310280d816af74eb077b17cc3d317bffc2df94e02c413c1"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+      "sha256": "d55541a7a816346d572f07ea30557f37b9e0884dba3397214e9c1f5051c287fc"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/INDEX-NOTIFICATION.md",
+      "sha256": "a64a05fee2bd8dbd5cec1088a19ae1b39b69586681becc1f6f0d80aa370b3784"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/build.py",
+      "sha256": "1ebac1fdb80df4bf2a45c0e1dd71172d19b4699c195c8bbbc954158ce7016cec"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/config.json",
+      "sha256": "96aeac6a5f411694c1a4aacb3ef1632c049e2454f027cdd6d71016f174d8f7ca"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/notify_index.py",
+      "sha256": "895680edf54f3ae2bfe1e139421d500725ba71c9d30d48437829377acfea7d9a"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/publish.py",
+      "sha256": "196e449c9263f368330c3eef2bb064eaff7e7e9b33c33e56427cb2c834480ce1"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/release.py",
+      "sha256": "c0aaa06f1b07ceef640c57510f76941d13c08557aceb1a0128c6994fb3f6b169"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/tests/test_notify_index.py",
+      "sha256": "2954ce9110f369002cf1f371cc7b454684b92b4380def8e24c94d7a391253b8b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/ci/tests/test_release_flow.py",
+      "sha256": "0d6a3e349fe2a6bca06249a43f7bc967e233e79e47943d4cb4a3f2a2815abf42"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/.github/workflows/release.yml",
+      "sha256": "aa74295f2da29b71bd89ef4562c39fb098695da3b9545bdee9ab9ef5a16f3ec7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/AGENTS.md",
+      "sha256": "9051d25e863da24b567c716dccb10693ba14965980f710a2cfbaa647f668410c"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+      "sha256": "a4d59fdb778b1e56c627d108e39b0f6101248c3d246cc319eee36256e2971e92"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+      "sha256": "c16e070b0470f8eda41b580a9755dec73248dc85deb8f6a0ee8eb0c4c61d4480"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/ci/build.py",
+      "sha256": "1ebac1fdb80df4bf2a45c0e1dd71172d19b4699c195c8bbbc954158ce7016cec"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/ci/config.json",
+      "sha256": "140b99da0559ea08d0b44632c0ba3e5420bfdee5a7df8e19a9193003614e63ee"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/ci/publish.py",
+      "sha256": "196e449c9263f368330c3eef2bb064eaff7e7e9b33c33e56427cb2c834480ce1"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/ci/release.py",
+      "sha256": "c0aaa06f1b07ceef640c57510f76941d13c08557aceb1a0128c6994fb3f6b169"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/ci/tests/test_release_flow.py",
+      "sha256": "0d6a3e349fe2a6bca06249a43f7bc967e233e79e47943d4cb4a3f2a2815abf42"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+      "sha256": "c93f4f5b55e0de923f7ba6b6251d08ddfe7f953246e7cfe206f19e8f31a30ba1"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Presentation.xml",
+      "sha256": "2ef2a33da8a6e4617b280bc148ffc7b6386675966d8b5378d35cf547a2b2c875"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Shell.xml",
+      "sha256": "fbbf08c720e51d4aead3b3fc429860b462016b1802360cae9657b9d3fb7948e7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+      "sha256": "f2d2fe2f68acedc34538032f5346b2e81c7249f017d063c6a4e537acbf2384df"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+      "sha256": "35f8ae83c37035398921ec6c5e23f6e5423282cbbc4b5cce78cadd02edbca7bf"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+      "sha256": "5df0e081610f427d87ba2e7da8238944fd39c9f94e73ee18f2a9d9f0fb9999a0"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+      "sha256": "e90006493294632108353b0c3d3988ac63c097b973fc35e18fb1f33ad874a714"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Presentation.xml",
+      "sha256": "3ad96ee9234967d76cea569d0e7439b2b682eb2021c8cc0ee2aa3d2a6be4de6b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Shell.xml",
+      "sha256": "0870b06dee2912ebe6acb63a939b22a98004b9840dab4d355ebcecb0db6165d9"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+      "sha256": "3cd89b1a19895548719161ebc249cfbad0e7c4cb197904aa8724566ca2df696f"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Themes.xml",
+      "sha256": "4af0fc52da733b1a6471b77be0e9726e4951fb550289a49212befb8e011938e2"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+      "sha256": "4e3799669b38d6910cd5eb927f73fc684538c9397e67669ee80575b0ccd9da06"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Extensions/PluginStore/Package/Languages/ChineseSimplified (简体中文)/Keyed/PluginStore.xml",
+      "sha256": "92705832126074f53fd32fb3edd6212cac096a2649cc8ebc9449b853f894dc51"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Extensions/PluginStore/Package/Languages/English/Keyed/PluginStore.xml",
+      "sha256": "c5e254907c5d09245bb0ddecc7ff769ebefaacc6ba659d327b4453f65579581b"
+    }
+  ]
+}

@@ -1,0 +1,449 @@
+{
+  "date": "2026-10-12 Asia/Singapore",
+  "dirtyWorkingTree": true,
+  "checks": {
+    "clientRelease16": "passed; 0 errors, 4 existing SDK/NuGet/obsolete warnings",
+    "presentation": "180 stub checks; production operation owner + recovery projection + previous renderer checks; no native Thing/map/WindowStack",
+    "tradeComposition": "134 actual Trade DLL assertions; includes failed inventory settlement before physical handling and shared facade update/confirm/cancel guard",
+    "example1028": "build/static ZIP/actual Host CLR references passed; public presentation hints and point directory maintained, no hard Trade dependency",
+    "xmlAndZip": "runtime XML parse and ZIP CRC passed",
+    "game": "deferred for joint acceptance at user request; B19 theme/T5, B20 list and B21 offer ownership/reset pending",
+    "R44": "current-session operation owner/reset/guard source done; offer renderer and cross-save/world escrow recovery gate still incomplete",
+    "publication": "not performed"
+  },
+  "packages": [
+    {
+      "path": "local-plugin-packages/2026-10-12-b21/phinix-example-basic-1.0.28.zip",
+      "bytes": 20185,
+      "sha256": "7f2f60f1fd73ece340c90baedee2d18d8cf478bb20f2a3fa47013a7f4e16296d"
+    },
+    {
+      "path": "local-plugin-packages/2026-10-12-b21/phinix-rework-b21-rimworld1.6.zip",
+      "bytes": 1448267,
+      "sha256": "e9e15812f7bfbab3d565d0bfd27d620773d792538b9bde26a8830ee4d754a39a"
+    }
+  ],
+  "source": [
+    {
+      "path": "Phinix-Example-Plugin/example/ExamplePresentation.cs",
+      "sha256": "fbf3a923b7206098ac2291fae20fa72bf94729f3a4631e8b3658524a9f346f8e"
+    },
+    {
+      "path": "Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+      "sha256": "486c7b528f500a7e21a7b8f4eb32f4e8f2c6a960f31952882059935a2ff7d761"
+    },
+    {
+      "path": "Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+      "sha256": "73814b934795775309f065dfcfe466928de7f809c37d953ced8a1d2182983abd"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj",
+      "sha256": "cbe6f1b53379fbb1c17d02760f84fffcdd82b63ac637fad4bea852ed8da443b6"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/UI/ClientThemePresentationActionContext.cs",
+      "sha256": "ceccf6534864feaedb825f7ada4b9fe2eb418a26a206e874aa7486c5b2cd6968"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/UI/ClientWidgets.cs",
+      "sha256": "21523796c05f679d0e711b359df7f368f32bf83e3aff5ab48a180beb1bad363a"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs",
+      "sha256": "eb02aef4cb16f4de2d62d2d5e74256d4f287fce768e82a052973f40d7485e206"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/UI/ResponsiveFormLayout.cs",
+      "sha256": "3c9d04a54627b7d5ce40f5d76a86eb7f109fce32e4da4fe22be30baf19462960"
+    },
+    {
+      "path": "Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+      "sha256": "275dd9d5958f9d8e83faa07a1e06742a29a4eb4ca4cda26acd0ffc4f1df3411e"
+    },
+    {
+      "path": "Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+      "sha256": "5dba87885677b74f5abfe3d8b10477ae73eb4257675f50df13dc9b884acb9f46"
+    },
+    {
+      "path": "Phinix-Rework/Client/Languages/English/Keyed/Themes.xml",
+      "sha256": "0b6ad98acb5201e44d6c5d534adc8a07fc66c15dea10159161cd572bd5548959"
+    },
+    {
+      "path": "Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+      "sha256": "ef2f6f478a8a8907a90cc34aa08694fc47b84dd9ca9dce490500b0383c9c51e2"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/Client.cs",
+      "sha256": "5730816a4b1a7ee8c1e573e592424eea927a66ec829f598789e43fb1119bb161"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/Client.csproj",
+      "sha256": "f920515f8d40b7ea1be4e59ff7c0ad17b7076807381d52faecb5107370784386"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/GUI/Windows and panels/ServerTab.cs",
+      "sha256": "3885e3a5cf42b4582958eefaac892bcf1fdf66df2a382bc422bcfa855c55db8e"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/GUI/Windows and panels/SettingsWindow.cs",
+      "sha256": "2038e9e7c36764ee51508b9634f2661f05a8d80b468e812cb7e0f1e2b55d0e6f"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ClientPresentationFeedRenderer.cs",
+      "sha256": "b033e70c51b70a8ad4e27e21d92afe395760de9b7a86578ab894b007619516d0"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ClientPresentationService.cs",
+      "sha256": "89839fc81b3634c9044768c9e0400b2db7686a95be8f418e213600367babd0e7"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ThemeDraftValues.cs",
+      "sha256": "4e099c58df15abc6387bdc82279621516b38013508400dc42f399aec37703be8"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ThemePackageExportWindow.cs",
+      "sha256": "515453c9c5396223611a62ec8d90cce61d130039137b53f83bd3e65ae1518454"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ThemePresentationWindow.cs",
+      "sha256": "850ae80280aaac56a8c92c7ec68e5d0bd693aa5c6e33c0ff15a4ad71da62b879"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/ThemeSettingsWindow.cs",
+      "sha256": "936de90907185368362de94bf3a8568c48126ece0b2e2cda3b28cac0aa3d5da5"
+    },
+    {
+      "path": "Phinix-Rework/Client/Source/UI/UiTheme.cs",
+      "sha256": "acaf162163bf40745e60f9d889424898b2d53236cc05ceb4f6e8a724478fd0e4"
+    },
+    {
+      "path": "Phinix-Rework/Client/Themes/default.xml",
+      "sha256": "8c4f660fd91568ca0d309fdc02f0c9cd608f98dff06042bebfa9e401b56d0b8b"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Chat/Client/ChatMainTabProvider.cs",
+      "sha256": "f82dc39a795e6cec91b439684bf0f398a2eb2008c576f127ef1ce5d309baa5c5"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Chat/Client/ChatMessageList.cs",
+      "sha256": "a6c1643a6c6013cec295d0da291a01a87864db66485a2dc19dfb0f818120941d"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Chat/Client/ChatSettingsPanelProvider.cs",
+      "sha256": "49d65febb3a06f567f96dbd3c97b65fcd0e058433e0345f65dbf88f0780968d3"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Chat/Client/ChatUiHostContext.cs",
+      "sha256": "078079a9541f2ca15a205877e5ecefa3e413656000a4ceea8e323d50b735768e"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Chat/Contracts/ClientChatContracts.cs",
+      "sha256": "073ab1e3dd3fcbbc2ec666c0864401454621bbf06c744b87f0d3f625d11a395f"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryTab.cs",
+      "sha256": "efe385a01fbaffa9b6d34489b580d69c7662fe97f1f5d9994d16c2c8418526eb"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/Assets/Badges/local.png",
+      "sha256": "7bfc89fc8f6543cd4c0ab79f22919e6dca243d2f0708e7867df6dbc199b56e1f"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/Assets/Badges/managed.png",
+      "sha256": "157916cb6395d3a81c1eceb6f8211e90ff378cac4166e110e8b9c9116a762a78"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/Assets/Badges/official.png",
+      "sha256": "cf9070c4480a0779c56d5c62756e93486f4d21670c105d538fd60f6732bf6aa9"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/Assets/Badges/workshop.png",
+      "sha256": "1baa6df6c0ce0658ee82d108f232ee781f44117088bd7ddc94d120c38a1a4beb"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/LocalPackageFileWindow.cs",
+      "sha256": "5b49a1543ed160eca327db563755a54fb5f2b337c6daeca40f72df257fede67c"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/LocalThemePackagesWindow.cs",
+      "sha256": "4fc8eda95cfe97f37cca09627bc432a646a7eef9171b4a4cb699030745b0aa72"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedPluginStoreView.cs",
+      "sha256": "805d8d4bbe4b398ecaef69be772270219e7f55b83d4c7eecfadd410752d810a8"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedStorePresentation.cs",
+      "sha256": "0bc9b471d2f2d9ddf50a4a38899ed79e325288b3fb66908da634e7fa3dacbfa9"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/PluginStore.Client.csproj",
+      "sha256": "99696303e082aec0414d949e1879f5725155a067d4f66c026c63c90b5bf0e569"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/PluginStorePresentationActionContext.cs",
+      "sha256": "6e16067152d88c1ed626bddc4492694dcfa93001898edfedf34488fb6e7f0498"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/StoreBadgeIcons.cs",
+      "sha256": "d74bb63ed1fa824332b1a9c2b8ac8c9e0e186c881e81be36c1861be2ffca5492"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Client/StorePresentationWindow.cs",
+      "sha256": "9ec730095739721a916c6b882e9b02a934711873052729623167d09579cdd312"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Package/Languages/ChineseSimplified (简体中文)/Keyed/PluginStore.xml",
+      "sha256": "2f2ef2f4eb5874e0d8848c0d7f17abbda26ecb04c969afd9935fbd83d38f5035"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/PluginStore/Package/Languages/English/Keyed/PluginStore.xml",
+      "sha256": "8986dab8a1bad1adb4331c010cb964112f238e3a8ce05dec9b93335fe04b3e44"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/BuiltInTradeClientExtension.cs",
+      "sha256": "573e19bfac240a7ef20421e8a129ba750c72e306af541f5e0b8fc29d2c91e3c3"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/ClientTradeUiHostContext.cs",
+      "sha256": "bdea557853831e2da76a55ea1d2fe13790a147b637fd309ee480e226852f31d4"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/FrameworkClientTradeServiceAdapter.cs",
+      "sha256": "1c58b7b99679044b37b402377586ce5492801d7cbc4577d8ea3886b7ab44020d"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/PhinixDefaultTradeBehaviour.cs",
+      "sha256": "151cd80a7d9b0d65572cc16e8c60148fd78aad885a64a21c77a0137034c3e967"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeExtension.Client.csproj",
+      "sha256": "b67b90977d03dd71a823d71e6b3381949e2003b3601cdaad06b78b6de273a781"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeInventoryIntegration.cs",
+      "sha256": "68fef89f8fe2207d4e7852c5b069769eb9b9e886373974971a55b316e696e134"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeList.cs",
+      "sha256": "e07fe85df9119b550b8948efbca4ca1d00a225face8c8c53aae5945576f69b28"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeMainTabProvider.cs",
+      "sha256": "2fea3f341f9c2678d7355ea9e1d01181b3e3f3928d52985c469246c7b5d48e13"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeOfferEscrow.cs",
+      "sha256": "5a7a5956dd4901f11ec9a81e30bcd8376c58e2f1aeee44bdc68649fdea170813"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeOfferOperations.cs",
+      "sha256": "8781a38b8688f89e265993c722b865fcf091a75a50114ef6ad5f41722cdc1d92"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Client/TradeWindow.cs",
+      "sha256": "4e9625f47d6a451277e6628a33e0558688f581f9327cca766e2fc72efb6d447f"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Contracts/TradeExtension.csproj",
+      "sha256": "7295d01a3675e5094cbd4fe00ff56fb7402d45be0a472782caa20ccd816445ac"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Contracts/TradeOfferOperationContracts.cs",
+      "sha256": "df4498c7b1e9682d668a51ae20ea59710f5848ed279133e42dcb7fa82961de34"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Trade/Contracts/TradePresentationActionContext.cs",
+      "sha256": "7e3076d9cdbe281d96722035f24457a0876002531f566c0b7820298c3ca7005e"
+    },
+    {
+      "path": "Phinix-Rework/Tests/ManagedExtensionRuntimeTests/LocalDevelopmentTests.cs",
+      "sha256": "1587bf12515717e7900f0b0f153a6226408568f1a2e35d554ac1af7d3c19bcdd"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/PresentationRuntimeTests.csproj",
+      "sha256": "dcbb0165ed9bbf89f8a6db3bcc848e13331e541e32324af170e8f63b1a03fd4e"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/Program.cs",
+      "sha256": "833ff6ca19e9390fb1d87d9c493b14a134a69acd6d84c8e4da821e99e174d637"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/StoreWindowTests.cs",
+      "sha256": "99ef2a458de2d3bee609ebe82e286138ed4d67b42f1a10cc710a508274efe9fc"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/Stubs.cs",
+      "sha256": "dd6e625f515f98cb2051312945d2c2cfb0ab172b6cc04ab8f8a463d43cd52595"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/TradeListTests.cs",
+      "sha256": "0f2465242c247701c0dc82cf9d8c67c0e5349ca7a095551965cfe49f7a6758e0"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/TradeOfferOwnerTests.cs",
+      "sha256": "e37c53c3d767ad3a00db60ed768325971d81e0cecdf75af95bd5aa473838985b"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/TradeRecoveryTests.cs",
+      "sha256": "ee0c5d0a55f91e0f88a81d56e5192df750e94b3d20a772fa53222d42a2a7eb4e"
+    },
+    {
+      "path": "Phinix-Rework/Tests/PresentationRuntimeTests/TradeStubs.cs",
+      "sha256": "9f747c54098e171100858622ed79238281fc63b0724cc8f100555600c9dc749a"
+    },
+    {
+      "path": "Phinix-Rework/Tests/ThemePresentationCompositionRuntimeTests/Program.cs",
+      "sha256": "0182a5d7e3ced9f513bb333fcb29344886123ba2a2c26b01855234d577a04cb9"
+    },
+    {
+      "path": "Phinix-Rework/Tests/ThemePresentationCompositionRuntimeTests/ThemePresentationCompositionRuntimeTests.csproj",
+      "sha256": "3c996720f79f21ddf1e5b849bc9a9a39198775d72cd1ecb89ce38041e4f79299"
+    },
+    {
+      "path": "Phinix-Rework/Tests/ThemeRuntimeTests/Program.cs",
+      "sha256": "2d6ae7fea307b2dedf9c6c527a36b2a8b97fd13adfa1b566a1b8400b589f63c4"
+    },
+    {
+      "path": "Phinix-Rework/Tests/ThemeRuntimeTests/Stubs.cs",
+      "sha256": "9edd2500267c047f22b27fe187d4cc6453d191a5b402a473bf2c7f00292eadf8"
+    },
+    {
+      "path": "Phinix-Rework/Tests/ThemeRuntimeTests/ThemeRuntimeTests.csproj",
+      "sha256": "974dd8a4163080b8d22320cf2f9237a80329de7fc08beb9e5ed62e7e43d0f3bf"
+    },
+    {
+      "path": "Phinix-Rework/Tests/TradeCompositionRuntimeTests/ActivationLifetimeTests.cs",
+      "sha256": "61d79f47ec358d6a92aafb6abc4440e2e41b17f40bbe9061663b358e82764530"
+    },
+    {
+      "path": "Phinix-Rework/Tests/TradeCompositionRuntimeTests/Program.cs",
+      "sha256": "33d927324766a841e7c3ee439654dd627a4f9ccc09d1ef2202096ad295cf0bd5"
+    },
+    {
+      "path": "Phinix-Rework/Tests/TradeCompositionRuntimeTests/TradeCompositionRuntimeTests.csproj",
+      "sha256": "b4de5a36ef6d703bf0912ff4939f744404382493d1dcd73b09b6ac669710d6b8"
+    }
+  ],
+  "runtimeDlls": [
+    {
+      "path": "1.6/Assemblies/13-PhinixClient.dll",
+      "sha256": "6f34b822becf95a584d5d755694d1ae2a48227d27f270d107f31e2a7f2a7ad90"
+    },
+    {
+      "path": "Common/Assemblies/01-LiteNetLib.dll",
+      "sha256": "c4ad697e3032a221892d894f1f225738a819b4c061b3de7f8ac4437b01b9e0c8"
+    },
+    {
+      "path": "Common/Assemblies/02-Protobuf.dll",
+      "sha256": "7ee052619ec28ca606da410b04c0ed1453080f64c4417137d2fa54b78a2b27da"
+    },
+    {
+      "path": "Common/Assemblies/03-Utils.dll",
+      "sha256": "c3ce5d26a6b5a2a9cd66c81543b7b1b9d50af26b6d71d19b747578da1b4a7db4"
+    },
+    {
+      "path": "Common/Assemblies/04-Connections.dll",
+      "sha256": "945c0d0aea947a7d8edcd512511031a1835d9946c27f98fd79cd676ada16dbc2"
+    },
+    {
+      "path": "Common/Assemblies/05-Connections.Client.dll",
+      "sha256": "ec379bfb9b1c2bc331054d159d0d6b1b69f75ace8a1edfef0ada687e7da7fce0"
+    },
+    {
+      "path": "Common/Assemblies/06-Authentication.dll",
+      "sha256": "29990c7077fc78a9c545755246653f18430daf6aa5cc51c7fcd13a09c2bc801a"
+    },
+    {
+      "path": "Common/Assemblies/07-Authentication.Client.dll",
+      "sha256": "ac70e07b42f6f83c87e4c91fd5b8fe5ad0f28990a89353322979aa9f7c0b96b6"
+    },
+    {
+      "path": "Common/Assemblies/08-UserManagement.dll",
+      "sha256": "58eb08c523cf14aacca14391bed5fa69dd61c2883787628f8ac6ea3cb84faef0"
+    },
+    {
+      "path": "Common/Assemblies/09-UserManagement.Client.dll",
+      "sha256": "4d6da25fc8e7d7bb0982bd34b6b8ec28fec056feb11043c2ba9980f3991b97c0"
+    },
+    {
+      "path": "Common/Assemblies/10-ClientExtensionAbstractions.dll",
+      "sha256": "a126a6dcf330a4061ec52ddd4f22cc9ed360e85fff62d0d30304744680dba5cb"
+    },
+    {
+      "path": "Common/Assemblies/Autofac.dll",
+      "sha256": "5eb99880aa6fc7deb49f3592c613f467c3890c130aaa72ac3ce45e8cd00a518a"
+    },
+    {
+      "path": "Common/Assemblies/Microsoft.Bcl.AsyncInterfaces.dll",
+      "sha256": "80678203bd0203a6594f4e330b22543c0de5059382bb1c9334b7868b8f31b1bc"
+    },
+    {
+      "path": "Common/Assemblies/Phinix.ClientComposition.dll",
+      "sha256": "8b713ad852de97b97847cca73f84164ee8412b5cca3ff2b00c048b3155148bac"
+    },
+    {
+      "path": "Common/Assemblies/Stateless.dll",
+      "sha256": "da16bebb822af420779a43a108d05088840e9fd38832e10a506c82af1c29713b"
+    },
+    {
+      "path": "Common/Assemblies/System.Buffers.dll",
+      "sha256": "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb"
+    },
+    {
+      "path": "Common/Assemblies/System.Diagnostics.DiagnosticSource.dll",
+      "sha256": "1887592615fc08bbc91ad62307c8c11dfc14c45bf120d271d66be4a0d1a149a7"
+    },
+    {
+      "path": "Common/Assemblies/System.Memory.dll",
+      "sha256": "bf3fb84664f4097f1a8a9bc71a51dcf8cf1a905d4080a4d290da1730866e856f"
+    },
+    {
+      "path": "Common/Assemblies/System.Numerics.Vectors.dll",
+      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+    },
+    {
+      "path": "Common/Assemblies/System.Runtime.CompilerServices.Unsafe.dll",
+      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+    },
+    {
+      "path": "Common/Assemblies/System.Threading.Tasks.Extensions.dll",
+      "sha256": "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6"
+    },
+    {
+      "path": "Common/Extensions/08-ChatExtension.dll",
+      "sha256": "04292702563c1864462e73c0eaaa7bf931bea8d8075a521fcbd9a5d6167cac29"
+    },
+    {
+      "path": "Common/Extensions/09-TradeExtension.dll",
+      "sha256": "45d632a7e8a8636a0e9555682aeebc0df7d7bb1cc9c8c9901834956decabb52c"
+    },
+    {
+      "path": "Common/Extensions/10-InventoryExtension.dll",
+      "sha256": "5126e14370692a1e71ef0c3107d0200e714c924a1554f72b31e3be7af568dbd4"
+    },
+    {
+      "path": "Common/Extensions/10-LegacyAdapter.Client.dll",
+      "sha256": "764b092c32437d2bd4cc93106b4ced3ab1dd901a5d25c0a32fb49f36650285c3"
+    },
+    {
+      "path": "Common/Extensions/11-ChatExtension.Client.dll",
+      "sha256": "63cb5f80ed729e8f877627628d4a92d00a0de18bfe75394a71f0bdb5582db8f7"
+    },
+    {
+      "path": "Common/Extensions/11-InventoryExtension.Client.dll",
+      "sha256": "4e33090511abd7b33e8fa7c00d8d7dacaeb9b591813a20080b04838612296f89"
+    },
+    {
+      "path": "Common/Extensions/12-TradeExtension.Client.dll",
+      "sha256": "f96516f0066295693edd84580d7b90d3a8a3c6bb5e9183987d38fb83cb17ab57"
+    },
+    {
+      "path": "Common/Extensions/17-PluginStore.Client.dll",
+      "sha256": "c2694d467c5a6610d647811fba6fe173b0fa5bf99ebf4e65e475282d54bc6dc6"
+    }
+  ],
+  "removedSource": [
+    "Phinix-Rework/Extensions/Trade/Client/PendingThings.cs (obsolete Window escrow struct; no persisted schema)"
+  ]
+}

@@ -21,6 +21,8 @@ internal static class Program
         {
             AssertCompatibilitySubscriberIsolation();
             AssertRegistrationRequiresPreparedHost();
+            AssertChatContributionOwnership();
+            AssertMessageActionSnapshot();
             AssertReplayDoesNotRepeatNotifications();
             AssertMessageIdentityIsSourceScoped();
             AssertEvictionKeepsReadCursorAndAllowsReplay();
@@ -30,7 +32,7 @@ internal static class Program
             AssertAutocompleteRequiresNewOwnedInput();
             AssertCompletionPreservesMessagePrefix();
             ChatImageDownloadScenarios.Run();
-            Console.WriteLine("All 17 chat regression scenarios passed.");
+            Console.WriteLine("All 19 chat regression scenarios passed.");
             return 0;
         }
         catch (Exception exception)
@@ -38,6 +40,51 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void AssertChatContributionOwnership()
+    {
+        var type = typeof(PhinixFrameworkClient).Assembly.GetType("PhinixClient.Framework.ClientExtensionPointService", true);
+        var service = (IClientExtensionPointService)Activator.CreateInstance(type,
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+            new object[] { (Func<bool>)(() => true), (Action<string>)(_ => {}) }, null);
+        var module = new BuiltInChatClientExtension();
+        type.GetMethod("SetModuleTypes", BindingFlags.Instance | BindingFlags.NonPublic)
+            .Invoke(service, new object[] { new[] { module.GetType() } });
+        var lifecycle = (IExtensionModuleLifecycleObserver)service;
+        // Actual Host registry and actual Chat module identity, including stop/re-activation.
+        for (int activation = 0; activation < 2; activation++)
+        {
+            lifecycle.OnActivating(module);
+            using (var members = service.ForModule(module))
+            using (var composer = service.ForModule(module))
+            {
+                members.DefineActions<ChatMemberActionContext>(ChatMemberActionContext.PointId);
+                composer.DefineActions<ChatComposerActionContext>(ChatComposerActionContext.PointId);
+                composer.DefineActions<ChatMessageActionContext>(ChatMessageActionContext.PointId);
+                Assert(service.CapturePoints().Count == 3 && service.CapturePoints().All(p => p.OwnerId == module.ExtensionId),
+                    "All three Chat points must be owned by the real module identity in the real Host registry.");
+                bool rejected = false;
+                try { composer.DefineActions<ChatComposerActionContext>("phinix.chat.invalid.actions"); }
+                catch (InvalidOperationException) { rejected = true; }
+                Assert(rejected, "The Host ownership rule must remain enforced.");
+            }
+            lifecycle.OnStopped(module);
+            Assert(service.CapturePoints().Count == 0, "Stopping Chat must remove all owned points.");
+        }
+    }
+
+    private static void AssertMessageActionSnapshot()
+    {
+        var urls = new List<string> { "https://example.org/one" };
+        var context = new ChatMessageActionContext("id", "sender", "raw <b>text</b>", "source", UIChatMessageStatus.Pending, urls);
+        urls.Clear();
+        Assert(context.Urls.Count == 1 && context.Text == "raw <b>text</b>" && context.Status == UIChatMessageStatus.Pending && context.Source == "source",
+            "Message action context must defensively copy links and retain raw text, source and owner-projected status.");
+        bool rejected = false;
+        try { new ChatMessageActionContext("id", "sender", "text", "source", UIChatMessageStatus.Pending, null, -1); }
+        catch (ArgumentOutOfRangeException) { rejected = true; }
+        Assert(rejected, "Negative URL page must be rejected.");
     }
 
     private static void AssertCompatibilitySubscriberIsolation()
@@ -91,6 +138,9 @@ internal static class Program
             builder.HostContext.AddService<IClientMessageSubmission>(host);
             builder.HostContext.AddService<IClientTheme>(host);
             builder.HostContext.AddService<IClientThemeRegistry>(host);
+            builder.HostContext.AddService<IClientPresentationService>(host);
+            builder.HostContext.AddService<IClientExtensionPointService>(host);
+            builder.HostContext.AddService<IClientApiDirectory>(host);
             module.Compose(builder);
             Assert(host.SubscriptionCount == 0,
                 "The actual complete Chat graph must construct without starting host subscriptions.");
@@ -106,7 +156,7 @@ internal static class Program
 
     private sealed class RegistrationHost : IClientDisplayMessageFeed, IClientDisplayMessageStore,
         IClientSessionContext, IClientSettingsContext, IClientUserDirectory, IClientUserEventStream,
-        IClientSettingsWindowService, IClientMainThreadDispatcher, IFrameworkClientTransport, IClientMessageSubmission, IClientTheme,IClientThemeRegistry
+        IClientSettingsWindowService, IClientMainThreadDispatcher, IFrameworkClientTransport, IClientMessageSubmission, IClientTheme,IClientThemeRegistry, IClientPresentationService, IClientExtensionPointService, IClientApiDirectory
     {
         public event EventHandler<FrameworkDisplayMessageEventArgs> DisplayMessageReceived;
         public event EventHandler Disconnected;
@@ -142,6 +192,11 @@ internal static class Program
         public void Enqueue(Action action) { throw new Exception("Unexpected registration dispatch"); }
         public long Version => 0;
         public event Action Changed { add { } remove { } }
+        public IClientPresentationSession Open(IPhinixExtensionModule module, string pageId) => throw new Exception("Compose must not open a presentation view");
+        public IClientExtensionPointScope ForModule(IPhinixExtensionModule module) => throw new Exception("Compose must not activate action points");
+        public long Revision => 0;
+        public IReadOnlyList<ClientExtensionPointInfo> CapturePoints() => new ClientExtensionPointInfo[0];
+        public IReadOnlyList<IClientApiProvider<T>> Capture<T>() where T : class => new IClientApiProvider<T>[0];
         public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
         public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
         public Color PrimaryText => default(Color);

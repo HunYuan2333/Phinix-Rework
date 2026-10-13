@@ -15,6 +15,30 @@ internal static class Program
     private static void Assert(bool value,string message) { assertions++; if(!value) throw new InvalidOperationException(message); }
     private static int Subscribers(object module,string name)
     { var value=(Delegate)module.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(module); return value?.GetInvocationList().Length??0; }
+    private static void AssertPresentationOwnership(Type moduleType)
+    {
+        var hostAssembly = Assembly.LoadFrom(Path.GetFullPath("Output/phinix-rework/1.6/Assemblies/13-PhinixClient.dll"));
+        var serviceType = hostAssembly.GetType("PhinixClient.Framework.ClientExtensionPointService", true);
+        var service = (IClientExtensionPointService)Activator.CreateInstance(serviceType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            null, new object[] { (Func<bool>)(() => true), (Action<string>)(_ => {}) }, null);
+        var module = (IPhinixExtensionModule)Activator.CreateInstance(moduleType);
+        serviceType.GetMethod("SetModuleTypes", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(service, new object[] { new[] { moduleType } });
+        var lifecycle = (IExtensionModuleLifecycleObserver)service;
+        for (int activation = 0; activation < 2; activation++)
+        {
+            lifecycle.OnActivating(module);
+            using (var scope = service.ForModule(module))
+            {
+                var point = scope.DefineActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.PointId);
+                scope.DefineActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.DeliveryChoicePointId);
+                scope.DefineActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.SettingsPointId);
+                Assert(service.CapturePoints().Count == 3 && service.CapturePoints().All(p => p.OwnerId == module.ExtensionId), "Inventory presentation points belong to actual module identity.");
+
+            }
+            lifecycle.OnStopped(module);
+            Assert(service.CapturePoints().Count == 0, "Inventory point registrations release and can be reactivated.");
+        }
+    }
     private static int Main(string[] args)
     {
         try
@@ -23,6 +47,7 @@ internal static class Program
             string dll=args.Length>1?args[1]:Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"InventoryExtension.Client.dll");
             var assembly=Assembly.LoadFrom(Path.GetFullPath(dll));
             Type type=assembly.GetType("Phinix.InventoryExtension.Client.BuiltInInventoryClientExtension",true);
+            if (!legacy) AssertPresentationOwnership(type);
             var facts=new List<string>();
             foreach(string scenario in legacy?new[]{"success"}:new[]{"success","resolve-failure","register-failure","missing-host"})
             {
@@ -46,9 +71,16 @@ internal static class Program
                     {
                         Type[] apiTypes={typeof(IInventoryApi),typeof(IInventoryRegistrationApi),typeof(IInventoryDepositApi),typeof(IInventoryReadApi),typeof(IInventoryExtractionApi),typeof(IInventoryReservationApi)};
                         foreach(Type api in apiTypes) Assert(ReferenceEquals(builder.Items[api],module),"Facade identity preserved: "+api.Name);
-                        Assert(builder.Items.Count==9,"Exactly the original nine API registrations.");
+                        Assert(builder.Items.Count==(legacy?9:10),"Original nine registrations plus the additive batch API.");
                         Assert(ReferenceEquals(builder.Items[typeof(IClientSettingsPanelProvider)],builder.Items[typeof(IClientQuickSettingsPanelProvider)]),"Settings and quick settings use one provider.");
                         Assert(Subscribers(module,"InventoryChanged")==1 && Subscribers(module,"AvailabilityChanged")==1,"Tab invalidation subscriptions installed once.");
+                        if (!legacy)
+                        {
+                            Assert(ReferenceEquals(builder.Items[typeof(IInventoryBatchExtractionApi)], module), "Batch API shares the authoritative Inventory module.");
+                            var batchApi = (IInventoryBatchExtractionApi)module;
+                            Assert(batchApi.BatchProgress == null, "No batch before activation.");
+                            Assert(!batchApi.StartBatchExtraction(new[] { new InventoryBatchItem("a", 1) }, 0, out _), "Inactive batch extraction rejected.");
+                        }
                         var read=(IInventoryReadApi)module;
                         var capabilities=read.GetCapabilities();
                         facts.Add("apis="+string.Join(",",builder.Items.OrderBy(p=>p.Key.FullName).Select(p=>p.Key.FullName+":"+p.Value.GetType().FullName)));

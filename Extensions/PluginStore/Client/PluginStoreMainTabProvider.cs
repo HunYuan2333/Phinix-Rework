@@ -1,10 +1,11 @@
 using PhinixClient;
+using PhinixClient.Framework;
 using UnityEngine;
 using Verse;
 
 namespace Phinix.PluginStore
 {
-    internal sealed class PluginStoreMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, System.IDisposable
+    internal sealed class PluginStoreMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, IClientViewLifecycle, IClientNavigationMetadata, System.IDisposable
     {
         public PluginStoreMainTabProvider() { }
         public void Dispose() { Stop(); }
@@ -18,7 +19,11 @@ namespace Phinix.PluginStore
         public UiLayoutHints LayoutHints => Hints;
 
         public void Initialize(ManagedPluginStoreView view) { this.view = view; }
-        public void Stop() { view = null; }
+        public void Stop() { view?.Stop(); view = null; }
+        public string NavigationId => "store";
+        public void ViewOpened() { view?.OpenPresentation(); }
+        public void ViewClosed() { view?.ClosePresentation(); }
+        public void ViewUpdate() { view?.UpdatePresentation(); }
 
         public void Draw(Rect inRect)
         {

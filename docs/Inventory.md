@@ -29,3 +29,13 @@ LegacyRedPacket also lists available inventory alongside map items, with an Inve
 Sender records use the extension's general storage service and are keyed by a reservation present in the current save, so loading another save cannot automatically release their custody. A 20-second publication timeout becomes uncertain, while a later real acceptance can still resolve it in the same session. Disconnects, game changes and process restarts preserve unfinished sender records as uncertain. Automatic reconciliation of interrupted relay claim history is not implemented: these records stay held for review and are neither resent nor refunded automatically. This limitation is visible in the red-packet tab; it must not be described as full crash recovery. No live Thing reference is persisted by this path.
 
 Rework red packets retain the legacy `create` preview for old clients and send an additive, bounded sequence of `state` parts before it. The state payload is the same compressed Scribe payload used by Trade, is SHA-256 verified, and may be claimed by a Rework client only after every part arrives. Stateful stacks may be divided among recipients by restoring the original state and reducing only `stackCount`; the deterministic claims still sum to the original count. Old Phi clients ignore the additive parts and therefore retain legacy preview-only behavior. State that references an external Pawn or that a third-party component does not expose through Scribe still cannot be reconstructed across saves.
+
+## 同类记录批量提取（B37）
+
+新增独立 `IInventoryBatchExtractionApi`，由同一个 Inventory module 注册；现有 IInventoryExtractionApi 保持。`StartBatchExtraction(IReadOnlyList<InventoryBatchItem>, expectedVersion, out reason)` 只启动运行期队列：整个请求预检版本、非空/唯一 entry ID、可用数量、codec/version/stack limit、最多10000记录及单位总数溢出，冻结原 Game/save/map。必须游戏主线程调用；BatchProgress 为不可变进度快照。
+
+每帧原 Root.Update 生命周期观察执行一个合法堆，复用 TryExtractSingleStack 的 journal reserve → DeliverVerified → journal completion，不合并不透明 payload，不绕过挂起恢复。逐堆原子、整批允许部分完成；无自动重试/退款。任一失败、外部账本变化、存档/投放地图变化停止后续工作；未执行部分仍在库存，已交付部分保持，uncertain 仍走原 reconcile。关闭视图不停止；StopBatchExtraction 只停止剩余工作。队列不持久化、不自动重启恢复，无新保存 schema 或协议；原逐堆日志持久化不变。
+
+主视图点分组标题仍展开/折叠，同时选择类别；可输入本批记录数，选“提取一批”或“提取本类全部”。每个原 entry 提取当前全部可用 codec units（whole-stack记录仍按其单位交付）。分组遵守原 codec/source/origin 边界，各自品质/耐久/状态独立；锁定量排除。公共 Host confirmation 显示记录数；≥100记录或≥1000单位提示大量还原/落地/日志可能卡顿。复杂物品单堆也可能慢，这不是帧预算保证。
+
+InventoryPresentationActionContext 增加可选 GroupKey/GroupRecords，group 模式 QuantityText 是记录数；batch 模式只有停止及普通贡献动作。共享 Host renderer/theme/action实现不变，Example1.0.34不用重包。编译/离线通过，游戏批量交付和复杂物品性能待测。

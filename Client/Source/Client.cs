@@ -23,7 +23,8 @@ namespace PhinixClient
     public class Client : Mod
     {
         public static Client Instance;
-        public static readonly Version Version = typeof(Client).Assembly.GetName().Version;
+        public static readonly Version Version = new Version(((System.Reflection.AssemblyFileVersionAttribute)
+            Attribute.GetCustomAttribute(typeof(Client).Assembly, typeof(System.Reflection.AssemblyFileVersionAttribute))).Version);
         public const string CompatibilityVersion = "0.9.7";
         public const string PackageId = "Thomotron.Phinix";
 
@@ -145,6 +146,11 @@ namespace PhinixClient
         private readonly List<IClientSettingsPanelProvider> sortedSettingsPanels = new List<IClientSettingsPanelProvider>();
         private PhinixFrameworkClient cachedSettingsPanelFramework;
         private int cachedSettingsExtensionCount = -1;
+        private readonly Dictionary<IClientSettingsPanelProvider, float> settingsPanelOrders = new Dictionary<IClientSettingsPanelProvider, float>();
+        private readonly Dictionary<IClientSettingsPanelProvider, string> settingsPanelIds = new Dictionary<IClientSettingsPanelProvider, string>();
+        private int settingsProviderFrame = -100;
+        private IReadOnlyList<IClientApiProvider<IClientSettingsPanelProvider>> settingsProviderHandles;
+        private readonly HashSet<string> settingsProviderFailures = new HashSet<string>();
         private Vector2 modSettingsScrollPosition;
         private float modSettingsContentHeight = 1200f;
         private readonly Listing_Standard modSettingsListing = new Listing_Standard
@@ -233,7 +239,7 @@ namespace PhinixClient
             {
                 // ProcessExit can run after Unity's main thread has stopped. Only
                 // release game-independent host resources here.
-                try { localizationService?.Dispose(); }
+                try { try { (themeWindowService as IDisposable)?.Dispose(); } finally { localizationService?.Dispose(); } }
                 finally { apiDirectory?.Dispose(); themePackages?.Dispose(); managedExtensionRuntime?.Dispose(); }
             };
             AppDomain.CurrentDomain.ProcessExit += processExitHandler;
@@ -337,6 +343,10 @@ namespace PhinixClient
         internal IClientTheme Theme { get; private set; }
         private ClientThemePackageService themePackages;
         private ClientApiDirectory apiDirectory;
+        internal IClientApiDirectory UiApiDirectory => apiDirectory;
+        private IClientThemeWindowService themeWindowService;
+        internal void OpenThemeEditor() => themeWindowService?.OpenThemeWindow();
+        internal void OpenPluginManager() => ((IClientExtensionManagementWindowService)windowService).OpenExtensionManagerWindow();
 
         private void InitializeExtensions(string modRoot, ExtensionHostContext extensionHostContext)
         {
@@ -358,6 +368,7 @@ namespace PhinixClient
                 extensionHostContext.AddService<IClientThemeRegistry>(uiTheme);
                 extensionHostContext.AddService<IClientThemeCatalog>(uiTheme);
                 var themeWindows = new ClientThemeWindowService(uiTheme, uiTheme, uiTheme, extensionHostContext.GetRequiredService<IClientSettingsContext>());
+                themeWindowService = themeWindows;
                 extensionHostContext.AddService<IClientThemeWindowService>(themeWindows);
                 Verse.Log.Message($"[Phinix] Loading extensions, probe dirs: {string.Join("; ", GetExtensionProbeDirectories(modRoot))}");
                 extensionAssemblyScope = ExtensionAssemblyLoader.LoadOwnedAssemblies(
@@ -434,11 +445,15 @@ namespace PhinixClient
                 extensionHostContext.AddService<IClientLocalizationService>(localizationService);
                 var extensionPoints=new ClientExtensionPointService(() => UnityData.IsInMainThread,
                     message => Verse.Log.Warning("[Phinix] "+message));
-                extensionPoints.SetModuleTypes(candidateModuleTypes);
+                extensionPoints.SetModuleTypes(candidateModuleTypes.Concat(new[] {typeof(HostThemePresentationOwner)}));
                 extensionHostContext.AddService<IClientExtensionPointService>(extensionPoints);
                 var lifetimeService=new ClientLifetimeService(()=>UnityData.IsInMainThread,message=>Verse.Log.Warning("[Phinix] "+message));
-                lifetimeService.SetModuleTypes(candidateModuleTypes);
+                lifetimeService.SetModuleTypes(candidateModuleTypes.Concat(new[] {typeof(HostThemePresentationOwner)}));
                 extensionHostContext.AddService<IClientLifetimeService>(lifetimeService);
+                var presentationService=new ClientPresentationService(
+                    lifetimeService, uiTheme, () => UnityData.IsInMainThread, message => Verse.Log.Warning("[Phinix] " + message));
+                extensionHostContext.AddService<IClientPresentationService>(presentationService);
+                themeWindows.ConfigurePresentation(presentationService,extensionPoints,lifetimeService);
                 apiDirectory=new ClientApiDirectory((ExtensionApiRegistry)extensionHostContext.ApiRegistry,()=>frameworkClient?.ExtensionResults,candidateModuleTypes,()=>UnityData.IsInMainThread);
                 extensionHostContext.AddService<IClientApiDirectory>(apiDirectory);
                 uiTheme.SetModuleTypes(candidateModuleTypes);
@@ -517,7 +532,7 @@ namespace PhinixClient
             catch (Exception error) { Verse.Log.Error("[Phinix] ExtensionShutdownFailed: " + error); }
             finally
             {
-                try { localizationService?.Dispose(); }
+                try { try { (themeWindowService as IDisposable)?.Dispose(); } finally { localizationService?.Dispose(); } }
                 finally
                 {
                     try { apiDirectory?.Dispose(); themePackages?.Dispose(); extensionControls?.Dispose(); managedExtensionRuntime?.Dispose(); }
@@ -623,12 +638,20 @@ namespace PhinixClient
                 {
                     int extensionCount = frameworkClient.ExtensionResults?.Count ?? 0;
                     if (!ReferenceEquals(cachedSettingsPanelFramework, frameworkClient) ||
-                        cachedSettingsExtensionCount != extensionCount)
+                        cachedSettingsExtensionCount != extensionCount || Time.frameCount - settingsProviderFrame >= 30)
                     {
-                        IReadOnlyList<IClientSettingsPanelProvider> panels = frameworkClient.GetSettingsPanels();
-                        sortedSettingsPanels.Clear();
-                        for (int i = 0; i < panels.Count; i++) sortedSettingsPanels.Add(panels[i]);
-                        sortedSettingsPanels.Sort((left, right) => left.Order.CompareTo(right.Order));
+                        settingsProviderHandles = apiDirectory?.Capture<IClientSettingsPanelProvider>();
+                        sortedSettingsPanels.Clear(); settingsPanelOrders.Clear(); settingsPanelIds.Clear();
+                        if (settingsProviderHandles != null) foreach (var handle in settingsProviderHandles)
+                        {
+                            if (!handle.TryGet(out var panel)) continue;
+                            float order = 0; string id = handle.OwnerId + "/" + handle.RegistrationId;
+                            try { order = panel.Order; id = handle.OwnerId + "/" + panel.SectionId; }
+                            catch (Exception error) { if (settingsProviderFailures.Add(id)) Verse.Log.Warning("[Phinix] Settings metadata failed: " + error); }
+                            sortedSettingsPanels.Add(panel); settingsPanelOrders[panel] = order; settingsPanelIds[panel] = id;
+                        }
+                        sortedSettingsPanels.Sort((left, right) => { int result = settingsPanelOrders[left].CompareTo(settingsPanelOrders[right]); return result != 0 ? result : string.CompareOrdinal(settingsPanelIds[left], settingsPanelIds[right]); });
+                        settingsProviderFrame = Time.frameCount;
                         cachedSettingsPanelFramework = frameworkClient;
                         cachedSettingsExtensionCount = extensionCount;
                     }
@@ -636,13 +659,13 @@ namespace PhinixClient
                     for (int panelIndex = 0; panelIndex < sortedSettingsPanels.Count; panelIndex++)
                     {
                         IClientSettingsPanelProvider panel = sortedSettingsPanels[panelIndex];
-                        if (!panel.IsVisible(settingsContext))
-                        {
-                            continue;
-                        }
-
+                        bool current = false;
+                        if (settingsProviderHandles != null) foreach (var handle in settingsProviderHandles)
+                            if (handle.TryGet(out var available) && ReferenceEquals(available, panel)) { current = true; break; }
+                        if (!current) continue;
                         try
                         {
+                            if (!panel.IsVisible(settingsContext)) continue;
                             if (firstPanel)
                             {
                                 firstPanel = false;
@@ -665,7 +688,8 @@ namespace PhinixClient
                         }
                         catch (Exception ex)
                         {
-                            Verse.Log.Error($"[Phinix] Settings panel '{panel.SectionId}' (Order={panel.Order}) threw: {ex}");
+                            if (settingsProviderFailures.Add(panel.GetType().FullName)) Verse.Log.Warning("[Phinix] Settings panel failed: " + ex);
+                            ClientWidgets.Label(listing.GetRect(32), "Phinix_shell_providerFailed".Translate(), HostThemeDrawing.Current, true);
                         }
                     }
                 }

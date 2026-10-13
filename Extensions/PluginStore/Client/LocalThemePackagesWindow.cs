@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using PhinixClient;
 using PhinixClient.Framework;
+using Utils.Framework;
 using UnityEngine;
 using Utils.Framework.Themes;
 using Utils.Framework.ManagedExtensions;
@@ -9,73 +11,69 @@ using Verse;
 
 namespace Phinix.PluginStore
 {
-    internal sealed class LocalThemePackagesWindow : Window
+    internal sealed class LocalThemePackagesWindow : StorePresentationWindow
     {
-        private readonly IClientTheme theme;
+        private readonly IPhinixExtensionModule owner;
+        private readonly IClientPresentationService renderer;
+        private readonly IClientExtensionPointService points;
+        private readonly IClientActionPoint<PluginStorePresentationActionContext> point;
         private readonly IClientThemePackageService packages;
         private readonly IClientThemeWindowService selector;
-        private readonly Func<bool> alive;
         private ThemePackage candidate;
-        private string expected,message="";
-        private Vector2 scroll;
+        private string expected,message="",selection;
+        private ClientPresentationTone messageTone;
         private LocalPackageFileWindow browser;
-        private InstalledThemePackage[] rows=new InstalledThemePackage[0];
-        internal LocalThemePackagesWindow(IClientTheme theme,IClientThemePackageService packages,IClientThemeWindowService selector,Func<bool> alive)
+        private InstalledThemePackage[] rows=Array.Empty<InstalledThemePackage>();
+        internal LocalThemePackagesWindow(IPhinixExtensionModule owner,IClientPresentationService renderer,
+            IClientExtensionPointService points,IClientActionPoint<PluginStorePresentationActionContext> point,
+            IClientThemePackageService packages,IClientThemeWindowService selector,Func<bool> alive)
+            :base(owner,renderer,points,point,alive,PluginStorePresentationSurface.LocalThemes)
         {
-            this.theme=theme;this.packages=packages;this.selector=selector;this.alive=alive;
-            doCloseX=true;closeOnAccept=false;absorbInputAroundWindow=true;Refresh();
+            this.owner=owner;this.renderer=renderer;this.points=points;this.point=point;
+            this.packages=packages;this.selector=selector;Refresh();
         }
         public override Vector2 InitialSize => new Vector2(Mathf.Min(760,UiScreenSafeArea.Current.width),Mathf.Min(610,UiScreenSafeArea.Current.height));
-        public override void WindowUpdate() {base.WindowUpdate();windowRect=UiScreenSafeArea.ClampWindow(windowRect,new Vector2(320,420));if(!alive()) Close();}
-        public override void PostClose() {base.PostClose();candidate=null;if(browser?.IsOpen==true) browser.Close();browser=null;}
-        private static string T(string key) => ("Phinix_store2_"+key).Translate();
-        private void Refresh() {packages.Refresh();rows=packages.Packages.ToArray();message=string.Join("\n",packages.Diagnostics.Take(3));}
-        private void Run(Action action) {try {if(alive()) action();}catch(Exception ex) {message=(ex as ManagedExtensionValidationException)?.Code??ex.Message;}}
-        public override void DoWindowContents(Rect rect)
+        public override void PostClose()
+        {try {candidate=null;if(browser?.IsOpen==true) browser.Close();browser=null;}finally {base.PostClose();}}
+        private void Refresh()
+        {packages.Refresh();rows=packages.Packages.ToArray();if(selection!=null && !rows.Any(p=>p.Manifest.PackageId==selection)) selection=null;message=string.Join("\n",packages.Diagnostics.Take(3));messageTone=message.Length==0?ClientPresentationTone.Neutral:ClientPresentationTone.Warning;Invalidate();}
+        private void Run(Action action)
+        {try {if(Available) action();}catch(Exception ex) {message=(ex as ManagedExtensionValidationException)?.Code??ex.Message;messageTone=ClientPresentationTone.Error;}finally {Invalidate();}}
+        protected override void HandleInput(ClientPresentationInput input)
+        {if(input.Id=="themes" && input.Kind==ClientPresentationInputKind.RowSelected) selection=input.Value;}
+        private void Choose()
         {
-            if(!alive()) return;
-            using(new ClientGuiScope(true))
-            {
-                var palette=theme.Capture();Text.Font=GameFont.Small;
-                ClientWidgets.Label(new Rect(0,0,rect.width,28),T("localThemes"),palette);
-                float width=(rect.width-12)/3;
-                if(ClientWidgets.Button(new Rect(0,34,width,30),T("themeChooseZip"),palette))
-                {
-                    if(browser?.IsOpen!=true)
-                    {
-                        browser=new LocalPackageFileWindow(theme,path=>Run(()=>
-                        {
-                            candidate=null;expected=null;Refresh();candidate=packages.Inspect(path);expected=rows.SingleOrDefault(p=>p.Manifest.PackageId==candidate.Manifest.PackageId)?.ArtifactSha256;
-                            message=T("themeCandidate")+"\n"+candidate.Manifest.Name+" · "+candidate.Manifest.Author+" · "+candidate.Manifest.Version+"\n"+candidate.Manifest.PackageId+"\n"+T("themeLocalSource");
-                        }),developerOnly:false);
-                        Find.WindowStack.Add(browser);
-                    }
-                }
-                if(ClientWidgets.Button(new Rect(width+6,34,width,30),T("refresh"),palette)) Run(Refresh);
-                if(ClientWidgets.Button(new Rect((width+6)*2,34,width,30),T("themeSelector"),palette)) Run(selector.OpenThemeWindow);
-                var viewport=new Rect(0,74,rect.width,Mathf.Max(0,rect.height-254));
-                Widgets.BeginScrollView(viewport,ref scroll,new Rect(0,0,Mathf.Max(0,viewport.width-18),rows.Length*72));
-                try
-                {
-                    var range=VirtualListLayout.GetFixedRange(rows.Length,72,scroll.y,viewport.height,1);
-                    for(int i=range.FirstIndex;i<range.EndIndexExclusive;i++)
-                    {
-                        var package=rows[i];float y=i*72;
-                        ClientWidgets.LabelEllipses(new Rect(0,y,Mathf.Max(0,viewport.width-116),30),package.Manifest.Name+" · "+package.Manifest.Version,palette);
-                        ClientWidgets.LabelEllipses(new Rect(0,y+30,Mathf.Max(0,viewport.width-116),30),package.SourceId+" · "+package.Manifest.Author,palette,true);
-                        if(ClientWidgets.Button(new Rect(Mathf.Max(0,viewport.width-110),y+10,90,30),T("uninstall"),palette))
-                        {
-                            Find.WindowStack.Add(new Dialog_MessageBox(T("themeRemoveConfirm")+"\n"+package.Manifest.Name,T("uninstall"),()=>Run(()=>
-                            {packages.Uninstall(package.Manifest.PackageId,package.ArtifactSha256);candidate=null;Refresh();message=T("themeRemoved");}),T("cancel")));
-                        }
-                    }
-                }
-                finally {Widgets.EndScrollView();}
-                ClientWidgets.Label(new Rect(0,rect.height-172,rect.width,126),message,palette,true);
-                TooltipHandler.TipRegion(new Rect(0,rect.height-172,rect.width,126),message);
-                if(ClientWidgets.Button(new Rect(0,rect.height-38,rect.width,32),T(expected==null?"themeInstall":"themeUpdate"),palette,enabled:candidate!=null))
-                    Run(()=> {packages.Install(candidate,expected);candidate=null;Refresh();message=T("themeInstalled");});
-            }
+            if(browser?.IsOpen==true) return;
+            browser=new LocalPackageFileWindow(owner,renderer,points,point,()=>Available,path=>Run(()=> {
+                candidate=null;expected=null;Refresh();candidate=packages.Inspect(path);
+                expected=rows.SingleOrDefault(p=>p.Manifest.PackageId==candidate.Manifest.PackageId)?.ArtifactSha256;
+                message=T("themeCandidate")+"\n"+Safe(candidate.Manifest.Name)+" · "+Safe(candidate.Manifest.Author)+" · "+candidate.Manifest.Version+"\n"+Safe(candidate.Manifest.PackageId)+"\n"+T("themeLocalSource");messageTone=ClientPresentationTone.Neutral;
+            }),developerOnly:false);
+            Find.WindowStack.Add(browser);Invalidate();
+        }
+        protected override void RebuildPresentation()
+        {
+            var picked=rows.SingleOrDefault(p=>p.Manifest.PackageId==selection);
+            var frozenCandidate=candidate;var frozenExpected=expected;
+            var definitions=new List<ClientActionDefinition> {
+                new ClientActionDefinition("choose",T("themeChooseZip"),()=>Run(Choose)),
+                new ClientActionDefinition("refresh",T("refresh"),()=>Run(Refresh)),
+                new ClientActionDefinition("selector",T("themeSelector"),()=>Run(selector.OpenThemeWindow)),
+                new ClientActionDefinition("theme-install",T(expected==null?"themeInstall":"themeUpdate"),()=>Run(()=> {
+                    packages.Install(frozenCandidate,frozenExpected);candidate=null;Refresh();message=T("themeInstalled");messageTone=ClientPresentationTone.Success;
+                }),candidate==null?T("themeChooseZip"):null)
+            };
+            if(picked!=null) definitions.Add(new ClientActionDefinition("theme-uninstall",T("uninstall"),()=>Run(()=> {
+                packages.Uninstall(picked.Manifest.PackageId,picked.ArtifactSha256);candidate=null;Refresh();message=T("themeRemoved");messageTone=ClientPresentationTone.Success;
+            })));
+            var list=rows.Select(p=>new ClientPresentationRow(p.Manifest.PackageId,Safe(p.Manifest.Name)+" · "+p.Manifest.Version,Safe(p.SourceId)+" · "+Safe(p.Manifest.Author))).ToArray();
+            Publish(T("localThemes"),messageTone==ClientPresentationTone.Error?"LocalThemeOperationFailed":candidate==null?"LocalThemes":"ThemeCandidateInspected",definitions,bindings=>new[] {
+                new ClientPresentationSection("tools","","",bindings.Where(b=>b.Action.Id!="theme-uninstall" && b.Action.Id!="theme-install")).WithWrappedActions(),
+                new ClientPresentationSection("packages",T("localThemes"),"",list:new ClientPresentationList("themes",list,T("localDirectoryEmpty"),selection)),
+                new ClientPresentationSection("selected",picked==null?"":Safe(picked.Manifest.Name),picked==null?"":Safe(picked.SourceId),bindings.Where(b=>b.Action.Id=="theme-uninstall")),
+                new ClientPresentationSection("candidate",candidate==null?"":T("themeCandidate"),"",bindings.Where(b=>b.Action.Id=="theme-install"),status:new ClientPresentationStatus(Safe(message),messageTone))
+            },id=>id=="theme-uninstall"?new ClientPresentationConfirmation(T("uninstall"),T("themeRemoveConfirm")+"\n"+Safe(picked.Manifest.Name),T("uninstall"),T("cancel")):null,
+                selectedKey:selection,packageId:picked?.Manifest.PackageId,version:picked?.Manifest.Version.ToString(),fixedHeaderSections:1);
         }
     }
 }

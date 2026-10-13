@@ -78,9 +78,19 @@ namespace PhinixClient
             action = hasAction
                 ? new Rect(container.xMax - Mathf.Min(actionWidth, container.width), controlsY, Mathf.Min(actionWidth, container.width), rowHeight)
                 : new Rect(container.xMax, controlsY, 0f, rowHeight);
-            float inputRightStacked = hasAction ? action.xMin - spacing : container.xMax;
-            input = new Rect(container.xMin, controlsY, Mathf.Max(0f, inputRightStacked - container.xMin), rowHeight);
-            contentHeight = rowHeight * 2f + spacing;
+            bool separateAction = hasAction && container.width < minimumInputWidth + spacing + actionWidth;
+            if (separateAction)
+            {
+                input = new Rect(container.xMin, controlsY, container.width, rowHeight);
+                action = new Rect(container.xMin, input.yMax + spacing, container.width, rowHeight);
+                contentHeight = rowHeight * 3f + spacing * 2f;
+            }
+            else
+            {
+                float inputRightStacked = hasAction ? action.xMin - spacing : container.xMax;
+                input = new Rect(container.xMin, controlsY, Mathf.Max(0f, inputRightStacked - container.xMin), rowHeight);
+                contentHeight = rowHeight * 2f + spacing;
+            }
             Rect stackedError = CreateErrorRect(container, contentHeight, spacing, errorHeight);
             return new ResponsiveFormResult(
                 ResponsiveFormMode.Stacked,

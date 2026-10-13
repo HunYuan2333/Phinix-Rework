@@ -1,179 +1,275 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using PhinixClient;
 using PhinixClient.Framework;
 using UnityEngine;
+using Utils.Framework;
 using Verse;
 
 namespace Phinix.InventoryExtension.Client
 {
-    internal sealed class InventoryTab : IMainTabProvider, IResponsiveMainTabProvider, IDisposable
+    // Inventory owns all validation and execution. Host only renders these snapshots and intents.
+    internal sealed class InventoryTab : IMainTabProvider, IResponsiveMainTabProvider, IClientViewLifecycle, IClientNavigationMetadata, IDisposable
     {
         private enum EditorMode { None, Extract, DailySchedule }
-
-        private const float RowHeight = 60f;
-        private const float Spacing = 8f;
-        private static readonly UiLayoutHints Hints = new UiLayoutHints(
-            new Vector2(360f, 300f), new Vector2(780f, 560f), true);
-        private readonly InventoryTheme theme;
-
+        private static readonly UiLayoutHints Hints = new UiLayoutHints(new Vector2(360, 300), new Vector2(780, 560), true);
         private readonly BuiltInInventoryClientExtension inventory;
-        private bool disposed;
+        private readonly InventoryTheme theme;
+        private bool disposed, dirty = true;
         private IReadOnlyList<InventoryEntry> entries = Array.Empty<InventoryEntry>();
-        private string[] rowTitles = Array.Empty<string>();
-        private string[] rowDetails = Array.Empty<string>();
-        private string[] rowTooltips = Array.Empty<string>();
+        private string[] rowTitles = Array.Empty<string>(), rowDetails = Array.Empty<string>(), rowTooltips = Array.Empty<string>();
         private long[] rowAvailable = Array.Empty<long>();
         private InventoryItemPresentation[] itemPresentations = Array.Empty<InventoryItemPresentation>();
         private List<InventoryDisplayGroup> groups = new List<InventoryDisplayGroup>();
         private readonly Dictionary<InventoryDisplayGroup, string[]> groupText = new Dictionary<InventoryDisplayGroup, string[]>();
         private readonly HashSet<string> expandedGroups = new HashSet<string>(StringComparer.Ordinal);
         private List<DisplayRow> visibleRows = new List<DisplayRow>();
-        private object shownLanguage;
-        private object shownGame;
-        private sealed class DisplayRow
-        {
-            public InventoryDisplayGroup Group;
-            public int EntryIndex;
-            public bool IsHeader;
-        }
+        private readonly Dictionary<string, DisplayRow> projectedRows = new Dictionary<string, DisplayRow>();
+        private sealed class DisplayRow { public InventoryDisplayGroup Group; public int EntryIndex; public bool IsHeader; }
+        private object shownLanguage, shownGame, publishedLanguage, publishedGame;
+        private long shownVersion = -1, revision, pointsRevision = -1, publishedVersion = -1;
         private int pendingTransferCount;
-        private long shownVersion = -1;
-        private Vector2 scroll;
-        private string notice;
-        private string selectedEntryId;
+        private string notice, selectedEntryId, selectedRow, selectedGroupKey;
+        private string batchRecordsText = "100";
+        private readonly Dictionary<string, ClientPresentationConfirmation> batchConfirmations = new Dictionary<string, ClientPresentationConfirmation>();
         private EditorMode editorMode;
-        private string extractQuantityText = "1";
-        private string scheduleQuantityText = "1";
-        private string dayTickText = "30000";
-
+        private string extractQuantityText = "1", scheduleQuantityText = "1", dayTickText = "30000";
+        private IPhinixExtensionModule module;
+        private IClientPresentationService renderer;
+        private IClientExtensionPointService points;
+        private IClientExtensionPointScope scope;
+        private IClientActionPoint<InventoryPresentationActionContext> point;
+        private IClientPresentationSession view;
+        private ClientActionExecutionResult publishedResult;
         public InventoryTab(BuiltInInventoryClientExtension inventory, InventoryTheme theme)
         {
-            this.inventory = inventory;
-            this.theme = theme;
-            // The tab and inventory share one extension lifetime. Also refresh on codec activation changes.
-            inventory.InventoryChanged += InvalidateRows;
-            inventory.AvailabilityChanged += InvalidateRows;
+            this.inventory = inventory; this.theme = theme;
+            inventory.InventoryChanged += InvalidateRows; inventory.AvailabilityChanged += InvalidateRows;
         }
-
+        internal void Start(IPhinixExtensionModule owner, IClientPresentationService renderer, IClientExtensionPointService points)
+        {
+            module = owner; this.renderer = renderer; this.points = points;
+            scope = points.ForModule(owner); point = scope.DefineActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.PointId);
+            scope.ContributeActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.PointId, BuildActions);
+        }
+        public string TabLabel => L("tab");
+        public float TabOrder => 2;
+        public string NavigationId => "inventory";
+        public UiLayoutHints LayoutHints => Hints;
+        private static string L(string key) => ("Phinix_inventory_" + key).Translate();
+        public void ViewOpened() { if (disposed || module == null || view != null && !view.IsClosed) return; view = renderer.Open(module, "inventory"); dirty = true; Refresh(); }
+        public void ViewClosed()
+        {
+            var old = view;
+            if (old != null && !old.IsClosed)
+                while (old.TryDequeueInput(out var input))
+                {
+                    if (input.Id == "batch-records") batchRecordsText = input.Value;
+                    else if (input.Id == "extract-quantity") extractQuantityText = input.Value;
+                    else if (input.Id == "schedule-quantity") scheduleQuantityText = input.Value;
+                    else if (input.Id == "schedule-tick") dayTickText = input.Value;
+                }
+            view = null; old?.Dispose(); dirty = true;
+        }
+        public void ViewUpdate()
+        {
+            if (view == null || view.IsClosed) return;
+            var pending = new List<ClientPresentationInput>();
+            while (view.TryDequeueInput(out var queued)) pending.Add(queued);
+            foreach (var input in pending)
+            {
+                if (input.Id == "entries" && projectedRows.TryGetValue(input.Value, out var row))
+                {
+                    if (row.IsHeader) { selectedEntryId = null; selectedGroupKey = row.Group.Key; selectedRow = input.Value; editorMode = EditorMode.None; notice = null; if (!expandedGroups.Remove(row.Group.Key)) expandedGroups.Add(row.Group.Key); RebuildVisibleRows(); }
+                    else { selectedGroupKey = null; selectedEntryId = entries[row.EntryIndex].EntryId; selectedRow = input.Value; editorMode = EditorMode.None; notice = null; }
+                    dirty = true;
+                }
+                else if (input.Id == "batch-records") { batchRecordsText = input.Value; dirty = true; }
+                else if (input.Id == "extract-quantity") { extractQuantityText = input.Value; dirty = true; }
+                else if (input.Id == "schedule-quantity") { scheduleQuantityText = input.Value; dirty = true; }
+                else if (input.Id == "schedule-tick") { dayTickText = input.Value; dirty = true; }
+            }
+            Refresh();
+        }
+        public void Draw(Rect rect) { if (!disposed) view?.Draw(rect); }
         public void Dispose()
         {
-            if (disposed) return;
-            disposed = true;
-            inventory.InventoryChanged -= InvalidateRows;
-            inventory.AvailabilityChanged -= InvalidateRows;
+            if (disposed) return; disposed = true; ViewClosed();
+            inventory.InventoryChanged -= InvalidateRows; inventory.AvailabilityChanged -= InvalidateRows;
+            scope?.Dispose(); scope = null; point = null; module = null;
         }
-
-        private void InvalidateRows(object sender, EventArgs args) { shownVersion = -1; }
-        public string TabLabel => "Phinix_inventory_tab".Translate();
-        public float TabOrder => 2f;
-        public UiLayoutHints LayoutHints => Hints;
-
-        public void Draw(Rect inRect)
+        private void InvalidateRows(object sender, EventArgs args) { shownVersion = -1; dirty = true; }
+        private static string RowId(string kind, string id)
+        { using (var sha = SHA256.Create()) return kind + "." + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(id))).Replace("-", "").ToLowerInvariant(); }
+        private string Mode => inventory.HasPendingRecovery ? "recovery" : inventory.HasPendingExtraction ? "reconcile" : inventory.Fault != null ? "fault" : inventory.BatchProgress?.Running == true ? "batch" : selectedGroupKey != null ? "group" : editorMode.ToString();
+        private static bool ParseQuantity(string text, out long quantity) => long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out quantity) && quantity > 0;
+        private static bool ParseTick(string text, out int tick) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out tick) && tick >= 0 && tick < 60000;
+        private void Refresh()
         {
-            if (disposed) return;
-            using (theme.BeginDraw())
-            using (new ClientGuiScope(true))
-            {
-                GUI.color = theme.Current.PrimaryText;
-                DrawContents(inRect);
-            }
-        }
-
-        private void DrawContents(Rect inRect)
-        {
-            if (inventory.HasPendingRecovery)
-            {
-                DrawResolutionPanel(inRect,
-                    "Phinix_inventory_recoveryTitle".Translate(),
-                    "Phinix_inventory_recoveryWarning".Translate(),
-                    "Phinix_inventory_recover".Translate(),
-                    "Phinix_inventory_keepSave".Translate(),
-                    () => inventory.ApproveRecovery(), () => inventory.RejectRecovery());
-                return;
-            }
-            if (inventory.HasPendingExtraction)
-            {
-                DrawResolutionPanel(inRect,
-                    "Phinix_inventory_pendingTitle".Translate(),
-                    "Phinix_inventory_pendingWarning".Translate(),
-                    "Phinix_inventory_markDelivered".Translate(),
-                    "Phinix_inventory_restoreBalance".Translate(),
-                    () => inventory.ResolvePendingExtraction(true),
-                    () => inventory.ResolvePendingExtraction(false));
-                return;
-            }
-            if (inventory.Fault != null)
-            {
-                DrawMessageCard(inRect, "Phinix_inventory_unavailableTitle".Translate(), inventory.Fault,
-                    theme.Current.Error);
-                return;
-            }
-
-            RefreshRows();
-            float top = inRect.y;
-            DrawHeader(new Rect(inRect.x, top, inRect.width, 50f));
-            top += 50f + Spacing;
-
-            if (pendingTransferCount > 0)
-            {
-                string pending = "Phinix_inventory_transferPending".Translate(pendingTransferCount);
-                float pendingHeight = Mathf.Max(36f,
-                    Text.CalcHeight(pending, Mathf.Max(1f, inRect.width - 24f)) + 12f);
-                Rect pendingRect = new Rect(inRect.x, top, inRect.width, pendingHeight);
-                ClientWidgets.Fill(pendingRect, theme.NoticeBackground);
-                ClientWidgets.Fill(new Rect(pendingRect.x, pendingRect.y, 3f, pendingRect.height),
-                    theme.Current.Warning);
-                ClientWidgets.Label(pendingRect.ContractedBy(8f), pending, theme.Current);
-                top += pendingHeight + Spacing;
-            }
-
-            if (!string.IsNullOrEmpty(notice))
-            {
-                float noticeHeight = Mathf.Max(36f,
-                    Text.CalcHeight(notice, Mathf.Max(1f, inRect.width - 24f)) + 12f);
-                Rect noticeRect = new Rect(inRect.x, top, inRect.width, noticeHeight);
-                ClientWidgets.Fill(noticeRect, theme.NoticeBackground);
-                ClientWidgets.Fill(new Rect(noticeRect.x, noticeRect.y, 3f, noticeRect.height),
-                    theme.Current.Warning);
-                ClientWidgets.Label(noticeRect.ContractedBy(8f), notice, theme.Current);
-                top += noticeHeight + Spacing;
-            }
-
+            if (view == null || view.IsClosed) return;
+            var language = LanguageDatabase.activeLanguage; var game = Current.Game;
+            if (!dirty && publishedVersion == inventory.Version && ReferenceEquals(publishedLanguage, language) && ReferenceEquals(publishedGame, game) &&
+                pointsRevision == points.Revision && ReferenceEquals(publishedResult, view.LastActionResult)) return;
+            string mode = Mode;
+            if (mode != "recovery" && mode != "reconcile" && mode != "fault") RefreshRows();
             InventoryEntry selected = FindEntry(selectedEntryId);
-            if (selected == null) CloseEditor();
-            else if (editorMode == EditorMode.Extract) DrawExtractionEditor(inRect, selected, ref top);
-            else if (editorMode == EditorMode.DailySchedule) DrawScheduleEditor(inRect, selected, ref top);
-
-            Rect viewport = new Rect(inRect.x, top, inRect.width, Mathf.Max(0f, inRect.yMax - top));
-            if (entries.Count == 0)
-            {
-                DrawEmptyState(viewport);
-                return;
-            }
-
-            List<DisplayRow> drawingRows = visibleRows;
-            Rect content = new Rect(0f, 0f, Mathf.Max(0f, viewport.width - 16f), drawingRows.Count * RowHeight);
-            Widgets.BeginScrollView(viewport, ref scroll, content);
+            if (selected == null && selectedEntryId != null) CloseEditor();
+            mode = Mode;
+            long version = inventory.Version, pointVersion = points.Revision, nextRevision = ++revision;
+            string groupKey = selectedGroupKey;
+            string selectedId = selectedEntryId, quantity = mode == "group" ? batchRecordsText : editorMode == EditorMode.DailySchedule ? scheduleQuantityText : extractQuantityText, tick = dayTickText;
+            var context = new InventoryPresentationActionContext(version, mode, selectedId, GetAvailableQuantity(selectedId), GetPresentation(selectedId).ItemsPerUnit, quantity, tick, groupKey, GroupPlan(groupKey, 10001).Count);
+            Func<bool> current = () => !disposed && view != null && !view.IsClosed && !dirty && revision == nextRevision && inventory.Version == version &&
+                points.Revision == pointVersion && ReferenceEquals(Current.Game, game) && ReferenceEquals(LanguageDatabase.activeLanguage, language) && Mode == mode && selectedEntryId == selectedId && selectedGroupKey == groupKey;
+            batchConfirmations.Clear();
+            var actions = point.Collect(context, current);
             try
             {
-                VirtualListRange range = VirtualListLayout.GetFixedRange(
-                    drawingRows.Count, RowHeight, scroll.y, viewport.height, 1);
-                for (int i = range.FirstIndex; i < range.EndIndexExclusive; i++)
+                var bindings = new List<ClientPresentationAction>();
+                foreach (var action in actions.Actions)
                 {
-                    DisplayRow row = drawingRows[i];
-                    Rect rect = new Rect(0f, i * RowHeight, content.width, RowHeight - 4f);
-                    if (row.IsHeader) DrawGroupRow(row.Group, rect);
-                    else
+                    batchConfirmations.TryGetValue(action.Id, out var confirmation);
+                    bindings.Add(new ClientPresentationAction(action.OwnerId + "." + action.Id, action,
+                        action.OwnerId == module.ExtensionId && (action.Id == "extract" || action.Id == "save-plan" || action.Id == "batch-some" || action.Id == "batch-all") ? ClientButtonKind.Primary : ClientButtonKind.Normal,
+                        confirmation: action.OwnerId == module.ExtensionId ? confirmation : null));
+                }
+                var sections = new List<ClientPresentationSection>();
+                if (mode == "recovery" || mode == "reconcile")
+                    sections.Add(new ClientPresentationSection("resolution", L(mode == "recovery" ? "recoveryTitle" : "pendingTitle"),
+                        L(mode == "recovery" ? "recoveryWarning" : "pendingWarning"), bindings, new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Warning), "inventory.noticeBackground"));
+                else if (mode == "fault") sections.Add(new ClientPresentationSection("fault", L("unavailableTitle"), inventory.Fault, bindings, status: new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Error), surfaceKey: "inventory.errorBackground"));
+                else
+                {
+                    sections.Add(new ClientPresentationSection("save", L("currentSaveTitle"), L("saveOnly") + "\n" + "Phinix_inventory_entryCount".Translate(groups.Count), surfaceKey: "inventory.infoBackground"));
+                    if (pendingTransferCount > 0) sections.Add(new ClientPresentationSection("reserved", "", "Phinix_inventory_transferPending".Translate(pendingTransferCount), status: new ClientPresentationStatus("", ClientPresentationTone.Warning), surfaceKey: "inventory.noticeBackground"));
+                    if (!string.IsNullOrEmpty(notice)) sections.Add(new ClientPresentationSection("result", "", notice, surfaceKey: "inventory.noticeBackground"));
+                    var progress = inventory.BatchProgress;
+                    if (progress != null)
+                        sections.Add(new ClientPresentationSection("batch-progress", L("batchProgressTitle"),
+                            "Phinix_inventory_batchProgress".Translate(progress.CompletedRecords, progress.Records, progress.CompletedUnits) +
+                            (progress.Running ? "\n" + L("batchRunning") : "\n" + (progress.Reason ?? L("batchCompleted"))),
+                            mode == "batch" ? bindings : null, surfaceKey: "inventory.noticeBackground"));
+                    if (mode == "group")
+                        sections.Add(new ClientPresentationSection("group-extract", L("batchTitle"),
+                            "Phinix_inventory_batchSelection".Translate(context.GroupRecords), bindings,
+                            fields: new[] { ClientPresentationTextField.Integer("batch-records", L("batchRecords"), batchRecordsText,
+                                int.TryParse(batchRecordsText, out int n) && n > 0 && n <= 10000 ? null : L("batchInvalid")) }, surfaceKey: "inventory.editorBackground"));
+                    else if (selected != null && mode != "batch")
                     {
-                        if (row.Group.EntryIndices.Count > 1) { rect.x += 16f; rect.width -= 16f; }
-                        DrawRow(row.EntryIndex, entries[row.EntryIndex], rect);
+                        var fields = new List<ClientPresentationTextField>();
+                        string title = GetPresentation(selectedId).Label;
+                        if (editorMode == EditorMode.Extract)
+                        {
+                            title = GetExtractionTitle(selected);
+                            string error = !ParseQuantity(quantity, out long q) ? L("extractInvalid") : q > context.AvailableUnits ? "Phinix_inventory_extractExceedsBalance".Translate(context.AvailableUnits).ToString() : null;
+                            fields.Add(ClientPresentationTextField.Integer("extract-quantity", GetPresentation(selectedId).ItemsPerUnit > 1 ? "Phinix_inventory_scheduleStackQuantity".Translate(context.ItemsPerUnit).ToString() : L("scheduleQuantity"), quantity, error));
+                        }
+                        else if (editorMode == EditorMode.DailySchedule)
+                        {
+                            title = "Phinix_inventory_scheduleEditorTitle".Translate(GetPresentation(selectedId).Label);
+                            fields.Add(ClientPresentationTextField.Integer("schedule-quantity", context.ItemsPerUnit > 1 ? "Phinix_inventory_scheduleStackQuantity".Translate(context.ItemsPerUnit).ToString() : L("scheduleQuantity"), quantity, ParseQuantity(quantity, out _) ? null : L("planInvalid")));
+                            fields.Add(ClientPresentationTextField.Integer("schedule-tick", L("scheduleTime"), tick, ParseTick(tick, out _) ? null : L("planInvalid")));
+                        }
+                        sections.Add(new ClientPresentationSection("selected", title, BuildTooltip(GetPresentation(selectedId).Label, checked(context.AvailableUnits * context.ItemsPerUnit), inventory.PresentSource(selected), FindSchedule(selectedId), context.ItemsPerUnit), bindings, fields: fields, surfaceKey: "inventory.editorBackground"));
                     }
+                    else if (mode != "batch" && bindings.Count > 0) sections.Add(new ClientPresentationSection("contributions", "", "", bindings));
+                    var listRows = new List<ClientPresentationRow>(); projectedRows.Clear();
+                    for (int i = 0; i < visibleRows.Count; i++)
+                    {
+                        var row = visibleRows[i]; string id;
+                        if (row.IsHeader)
+                        { id = RowId("group", row.Group.Key) + "." + i; var text = groupText[row.Group]; listRows.Add(new ClientPresentationRow(id, (expandedGroups.Contains(row.Group.Key) ? "▾ " : "▸ ") + text[0], text[1])); }
+                        else
+                        { var entry = entries[row.EntryIndex]; id = RowId("entry", entry.EntryId); listRows.Add(new ClientPresentationRow(id, rowTitles[row.EntryIndex], "Phinix_inventory_balance".Translate(checked(rowAvailable[row.EntryIndex] * itemPresentations[row.EntryIndex].ItemsPerUnit)) + " · " + rowDetails[row.EntryIndex])); }
+                        projectedRows.Add(id, row);
+                    }
+                    if (!projectedRows.ContainsKey(selectedRow ?? "")) selectedRow = null;
+                    sections.Add(new ClientPresentationSection("stock", L("tab"), "", list: new ClientPresentationList("entries", listRows, L("empty"), selectedRow)));
+                }
+                dirty = false;
+                view.Publish(new ClientPresentationPage("inventory", "", nextRevision, sections), actions, current);
+            }
+            catch { dirty = true; actions.Dispose(); throw; }
+            publishedVersion = version; publishedLanguage = language; publishedGame = game; pointsRevision = pointVersion; publishedResult = view.LastActionResult;
+        }
+        private IEnumerable<ClientActionDefinition> BuildActions(InventoryPresentationActionContext context)
+        {
+            var actions = new List<ClientActionDefinition>();
+            Action<string, string, Action, string> add = (id, label, execute, disabled) => actions.Add(new ClientActionDefinition(id, L(label), () => { execute(); dirty = true; }, disabled));
+            if (context.Mode == "recovery")
+            { add("recover", "recover", () => notice = inventory.ApproveRecovery() ? null : L("operationFailed"), null); add("keep-save", "keepSave", () => notice = inventory.RejectRecovery() ? null : L("operationFailed"), null); }
+            else if (context.Mode == "reconcile")
+            { add("mark-delivered", "markDelivered", () => notice = inventory.ResolvePendingExtraction(true) ? null : L("operationFailed"), null); add("restore-balance", "restoreBalance", () => notice = inventory.ResolvePendingExtraction(false) ? null : L("operationFailed"), null); }
+            else if (context.Mode == "batch")
+                add("batch-stop", "batchStop", inventory.StopBatchExtraction, null);
+            else if (context.Mode == "group")
+            {
+                int.TryParse(context.QuantityText, out int count);
+                AddBatchAction(actions, context, "batch-some", "batchSome", count);
+                AddBatchAction(actions, context, "batch-all", "batchAll", 10000);
+            }
+            else if (context.Mode != "fault" && context.EntryId != null)
+            {
+                if (context.Mode == "Extract")
+                {
+                    bool valid = ParseQuantity(context.QuantityText, out long quantity) && quantity <= context.AvailableUnits;
+                    add("extract", "extractConfirm", () =>
+                    {
+                        if (!inventory.TryExtract(context.EntryId, quantity, out string reason)) notice = string.IsNullOrEmpty(reason) ? L("operationFailed") : reason;
+                        else { notice = "Phinix_inventory_extractSucceeded".Translate(checked(quantity * context.ItemsPerUnit)); CloseEditor(); }
+                        shownVersion = -1;
+                    }, valid ? null : L("extractInvalid"));
+                    add("cancel", "cancel", CloseEditor, null);
+                }
+                else if (context.Mode == "DailySchedule")
+                {
+                    bool valid = ParseQuantity(context.QuantityText, out long quantity) && ParseTick(context.DayTickText, out _);
+                    ParseTick(context.DayTickText, out int tick);
+                    add("save-plan", "savePlan", () => { notice = inventory.SetDailySchedule(context.EntryId, quantity, tick, out _) ? L("planSaved") : L("planInvalid"); shownVersion = -1; }, valid ? null : L("planInvalid"));
+                    bool scheduled = FindSchedule(context.EntryId) != null;
+                    add("remove-plan", scheduled ? "removePlan" : "cancel", () => { if (!scheduled) CloseEditor(); else if (inventory.RemoveDailySchedule(context.EntryId)) { notice = L("planRemoved"); CloseEditor(); shownVersion = -1; } else notice = L("operationFailed"); }, null);
+                }
+                else
+                {
+                    add("open-extract", "extractStack", () => { var entry = FindEntry(context.EntryId); if (entry != null) OpenExtractionEditor(entry); }, context.AvailableUnits > 0 ? null : L("extractInvalid"));
+                    add("open-plan", "plan", () => { var entry = FindEntry(context.EntryId); if (entry != null) OpenScheduleEditor(entry); }, null);
                 }
             }
-            finally { Widgets.EndScrollView(); }
+            return actions;
         }
-
+        private List<InventoryBatchItem> GroupPlan(string key, int maximumRecords)
+        {
+            var result = new List<InventoryBatchItem>();
+            foreach (var group in groups)
+            {
+                if (group.Key != key) continue;
+                foreach (int i in group.EntryIndices)
+                {
+                    if (result.Count >= maximumRecords) break;
+                    if (rowAvailable[i] > 0) result.Add(new InventoryBatchItem(entries[i].EntryId, rowAvailable[i]));
+                }
+                break;
+            }
+            return result;
+        }
+        private void AddBatchAction(List<ClientActionDefinition> actions, InventoryPresentationActionContext context, string id, string label, int maximum)
+        {
+            var plan = GroupPlan(context.GroupKey, maximum);
+            bool valid = maximum > 0 && maximum <= 10000 && plan.Count > 0 &&
+                (id != "batch-all" || context.GroupRecords <= 10000);
+            string text = "Phinix_inventory_batchConfirm".Translate(plan.Count).ToString();
+            long units = 0; foreach (var item in plan) { if (item.Quantity > long.MaxValue - units) { units = long.MaxValue; break; } units += item.Quantity; }
+            if (plan.Count >= 100 || units >= 1000) text += "\n\n" + L("batchPerformance");
+            batchConfirmations[id] = new ClientPresentationConfirmation(L("batchTitle"), text, L("extractConfirm"), L("cancel"));
+            actions.Add(new ClientActionDefinition(id, L(label), () =>
+            {
+                notice = inventory.StartBatchExtraction(plan, context.Version, out string reason) ? null : reason;
+                dirty = true;
+            }, valid ? null : L("batchInvalid")));
+        }
         private void RefreshRows()
         {
             if (shownVersion == inventory.Version && ReferenceEquals(shownLanguage, LanguageDatabase.activeLanguage) &&
@@ -182,7 +278,7 @@ namespace Phinix.InventoryExtension.Client
             {
                 expandedGroups.Clear();
                 CloseEditor();
-                scroll = Vector2.zero;
+                selectedRow = null;
             }
             entries = inventory.GetSnapshot();
             Dictionary<string, long> availableByEntry = new Dictionary<string, long>(StringComparer.Ordinal);
@@ -241,6 +337,7 @@ namespace Phinix.InventoryExtension.Client
             HashSet<string> currentKeys = new HashSet<string>(StringComparer.Ordinal);
             foreach (InventoryDisplayGroup group in groups) currentKeys.Add(group.Key);
             expandedGroups.IntersectWith(currentKeys);
+            if (selectedGroupKey != null && !currentKeys.Contains(selectedGroupKey)) CloseEditor();
             RebuildVisibleRows();
             shownVersion = inventory.Version;
             shownLanguage = LanguageDatabase.activeLanguage;
@@ -261,273 +358,12 @@ namespace Phinix.InventoryExtension.Client
             visibleRows = rows;
         }
 
-        private void DrawGroupRow(InventoryDisplayGroup group, Rect rect)
-        {
-            ClientWidgets.Fill(rect, theme.InfoBackground);
-            ClientWidgets.Fill(new Rect(rect.x, rect.y, 3f, rect.height), theme.InfoAccent);
-            float buttonWidth = Mathf.Clamp(rect.width * 0.23f, 80f, 126f);
-            Rect button = new Rect(rect.xMax - buttonWidth - 6f, rect.y + 10f, buttonWidth, 34f);
-            Rect text = new Rect(rect.x + 10f, rect.y + 4f, Mathf.Max(0f, button.x - rect.x - 20f), rect.height - 8f);
-            string[] labels = groupText[group];
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            Color oldColor = GUI.color;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                ClientWidgets.LabelEllipses(new Rect(text.x, text.y, text.width, 27f), labels[0], theme.Current);
-                Text.Font = GameFont.Tiny;
-                ClientWidgets.LabelEllipses(new Rect(text.x, text.y + 25f, text.width, 20f), labels[1], theme.Current, secondary: true);
-            }
-            finally { Text.Font = oldFont; Text.Anchor = oldAnchor; GUI.color = oldColor; }
-            TooltipHandler.TipRegion(text, labels[2]);
-            bool expanded = expandedGroups.Contains(group.Key);
-            if (ClientWidgets.Button(button, (expanded ? "Phinix_inventory_collapse" : "Phinix_inventory_expand").Translate(), theme.Current))
-            {
-                if (expanded) expandedGroups.Remove(group.Key); else expandedGroups.Add(group.Key);
-                RebuildVisibleRows();
-            }
-        }
-
-        private void DrawHeader(Rect rect)
-        {
-            ClientWidgets.Fill(rect, theme.InfoBackground);
-            ClientWidgets.Fill(new Rect(rect.x, rect.y, 3f, rect.height), theme.InfoAccent);
-            Rect inner = rect.ContractedBy(8f);
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                ClientWidgets.Label(new Rect(inner.x, inner.y, Mathf.Max(0f, inner.width - 110f), 24f),
-                    "Phinix_inventory_currentSaveTitle".Translate(), theme.Current);
-                Text.Font = GameFont.Tiny;
-                ClientWidgets.Label(new Rect(inner.x, inner.y + 23f, inner.width, 20f),
-                    "Phinix_inventory_saveOnly".Translate(), theme.Current, secondary: true);
-                Text.Anchor = TextAnchor.MiddleRight;
-                Text.Font = GameFont.Small;
-                ClientWidgets.Label(new Rect(inner.xMax - 110f, inner.y, 110f, 24f),
-                    "Phinix_inventory_entryCount".Translate(groups.Count), theme.Current);
-            }
-            finally { Text.Font = oldFont; Text.Anchor = oldAnchor; }
-        }
-
-        private void DrawRow(int index, InventoryEntry entry, Rect rect)
-        {
-            if ((index & 1) != 0) ClientWidgets.Fill(rect, theme.AlternateBackground);
-            if (string.Equals(entry.EntryId, selectedEntryId, StringComparison.Ordinal))
-                ClientWidgets.Fill(rect, theme.SelectedBackground);
-            else if (Mouse.IsOver(rect)) ClientWidgets.Fill(rect, theme.Current.HoverHighlight);
-            ClientWidgets.Border(rect, theme.Current);
-
-            float actionWidth = Mathf.Clamp(rect.width * 0.17f, 68f, 98f);
-            float actionsWidth = actionWidth * 2f + 6f;
-            Rect textRect = new Rect(rect.x + 10f, rect.y + 4f,
-                Mathf.Max(0f, rect.width - actionsWidth - 22f), rect.height - 8f);
-            Rect planRect = new Rect(rect.xMax - actionsWidth - 6f, rect.y + 10f, actionWidth, 34f);
-            Rect extractRect = new Rect(planRect.xMax + 6f, planRect.y, actionWidth, 34f);
-
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            Color oldColor = GUI.color;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.UpperLeft;
-                float balanceWidth = Mathf.Min(100f, textRect.width * 0.34f);
-                Rect titleRect = new Rect(textRect.x, textRect.y,
-                    Mathf.Max(0f, textRect.width - balanceWidth - 6f), 27f);
-                ClientWidgets.LabelEllipses(titleRect, rowTitles[index], theme.Current);
-                Text.Anchor = TextAnchor.UpperRight;
-                ClientWidgets.Label(new Rect(titleRect.xMax + 6f, titleRect.y, balanceWidth, 27f),
-                    "Phinix_inventory_balance".Translate(checked(rowAvailable[index] * itemPresentations[index].ItemsPerUnit)), theme.Current);
-
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.LowerLeft;
-                ClientWidgets.LabelEllipses(new Rect(textRect.x, textRect.y + 25f, textRect.width, 20f),
-                    string.IsNullOrEmpty(rowDetails[index])
-                        ? "Phinix_inventory_originUnavailable".Translate().ToString() : rowDetails[index], theme.Current, secondary: true);
-            }
-            finally { GUI.color = oldColor; Text.Font = oldFont; Text.Anchor = oldAnchor; }
-
-            TooltipHandler.TipRegion(textRect, rowTooltips[index]);
-            if (ClientWidgets.Button(planRect, "Phinix_inventory_plan".Translate(), theme.Current)) OpenScheduleEditor(entry);
-            bool previousEnabled = GUI.enabled;
-            GUI.enabled = previousEnabled && rowAvailable[index] > 0;
-            try
-            {
-                if (ClientWidgets.Button(extractRect, "Phinix_inventory_extractStack".Translate(), theme.Current)) OpenExtractionEditor(entry);
-            }
-            finally { GUI.enabled = previousEnabled; }
-        }
-
-        private void DrawExtractionEditor(Rect inRect, InventoryEntry entry, ref float top)
-        {
-            const float height = 92f;
-            Rect card = new Rect(inRect.x, top, inRect.width, height);
-            DrawEditorBackground(card);
-            Rect inner = card.ContractedBy(10f);
-            DrawEditorTitle(inner,
-                GetExtractionTitle(entry));
-
-            float fieldWidth = Mathf.Clamp(inner.width * 0.22f, 70f, 130f);
-            float buttonWidth = Mathf.Max(70f, (inner.width - fieldWidth - 12f) / 2f);
-            float rowY = inner.y + 38f;
-            extractQuantityText = ClientWidgets.TextField(new Rect(inner.x, rowY, fieldWidth, 30f), extractQuantityText, theme.Current, controlName: "phinix.inventory.extract.quantity");
-            float buttonX = inner.x + fieldWidth + 6f;
-            if (ClientWidgets.Button(new Rect(buttonX, rowY, buttonWidth, 30f),
-                "Phinix_inventory_extractConfirm".Translate(), theme.Current))
-            {
-                if (!long.TryParse(extractQuantityText, out long quantity) || quantity < 1)
-                    notice = "Phinix_inventory_extractInvalid".Translate();
-                else if (!inventory.TryExtract(selectedEntryId, quantity, out string reason))
-                    notice = string.IsNullOrEmpty(reason)
-                        ? "Phinix_inventory_operationFailed".Translate().ToString() : reason;
-                else
-                {
-                    notice = "Phinix_inventory_extractSucceeded".Translate(checked(quantity * GetPresentation(entry.EntryId).ItemsPerUnit));
-                    CloseEditor();
-                    shownVersion = -1;
-                }
-            }
-            if (ClientWidgets.Button(new Rect(buttonX + buttonWidth + 6f, rowY, buttonWidth, 30f),
-                "Phinix_inventory_cancel".Translate(), theme.Current)) CloseEditor();
-            top += height + Spacing;
-        }
-
-        private void DrawScheduleEditor(Rect inRect, InventoryEntry entry, ref float top)
-        {
-            const float height = 132f;
-            Rect card = new Rect(inRect.x, top, inRect.width, height);
-            DrawEditorBackground(card);
-            Rect inner = card.ContractedBy(10f);
-            DrawEditorTitle(inner,
-                "Phinix_inventory_scheduleEditorTitle".Translate(GetPresentation(entry.EntryId).Label));
-
-            float columnWidth = (inner.width - 6f) / 2f;
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Tiny;
-            ClientWidgets.Label(new Rect(inner.x, inner.y + 31f, columnWidth, 20f),
-                GetPresentation(entry.EntryId).ItemsPerUnit > 1
-                    ? "Phinix_inventory_scheduleStackQuantity".Translate(GetPresentation(entry.EntryId).ItemsPerUnit)
-                    : "Phinix_inventory_scheduleQuantity".Translate(), theme.Current);
-            ClientWidgets.Label(new Rect(inner.x + columnWidth + 6f, inner.y + 31f, columnWidth, 20f),
-                "Phinix_inventory_scheduleTime".Translate(), theme.Current);
-            Text.Font = oldFont;
-            scheduleQuantityText = ClientWidgets.TextField(new Rect(inner.x, inner.y + 52f, columnWidth, 28f),
-                scheduleQuantityText, theme.Current, controlName: "phinix.inventory.schedule.quantity");
-            dayTickText = ClientWidgets.TextField(new Rect(inner.x + columnWidth + 6f, inner.y + 52f, columnWidth, 28f),
-                dayTickText, theme.Current, controlName: "phinix.inventory.schedule.tick");
-
-            float buttonY = inner.y + 88f;
-            bool hasSchedule = FindSchedule(entry.EntryId) != null;
-            if (ClientWidgets.Button(new Rect(inner.x, buttonY, columnWidth, 30f),
-                "Phinix_inventory_savePlan".Translate(), theme.Current))
-            {
-                if (!long.TryParse(scheduleQuantityText, out long quantity) ||
-                    !int.TryParse(dayTickText, out int tick) ||
-                    !inventory.SetDailySchedule(selectedEntryId, quantity, tick, out string reason))
-                    notice = "Phinix_inventory_planInvalid".Translate();
-                else { notice = "Phinix_inventory_planSaved".Translate(); shownVersion = -1; }
-            }
-            if (ClientWidgets.Button(new Rect(inner.x + columnWidth + 6f, buttonY, columnWidth, 30f),
-                hasSchedule ? "Phinix_inventory_removePlan".Translate() : "Phinix_inventory_cancel".Translate(), theme.Current))
-            {
-                if (!hasSchedule)
-                {
-                    CloseEditor();
-                }
-                else if (inventory.RemoveDailySchedule(selectedEntryId))
-                {
-                    notice = "Phinix_inventory_planRemoved".Translate();
-                    CloseEditor();
-                    shownVersion = -1;
-                }
-                else notice = "Phinix_inventory_operationFailed".Translate();
-            }
-            top += height + Spacing;
-        }
-
-        private void DrawResolutionPanel(Rect inRect, string title, string description,
-            string firstButton, string secondButton, Func<bool> firstAction, Func<bool> secondAction)
-        {
-            float descriptionHeight = Mathf.Max(52f,
-                Text.CalcHeight(description, Mathf.Max(1f, inRect.width - 28f)));
-            Rect card = new Rect(inRect.x, inRect.y, inRect.width,
-                Mathf.Min(descriptionHeight + 104f, inRect.height));
-            ClientWidgets.Fill(card, theme.NoticeBackground);
-            ClientWidgets.Fill(new Rect(card.x, card.y, 4f, card.height),
-                theme.Current.Warning);
-            Rect inner = card.ContractedBy(14f);
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Medium;
-            ClientWidgets.Label(new Rect(inner.x, inner.y, inner.width, 32f), title, theme.Current);
-            Text.Font = GameFont.Small;
-            ClientWidgets.Label(new Rect(inner.x, inner.y + 38f, inner.width, descriptionHeight), description, theme.Current);
-            Text.Font = oldFont;
-
-            float buttonWidth = (inner.width - 8f) / 2f;
-            float buttonY = inner.y + 42f + descriptionHeight;
-            if (ClientWidgets.Button(new Rect(inner.x, buttonY, buttonWidth, 34f), firstButton, theme.Current))
-                notice = firstAction() ? null : "Phinix_inventory_operationFailed".Translate();
-            if (ClientWidgets.Button(new Rect(inner.x + buttonWidth + 8f, buttonY, buttonWidth, 34f), secondButton, theme.Current))
-                notice = secondAction() ? null : "Phinix_inventory_operationFailed".Translate();
-            if (!string.IsNullOrEmpty(notice))
-                ClientWidgets.Label(new Rect(inner.x, buttonY + 40f, inner.width, 28f), notice, theme.Current);
-            shownVersion = -1;
-        }
-
-        private void DrawMessageCard(Rect rect, string title, string description, Color accent)
-        {
-            ClientWidgets.Fill(rect, theme.ErrorBackground);
-            ClientWidgets.Fill(new Rect(rect.x, rect.y, 4f, rect.height), accent);
-            Rect inner = rect.ContractedBy(14f);
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Medium;
-            ClientWidgets.Label(new Rect(inner.x, inner.y, inner.width, 34f), title, theme.Current);
-            Text.Font = GameFont.Small;
-            ClientWidgets.Label(new Rect(inner.x, inner.y + 42f, inner.width, inner.height - 42f), description, theme.Current);
-            Text.Font = oldFont;
-        }
-
-        private void DrawEditorBackground(Rect card)
-        {
-            ClientWidgets.Fill(card, theme.EditorBackground);
-            ClientWidgets.Fill(new Rect(card.x, card.y, 3f, card.height), theme.InfoAccent);
-            ClientWidgets.Border(card, theme.Current);
-        }
-
-        private void DrawEditorTitle(Rect inner, string title)
-        {
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Small;
-            ClientWidgets.LabelEllipses(new Rect(inner.x, inner.y, inner.width, 28f), title, theme.Current);
-            TooltipHandler.TipRegion(new Rect(inner.x, inner.y, inner.width, 28f), title);
-            Text.Font = oldFont;
-        }
-
-        private void DrawEmptyState(Rect rect)
-        {
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            Color oldColor = GUI.color;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                ClientWidgets.Label(rect, "Phinix_inventory_empty".Translate(), theme.Current, secondary: true);
-            }
-            finally { Text.Font = oldFont; Text.Anchor = oldAnchor; GUI.color = oldColor; }
-        }
-
         private void OpenExtractionEditor(InventoryEntry entry)
         {
             selectedEntryId = entry.EntryId;
             editorMode = EditorMode.Extract;
             extractQuantityText = "1";
-            notice = null;
+            notice = null; dirty = true;
         }
 
         private void OpenScheduleEditor(InventoryEntry entry)
@@ -537,7 +373,7 @@ namespace Phinix.InventoryExtension.Client
             InventorySchedule schedule = FindSchedule(entry.EntryId);
             scheduleQuantityText = schedule == null ? "1" : schedule.QuantityPerRun.ToString();
             dayTickText = schedule == null ? "30000" : schedule.DayTick.ToString();
-            notice = null;
+            notice = null; dirty = true;
         }
 
         private static string BuildTooltip(string title, long quantity, InventorySourcePresentation source,
@@ -556,8 +392,8 @@ namespace Phinix.InventoryExtension.Client
 
         private void CloseEditor()
         {
-            selectedEntryId = null;
-            editorMode = EditorMode.None;
+            selectedEntryId = null; selectedGroupKey = null;
+            editorMode = EditorMode.None; dirty = true;
         }
 
         private InventoryEntry FindEntry(string entryId)

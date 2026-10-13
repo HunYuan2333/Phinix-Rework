@@ -1,155 +1,70 @@
+using System;
+using System.Collections.Generic;
 using PhinixClient.Framework;
 using UnityEngine;
+using Utils.Framework;
 using Verse;
 
 namespace Phinix.InventoryExtension.Client
 {
-    internal sealed class InventorySettingsPanel : IClientSettingsPanelProvider, IClientQuickSettingsPanelProvider
+    // Adapter for the existing quick/full settings surfaces. One public Host page, one setting key.
+    internal sealed class InventorySettingsPanel : IClientSettingsPanelProvider, IClientQuickSettingsPanelProvider, IDisposable
     {
         private readonly InventoryTheme theme;
+        private IClientPresentationSession view;
+        private IClientExtensionPointScope scope;
+        private IClientActionPoint<InventoryPresentationActionContext> point;
+        private IClientExtensionPointService points;
+        private IClientSettingsContext settings;
+        private string mode;
+        private object language;
+        private long revision, pointRevision = -1;
+        private ClientActionExecutionResult result;
         public InventorySettingsPanel(InventoryTheme theme) { this.theme = theme; }
-
-        private float cachedWidth = -1f;
-        private object cachedLanguage;
-        private string title;
-        private string directTitle;
-        private string directDescription;
-        private string inventoryTitle;
-        private string inventoryDescription;
-        private string footer;
-        private float titleHeight;
-        private float directHeight;
-        private float inventoryHeight;
-        private float footerHeight;
-
         public string SectionId => "inventory.delivery";
-        public float Order => 115f;
+        public float Order => 115;
         public bool IsVisible(IClientSettingsContext settings) => true;
-
-        public float GetQuickSettingsHeight(float width)
+        internal void Start(IPhinixExtensionModule owner, IClientPresentationService renderer, IClientExtensionPointService points, IClientSettingsContext settings)
         {
-            Rebuild(width);
-            return titleHeight + 4f + directHeight + 4f + inventoryHeight + 6f + footerHeight + 8f;
-        }
-
-        public void DrawQuickSettings(Rect rect, IClientSettingsContext settings)
-        {
-            using (theme.BeginDraw())
-            using (new ClientGuiScope(true)) DrawQuickSettingsContents(rect, settings);
-        }
-
-        private void DrawQuickSettingsContents(Rect rect, IClientSettingsContext settings)
-        {
-            Rebuild(rect.width);
-            GameFont oldFont = Text.Font;
-            Color oldColor = GUI.color;
+            this.points = points; this.settings = settings;
+            view = renderer.Open(owner, "inventory-settings");
             try
             {
-                float y = rect.y;
-                Text.Font = GameFont.Medium;
-                ClientWidgets.Label(new Rect(rect.x, y, rect.width, titleHeight), title, theme.Current);
-                y += titleHeight + 4f;
-
-                string mode = settings.Get(InventoryDeliveryPreference.SettingKey,
-                    InventoryDeliveryPreference.DirectDrop);
-                if (DrawOption(new Rect(rect.x, y, rect.width, directHeight), directTitle,
-                    directDescription, !InventoryDeliveryPreference.UsesInventory(mode)))
-                {
-                    settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop);
-                    mode = InventoryDeliveryPreference.DirectDrop;
-                }
-
-                y += directHeight + 4f;
-                if (DrawOption(new Rect(rect.x, y, rect.width, inventoryHeight), inventoryTitle,
-                    inventoryDescription, InventoryDeliveryPreference.UsesInventory(mode)))
-                {
-                    settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.Inventory);
-                }
-
-                y += inventoryHeight + 6f;
-                Text.Font = GameFont.Tiny;
-                Rect footerRect = new Rect(rect.x, y, rect.width, footerHeight);
-                ClientWidgets.Label(footerRect, footer, theme.Current, secondary: true);
-                TooltipHandler.TipRegion(footerRect, footer);
+                scope = points.ForModule(owner);
+                point = scope.DefineActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.SettingsPointId);
+                scope.ContributeActions<InventoryPresentationActionContext>(InventoryPresentationActionContext.SettingsPointId, context => new[] {
+                    new ClientActionDefinition("direct", L("deliveryDirectButton"), () => settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop), context.Mode == InventoryDeliveryPreference.DirectDrop ? L("deliveryDirect") : null),
+                    new ClientActionDefinition("inventory", L("deliveryInventoryButton"), () => settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.Inventory), context.Mode == InventoryDeliveryPreference.Inventory ? L("deliveryInventory") : null)
+                });
             }
-            finally
+            catch { Dispose(); throw; }
+        }
+        private static string L(string key) => ("Phinix_inventory_" + key).Translate();
+        private string CurrentMode => settings.Get(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop);
+        // Existing provider contract only has Draw. Refresh pure projection here on change; no settings write until explicit Host action.
+        private void Refresh()
+        {
+            if (view == null || view.IsClosed) return;
+            string nextMode = CurrentMode; var nextLanguage = LanguageDatabase.activeLanguage; long nextPoints = points.Revision; var nextResult = view.LastActionResult;
+            if (nextMode == mode && ReferenceEquals(nextLanguage, language) && nextPoints == pointRevision && ReferenceEquals(nextResult, result)) return;
+            Func<bool> current = () => !view.IsClosed && nextMode == CurrentMode && ReferenceEquals(LanguageDatabase.activeLanguage, nextLanguage) && points.Revision == nextPoints && ReferenceEquals(view.LastActionResult, nextResult);
+            var actions = point.Collect(new InventoryPresentationActionContext(0, nextMode, null, 0, 1, "", ""), current);
+            try
             {
-                Text.Font = oldFont;
-                GUI.color = oldColor;
+                var bindings = new List<ClientPresentationAction>();
+                foreach (var action in actions.Actions) bindings.Add(new ClientPresentationAction(action.OwnerId + "." + action.Id, action));
+                view.Publish(new ClientPresentationPage("inventory-settings", "", ++revision, new[] {
+                    new ClientPresentationSection("choice", L("deliverySettingTitle"),
+                        L(InventoryDeliveryPreference.UsesInventory(nextMode) ? "deliveryInventory" : "deliveryDirect") + "\n\n" + L("deliveryDirectDesc") + "\n\n" + L("deliveryInventoryDesc") + "\n\n" + L("deliverySettingDesc"), bindings, nextResult != null && !nextResult.Completed ? new ClientPresentationStatus(L("operationFailed"), ClientPresentationTone.Error) : null)
+                }), actions, current);
             }
+            catch { actions.Dispose(); throw; }
+            mode = nextMode; language = nextLanguage; pointRevision = nextPoints; result = nextResult;
         }
-
+        public float GetQuickSettingsHeight(float width) => 320;
+        public void DrawQuickSettings(Rect rect, IClientSettingsContext settings) { Refresh(); view?.Draw(rect); }
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
-        {
-            using (theme.BeginDraw())
-            using (new ClientGuiScope(true)) DrawSettingsContents(listing, settings);
-        }
-
-        private void DrawSettingsContents(Listing_Standard listing, IClientSettingsContext settings)
-        {
-            Rebuild(listing.ColumnWidth);
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Medium;
-            GUI.color = theme.Current.PrimaryText;
-            listing.Label(title);
-            Text.Font = oldFont;
-            listing.Gap(4f);
-
-            string mode = settings.Get(InventoryDeliveryPreference.SettingKey,
-                InventoryDeliveryPreference.DirectDrop);
-            if (DrawOption(listing.GetRect(directHeight), directTitle, directDescription,
-                !InventoryDeliveryPreference.UsesInventory(mode)))
-                settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop);
-
-            listing.Gap(4f);
-            if (DrawOption(listing.GetRect(inventoryHeight), inventoryTitle, inventoryDescription,
-                InventoryDeliveryPreference.UsesInventory(mode)))
-                settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.Inventory);
-
-            listing.Gap(6f);
-            Text.Font = GameFont.Tiny;
-            Rect footerRect = listing.GetRect(footerHeight);
-            ClientWidgets.Label(footerRect, footer, theme.Current, secondary: true);
-            TooltipHandler.TipRegion(footerRect, footer);
-            Text.Font = oldFont;
-            listing.Gap(8f);
-        }
-
-        private bool DrawOption(Rect rect, string optionTitle, string description, bool selected)
-        {
-            return ClientWidgets.RadioOption(rect, optionTitle, description, selected,
-                theme.Current, theme.SelectedBackground);
-        }
-
-        private void Rebuild(float width)
-        {
-            using (theme.BeginDraw())
-            using (new ClientGuiScope(true)) RebuildContents(width);
-        }
-
-        private void RebuildContents(float width)
-        {
-            width = Mathf.Max(1f, width);
-            object language = LanguageDatabase.activeLanguage;
-            if (Mathf.Approximately(width, cachedWidth) && ReferenceEquals(language, cachedLanguage)) return;
-            cachedWidth = width;
-            cachedLanguage = language;
-            title = "Phinix_inventory_deliverySettingTitle".Translate();
-            directTitle = "Phinix_inventory_deliveryDirect".Translate();
-            directDescription = "Phinix_inventory_deliveryDirectDesc".Translate();
-            inventoryTitle = "Phinix_inventory_deliveryInventory".Translate();
-            inventoryDescription = "Phinix_inventory_deliveryInventoryDesc".Translate();
-            footer = "Phinix_inventory_deliverySettingDesc".Translate();
-
-            GameFont oldFont = Text.Font;
-            Text.Font = GameFont.Medium;
-            titleHeight = Mathf.Max(32f, Text.CalcHeight(title, width));
-            Text.Font = GameFont.Tiny;
-            float descriptionWidth = Mathf.Max(1f, width - 42f);
-            directHeight = Mathf.Max(62f, 34f + Text.CalcHeight(directDescription, descriptionWidth));
-            inventoryHeight = Mathf.Max(62f, 34f + Text.CalcHeight(inventoryDescription, descriptionWidth));
-            footerHeight = Mathf.Max(28f, Text.CalcHeight(footer, width));
-            Text.Font = oldFont;
-        }
+        { var rect = listing.GetRect(GetQuickSettingsHeight(listing.ColumnWidth)); DrawQuickSettings(rect, settings); listing.Gap(8); }
+        public void Dispose() { var old = view; view = null; old?.Dispose(); scope?.Dispose(); scope = null; point = null; }
     }
 }

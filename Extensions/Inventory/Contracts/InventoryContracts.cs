@@ -3,6 +3,51 @@ using System.Collections.Generic;
 
 namespace Phinix.InventoryExtension
 {
+    // Immutable owner projection for actions; quantities are codec units, not Host-inferred items.
+    public sealed class InventoryPresentationActionContext
+    {
+        public const string PointId = "builtin.inventory.actions";
+        public const string DeliveryChoicePointId = "builtin.inventory.delivery-choice.actions";
+        public const string SettingsPointId = "builtin.inventory.settings.actions";
+        public InventoryPresentationActionContext(long version, string mode, string entryId, long availableUnits,
+            long itemsPerUnit, string quantityText, string dayTickText, string groupKey = null, int groupRecords = 0)
+        { Version = version; Mode = mode; EntryId = entryId; AvailableUnits = availableUnits; ItemsPerUnit = itemsPerUnit;
+          QuantityText = quantityText; DayTickText = dayTickText; GroupKey = groupKey; GroupRecords = groupRecords; }
+        public string GroupKey { get; }
+        public int GroupRecords { get; }
+        public long Version { get; }
+        public string Mode { get; }
+        public string EntryId { get; }
+        public long AvailableUnits { get; }
+        public long ItemsPerUnit { get; }
+        public string QuantityText { get; }
+        public string DayTickText { get; }
+    }
+
+    // Runtime queue only: every legal stack uses the existing durable extraction transaction.
+    public interface IInventoryBatchExtractionApi
+    {
+        bool StartBatchExtraction(IReadOnlyList<InventoryBatchItem> items, long expectedVersion, out string reason);
+        InventoryBatchProgress BatchProgress { get; }
+        void StopBatchExtraction();
+    }
+    public sealed class InventoryBatchItem
+    {
+        public InventoryBatchItem(string entryId, long quantity) { EntryId = entryId; Quantity = quantity; }
+        public string EntryId { get; }
+        public long Quantity { get; }
+    }
+    public sealed class InventoryBatchProgress
+    {
+        public InventoryBatchProgress(bool running, int records, int completedRecords, long completedUnits, string reason)
+        { Running = running; Records = records; CompletedRecords = completedRecords; CompletedUnits = completedUnits; Reason = reason; }
+        public bool Running { get; }
+        public int Records { get; }
+        public int CompletedRecords { get; }
+        public long CompletedUnits { get; }
+        public string Reason { get; }
+    }
+
     public static class InventoryContract
     {
         public const int Version = 6;

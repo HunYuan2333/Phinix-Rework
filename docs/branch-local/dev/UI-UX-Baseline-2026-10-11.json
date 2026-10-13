@@ -1,0 +1,255 @@
+{
+  "capturedAt": "2026-10-11 Asia/Singapore (before UX edits/build)",
+  "clientHead": "c51f8a69dd4ab4aaa6aebe395aeda0b8e9e8d336",
+  "clientDirty": " M Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj\n M Client/Source/Client.cs\n M Client/Source/Client.csproj\n M docs/branch-local/dev/UI-UX-Redesign-Roadmap-2026-10-11.md\n?? Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs\n?? \"Client/Languages/ChineseSimplified (\\347\\256\\200\\344\\275\\223\\344\\270\\255\\346\\226\\207)/Keyed/Presentation.xml\"\n?? Client/Languages/English/Keyed/Presentation.xml\n?? Client/Source/UI/ClientPresentationService.cs\n",
+  "exampleHead": "45c47c687a2df05eeb7553d142114a78edd21110",
+  "exampleDirty": " M example/Example.csproj\n M example/ExampleExtension.cs\n M example/Resources/Localization/en-US.json\n M example/Resources/Localization/zh-CN.json\n?? example/ExamplePresentation.cs\n",
+  "gameValidation": "Pending; no running game evidence acquired",
+  "dlls": [
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/1.6/Assemblies/13-PhinixClient.dll",
+      "bytes": 272896,
+      "sha256": "02aaf5f54f96f72723fa2ff544b47c6e0e95d9d7f4c66a371cc52cab573e738b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/01-LiteNetLib.dll",
+      "bytes": 76800,
+      "sha256": "c4ad697e3032a221892d894f1f225738a819b4c061b3de7f8ac4437b01b9e0c8"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/02-Protobuf.dll",
+      "bytes": 487936,
+      "sha256": "7ee052619ec28ca606da410b04c0ed1453080f64c4417137d2fa54b78a2b27da"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/03-Utils.dll",
+      "bytes": 319488,
+      "sha256": "c3ce5d26a6b5a2a9cd66c81543b7b1b9d50af26b6d71d19b747578da1b4a7db4"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/04-Connections.dll",
+      "bytes": 7680,
+      "sha256": "945c0d0aea947a7d8edcd512511031a1835d9946c27f98fd79cd676ada16dbc2"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/05-Connections.Client.dll",
+      "bytes": 11264,
+      "sha256": "ec379bfb9b1c2bc331054d159d0d6b1b69f75ace8a1edfef0ada687e7da7fce0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/06-Authentication.dll",
+      "bytes": 30208,
+      "sha256": "29990c7077fc78a9c545755246653f18430daf6aa5cc51c7fcd13a09c2bc801a"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/07-Authentication.Client.dll",
+      "bytes": 13312,
+      "sha256": "ac70e07b42f6f83c87e4c91fd5b8fe5ad0f28990a89353322979aa9f7c0b96b6"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/08-UserManagement.dll",
+      "bytes": 31232,
+      "sha256": "58eb08c523cf14aacca14391bed5fa69dd61c2883787628f8ac6ea3cb84faef0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/09-UserManagement.Client.dll",
+      "bytes": 13312,
+      "sha256": "4d6da25fc8e7d7bb0982bd34b6b8ec28fec056feb11043c2ba9980f3991b97c0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/10-ClientExtensionAbstractions.dll",
+      "bytes": 58368,
+      "sha256": "bd30e03e326b105cd4737bd7fc419ea221bc5b1dd1f387d398209a289b419b29"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Autofac.dll",
+      "bytes": 376832,
+      "sha256": "5eb99880aa6fc7deb49f3592c613f467c3890c130aaa72ac3ce45e8cd00a518a"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Microsoft.Bcl.AsyncInterfaces.dll",
+      "bytes": 26904,
+      "sha256": "80678203bd0203a6594f4e330b22543c0de5059382bb1c9334b7868b8f31b1bc"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Phinix.ClientComposition.dll",
+      "bytes": 8192,
+      "sha256": "a6c5d88c5355f4085343e1da1c18f148ce0a28f504e3dda5ed62d4d692b258a2"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Stateless.dll",
+      "bytes": 167424,
+      "sha256": "da16bebb822af420779a43a108d05088840e9fd38832e10a506c82af1c29713b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Buffers.dll",
+      "bytes": 20856,
+      "sha256": "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Diagnostics.DiagnosticSource.dll",
+      "bytes": 189104,
+      "sha256": "1887592615fc08bbc91ad62307c8c11dfc14c45bf120d271d66be4a0d1a149a7"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Memory.dll",
+      "bytes": 142240,
+      "sha256": "bf3fb84664f4097f1a8a9bc71a51dcf8cf1a905d4080a4d290da1730866e856f"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Numerics.Vectors.dll",
+      "bytes": 115856,
+      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Runtime.CompilerServices.Unsafe.dll",
+      "bytes": 18024,
+      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Threading.Tasks.Extensions.dll",
+      "bytes": 25984,
+      "sha256": "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/08-ChatExtension.dll",
+      "bytes": 19968,
+      "sha256": "4935757aa12e35c0085859bf4d0044b73665961fdb7a8654672bb872db72a985"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/09-TradeExtension.dll",
+      "bytes": 24576,
+      "sha256": "f65b1779a989ced895470a74707c1c85fcf39dcd7654c3c0d1f6e8494aa8cace"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/10-InventoryExtension.dll",
+      "bytes": 24576,
+      "sha256": "335cc4b9217da0b8a1faca77b49086ae6ff89fcd77be5516346ff3e25969dfd0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/10-LegacyAdapter.Client.dll",
+      "bytes": 84480,
+      "sha256": "ec6b1be8bbe1723b26f73966b97f724f03d385e5fbec8230d50537cef7238ee5"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/11-ChatExtension.Client.dll",
+      "bytes": 98816,
+      "sha256": "1af7386c7b8421e99d3401dcd64f3a6d97a5ff0bb0cde272d640d3170b76093e"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/11-InventoryExtension.Client.dll",
+      "bytes": 95232,
+      "sha256": "ca25a2e05da2f33ada5da20f299889e169f2e41561c013e81a88e9dde9970b95"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/12-TradeExtension.Client.dll",
+      "bytes": 133120,
+      "sha256": "c9e3c94849eedcb310b1cecc557d361902aa6df88a3989cd986f60bbc4a96226"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/17-PluginStore.Client.dll",
+      "bytes": 306688,
+      "sha256": "23c7509268f1120f15f2787fd893121e567b35f9bc6a724045fb9530d55bd3b9"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/Assembly-CSharp.dll",
+      "bytes": 15766016,
+      "sha256": "5b8c8ea2ebc4b393b108b780916281c18e1e0c65de85d891fdf5b374abcd7398"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/ClientExtensionAbstractions.dll",
+      "bytes": 58368,
+      "sha256": "bd30e03e326b105cd4737bd7fc419ea221bc5b1dd1f387d398209a289b419b29"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/Google.Protobuf.dll",
+      "bytes": 487936,
+      "sha256": "7ee052619ec28ca606da410b04c0ed1453080f64c4417137d2fa54b78a2b27da"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/System.Buffers.dll",
+      "bytes": 27992,
+      "sha256": "9444b5a41a816b193c033bec199d74cdfc8298ed8300a3c39a4e953dec137494"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/System.Memory.dll",
+      "bytes": 148760,
+      "sha256": "41b5e1a4c59abdb1ce1467f58c3d9fd06d39dff4fc61d500a2410fece8037f4b"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/System.Numerics.Vectors.dll",
+      "bytes": 115936,
+      "sha256": "a044d77edb6e8db4053bf67cc671e7687c226c1b9b0963a81ebe359ce79dfdf7"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/System.Runtime.CompilerServices.Unsafe.dll",
+      "bytes": 23600,
+      "sha256": "1ad2dd7225d5162a0fd3a3b337a1949448520e3130a4bc8e010ec02f76097500"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.CoreModule.dll",
+      "bytes": 1386688,
+      "sha256": "c5c58ea254834291780a1d6c388c241443d07167b4a4b890a23c9494f626ddba"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.IMGUIModule.dll",
+      "bytes": 188608,
+      "sha256": "c6c39327211be8299e2e9ffdee7a979f228736c99b84fd54bc73f563456865d9"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.ImageConversionModule.dll",
+      "bytes": 13824,
+      "sha256": "06ab70addab880c47b5135b23970c3007dff430b0ec7fefbba802f3561c42ad3"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.InputLegacyModule.dll",
+      "bytes": 37568,
+      "sha256": "be3f8c860d15e1b00611e454871b1e1e0041efa843e9bae4f77c227a59d10ac8"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.SharedInternalsModule.dll",
+      "bytes": 31424,
+      "sha256": "d8e138ecd7913d250798129eebeb33b6f8b2cc84cd500187ad0a8b18ef68f426"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.TextRenderingModule.dll",
+      "bytes": 37568,
+      "sha256": "b63769ad71c7fc79034cf6c3a1ebfcf79d4591f0b1f5cd4a9823e6ed7b5816f8"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.UnityWebRequestModule.dll",
+      "bytes": 56512,
+      "sha256": "5ba6455c004dacda601b6032e33d06f3d9efacb8b7a01ca640e75202982ae97a"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.UnityWebRequestTextureModule.dll",
+      "bytes": 20160,
+      "sha256": "99121c09adf4049cd0910087ff18d88c5b4dcf51fd6d28da341e9f4d11210cbd"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UnityEngine.dll",
+      "bytes": 125120,
+      "sha256": "0422ff282130458380d2fb4b63a718465d3bd2d5738f1532f60798b0d35dff0d"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/UserManagement.dll",
+      "bytes": 31232,
+      "sha256": "58eb08c523cf14aacca14391bed5fa69dd61c2883787628f8ac6ea3cb84faef0"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/Utils.dll",
+      "bytes": 319488,
+      "sha256": "c3ce5d26a6b5a2a9cd66c81543b7b1b9d50af26b6d71d19b747578da1b4a7db4"
+    },
+    {
+      "path": "Phinix-Rework/Client/ClientExtensionAbstractions/bin/Release/com.rlabrecque.steamworks.net.dll",
+      "bytes": 396800,
+      "sha256": "d11d07eb81f65819e9aa3babcc6ee36c993591481d8bdbcd0a23923ec0636548"
+    },
+    {
+      "path": "Phinix-Example-Plugin/example/bin/Release/net472/Phinix.Example.Basic.dll",
+      "bytes": 27648,
+      "sha256": "0601f519f2981680d3f0ead540bdf44d5980b4784a2915127efe8e3373420bdd"
+    }
+  ]
+}

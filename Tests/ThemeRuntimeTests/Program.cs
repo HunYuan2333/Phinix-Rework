@@ -37,6 +37,16 @@ internal static class Program
             var owner=Register(service,"a");owner.RegisterColor("a.color",new Color(1,0,0));owner.Commit();using(var collision=Register(service,"b"))Reject(()=>collision.RegisterColor("a.color",new Color(0,1,0)),"Duplicate owner cannot replace default.");owner.Dispose();owner.Dispose();
             var eventService=new UiTheme(Path.Combine(root,"new-settings.xml"),user,()=>new ThemeSource[0],_=>{});int callbacks=0;eventService.Changed+=()=>throw new Exception("observer");eventService.Changed+=()=>callbacks++;eventService.Apply(eventService.Edit("builtin.default"));Check(callbacks==1,"Observer exception isolated.");
             string blocked=Path.Combine(root,"blocked");Directory.CreateDirectory(blocked);var fail=new UiTheme(blocked,user,()=>new ThemeSource[0],_=>{});var edit=fail.Edit("builtin.default");edit.Colors["ui.text.primary"]=new Color(.4f,.4f,.4f);Reject(()=>fail.Apply(edit),"Failed persistence rejects commit.");Equal(fail.PrimaryText.r,1,"Persistence failure leaves valid snapshot.");
+            var roles=eventService.Edit("builtin.default");roles.Colors["ui.accent"]=new Color(.73f,.2f,.1f);roles.Colors["ui.hover"]=new Color(.11f,.3f,.4f);
+            roles.Colors["future.unknown"]=new Color(.9f,.8f,.7f);eventService.Apply(roles);
+            Equal(eventService.GetColor("ui.action.primary").r,.73f,"New action role inherits old accent override.");
+            Equal(eventService.GetColor("ui.navigation.selected").r,.11f,"New navigation role inherits old hover override.");
+            Equal(eventService.Success.r,.3f,"Primary accent does not change success semantics.");
+            var explicitRoles=eventService.Edit("builtin.default");explicitRoles.Colors["ui.action.primary"]=new Color(.42f,.5f,.6f);eventService.Apply(explicitRoles);
+            Equal(eventService.GetColor("ui.action.primary").r,.42f,"Explicit role wins over fallback.");
+            explicitRoles.Colors.Remove("ui.action.primary");explicitRoles.InheritedKeys.Add("ui.action.primary");eventService.Apply(explicitRoles);
+            Equal(eventService.GetColor("ui.action.primary").r,.73f,"Explicit inherit returns to old accent role.");
+            Check(eventService.Edit("builtin.default").Colors.ContainsKey("future.unknown"),"Unknown values survive role apply.");
             string malicious=Path.Combine(root,"evil.xml");File.WriteAllText(malicious,"<!DOCTYPE PhinixTheme [<!ENTITY x SYSTEM 'file:///etc/passwd'>]><PhinixTheme version='1'>&x;</PhinixTheme>");Reject(()=>ThemeInputAdapter.Read(malicious,"evil","local"),"External entities rejected.");
             File.WriteAllText(malicious,"<PhinixTheme version='2'><color key='x' r='1' g='0' b='0' a='1'/><color key='x' r='0' g='0' b='0' a='1'/></PhinixTheme>");Reject(()=>ThemeInputAdapter.Read(malicious,"evil","local"),"Duplicate values rejected atomically.");
             string migration=Path.Combine(root,"prior.xml");File.WriteAllText(migration,"<PhinixTheme version='1'><color key='primaryText' r='.3' g='.3' b='.3'/></PhinixTheme>");var migrated=new UiTheme(Path.Combine(root,"migration-settings.xml"),Path.Combine(root,"migrated"),()=>new[]{new ThemeSource{Id="prior",Path=migration,Source="user",Migrate=true}},_=>{});Equal(migrated.PrimaryText.r,.3f,"Old composition imported as regular theme.");Check(migrated.SelectedThemeId=="user/migrated.xml","No compatibility mode in selector.");
@@ -45,6 +55,19 @@ internal static class Program
             Equal(GUI.color.r,.25f,"Outer scope restores tint.");Check(!GUI.enabled&&Text.Font==GameFont.Tiny&&!Text.WordWrap,"Scope restores interaction and text.");
             Widgets.Throw=true;Reject(()=>ClientWidgets.Button(new Rect(),"test",eventService),"Throwing control unwinds.");Equal(GUI.color.r,.25f,"Exception restores tint.");Widgets.Throw=false;
             Check(!ClientWidgets.Button(new Rect(),"disabled",eventService),"Disabled caller remains disabled.");Check(Widgets.Clicks==1,"Control consumes one interaction.");
+            var rawDraft=new ClientThemeDraft("builtin.default",new Dictionary<string,Color>{{"rgba",new Color(.2f,.3f,.4f,1)},{"unknown.future",Color.white}},new Dictionary<string,float>{{"parameter",.25f}});
+            var raw=new ThemeDraftInput {Values=new[]{"0.2","0.3","0.4","1"}};
+            ThemeDraftValues.Change(rawDraft,"rgba",raw,false,0,1,0,"-");
+            Check(raw.Invalid && raw.Values[0]=="-","Incomplete raw RGBA text is retained");Equal(rawDraft.Colors["rgba"].r,.2f,"Invalid input does not replace last valid preview");
+            ThemeDraftValues.Change(rawDraft,"rgba",raw,false,0,1,0,"0.7");Equal(rawDraft.Colors["rgba"].r,.7f,"Valid RGBA updates draft only");Check(!raw.Invalid,"Repair clears draft error");
+            ThemeDraftValues.Change(rawDraft,"rgba",raw,false,0,1,3,"2");Check(raw.Invalid,"RGBA rejects out-of-range alpha");Equal(rawDraft.Colors["rgba"].a,1,"Rejected alpha preserves valid draft");
+            var number=new ThemeDraftInput {IsFloat=true,Values=new[]{"0.25"}};
+            ThemeDraftValues.Change(rawDraft,"parameter",number,true,0,1,0,"NaN");Check(number.Invalid,"Parameter rejects nonfinite input");Equal(rawDraft.Floats["parameter"],.25f,"Nonfinite draft does not reach persisted values");
+            ThemeDraftValues.Change(rawDraft,"parameter",number,true,0,1,0,"0.8");Equal(rawDraft.Floats["parameter"],.8f,"Parameter uses invariant raw text within registered bounds");
+            var inputs=new Dictionary<string,ThemeDraftInput>{{"rgba",raw},{"parameter",number}};
+            ThemeDraftValues.Clear(rawDraft,inputs,"rgba",true);Check(rawDraft.InheritedKeys.Contains("rgba")&&!rawDraft.Colors.ContainsKey("rgba")&&!inputs.ContainsKey("rgba"),"Explicit inherit clears only selected override and invalid buffer");
+            Check(rawDraft.Colors.ContainsKey("unknown.future"),"Editing or clearing registered key preserves unknown draft values");
+            ThemeDraftValues.Reset(rawDraft,inputs);Check(rawDraft.Colors.Count==0&&rawDraft.Floats.Count==0&&rawDraft.InheritedKeys.Count==0&&inputs.Count==0,"Explicit current-draft reset clears values and input without applying");
             Console.WriteLine("Theme runtime: "+checks+" assertions passed.");
         }
         finally{Directory.Delete(root,true);}

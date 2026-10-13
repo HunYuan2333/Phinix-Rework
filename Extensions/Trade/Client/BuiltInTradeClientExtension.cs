@@ -40,6 +40,8 @@ namespace Phinix.TradeExtension.Client
         private Action<string, LogLevel> hostLog;
         private TradeInventoryRegistrations inventoryRegistrations;
         private TradeInventoryDelivery inventoryDelivery;
+        private TradeOfferOperations offerOperations;
+        private TradeInventoryRecovery inventoryRecovery;
         private IInventoryReadApi inventoryReadApi;
         private IInventoryReservationApi inventoryReservationApi;
 
@@ -65,9 +67,16 @@ namespace Phinix.TradeExtension.Client
             tradeApi = composition.Resolve<IFrameworkTradeClientApi>();
             tradeFacade = composition.Resolve<IClientTradeService>();
             tradeUiHostContext = composition.Resolve<ClientTradeUiHostContext>();
+            offerOperations=new TradeOfferOperations(tradeFacade,tradeUiHostContext.RunOnMainThread,
+                message=>hostLog?.Invoke(message,LogLevel.ERROR),()=>UnityData.IsInMainThread);
+            inventoryRecovery=new TradeInventoryRecovery(()=>UnityData.IsInMainThread,()=>Verse.Current.Game);
+            tradeUiHostContext.ConfigureOfferOperations(offerOperations,itemPipeline);
+            ((FrameworkClientTradeServiceAdapter)tradeFacade).SetOfferSubmissionGuard(offerOperations.CanSubmit);
             IMainTabProvider tab = composition.Resolve<IMainTabProvider>();
             TradeSettingsPanelProvider settingsPanelProvider = composition.Resolve<TradeSettingsPanelProvider>();
 
+            builder.RegisterApi<ITradeOfferOperationApi>(offerOperations);
+            builder.RegisterApi<ITradeInventoryRecoveryApi>(inventoryRecovery);
             builder.RegisterApi(tradeApi);
             builder.RegisterApi<IFrameworkTradeUpdateResultApi>((IFrameworkTradeUpdateResultApi)tradeApi);
             builder.RegisterApi<ITradeStateInput>((ITradeStateInput)tradeApi);
@@ -167,6 +176,13 @@ namespace Phinix.TradeExtension.Client
 
                 EnsureActivationServices(hostContext);
                 tradeUiHostContext.Start();
+                tradeUiHostContext.ConfigureOfferDelivery(inventoryDelivery);
+                tradeUiHostContext.ConfigureOfferPresentation(new TradeOfferPresentationFactory(this,
+                    hostContext.GetRequiredService<IClientPresentationService>(),hostContext.GetRequiredService<IClientExtensionPointService>(),currentTheme));
+                offerOperations.Start();
+                inventoryRecovery.Start(inventoryReadApi,inventoryReservationApi);
+                composition.Resolve<TradeMainTabProvider>().Start(this,hostContext.GetRequiredService<IClientPresentationService>(),
+                    hostContext.GetRequiredService<IClientExtensionPointService>(),currentTheme,offerOperations,inventoryRecovery);
 
                 // 注入框架 registry 收集的所有 Item codec，让 Trade 能消费 Submod 注册的 codec。
                 // 在 Activate 阶段执行，确保所有扩展的 Register() 已完成、codec 列表完整。
@@ -202,6 +218,8 @@ namespace Phinix.TradeExtension.Client
             themeRegistration?.Dispose(); themeRegistration = null;
             System.Threading.Interlocked.Increment(ref activationGeneration);
             var failures = new List<Exception>();
+            TradeLifetimeCleanup.Try(() => inventoryRecovery?.Dispose(), failures);
+            TradeLifetimeCleanup.Try(() => offerOperations?.Dispose(), failures);
             TradeLifetimeCleanup.Try(() => (tradeFacade as IDisposable)?.Dispose(), failures);
             TradeLifetimeCleanup.Try(() => defaultTradeBehaviour?.Stop(), failures);
             TradeLifetimeCleanup.Try(() => tradeUiHostContext?.Stop(), failures);

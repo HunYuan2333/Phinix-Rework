@@ -95,7 +95,10 @@
     <Compile Include="UI\IServerSidebarProvider.cs" />
     <Compile Include="UI\INoticeBannerProvider.cs" />
     <Compile Include="UI\IClientTheme.cs" />
+    <Compile Include="UI\ClientThemePresentationActionContext.cs" />
     <Compile Include="UI\IClientThemePackages.cs" />
+    <Compile Include="UI\IClientPresentationService.cs" />
+    <Compile Include="UI\ClientPresentationMainTab.cs" />
     <Compile Include="UI\ClientWidgets.cs" />
     <Compile Include="UI\ResponsiveFormLayout.cs" />
     <Compile Include="UI\ResponsiveSplitLayout.cs" />

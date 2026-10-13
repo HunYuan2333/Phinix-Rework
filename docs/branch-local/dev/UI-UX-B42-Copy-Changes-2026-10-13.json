@@ -1,0 +1,1550 @@
+[
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Shell.xml",
+    "key": "Phinix_shell_connection",
+    "before": "连接 / 快捷设置",
+    "after": "连接设置"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Shell.xml",
+    "key": "Phinix_shell_fullSettings",
+    "before": "完整客户端设置",
+    "after": "全部设置"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Shell.xml",
+    "key": "Phinix_shell_themes",
+    "before": "主题 / 编辑 / 导出",
+    "after": "主题与配色"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Shell.xml",
+    "key": "Phinix_shell_providerFailed",
+    "before": "此插件视图不可用。插件恢复运行后可重新打开。",
+    "after": "此插件页面暂时无法打开。请重新启用插件后重试。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Shell.xml",
+    "key": "Phinix_shell_connection",
+    "before": "Connection / quick settings",
+    "after": "Connection settings"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Shell.xml",
+    "key": "Phinix_shell_fullSettings",
+    "before": "Complete client settings",
+    "after": "All settings"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Shell.xml",
+    "key": "Phinix_shell_themes",
+    "before": "Themes / edit / export",
+    "after": "Themes and colors"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Shell.xml",
+    "key": "Phinix_shell_providerFailed",
+    "before": "This plugin view is unavailable. Reopen after the plugin is active.",
+    "after": "This plugin page is unavailable. Re-enable the plugin and try again."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Presentation.xml",
+    "key": "Phinix_presentation_stale",
+    "before": "此视图已发生变化，请刷新后再操作。",
+    "after": "页面内容已更新，请重新选择操作。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Presentation.xml",
+    "key": "Phinix_presentation_failed",
+    "before": "视图或操作未能完成，可查看提示中的诊断信息。",
+    "after": "无法完成此操作，详情见提示。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Presentation.xml",
+    "key": "Phinix_presentation_inputPending",
+    "before": "正在等待插件校验输入并刷新此视图。",
+    "after": "正在检查输入，请稍候…"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Presentation.xml",
+    "key": "Phinix_presentation_stale",
+    "before": "This view has changed. Refresh it before using its actions.",
+    "after": "The page has updated. Select the action again."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Presentation.xml",
+    "key": "Phinix_presentation_failed",
+    "before": "This view or action could not complete. See the tooltip for diagnostics.",
+    "after": "Could not complete this action. See the tooltip for details."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Presentation.xml",
+    "key": "Phinix_presentation_inputPending",
+    "before": "Input is waiting for the plugin to validate and refresh this view.",
+    "after": "Checking your input…"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_groupHint",
+    "before": "仅合并显示，展开后可逐份提取或设置计划。耐久、腐烂进度及特殊状态仍独立保留；待确认操作锁定的数量不计入可用总数。",
+    "after": "展开可逐份提取或设置每日计划。各份物品的耐久、腐烂进度和特殊状态分别保留；锁定数量不计入可用总数。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_transferPending",
+    "before": "有 {0} 笔库存发送正在等待确认；在发送插件确认结果前，相应数量会保持锁定。",
+    "after": "有 {0} 笔发送等待确认，相关物品暂时锁定。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_pawnStored",
+    "before": "Pawn 已存入 Phinix 库存。",
+    "after": "单位已存入 Phinix 库存。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_pawnsStored",
+    "before": "Pawn 已存入 Phinix 库存。",
+    "after": "单位已存入 Phinix 库存。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_recover",
+    "before": "恢复事务",
+    "after": "恢复库存记录"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_groupHint",
+    "before": "Display grouping only. Expand to extract or schedule each record. Durability, spoilage and special states remain independent; locked quantities are excluded from the available total.",
+    "after": "Expand to withdraw individual records or set a daily plan. Durability, rot and special states remain separate; locked quantities are excluded from the available total."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_transferPending",
+    "before": "{0} outgoing inventory operation(s) are awaiting confirmation. Their quantities remain locked until the sending plugin confirms the result.",
+    "after": "{0} sends are awaiting confirmation. Their items remain locked."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_pawnStored",
+    "before": "Pawn stored in Phinix inventory.",
+    "after": "Unit stored in Phinix inventory."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_pawnsStored",
+    "before": "Pawns stored in Phinix inventory.",
+    "after": "Units stored in Phinix inventory."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+    "key": "Phinix_inventory_recover",
+    "before": "Restore transactions",
+    "after": "Restore inventory records"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listCancelPending",
+    "before": "已请求取消，等待交易结果。本视图不会返还物品。",
+    "after": "已请求取消，等待结果。物品暂未返还。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listCancelConfirmation",
+    "before": "请求取消与 {0} 的交易？物品仍由原交易完成流程处理返还。",
+    "after": "取消与 {0} 的交易？请等待取消结果和物品返还。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listOfferPending",
+    "before": "报价操作尚未处理完毕。本视图不会自动返还物品或重发请求。",
+    "after": "报价结果尚未确认，请勿重复提交。相关物品暂时保留。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listRetrySettlementConfirm",
+    "before": "重试已有明确处理依据的本地处理？这不会重新提交报价。交付结果不确定时不能在此重试。",
+    "after": "重试上次未完成的物品处理？不会重新发送报价；交付结果不明时无法重试。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listOffer_LocalSettlementPending",
+    "before": "已有明确处理依据，本地处理受阻",
+    "after": "报价结果已确认，物品处理未完成"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_inventoryRecoveryEvidence",
+    "before": "账本备注（不是业务回执）",
+    "after": "账本备注（不能证明交易结果）"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorWaiting",
+    "before": "正在等待业务结果；请勿重复提交。",
+    "after": "正在等待结果，请勿重复提交。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorOfferSubmitted",
+    "before": "报价请求已提交；实际报价以业务回执为准。",
+    "after": "报价已提交，等待确认。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorResetSubmitted",
+    "before": "重置请求已提交；收到匹配回执后才处理返还。",
+    "after": "已请求重置报价，等待确认后返还物品。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorConfirmNote",
+    "before": "请核对双方报价。确认请求不代表交易完成；交付仍由交易业务处理。",
+    "after": "请核对双方清单。双方确认后，还需等待物品到账。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorCancelConfirm",
+    "before": "提交取消请求，等待交易业务确认；关闭窗口不会自动取消或返还。",
+    "after": "取消这笔交易？请等待取消结果。关闭窗口不会取消交易或返还物品。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorResetConfirm",
+    "before": "请求清空己方报价。只有匹配的成功回执才能触发本地返还；失败或结果未知不会自动返还。",
+    "after": "清空己方报价？确认成功后才会返还物品；结果不明时，物品仍会保留。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listCancelPending",
+    "before": "Cancellation requested; waiting for the trade result. No items are returned by this view.",
+    "after": "Cancellation requested. Waiting for the result; items have not been returned yet."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listCancelConfirmation",
+    "before": "Request cancellation of the trade with {0}? Items are returned only through the existing trade completion flow.",
+    "after": "Cancel the trade with {0}? Wait for the cancellation result and item return."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listOfferPending",
+    "before": "An offer operation is unresolved. This view does not refund items or resend it.",
+    "after": "The offer result is unconfirmed. Do not submit it again; its items remain held."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listRetrySettlementConfirm",
+    "before": "Retry local handling that already has a known settlement basis? This does not send another offer request. Unknown delivery results cannot be retried here.",
+    "after": "Retry the unfinished item handling? This does not resend the offer. Retry is unavailable when delivery is uncertain."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_listOffer_LocalSettlementPending",
+    "before": "Known settlement basis; local handling is blocked",
+    "after": "Offer result confirmed; item handling unfinished"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_inventoryRecoveryEvidence",
+    "before": "Ledger note (not a receipt)",
+    "after": "Ledger note (does not confirm the trade result)"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorWaiting",
+    "before": "Waiting for the business result; do not submit again.",
+    "after": "Waiting for the result. Do not submit again."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorOfferSubmitted",
+    "before": "Offer requested; the acknowledged quote remains authoritative.",
+    "after": "Offer submitted. Waiting for confirmation."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorResetSubmitted",
+    "before": "Reset requested; return settlement waits for a matching acknowledgement.",
+    "after": "Offer reset requested. Items will be returned after confirmation."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorConfirmNote",
+    "before": "Check both quotes. Requesting confirmation does not mean completion; Trade owns delivery.",
+    "after": "Check both lists. After both sides confirm, wait for the items to arrive."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorCancelConfirm",
+    "before": "Request cancellation and wait for Trade confirmation. Closing does not cancel or refund.",
+    "after": "Cancel this trade? Wait for the result. Closing the window does not cancel the trade or return items."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/TradeExtension.xml",
+    "key": "Phinix_trade_editorResetConfirm",
+    "before": "Request an empty own quote. Only the matching acknowledgement permits local return; failure or uncertainty does not imply a refund.",
+    "after": "Clear your offer? Items are returned only after success is confirmed. They remain held if the result is uncertain."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+    "key": "Phinix_theme_unfinishedInput",
+    "before": "有无效或未完成的输入。修正输入，或清除该项／重置当前主题的覆盖。",
+    "after": "请修正无效或未填完的输入，或清除对应修改。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+    "key": "Phinix_theme_selectItem",
+    "before": "选择一个颜色或参数进行编辑。切换主题保留窗口内草稿；取消会丢弃未应用修改。",
+    "after": "选择颜色或参数进行编辑。切换主题会保留草稿，取消会丢弃未应用的修改。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+    "key": "Phinix_theme_clearTip",
+    "before": "只清除用户覆盖；主题文件有显式值时仍使用文件值。",
+    "after": "清除个人修改，恢复主题文件中的值。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+    "key": "Phinix_theme_restoreTip",
+    "before": "跳过此项的主题文件值，使用通用角色或注册默认值；点击应用后保存。",
+    "after": "忽略主题文件中的此项，使用继承值或默认值。点击应用后保存。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Themes.xml",
+    "key": "Phinix_theme_unfinishedInput",
+    "before": "Some input is invalid or unfinished. Correct it, clear its override, or reset this theme.",
+    "after": "Correct the invalid or unfinished input, or clear the affected changes."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Themes.xml",
+    "key": "Phinix_theme_selectItem",
+    "before": "Select a color or parameter. Switching themes retains window drafts; cancel discards unapplied changes.",
+    "after": "Select a color or parameter to edit. Switching themes keeps drafts; canceling discards unapplied changes."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Themes.xml",
+    "key": "Phinix_theme_clearTip",
+    "before": "Clears user overrides only. Explicit theme file values still apply.",
+    "after": "Clear your change and use the theme file value."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/Themes.xml",
+    "key": "Phinix_theme_restoreTip",
+    "before": "Bypasses file values for this item and uses its role or registered default. Apply to save.",
+    "after": "Ignore this value in the theme file and use the inherited or default value. Apply to save."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_text_primary",
+    "before": "用于主文字的显示；配色和参数不改变业务操作。",
+    "after": "主文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_text_secondary",
+    "before": "用于次级文字的显示；配色和参数不改变业务操作。",
+    "after": "次级文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_background",
+    "before": "用于外壳背景的显示；配色和参数不改变业务操作。",
+    "after": "外壳背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_surface",
+    "before": "用于通用表面的显示；配色和参数不改变业务操作。",
+    "after": "通用表面。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_separator",
+    "before": "用于边框与分隔线的显示；配色和参数不改变业务操作。",
+    "after": "边框与分隔线。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_hover",
+    "before": "用于悬停与选中背景的显示；配色和参数不改变业务操作。",
+    "after": "悬停与选中背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_pending",
+    "before": "用于等待状态的显示；配色和参数不改变业务操作。",
+    "after": "等待状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_error",
+    "before": "用于错误状态的显示；配色和参数不改变业务操作。",
+    "after": "错误状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_success",
+    "before": "用于成功状态的显示；配色和参数不改变业务操作。",
+    "after": "成功状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_warning",
+    "before": "用于警告状态的显示；配色和参数不改变业务操作。",
+    "after": "警告状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusActive",
+    "before": "用于已启用状态的显示；配色和参数不改变业务操作。",
+    "after": "已启用状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusFailed",
+    "before": "用于加载失败状态的显示；配色和参数不改变业务操作。",
+    "after": "加载失败状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusDisabled",
+    "before": "用于已停用状态的显示；配色和参数不改变业务操作。",
+    "after": "已停用状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusDependencyDisabled",
+    "before": "用于依赖缺失状态的显示；配色和参数不改变业务操作。",
+    "after": "依赖缺失状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusRegistered",
+    "before": "用于等待激活状态的显示；配色和参数不改变业务操作。",
+    "after": "等待激活状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusDefault",
+    "before": "用于其他模块状态的显示；配色和参数不改变业务操作。",
+    "after": "其他模块状态。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_logDiagnostic",
+    "before": "用于诊断文字的显示；配色和参数不改变业务操作。",
+    "after": "诊断文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_logWarning",
+    "before": "用于警告文字的显示；配色和参数不改变业务操作。",
+    "after": "警告文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_headerText",
+    "before": "用于管理列表标题的显示；配色和参数不改变业务操作。",
+    "after": "管理列表标题。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_summaryText",
+    "before": "用于模块摘要文字的显示；配色和参数不改变业务操作。",
+    "after": "模块摘要文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_inputText",
+    "before": "用于输入文字的显示；配色和参数不改变业务操作。",
+    "after": "输入文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_mentionText",
+    "before": "用于提及文字的显示；配色和参数不改变业务操作。",
+    "after": "提及文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_mentionSelfBg",
+    "before": "用于被提及时的消息背景的显示；配色和参数不改变业务操作。",
+    "after": "被提及时的消息背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_selfName",
+    "before": "用于自己的昵称的显示；配色和参数不改变业务操作。",
+    "after": "自己的昵称。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_selfMessageBg",
+    "before": "用于自己的消息背景的显示；配色和参数不改变业务操作。",
+    "after": "自己的消息背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_rowHoverBg",
+    "before": "用于消息悬停背景的显示；配色和参数不改变业务操作。",
+    "after": "消息悬停背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_groupIndentLine",
+    "before": "用于连续消息缩进线的显示；配色和参数不改变业务操作。",
+    "after": "连续消息缩进线。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_replyQuoteBorder",
+    "before": "用于引用竖线的显示；配色和参数不改变业务操作。",
+    "after": "引用竖线。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_replyQuoteBg",
+    "before": "用于引用背景的显示；配色和参数不改变业务操作。",
+    "after": "引用背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_replyQuoteText",
+    "before": "用于引用及时间戳文字的显示；配色和参数不改变业务操作。",
+    "after": "引用及时间戳文字。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeAccent",
+    "before": "用于通知强调色的显示；配色和参数不改变业务操作。",
+    "after": "通知强调色。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeBg",
+    "before": "用于通知消息背景的显示；配色和参数不改变业务操作。",
+    "after": "通知消息背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeBannerBg",
+    "before": "用于通知横幅背景的显示；配色和参数不改变业务操作。",
+    "after": "通知横幅背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeProgress",
+    "before": "用于通知进度的显示；配色和参数不改变业务操作。",
+    "after": "通知进度。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_inputReplyBorder",
+    "before": "用于输入区回复竖线的显示；配色和参数不改变业务操作。",
+    "after": "输入区回复竖线。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_inputReplyBg",
+    "before": "用于输入区回复背景的显示；配色和参数不改变业务操作。",
+    "after": "输入区回复背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_blockedBg",
+    "before": "用于屏蔽消息背景的显示；配色和参数不改变业务操作。",
+    "after": "屏蔽消息背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_blockedName",
+    "before": "用于屏蔽昵称的显示；配色和参数不改变业务操作。",
+    "after": "屏蔽昵称。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_pendingMessage",
+    "before": "用于待发送消息的显示；配色和参数不改变业务操作。",
+    "after": "待发送消息。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_deniedMessage",
+    "before": "用于被拒绝的消息的显示；配色和参数不改变业务操作。",
+    "after": "被拒绝的消息。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_imagePlaceholderBg",
+    "before": "用于图片占位背景的显示；配色和参数不改变业务操作。",
+    "after": "图片占位背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_imageFailedText",
+    "before": "用于图片失败提示的显示；配色和参数不改变业务操作。",
+    "after": "图片失败提示。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_ourOfferAccent",
+    "before": "用于己方报价强调色的显示；配色和参数不改变业务操作。",
+    "after": "己方报价强调色。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_theirOfferAccent",
+    "before": "用于对方报价强调色的显示；配色和参数不改变业务操作。",
+    "after": "对方报价强调色。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_ourOfferBg",
+    "before": "用于己方报价背景的显示；配色和参数不改变业务操作。",
+    "after": "己方报价背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_theirOfferBg",
+    "before": "用于对方报价背景的显示；配色和参数不改变业务操作。",
+    "after": "对方报价背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_cancelButton",
+    "before": "用于取消交易按钮的显示；配色和参数不改变业务操作。",
+    "after": "取消交易按钮。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_acceptedBadge",
+    "before": "用于已确认标记的显示；配色和参数不改变业务操作。",
+    "after": "已确认标记。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_pendingBadge",
+    "before": "用于等待确认标记的显示；配色和参数不改变业务操作。",
+    "after": "等待确认标记。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_rowHoverBg",
+    "before": "用于交易列表悬停背景的显示；配色和参数不改变业务操作。",
+    "after": "交易列表悬停背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_panelBg",
+    "before": "用于交易面板背景的显示；配色和参数不改变业务操作。",
+    "after": "交易面板背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_searchPlaceholder",
+    "before": "用于交易搜索提示的显示；配色和参数不改变业务操作。",
+    "after": "交易搜索提示。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_infoBackground",
+    "before": "用于顶部说明背景的显示；配色和参数不改变业务操作。",
+    "after": "顶部说明背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_infoAccent",
+    "before": "用于说明卡片竖线的显示；配色和参数不改变业务操作。",
+    "after": "说明卡片竖线。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_editorBackground",
+    "before": "用于提取与计划编辑背景的显示；配色和参数不改变业务操作。",
+    "after": "提取与计划编辑背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_noticeBackground",
+    "before": "用于恢复与未决提示背景的显示；配色和参数不改变业务操作。",
+    "after": "恢复与未决提示背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_errorBackground",
+    "before": "用于只读故障提示背景的显示；配色和参数不改变业务操作。",
+    "after": "只读故障提示背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_selectedBackground",
+    "before": "用于选中库存条目背景的显示；配色和参数不改变业务操作。",
+    "after": "选中库存条目背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_alternateBackground",
+    "before": "用于交替条目背景的显示；配色和参数不改变业务操作。",
+    "after": "交替条目背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_choiceBackground",
+    "before": "用于交付选择卡片背景的显示；配色和参数不改变业务操作。",
+    "after": "交付选择卡片背景。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_directDeliveryAccent",
+    "before": "用于直接投放强调色的显示；配色和参数不改变业务操作。",
+    "after": "直接投放强调色。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_storedDeliveryAccent",
+    "before": "用于存入库存强调色的显示；配色和参数不改变业务操作。",
+    "after": "存入库存强调色。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_official",
+    "before": "用于官方来源徽章的显示；配色和参数不改变业务操作。",
+    "after": "官方来源徽章。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_managed",
+    "before": "用于托管包徽章的显示；配色和参数不改变业务操作。",
+    "after": "托管包徽章。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_workshop",
+    "before": "用于创意工坊徽章的显示；配色和参数不改变业务操作。",
+    "after": "创意工坊徽章。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_local",
+    "before": "用于本地开发包徽章的显示；配色和参数不改变业务操作。",
+    "after": "本地开发包徽章。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_text_primary",
+    "before": "Controls ui / text / primary. Appearance changes do not submit operations.",
+    "after": "Controls ui / text / primary."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_text_secondary",
+    "before": "Controls ui / text / secondary. Appearance changes do not submit operations.",
+    "after": "Controls ui / text / secondary."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_background",
+    "before": "Controls ui / background. Appearance changes do not submit operations.",
+    "after": "Controls ui / background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_surface",
+    "before": "Controls ui / surface. Appearance changes do not submit operations.",
+    "after": "Controls ui / surface."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_separator",
+    "before": "Controls ui / separator. Appearance changes do not submit operations.",
+    "after": "Controls ui / separator."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_hover",
+    "before": "Controls ui / hover. Appearance changes do not submit operations.",
+    "after": "Controls ui / hover."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_pending",
+    "before": "Controls ui / pending. Appearance changes do not submit operations.",
+    "after": "Controls ui / pending."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_error",
+    "before": "Controls ui / error. Appearance changes do not submit operations.",
+    "after": "Controls ui / error."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_success",
+    "before": "Controls ui / success. Appearance changes do not submit operations.",
+    "after": "Controls ui / success."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ui_warning",
+    "before": "Controls ui / warning. Appearance changes do not submit operations.",
+    "after": "Controls ui / warning."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusActive",
+    "before": "Controls ext / status Active. Appearance changes do not submit operations.",
+    "after": "Controls ext / status Active."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusFailed",
+    "before": "Controls ext / status Failed. Appearance changes do not submit operations.",
+    "after": "Controls ext / status Failed."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusDisabled",
+    "before": "Controls ext / status Disabled. Appearance changes do not submit operations.",
+    "after": "Controls ext / status Disabled."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusDependencyDisabled",
+    "before": "Controls ext / status Dependency Disabled. Appearance changes do not submit operations.",
+    "after": "Controls ext / status Dependency Disabled."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusRegistered",
+    "before": "Controls ext / status Registered. Appearance changes do not submit operations.",
+    "after": "Controls ext / status Registered."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_statusDefault",
+    "before": "Controls ext / status Default. Appearance changes do not submit operations.",
+    "after": "Controls ext / status Default."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_logDiagnostic",
+    "before": "Controls ext / log Diagnostic. Appearance changes do not submit operations.",
+    "after": "Controls ext / log Diagnostic."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_logWarning",
+    "before": "Controls ext / log Warning. Appearance changes do not submit operations.",
+    "after": "Controls ext / log Warning."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_headerText",
+    "before": "Controls ext / header Text. Appearance changes do not submit operations.",
+    "after": "Controls ext / header Text."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_ext_summaryText",
+    "before": "Controls ext / summary Text. Appearance changes do not submit operations.",
+    "after": "Controls ext / summary Text."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_inputText",
+    "before": "Controls chat / input Text. Appearance changes do not submit operations.",
+    "after": "Controls chat / input Text."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_mentionText",
+    "before": "Controls chat / mention Text. Appearance changes do not submit operations.",
+    "after": "Controls chat / mention Text."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_mentionSelfBg",
+    "before": "Controls chat / mention Self Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / mention Self Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_selfName",
+    "before": "Controls chat / self Name. Appearance changes do not submit operations.",
+    "after": "Controls chat / self Name."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_selfMessageBg",
+    "before": "Controls chat / self Message Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / self Message Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_rowHoverBg",
+    "before": "Controls chat / row Hover Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / row Hover Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_groupIndentLine",
+    "before": "Controls chat / group Indent Line. Appearance changes do not submit operations.",
+    "after": "Controls chat / group Indent Line."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_replyQuoteBorder",
+    "before": "Controls chat / reply Quote Border. Appearance changes do not submit operations.",
+    "after": "Controls chat / reply Quote Border."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_replyQuoteBg",
+    "before": "Controls chat / reply Quote Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / reply Quote Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_replyQuoteText",
+    "before": "Controls chat / reply Quote Text. Appearance changes do not submit operations.",
+    "after": "Controls chat / reply Quote Text."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeAccent",
+    "before": "Controls chat / notice Accent. Appearance changes do not submit operations.",
+    "after": "Controls chat / notice Accent."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeBg",
+    "before": "Controls chat / notice Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / notice Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeBannerBg",
+    "before": "Controls chat / notice Banner Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / notice Banner Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_noticeProgress",
+    "before": "Controls chat / notice Progress. Appearance changes do not submit operations.",
+    "after": "Controls chat / notice Progress."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_inputReplyBorder",
+    "before": "Controls chat / input Reply Border. Appearance changes do not submit operations.",
+    "after": "Controls chat / input Reply Border."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_inputReplyBg",
+    "before": "Controls chat / input Reply Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / input Reply Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_blockedBg",
+    "before": "Controls chat / blocked Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / blocked Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_blockedName",
+    "before": "Controls chat / blocked Name. Appearance changes do not submit operations.",
+    "after": "Controls chat / blocked Name."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_pendingMessage",
+    "before": "Controls chat / pending Message. Appearance changes do not submit operations.",
+    "after": "Controls chat / pending Message."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_deniedMessage",
+    "before": "Controls chat / denied Message. Appearance changes do not submit operations.",
+    "after": "Controls chat / denied Message."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_imagePlaceholderBg",
+    "before": "Controls chat / image Placeholder Bg. Appearance changes do not submit operations.",
+    "after": "Controls chat / image Placeholder Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_chat_imageFailedText",
+    "before": "Controls chat / image Failed Text. Appearance changes do not submit operations.",
+    "after": "Controls chat / image Failed Text."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_ourOfferAccent",
+    "before": "Controls trade / our Offer Accent. Appearance changes do not submit operations.",
+    "after": "Controls trade / our Offer Accent."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_theirOfferAccent",
+    "before": "Controls trade / their Offer Accent. Appearance changes do not submit operations.",
+    "after": "Controls trade / their Offer Accent."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_ourOfferBg",
+    "before": "Controls trade / our Offer Bg. Appearance changes do not submit operations.",
+    "after": "Controls trade / our Offer Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_theirOfferBg",
+    "before": "Controls trade / their Offer Bg. Appearance changes do not submit operations.",
+    "after": "Controls trade / their Offer Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_cancelButton",
+    "before": "Controls trade / cancel Button. Appearance changes do not submit operations.",
+    "after": "Controls trade / cancel Button."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_acceptedBadge",
+    "before": "Controls trade / accepted Badge. Appearance changes do not submit operations.",
+    "after": "Controls trade / accepted Badge."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_pendingBadge",
+    "before": "Controls trade / pending Badge. Appearance changes do not submit operations.",
+    "after": "Controls trade / pending Badge."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_rowHoverBg",
+    "before": "Controls trade / row Hover Bg. Appearance changes do not submit operations.",
+    "after": "Controls trade / row Hover Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_panelBg",
+    "before": "Controls trade / panel Bg. Appearance changes do not submit operations.",
+    "after": "Controls trade / panel Bg."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_trade_searchPlaceholder",
+    "before": "Controls trade / search Placeholder. Appearance changes do not submit operations.",
+    "after": "Controls trade / search Placeholder."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_infoBackground",
+    "before": "Controls inventory / info Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / info Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_infoAccent",
+    "before": "Controls inventory / info Accent. Appearance changes do not submit operations.",
+    "after": "Controls inventory / info Accent."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_editorBackground",
+    "before": "Controls inventory / editor Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / editor Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_noticeBackground",
+    "before": "Controls inventory / notice Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / notice Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_errorBackground",
+    "before": "Controls inventory / error Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / error Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_selectedBackground",
+    "before": "Controls inventory / selected Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / selected Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_alternateBackground",
+    "before": "Controls inventory / alternate Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / alternate Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_choiceBackground",
+    "before": "Controls inventory / choice Background. Appearance changes do not submit operations.",
+    "after": "Controls inventory / choice Background."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_directDeliveryAccent",
+    "before": "Controls inventory / direct Delivery Accent. Appearance changes do not submit operations.",
+    "after": "Controls inventory / direct Delivery Accent."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_inventory_storedDeliveryAccent",
+    "before": "Controls inventory / stored Delivery Accent. Appearance changes do not submit operations.",
+    "after": "Controls inventory / stored Delivery Accent."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_official",
+    "before": "Controls store / badge / official. Appearance changes do not submit operations.",
+    "after": "Controls store / badge / official."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_managed",
+    "before": "Controls store / badge / managed. Appearance changes do not submit operations.",
+    "after": "Controls store / badge / managed."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_workshop",
+    "before": "Controls store / badge / workshop. Appearance changes do not submit operations.",
+    "after": "Controls store / badge / workshop."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Languages/English/Keyed/ThemeItems.xml",
+    "key": "Phinix_theme_desc_plugin_store_badge_local",
+    "before": "Controls store / badge / local. Appearance changes do not submit operations.",
+    "after": "Controls store / badge / local."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Extensions/PluginStore/Package/Languages/ChineseSimplified (简体中文)/Keyed/PluginStore.xml",
+    "key": "Phinix_store2_confirmUninstall",
+    "before": "将标记插件待卸载，下次启动在加载前移除已核验的代码文件。保留插件设置、业务数据和存档。",
+    "after": "卸载此插件？重启后移除插件文件，设置、数据和存档仍会保留。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Extensions/PluginStore/Package/Languages/ChineseSimplified (简体中文)/Keyed/PluginStore.xml",
+    "key": "Phinix_store2_updateConfirmation",
+    "before": "更新以下插件？重启后生效，保留插件设置；此操作不迁移或回退插件业务数据。",
+    "after": "更新以下插件？重启后生效，设置保留；插件数据不会自动迁移或回退。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Extensions/PluginStore/Package/Languages/English/Keyed/PluginStore.xml",
+    "key": "Phinix_store2_confirmUninstall",
+    "before": "Mark this plugin for removal before loading on the next startup. Only verified owned code is removed. Settings, business data and saves are retained.",
+    "after": "Uninstall this plugin? Its files will be removed on restart. Settings, data and saves are retained."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Rework/Extensions/PluginStore/Package/Languages/English/Keyed/PluginStore.xml",
+    "key": "Phinix_store2_updateConfirmation",
+    "before": "Update these packages? Changes take effect after restarting. Plugin settings are retained; this does not migrate or roll back plugin data.",
+    "after": "Update these plugins? Changes take effect on restart and settings are retained. Plugin data is not automatically migrated or rolled back."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiCloseKeepsTrade",
+    "before": "选择交易以查看或处理。关闭页面不取消交易。",
+    "after": "关闭窗口不会撤销已提交的操作。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiCancelTrade",
+    "before": "取消这笔交易？物品归还由人才贸易业务处理。",
+    "after": "取消这笔交易？请等待取消结果和单位返还。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiRequestPending",
+    "before": "操作已交给业务处理，请核对后续状态和实际物品；这不是交付确认。",
+    "after": "请查看最新列表，并核对收到的单位和白银。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiCleanupRequested",
+    "before": "已执行本地清理请求；这不是 Pawn 归还。",
+    "after": "清理操作不会返还单位，请核对列表。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiPublishConfirm",
+    "before": "发布所选单位？将按现有业务序列化并托管 Pawn。关闭页面不下架，发布请求不代表已成交。",
+    "after": "上架所选单位？上架后，单位将暂时离开地图。关闭窗口不会下架。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiListingRequested",
+    "before": "已调用发布业务。请核对目录状态；这不代表成交或交付。",
+    "after": "上架请求已提交，请等待列表更新。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiOperationIncomplete",
+    "before": "操作尚未完成，请查看业务提示或日志。",
+    "after": "操作未完成，请查看错误提示；详情可在日志中查看。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiDelistConfirm",
+    "before": "下架所选单位？归还仍由原业务处理，请核对实际单位。",
+    "after": "下架所选单位？请等待单位返回地图。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiReturnConfirm",
+    "before": "提交归还所选租赁单位？归还、结算及押金按现有业务规则处理。",
+    "after": "归还所选租赁单位？请等待归还结果和押金结算。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiRetryView",
+    "before": "重试此视图",
+    "after": "重试"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiViewError",
+    "before": "当前分支暂时无法显示",
+    "after": "此页面暂时无法打开"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiViewErrorHelp",
+    "before": "可以切换其他分支或重试此视图。关闭或切换视图不会取消交易。",
+    "after": "可以切换其他页面或重试。切换页面不会取消交易。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiSelectListing",
+    "before": "选择条目查看详情与操作",
+    "after": "选择挂牌查看详情"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_purchaseUnknown",
+    "before": "购买仍在等待确认，已保留请求。请勿认定失败或重复购买。",
+    "after": "购买结果尚未确认，请勿重复购买。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiCloseKeepsTrade",
+    "before": "Select a trade to view or act. Closing the view does not cancel it.",
+    "after": "Closing the window does not withdraw submitted actions."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiCancelTrade",
+    "before": "Cancel this trade? Talent trade owns the return of held items.",
+    "after": "Cancel this trade? Wait for the cancellation result and return of held units."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiRequestPending",
+    "before": "Action passed to the business handler. Check subsequent state and actual items; this is not delivery confirmation.",
+    "after": "Check the latest list and the units or silver you receive."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiCleanupRequested",
+    "before": "Local cleanup requested; this is not a Pawn return.",
+    "after": "Cleanup does not return units. Check the list."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiPublishConfirm",
+    "before": "Publish this unit? The existing business will serialize and hold the Pawn. Closing the view does not delist it; publication is not a sale.",
+    "after": "List this unit? It will temporarily leave the map. Closing the window does not delist it."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiListingRequested",
+    "before": "Publication handler invoked. Check listing state; this is not a sale or delivery.",
+    "after": "Listing requested. Wait for the list to update."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiOperationIncomplete",
+    "before": "Operation is not complete. Check business messages or logs.",
+    "after": "The action did not complete. Check the error message; details are available in the log."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiDelistConfirm",
+    "before": "Delist this unit? The original business handles return; verify the actual unit.",
+    "after": "Delist this unit? Wait for it to return to the map."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiReturnConfirm",
+    "before": "Return this rented unit? Return, settlement and deposit follow existing business rules.",
+    "after": "Return this rented unit? Wait for the return result and deposit settlement."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiRetryView",
+    "before": "Retry view",
+    "after": "Retry"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiViewError",
+    "before": "This view could not be displayed",
+    "after": "This page is temporarily unavailable"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiViewErrorHelp",
+    "before": "Switch to another tab or retry this view. Closing or switching views does not cancel a trade.",
+    "after": "Switch to another page or try again. Switching pages does not cancel a trade."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiSelectListing",
+    "before": "Select a listing to view details and actions",
+    "after": "Select a listing to view details"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_purchaseUnknown",
+    "before": "The purchase is still awaiting confirmation. Its request is retained; do not assume failure or buy it again.",
+    "after": "The purchase result is unconfirmed. Do not buy it again."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiSendSubmitted",
+    "before": "发送请求已提交，等待处理。",
+    "after": "正在发送，等待确认。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiClaimSubmitted",
+    "before": "领取请求已提交，等待处理。",
+    "after": "正在领取，等待结果。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiSendRejected",
+    "before": "发送未完成，请查看具体业务提示。草稿刷新不代表已经返还。",
+    "after": "发送未完成，请查看错误提示。刷新列表不会返还物品。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiClaimAuthorityNote",
+    "before": "领取记录不代表物品已经到账。",
+    "after": "请检查实际到账物品，领取记录仅供核对。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiSettingsNote",
+    "before": "设置沿用现有保存项。",
+    "after": "修改后自动保存。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiDetailSnapshotNote",
+    "before": "打开时的记录，重新打开可刷新。",
+    "after": "重新打开可查看最新记录。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_uiSpecialRisk",
+    "before": "此物品适用特殊红包规则，有效期为 1 分钟。剩余物资可能被没收，或触发袭击；也可能按已有规则返还。",
+    "after": "此物品的红包有效期为 1 分钟。剩余物品可能被没收、引发袭击或返还。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/zh-CN.json",
+    "key": "Phinix_legacyRedpacket_claimTimeoutMessage",
+    "before": "领取结果仍待确认，请核对实际物品和插件日志。",
+    "after": "领取结果尚未确认，请检查实际到账物品。详情见插件日志。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiSendSubmitted",
+    "before": "Send requested; waiting for processing.",
+    "after": "Sending. Waiting for confirmation."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiClaimSubmitted",
+    "before": "Claim requested; waiting for processing.",
+    "after": "Claiming. Waiting for the result."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiSendRejected",
+    "before": "Sending did not complete; check the business message. Refreshing a draft does not confirm a return.",
+    "after": "Sending did not complete. Check the error message. Refreshing the list does not return items."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiClaimAuthorityNote",
+    "before": "A claim record does not confirm item delivery.",
+    "after": "Check the items you received. Claim records are for reference."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiSettingsNote",
+    "before": "Settings use the existing saved keys.",
+    "after": "Changes are saved automatically."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiDetailSnapshotNote",
+    "before": "Records at opening. Reopen to refresh.",
+    "after": "Reopen to see the latest records."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_uiSpecialRisk",
+    "before": "This item uses special packet rules and expires in one minute. Remaining items may be confiscated or trigger a raid; they may also be returned under the existing rules.",
+    "after": "Packets containing this item expire after one minute. Remaining items may be confiscated, trigger a raid or be returned."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-RedPacket/Client/Resources/LegacyRedPacket/Localization/en-US.json",
+    "key": "Phinix_legacyRedpacket_claimTimeoutMessage",
+    "before": "The local claim result is still unconfirmed. Check the actual items and plugin log.",
+    "after": "The claim result is unconfirmed. Check the items you received; see the plugin log for details."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "intro",
+    "before": "这个示例通过公开扩展 API 添加 Tab。试试下面的计数按钮，它只修改插件自身的设置。",
+    "after": "这里演示公共插件 API。试试计数按钮，它只修改本插件的设置。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "contributionMenu",
+    "before": "打开接入操作",
+    "after": "扩展操作"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "apiDemo",
+    "before": "查看 provider 与生命周期 API",
+    "after": "查看 API 与生命周期示例"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "selectionOnly",
+    "before": "选择行仅预览选择状态。业务动作仍从下方显式执行。",
+    "after": "选择一行查看详情，再用下方按钮执行操作。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "operationOwnership",
+    "before": "关闭此视图只释放呈现资源。已提交操作继续由插件持有；回调完成不等于业务确认。只读恢复记录本身不能授权重试或退款。",
+    "after": "关闭窗口不会撤销已提交的操作。回调结束不代表操作成功；只读记录不能用于强制重试或退款。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "readOnlyListHint",
+    "before": "这里只展示投影事实，点击行不会发送选择或业务操作。",
+    "after": "此清单仅供查看，点击不会执行操作。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "boundedQuantity",
+    "before": "有界草稿数量 · 0–100",
+    "after": "数量草稿 · 0–100"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "boundedQuantityInvalid",
+    "before": "请输入 0–100 的整数；这是草稿，不会提交业务操作。",
+    "after": "请输入 0–100 的整数；这里只修改草稿。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "viewLifecycle",
+    "before": "公共视图 adapter：打开 {0} / 关闭 {1} · {2}",
+    "after": "页面：打开 {0} / 关闭 {1} · {2}"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "intro",
+    "before": "This example adds a tab through the public extension API. Try the counter below; it only changes this plugin’s own settings.",
+    "after": "Try the public plugin API with the counter below. It changes only this plugin’s settings."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "contributionMenu",
+    "before": "Open contributed actions",
+    "after": "Contributed actions"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "apiDemo",
+    "before": "Explore provider and lifetime APIs",
+    "after": "Explore API and lifetime examples"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "selectionOnly",
+    "before": "Select a row to preview selection. Business actions remain explicit below.",
+    "after": "Select a row to view details, then use the buttons below to act."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "operationOwnership",
+    "before": "Closing this view releases presentation resources. Submitted operations remain plugin-owned; callback completion is not business confirmation. A read-only recovery record does not by itself authorize retry or refund.",
+    "after": "Closing the window does not withdraw submitted actions. A finished callback does not confirm success; read-only records cannot authorize forced retries or refunds."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "readOnlyListHint",
+    "before": "These are projection facts. Clicking a row sends no selection or operation.",
+    "after": "This list is read-only. Clicking does not perform an action."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "boundedQuantity",
+    "before": "Bounded quantity draft · 0–100",
+    "after": "Quantity draft · 0–100"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "boundedQuantityInvalid",
+    "before": "Enter a whole number from 0 to 100. This draft submits no business operation.",
+    "after": "Enter a whole number from 0 to 100. This changes only the draft."
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "viewLifecycle",
+    "before": "Public view adapter: opened {0} / closed {1} · {2}",
+    "after": "Page: opened {0} / closed {1} · {2}"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/zh-CN.json",
+    "key": "Phinix_legacyTalentTrade_uiCleanupWarning",
+    "before": "强制清理会移除你的全部在售目录记录、当地数据与存档跟踪，并广播下架；不会归还 Pawn。此操作可能丢失单位，仅在明确知道数据已无法恢复时使用。继续？",
+    "after": "强制清理会删除你全部在售记录和本地备份，不会归还单位，可能造成永久丢失。仅在无法恢复时使用。继续？"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Resources/LegacyTalentTrade/Localization/en-US.json",
+    "key": "Phinix_legacyTalentTrade_uiCleanupWarning",
+    "before": "Force cleanup removes all your active market records, local pawn data and save tracking, and broadcasts delisting. It does not return Pawns and can lose units. Use only when you know the data cannot be recovered. Continue?",
+    "after": "Force cleanup deletes all your active listings and local backups without returning units. Units may be permanently lost. Use only when recovery is impossible. Continue?"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/zh-CN.json",
+    "key": "apiTip",
+    "before": "打开时绑定自有作用域。关闭后再次调用，回调次数不应增加；重新绑定后恢复。切换主题也会触发订阅，关闭窗口立即释放。可选 API 缺失是正常能力状态。",
+    "after": "打开窗口会绑定作用域。关闭作用域后，回调计数应停止增加；重新绑定后恢复。主题切换也会触发回调。可选 API 不可用时，相应操作无法执行。"
+  },
+  {
+    "file": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/Resources/Localization/en-US.json",
+    "key": "apiTip",
+    "before": "Opening binds an owned scope. After closing it, invoking again must not increment callbacks. Rebind to restore it. Theme changes also trigger the subscription; closing this window releases it. A missing optional API is ordinary capability state.",
+    "after": "Opening the window binds a scope. Closing the scope stops its callback count; binding again restores it. Theme changes also trigger callbacks. Actions requiring an unavailable optional API cannot run."
+  }
+]

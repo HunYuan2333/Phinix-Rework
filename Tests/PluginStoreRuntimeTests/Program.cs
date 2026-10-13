@@ -428,10 +428,14 @@ internal static partial class Program
         ExpectReadOnly(() => ((IList<ClientInstalledModSnapshot>)environment.InstalledMods).Clear());
         ExpectReadOnly(() => ((IList<InstalledPackage>)input.Installed).Clear());
         var a = Package("a", "1.0.0", Dep("b", "1.0.0"));
-        Expect("UnknownLocalVersion", () => Plan(Read(a, Package("b")), "a", input.Installed, input.Runtime));
+        ((Dictionary<string, object>)a["compatibility"])["abstractionsRange"] = ClientAbstractionsCompatibility.Version;
+        var currentB = Package("b"); ((Dictionary<string, object>)currentB["compatibility"])["abstractionsRange"] = ClientAbstractionsCompatibility.Version;
+        Expect("UnknownLocalVersion", () => Plan(Read(a, currentB), "a", input.Installed, input.Runtime));
         a = Package("a"); a["rimWorldPackageId"] = "test.host";
+        ((Dictionary<string, object>)a["compatibility"])["abstractionsRange"] = ClientAbstractionsCompatibility.Version;
         Expect("UnknownLocalVersion", () => Plan(Read(a), "a", input.Installed, input.Runtime));
         a = Package("a"); a["modules"] = new[] { Module("a.main", "host.disabled") };
+        ((Dictionary<string, object>)a["compatibility"])["abstractionsRange"] = ClientAbstractionsCompatibility.Version;
         Expect("MissingModule", () => Plan(Read(a), "a", input.Installed, input.Runtime));
         a["modules"] = new[] { Module("a.main", "host.inventory") };
         Assert(Plan(Read(a), "a", input.Installed, input.Runtime).Packages.Count == 1, "An actual host module does not force a package download.");

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Extensions/Trade/Client/TradeQuantityDraft.cs" Link="Production/TradeQuantityDraft.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs" Link="Production/Contract.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientTheme.cs" Link="Production/Theme.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/UI/ClientWidgets.cs" Link="Production/Widgets.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/UI/ResponsiveFormLayout.cs" Link="Production/ResponsiveForm.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/UI/VirtualListLayout.cs" Link="Production/VirtualList.cs" />
+    <Compile Include="../../Client/Source/UI/ClientPresentationService.cs" Link="Production/Renderer.cs" />
+    <Compile Include="../../Client/Source/UI/ClientPresentationFeedRenderer.cs" Link="Production/FeedRenderer.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/StorePresentationWindow.cs" Link="Production/StoreWindow.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/LocalPackageFileWindow.cs" Link="Production/LocalFile.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PluginStorePresentationActionContext.cs" Link="Production/StoreContext.cs" />
+      <Compile Include="../../Extensions/Trade/Client/TradeQuoteRows.cs" Link="Production/TradeQuoteRows.cs" />
+      <Compile Include="../../Extensions/Trade/Client/TradeList.cs" Link="Production/TradeList.cs" />
+    <Compile Include="../../Extensions/Trade/Contracts/TradePresentationActionContext.cs" Link="Production/TradeContext.cs" />
+      <Compile Include="../../Extensions/Trade/Client/TradeOfferOperations.cs" Link="Production/TradeOfferOwner.cs" />
+    <Compile Include="../../Extensions/Trade/Contracts/TradeInventoryRecoveryContracts.cs" Link="Production/TradeInventoryRecoveryContract.cs" />
+    <Compile Include="../../Extensions/Trade/Contracts/TradeOfferOperationContracts.cs" Link="Production/TradeOfferContracts.cs" />
+  </ItemGroup>
+</Project>

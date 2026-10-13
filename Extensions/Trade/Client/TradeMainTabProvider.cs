@@ -1,45 +1,20 @@
+using System;
 using PhinixClient;
 using PhinixClient.Framework;
-using PhinixClient.GUI;
 using UnityEngine;
+using Utils.Framework;
 using Verse;
-
 namespace Phinix.TradeExtension.Client
 {
-    public class TradeMainTabProvider : IMainTabProvider, IResponsiveMainTabProvider, System.IDisposable
+    public class TradeMainTabProvider : IMainTabProvider,IResponsiveMainTabProvider,IClientNavigationMetadata,IClientViewLifecycle,IDisposable
     {
-        private static readonly UiLayoutHints CachedLayoutHints = new UiLayoutHints(
-            new Vector2(360f, 260f),
-            new Vector2(760f, 540f),
-            true);
-        private readonly ITradeUiHostContext hostContext;
-        private readonly TradeList tradeList;
-
-        public string TabLabel => "Phinix_tabs_trades".Translate();
-        public float TabOrder => 1;
-        public UiLayoutHints LayoutHints => CachedLayoutHints;
-
-        public TradeMainTabProvider(ITradeUiHostContext hostContext)
-        {
-            this.hostContext = hostContext;
-            tradeList = new TradeList(hostContext);
-        }
-
-        public void Dispose() { tradeList.Dispose(); }
-
-        public void Draw(Rect inRect)
-        {
-            using (TradeTheme.BeginDraw())
-            using (new ClientGuiScope(true))
-            {
-                UnityEngine.GUI.color = TradeTheme.Current.PrimaryText;
-                DrawContents(inRect);
-            }
-        }
-
-        private void DrawContents(Rect inRect)
-        {
-            tradeList.Draw(inRect);
-        }
+        private static readonly UiLayoutHints Hints=new UiLayoutHints(new Vector2(360,260),new Vector2(760,540),true);
+        private readonly TradeList list;
+        public TradeMainTabProvider(ITradeUiHostContext context){list=new TradeList(context);}
+        internal void Start(IPhinixExtensionModule owner,IClientPresentationService renderer,IClientExtensionPointService points,IClientTheme theme,ITradeOfferOperationApi operations,ITradeInventoryRecoveryApi recovery)=>list.Start(owner,renderer,points,theme,operations,recovery);
+        public string TabLabel=>"Phinix_tabs_trades".Translate();public float TabOrder=>1;
+        public string NavigationId=>"trades";public UiLayoutHints LayoutHints=>Hints;
+        public void ViewOpened()=>list.ViewOpened();public void ViewClosed()=>list.ViewClosed();public void ViewUpdate()=>list.ViewUpdate();
+        public void Draw(Rect rect)=>list.Draw(rect);public void Dispose()=>list.Dispose();
     }
 }

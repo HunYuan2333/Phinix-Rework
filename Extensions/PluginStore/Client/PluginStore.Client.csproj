@@ -25,6 +25,8 @@
     <Compile Include="ManagedStorePlanner.cs" />
     <Compile Include="ManagedStoreController.cs" />
     <Compile Include="ManagedLocalImport.cs" />
+    <Compile Include="PluginStorePresentationActionContext.cs" />
+    <Compile Include="StorePresentationWindow.cs" />
     <Compile Include="LocalPackageFileWindow.cs" />
     <Compile Include="LocalThemePackagesWindow.cs" />
     <Compile Include="StoreEnvironmentRefresh.cs" />
@@ -38,6 +40,7 @@
     <Compile Include="ManagedStoreProgress.cs" />
     <Compile Include="ManagedStoreUpdates.cs" />
     <Compile Include="ManagedPluginStoreView.cs" />
+    <Compile Include="ManagedStorePresentation.cs" />
     <Compile Include="ManagedStoreLayout.cs" />
     <Compile Include="StoreMaintainerRegistry.cs" />
     <Compile Include="StoreBadgeIcons.cs" />

@@ -253,7 +253,9 @@ namespace Phinix.TradeExtension.Client
 
                 pendingCompletions.Remove(key);
                 acknowledgeCompletion?.Invoke(pending.Args.TradeId, !pending.Completed);
-                if (!pending.Display || useInventory && inventoryResult.Status == InventoryDepositStatus.AlreadyCommitted) return;
+                // Empty direct completions have no map/pod target, just like empty inventory deposits.
+                if (!pending.Display || useInventory && inventoryResult.Status == InventoryDepositStatus.AlreadyCommitted ||
+                    !useInventory && directResult.Map == null) return;
 
                 LetterDef letterDef = DefDatabase<LetterDef>.GetNamed(pending.Completed ? "TradeAccepted" : "TradeCancelled");
                 Find.LetterStack.ReceiveLetter(

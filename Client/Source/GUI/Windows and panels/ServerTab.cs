@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using PhinixClient.Framework;
@@ -8,82 +9,92 @@ using static PhinixClient.Client;
 
 namespace PhinixClient
 {
-    /// <summary>
-    /// 主窗口。响应式布局（设计哲学 §8.3 鲁棒）：
-    /// - 初始尺寸按 RimWorld UI 坐标缩放，clamp 到屏幕安全区；用户手动调整过的尺寸持久化（Settings.ServerTabWidth/Height），
-    ///   下次打开优先恢复。
-    /// - 允许拖动调整大小，拖动期间每帧 clamp 到最小尺寸，防止布局塌陷。
-    /// - 主/侧栏 Tab 使用 RimWorld 原生溢出布局，Tab 增多时自动换行且内容区同步让出实际高度。
-    /// - 侧栏宽度响应式：按插件偏好宽度但不超过窗口 38%，且保证主内容区不小于保底宽度。
-    /// </summary>
     public class ServerTab : MainTabWindow
     {
-        private const float DEFAULT_SPACING = 10f;
-
-        // 窗口尺寸（响应式上下限 + 屏幕分辨率比例）
-        private const float MIN_WINDOW_WIDTH = 640f;
-        private const float MIN_WINDOW_HEIGHT = 480f;
-        private const float MAX_WINDOW_WIDTH = 1280f;
-        private const float MAX_WINDOW_HEIGHT = 800f;
-        private const float WINDOW_WIDTH_RATIO = 0.72f;
-        private const float WINDOW_HEIGHT_RATIO = 0.78f;
-        private const float WINDOW_CONTENT_PADDING = 36f;
-
-        // Tab 条参数：上限改小（200 → 150），下限保证可读
-        private const float MIN_TAB_WIDTH = 80f;
-        private const float MAX_TAB_WIDTH = 150f;
-
-        // 侧栏响应式约束
-        private const float SIDEBAR_MAX_RATIO = 0.38f;
-        private const float SIDEBAR_MIN_WIDTH = 120f;
-        private const float MAIN_MIN_WIDTH = 480f;
-
-        private readonly List<IMainTabProvider> tabProviders;
-        private readonly List<IServerSidebarProvider> sidebarProviders;
-        private readonly List<INoticeBannerProvider> bannerProviders;
-        private readonly List<TabRecord> tabList = new List<TabRecord>();
-        private readonly List<TabRecord> sidebarTabList = new List<TabRecord>();
-        private int activeTab = 0;
-        private int activeSidebarTab = 0;
+        private const float MIN_WINDOW_WIDTH = 640f, MIN_WINDOW_HEIGHT = 480f;
+        private const float MAX_WINDOW_WIDTH = 1280f, MAX_WINDOW_HEIGHT = 800f;
+        private const float WINDOW_WIDTH_RATIO = .72f, WINDOW_HEIGHT_RATIO = .78f;
+        private readonly List<Entry<IMainTabProvider>> tabs = new List<Entry<IMainTabProvider>>();
+        private readonly List<Entry<IServerSidebarProvider>> sidebars = new List<Entry<IServerSidebarProvider>>();
+        private readonly List<Entry<INoticeBannerProvider>> banners = new List<Entry<INoticeBannerProvider>>();
+        private readonly HashSet<string> reported = new HashSet<string>();
+        private string selectedTab, selectedSidebar;
+        private bool drawerOpen, bannersCollapsed, hadInputLastDraw = true;
+        private readonly List<float> bannerHeights = new List<float>();
+        private readonly Dictionary<string, float> navigationWidths = new Dictionary<string, float>();
+        private object navigationLanguage;
+        private float utilityMeasuredWidth = -1; private string utilityCaption; private Vector2 utilitySize;
+        private Vector2 bannerScroll;
+        private int refreshFrames;
+        private object refreshLanguage;
         private IUiAcceptKeyHandler activeAcceptKeyHandler;
-        private bool hadInputLastDraw = true;
-        private float cachedMainTabWidth = -1f;
-        private float cachedMainTabHeight;
-        private float cachedSidebarTabWidth = -1f;
-        private float cachedSidebarTabHeight;
-        private object cachedTabLanguage;
-        private bool sidebarCollapsedBySpace;
-        private bool sidebarDrawerOpen;
+
+        private sealed class Entry<T> where T : class
+        {
+            internal IClientApiProvider<T> Handle;
+            internal T Api;
+            internal string Id, Label;
+            internal float Order;
+            internal bool Failed, Opened;
+            internal bool Current => Handle.TryGet(out var api) && ReferenceEquals(api, Api);
+        }
+        protected override float Margin => 0f;
 
         public ServerTab()
         {
-            this.closeOnAccept = false;
-            this.closeOnCancel = false;
-            this.resizeable = true;
-            this.draggable = true;
-
-            tabProviders = Instance.MainTabProviders
-                .OrderBy(p => p.TabOrder)
-                .ToList();
-            sidebarProviders = Instance.SidebarProviders
-                .OrderBy(p => p.Order)
-                .ToList();
-            bannerProviders = Instance.BannerProviders
-                .ToList();
-
-            for (int i = 0; i < tabProviders.Count; i++)
-            {
-                int index = i;
-                tabList.Add(new TabRecord(tabProviders[i].TabLabel, () => activeTab = index, () => activeTab == index));
-            }
-
-            for (int i = 0; i < sidebarProviders.Count; i++)
-            {
-                int index = i;
-                sidebarTabList.Add(new TabRecord(sidebarProviders[i].TabLabel, () => activeSidebarTab = index, () => activeSidebarTab == index));
-            }
+            doWindowBackground = true;
+            closeOnAccept = false; closeOnCancel = false; resizeable = true; draggable = true;
+            RefreshProviders();
         }
-
+        private static string L(string key) => ("Phinix_shell_" + key).Translate();
+        private void Report(string id, Exception error)
+        {
+            if (reported.Count < 64 && reported.Add(id)) Log.Warning("[Phinix] UI provider " + id + " failed: " + error);
+        }
+        private void Refresh<T>(List<Entry<T>> target, Func<T, string> label, Func<T, float> order) where T : class
+        {
+            var directory = Instance.UiApiDirectory;
+            if (directory == null) { foreach (var entry in target) CloseView(entry); target.Clear(); return; }
+            var next = new List<Entry<T>>();
+            foreach (var handle in directory.Capture<T>())
+            {
+                if (!handle.TryGet(out var api)) continue;
+                string fallback = handle.OwnerId + "/registration." + handle.RegistrationId;
+                try
+                {
+                    var metadata = api as IClientNavigationMetadata;
+                    string local = metadata?.NavigationId;
+                    if (local != null)
+                    {
+                        try { new ClientPresentationPage(local, "", 0, null); }
+                        catch (Exception error) { Report(fallback, error); local = null; }
+                    }
+                    string id = local == null ? fallback : handle.OwnerId + "/" + local;
+                    if (next.Any(e => e.Id == id)) { Report(fallback, new ArgumentException("DuplicateNavigationId")); id = fallback; }
+                    var old = target.Find(e => e.Handle.RegistrationId == handle.RegistrationId && ReferenceEquals(e.Api, api));
+                    var entry = old ?? new Entry<T>();
+                    entry.Handle = handle; entry.Api = api; entry.Id = id; entry.Label = label(api) ?? ""; entry.Order = order(api); next.Add(entry);
+                }
+                catch (Exception error)
+                {
+                    Report(fallback, error);
+                    next.Add(new Entry<T> { Handle = handle, Api = api, Id = fallback, Label = handle.OwnerId, Failed = true });
+                }
+            }
+            next.Sort((a, b) => { int c = a.Order.CompareTo(b.Order); if (c == 0) c = string.CompareOrdinal(a.Id, b.Id); return c; });
+            foreach (var removed in target) if (!next.Contains(removed)) CloseView(removed);
+            target.Clear(); target.AddRange(next);
+        }
+        private void RefreshProviders()
+        {
+            Refresh(tabs, p => p.TabLabel, p => p.TabOrder);
+            Refresh(sidebars, p => p.TabLabel, p => p.Order);
+            Refresh(banners, p => "", p => 0);
+            if (!tabs.Any(e => e.Id == selectedTab)) selectedTab = tabs.FirstOrDefault()?.Id;
+            if (!sidebars.Any(e => e.Id == selectedSidebar)) selectedSidebar = sidebars.FirstOrDefault()?.Id;
+            if (sidebars.Count == 0) drawerOpen = false;
+            activeAcceptKeyHandler = null;
+        }
         /// <summary>
         /// 响应式初始尺寸：优先恢复用户上次调整的尺寸，否则按屏幕分辨率计算并 clamp 到安全区间。
         /// </summary>
@@ -129,13 +140,17 @@ namespace PhinixClient
         {
             base.PostOpen();
             Instance?.NotifyMainWindowOpened();
+            UpdateViews();
         }
 
         public override void WindowUpdate()
         {
             base.WindowUpdate();
             ClampWindowToScreenSafeArea();
+            if (++refreshFrames >= 30 || !ReferenceEquals(refreshLanguage, LanguageDatabase.activeLanguage))
+            { refreshFrames = 0; refreshLanguage = LanguageDatabase.activeLanguage; RefreshProviders(); }
 
+            UpdateViews();
             Settings settings = Instance?.Settings;
             if (settings != null)
             {
@@ -146,6 +161,10 @@ namespace PhinixClient
 
         public override void PreClose()
         {
+            foreach (var entry in tabs) CloseView(entry);
+            foreach (var entry in sidebars) CloseView(entry);
+            foreach (var entry in banners) CloseView(entry);
+            activeAcceptKeyHandler = null;
             // 记忆窗口尺寸（拖动结束后最后一次 windowRect 即最终尺寸）
             Settings settings = Instance?.Settings;
             if (settings != null)
@@ -158,367 +177,228 @@ namespace PhinixClient
             base.PreClose();
         }
 
+        private void CloseView<T>(Entry<T> entry) where T : class
+        {
+            if (!entry.Opened) return; entry.Opened = false;
+            try { (entry.Api as IClientViewLifecycle)?.ViewClosed(); }
+            catch (Exception error) { Report(entry.Id, error); }
+        }
+        private void UpdateView<T>(Entry<T> entry) where T : class
+        {
+            if (!entry.Current) { CloseView(entry); return; }
+            if (entry.Failed) return;
+            try
+            {
+                var view = entry.Api as IClientViewLifecycle;
+                if (view == null) return;
+                if (!entry.Opened) { entry.Opened = true; view.ViewOpened(); }
+                view.ViewUpdate();
+            }
+            catch (Exception error) { entry.Failed = true; CloseView(entry); Report(entry.Id, error); }
+        }
+        private void UpdateViews()
+        {
+            foreach (var entry in tabs) UpdateView(entry);
+            foreach (var entry in sidebars) UpdateView(entry);
+            foreach (var entry in banners) UpdateView(entry);
+        }
+        private Vector2 GetInitialProviderPreferredSize()
+        {
+            try
+            {
+                var responsive = tabs.FirstOrDefault()?.Api as IResponsiveMainTabProvider;
+                var hints = responsive?.LayoutHints ?? UiLayoutHints.Default;
+                return hints.PreferredContentSize + new Vector2(36f, 76f);
+            }
+            catch (Exception error) { Report("layout-hints", error); return UiLayoutHints.Default.PreferredContentSize + new Vector2(36f, 76f); }
+        }
         public override void OnAcceptKeyPressed()
         {
-            IUiAcceptKeyHandler handler = activeAcceptKeyHandler;
-            if (!CanHandleAcceptKey(handler) || !handler.TryHandleAcceptKey())
-            {
-                closeOnAccept = false;
-                return;
-            }
-
+            if (AcceptHandlerCurrent() && CanHandleAcceptKey(activeAcceptKeyHandler)) InvokeAcceptKey();
             closeOnAccept = false;
-            Event current = Event.current;
-            if (current != null && current.type != EventType.Used)
+        }
+        private bool AcceptHandlerCurrent()
+        {
+            var tab = tabs.Find(entry => entry.Id == selectedTab);
+            if (tab != null && tab.Current && !tab.Failed && ReferenceEquals(activeAcceptKeyHandler, tab.Api)) return true;
+            var sidebar = sidebars.Find(entry => entry.Id == selectedSidebar);
+            return sidebar != null && sidebar.Current && !sidebar.Failed && ReferenceEquals(activeAcceptKeyHandler, sidebar.Api);
+        }
+        private void InvokeAcceptKey()
+        {
+            try
             {
-                current.Use();
+                if (activeAcceptKeyHandler?.TryHandleAcceptKey() == true && Event.current != null && Event.current.type != EventType.Used) Event.current.Use();
+            }
+            catch (Exception error) { Report("accept-key", error); activeAcceptKeyHandler = null; }
+        }
+        private static bool CanHandleAcceptKey(IUiAcceptKeyHandler handler)
+        { return handler != null && handler.WantsAcceptKey && string.IsNullOrEmpty(Input.compositionString); }
+        private void DrawProvider<T>(Entry<T> entry, Rect rect, Action<T, Rect> draw) where T : class
+        {
+            if (entry == null || rect.width <= 0 || rect.height <= 0) return;
+            if (!entry.Current || entry.Failed) { ClientWidgets.Label(rect, L("providerFailed"), HostThemeDrawing.Current, true); return; }
+            using (new ClientGuiScope(true))
+            {
+                UnityEngine.GUI.BeginGroup(rect);
+                try { draw(entry.Api, new Rect(0, 0, rect.width, rect.height)); }
+                catch (Exception error) { entry.Failed = true; Report(entry.Id, error); }
+                finally { UnityEngine.GUI.EndGroup(); }
             }
         }
-
-        public override void DoWindowContents(Rect inRect)
+        private Vector2 SettingsButtonSize(float width)
+        {
+            string label = L("settings");
+            if (utilityMeasuredWidth != width || utilityCaption != label)
+            { utilityMeasuredWidth = width; utilityCaption = label; utilitySize = ClientWidgets.MeasureButton(label, Mathf.Max(1, width * .35f), minimumWidth: 80); }
+            return utilitySize;
+        }
+        private float NavigationWidth(string label)
+        {
+            if (!ReferenceEquals(navigationLanguage, LanguageDatabase.activeLanguage)) { navigationWidths.Clear(); navigationLanguage = LanguageDatabase.activeLanguage; }
+            if (navigationWidths.TryGetValue(label, out var natural)) return natural;
+            using (new ClientGuiScope(true)) { Text.Font = GameFont.Small; Text.WordWrap = false; natural = Mathf.Max(80, Text.CalcSize(label).x + 24); }
+            navigationWidths[label] = natural; return natural;
+        }
+        private void Navigation<T>(Rect rect, List<Entry<T>> entries, string selected, Action<string> select) where T : class
+        {
+            if (entries.Count == 0 || rect.width <= 0) return;
+            if (!ReferenceEquals(navigationLanguage, LanguageDatabase.activeLanguage)) { navigationWidths.Clear(); navigationLanguage = LanguageDatabase.activeLanguage; }
+            if (navigationWidths.Count >= 256) navigationWidths.Clear();
+            // Balance short captions as before; long captions retain their measured width.
+            // Overflow is based on readable widths, never on compressed text.
+            float preferred = Mathf.Clamp((rect.width - 4 * (entries.Count - 1)) / entries.Count, 80, 140);
+            float total = -4;
+            foreach (var entry in entries) total += Mathf.Max(preferred, NavigationWidth(entry.Label)) + 4;
+            bool overflow = total > rect.width;
+            float available = Mathf.Max(0, rect.width - (overflow ? 40 : 0)), x = rect.x;
+            foreach (var entry in entries)
+            {
+                if (!navigationWidths.TryGetValue(entry.Label, out float width)) continue;
+                width = Mathf.Max(preferred, width);
+                if (x + width > rect.x + available) break;
+                if (ClientWidgets.NavigationPill(new Rect(x, rect.y, width, rect.height), entry.Label, entry.Id == selected, HostThemeDrawing.Current) && entry.Current) select(entry.Id);
+                x += width + 4;
+            }
+            if (overflow && ClientWidgets.Button(new Rect(rect.xMax - Mathf.Min(40, rect.width), rect.y, Mathf.Min(40, rect.width), rect.height), "…", HostThemeDrawing.Current))
+            {
+                // All entries, including an overflowed selection, stay discoverable. Menu callbacks revalidate exact registration.
+                var options = new List<FloatMenuOption>();
+                foreach (var item in entries)
+                {
+                    var entry = item;
+                    options.Add(new FloatMenuOption(entry.Label, () => { if (IsOpen && entry.Current) select(entry.Id); }));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+        }
+        public override void DoWindowContents(Rect rect)
         {
             using (HostThemeDrawing.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background);
-                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
-                DrawContents(inRect);
-            }
-        }
-
-        private void DrawContents(Rect inRect)
-        {
-            object activeLanguage = LanguageDatabase.activeLanguage;
-            if (!ReferenceEquals(cachedTabLanguage, activeLanguage))
-            {
-                cachedTabLanguage = activeLanguage;
-                cachedMainTabWidth = -1f;
-                cachedSidebarTabWidth = -1f;
-            }
-
-            float mainColumnWidth;
-            float sidebarWidth;
-            ComputeColumnWidths(inRect.width, out mainColumnWidth, out sidebarWidth);
-
-            float collapsedSidebarButtonWidth = sidebarCollapsedBySpace ? 40f : 0f;
-            float mainTabNavigationWidth = Mathf.Max(0f, mainColumnWidth - (sidebarCollapsedBySpace ? collapsedSidebarButtonWidth + 4f : 0f));
-            float mainTabHeight = Mathf.Min(GetMainTabHeight(mainTabNavigationWidth, inRect), Mathf.Max(0f, inRect.height));
-            float maxBannerHeight = Mathf.Max(0f, inRect.height - mainTabHeight);
-            float bannerHeight = ComputeBannerHeight(maxBannerHeight);
-            DrawBanners(inRect, bannerHeight);
-
-            float contentHeight = Mathf.Max(0f, inRect.height - bannerHeight - mainTabHeight);
-            Rect contentRect = new Rect(inRect.xMin, inRect.yMin + bannerHeight + mainTabHeight, inRect.width, contentHeight);
-            Rect mainRect = new Rect(contentRect.xMin, contentRect.yMin, mainColumnWidth, contentRect.height);
-            Rect mainTabRect = new Rect(
-                inRect.xMin,
-                inRect.yMin + bannerHeight,
-                mainTabNavigationWidth,
-                Mathf.Max(0f, inRect.height - bannerHeight));
-            Rect rightColumnRect = default;
-            if (sidebarWidth > 0f)
-            {
-                rightColumnRect = new Rect(contentRect.xMax - sidebarWidth, contentRect.yMin, sidebarWidth, contentRect.height);
-            }
-
-            if (mainTabRect.width > 0f && tabList.Count > 0)
-            {
-                ClientWidgets.Tabs(mainTabRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH, HostThemeDrawing.Current);
-            }
-
-            if ((!sidebarCollapsedBySpace || !sidebarDrawerOpen) && activeTab >= 0 && activeTab < tabProviders.Count)
-            {
-                tabProviders[activeTab].Draw(mainRect);
-            }
-            else
-            {
-                ClientWidgets.Surface(mainRect, HostThemeDrawing.Current);
-                ClientWidgets.Border(mainRect, HostThemeDrawing.Current);
-            }
-
-            if (sidebarWidth > 0f && sidebarProviders.Count == 1)
-            {
-                sidebarProviders[0].Draw(rightColumnRect);
-            }
-            else if (sidebarWidth > 0f && sidebarProviders.Count > 1)
-            {
-                float sidebarTabHeight = Mathf.Min(
-                    GetSidebarTabHeight(rightColumnRect.width, rightColumnRect),
-                    Mathf.Max(0f, rightColumnRect.height));
-                Rect sidebarContentRect = new Rect(
-                    rightColumnRect.xMin,
-                    rightColumnRect.yMin + sidebarTabHeight,
-                    rightColumnRect.width,
-                    Mathf.Max(0f, rightColumnRect.height - sidebarTabHeight));
-                if (rightColumnRect.width > 0f)
+                Text.Font = GameFont.Small; Text.Anchor = TextAnchor.UpperLeft; Text.WordWrap = true;
+                // Margin=0 exposes the full window to this draw group. Content padding is explicit.
+                ClientWidgets.RoundedSurface(rect, HostThemeDrawing.Current.Background, 16);
+                ClientWidgets.RoundedBorder(rect, HostThemeDrawing.Current.Separator, 16, 2);
+                rect = rect.ContractedBy(12);
+                var settingsSize = SettingsButtonSize(rect.width);
+                float navHeight = Mathf.Min(Mathf.Max(ClientWidgets.ControlHeight, settingsSize.y), rect.height);
+                float utilityWidth = settingsSize.x;
+                float y = rect.y + navHeight + 8f;
+                y += DrawBanners(new Rect(rect.x, y, rect.width, Mathf.Max(0, rect.yMax - y)));
+                var content = new Rect(rect.x, y, rect.width, Mathf.Max(0, rect.yMax - y));
+                var sidebar = sidebars.Find(e => e.Id == selectedSidebar);
+                float sideWidth = 0f, sidePreferred = 270f, sideMinimum = 120f;
+                if (sidebar != null && sidebar.Current)
                 {
-                    ClientWidgets.Tabs(rightColumnRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH, HostThemeDrawing.Current);
-                }
-
-                if (activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
-                {
-                    sidebarProviders[activeSidebarTab].Draw(sidebarContentRect);
-                }
-            }
-
-            if (sidebarCollapsedBySpace)
-            {
-                DrawCollapsedSidebar(inRect, contentRect, bannerHeight, collapsedSidebarButtonWidth);
-            }
-
-            RefreshAcceptKeyHandler();
-            TryHandleConsumedAcceptKey();
-            closeOnAccept = CanHandleAcceptKey(activeAcceptKeyHandler);
-            hadInputLastDraw = Find.WindowStack.GetsInput(this);
-        }
-
-        private void RefreshAcceptKeyHandler()
-        {
-            activeAcceptKeyHandler = null;
-
-            if (activeTab >= 0 && activeTab < tabProviders.Count)
-            {
-                activeAcceptKeyHandler = tabProviders[activeTab] as IUiAcceptKeyHandler;
-            }
-
-            if (activeAcceptKeyHandler == null &&
-                activeSidebarTab >= 0 && activeSidebarTab < sidebarProviders.Count)
-            {
-                activeAcceptKeyHandler = sidebarProviders[activeSidebarTab] as IUiAcceptKeyHandler;
-            }
-        }
-
-        private void TryHandleConsumedAcceptKey()
-        {
-            Event current = Event.current;
-            if (!hadInputLastDraw ||
-                current == null ||
-                current.type != EventType.Used ||
-                current.rawType != EventType.KeyDown ||
-                !IsEnterKey(current.keyCode) ||
-                !Find.WindowStack.GetsInput(this) ||
-                !CanHandleAcceptKey(activeAcceptKeyHandler))
-            {
-                return;
-            }
-
-            activeAcceptKeyHandler.TryHandleAcceptKey();
-        }
-
-        private static bool CanHandleAcceptKey(IUiAcceptKeyHandler handler)
-        {
-            return handler != null &&
-                handler.WantsAcceptKey &&
-                string.IsNullOrEmpty(Input.compositionString);
-        }
-
-        private static bool IsEnterKey(KeyCode keyCode)
-        {
-            return keyCode == KeyCode.Return || keyCode == KeyCode.KeypadEnter;
-        }
-
-        private void ComputeColumnWidths(float availableWidth, out float mainWidth, out float sidebarWidth)
-        {
-            mainWidth = Mathf.Max(0f, availableWidth);
-            sidebarWidth = 0f;
-            sidebarCollapsedBySpace = false;
-            if (sidebarProviders.Count == 0 || availableWidth <= DEFAULT_SPACING)
-            {
-                return;
-            }
-
-            float desiredWidth = 0f;
-            float declaredMinimumWidth = 0f;
-            bool allCanCollapse = true;
-            for (int i = 0; i < sidebarProviders.Count; i++)
-            {
-                desiredWidth = Mathf.Max(desiredWidth, sidebarProviders[i].PreferredWidth);
-                IResponsiveSidebarProvider responsive = sidebarProviders[i] as IResponsiveSidebarProvider;
-                float minimumWidth = responsive != null
-                    ? responsive.MinimumWidth
-                    : SIDEBAR_MIN_WIDTH;
-                declaredMinimumWidth = Mathf.Max(declaredMinimumWidth, Mathf.Max(0f, minimumWidth));
-                if (responsive == null || !responsive.CanCollapse)
-                {
-                    allCanCollapse = false;
-                }
-            }
-
-            float maxByRatio = Mathf.Max(0f, availableWidth * SIDEBAR_MAX_RATIO);
-            float maxByMain = Mathf.Max(0f, availableWidth - MAIN_MIN_WIDTH - DEFAULT_SPACING);
-            float maxSidebar = Mathf.Min(maxByRatio, maxByMain);
-            if (maxSidebar <= 0f)
-            {
-                sidebarCollapsedBySpace = allCanCollapse;
-                return;
-            }
-
-            if (allCanCollapse && maxSidebar < declaredMinimumWidth)
-            {
-                sidebarCollapsedBySpace = true;
-                return;
-            }
-
-            float minSidebar = Mathf.Min(declaredMinimumWidth, maxSidebar);
-            sidebarWidth = Mathf.Clamp(desiredWidth, minSidebar, maxSidebar);
-            mainWidth = Mathf.Max(0f, availableWidth - sidebarWidth - DEFAULT_SPACING);
-            sidebarDrawerOpen = false;
-        }
-
-        private void DrawCollapsedSidebar(Rect windowRect, Rect contentRect, float bannerHeight, float buttonWidth)
-        {
-            if (sidebarProviders.Count == 0 || buttonWidth <= 0f)
-            {
-                return;
-            }
-
-            int sidebarIndex = Mathf.Clamp(activeSidebarTab, 0, sidebarProviders.Count - 1);
-            IServerSidebarProvider activeProvider = sidebarProviders[sidebarIndex];
-            Rect toggleRect = new Rect(
-                windowRect.xMax - buttonWidth,
-                windowRect.yMin + bannerHeight,
-                buttonWidth,
-                Mathf.Min(TabDrawer.TabHeight, Mathf.Max(0f, windowRect.height - bannerHeight)));
-            if (toggleRect.height > 0f && ClientWidgets.Button(toggleRect, "☰", HostThemeDrawing.Current))
-            {
-                sidebarDrawerOpen = !sidebarDrawerOpen;
-            }
-            TooltipHandler.TipRegion(toggleRect, activeProvider.TabLabel);
-
-            if (!sidebarDrawerOpen || contentRect.width <= 0f || contentRect.height <= 0f)
-            {
-                return;
-            }
-
-            float preferredWidth = Mathf.Max(SIDEBAR_MIN_WIDTH, activeProvider.PreferredWidth);
-            float drawerWidth = Mathf.Min(contentRect.width, Mathf.Max(preferredWidth, 280f));
-            Rect drawerRect = new Rect(contentRect.xMax - drawerWidth, contentRect.yMin, drawerWidth, contentRect.height);
-            ClientWidgets.Fill(drawerRect, HostThemeDrawing.Current.GetColor("ui.button.background"));
-            ClientWidgets.Border(drawerRect, HostThemeDrawing.Current);
-
-            const float drawerPadding = 6f;
-            const float drawerHeaderHeight = 30f;
-            Rect innerRect = drawerRect.ContractedBy(drawerPadding);
-            Rect closeRect = new Rect(innerRect.xMax - 30f, innerRect.yMin, 30f, Mathf.Min(drawerHeaderHeight, innerRect.height));
-            Rect titleRect = new Rect(innerRect.xMin, innerRect.yMin, Mathf.Max(0f, closeRect.xMin - innerRect.xMin - 4f), closeRect.height);
-            Widgets.Label(titleRect, activeProvider.TabLabel);
-            if (closeRect.height > 0f && ClientWidgets.Button(closeRect, "×", HostThemeDrawing.Current))
-            {
-                sidebarDrawerOpen = false;
-                return;
-            }
-
-            float cursorY = Mathf.Min(innerRect.yMax, innerRect.yMin + drawerHeaderHeight + 4f);
-            if (sidebarProviders.Count > 1)
-            {
-                Rect tabBaseRect = new Rect(innerRect.xMin, cursorY, innerRect.width, Mathf.Max(0f, innerRect.yMax - cursorY));
-                float tabHeight = Mathf.Min(GetSidebarTabHeight(innerRect.width, tabBaseRect), tabBaseRect.height);
-                if (tabHeight > 0f)
-                {
-                    ClientWidgets.Tabs(tabBaseRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH, HostThemeDrawing.Current);
-                    cursorY += tabHeight;
-                }
-            }
-
-            Rect providerRect = new Rect(innerRect.xMin, cursorY, innerRect.width, Mathf.Max(0f, innerRect.yMax - cursorY));
-            if (providerRect.width > 0f && providerRect.height > 0f)
-            {
-                sidebarProviders[Mathf.Clamp(activeSidebarTab, 0, sidebarProviders.Count - 1)].Draw(providerRect);
-            }
-        }
-
-        private Vector2 GetInitialProviderPreferredSize()
-        {
-            UiLayoutHints hints = UiLayoutHints.Default;
-            if (tabProviders.Count > 0)
-            {
-                IResponsiveMainTabProvider responsive = tabProviders[0] as IResponsiveMainTabProvider;
-                if (responsive != null)
-                {
-                    UiLayoutHints declaredHints = responsive.LayoutHints;
-                    if (declaredHints.PreferredContentSize.x > 0f && declaredHints.PreferredContentSize.y > 0f)
+                    sideWidth = Mathf.Min(270f, rect.width * .38f);
+                    if (!sidebar.Failed) try
                     {
-                        hints = declaredHints;
+                        float preferred = sidebar.Api.PreferredWidth;
+                        if (float.IsNaN(preferred) || float.IsInfinity(preferred) || preferred < 0) throw new ArgumentException("SidebarWidthInvalid");
+                        var responsive = sidebar.Api as IResponsiveSidebarProvider;
+                        float minimum = responsive?.MinimumWidth ?? 120f;
+                        if (float.IsNaN(minimum) || float.IsInfinity(minimum) || minimum < 0) throw new ArgumentException("SidebarMinimumInvalid");
+                        sideMinimum = minimum; sidePreferred = Mathf.Max(preferred, minimum);
+                        sideWidth = Mathf.Min(Mathf.Max(120f, sidePreferred), rect.width * .38f);
                     }
+                    catch (Exception error) { sidebar.Failed = true; Report(sidebar.Id, error); }
                 }
-            }
-
-            float sidebarPreferredWidth = 0f;
-            for (int i = 0; i < sidebarProviders.Count; i++)
-            {
-                sidebarPreferredWidth = Mathf.Max(
-                    sidebarPreferredWidth,
-                    Mathf.Max(0f, sidebarProviders[i].PreferredWidth));
-            }
-
-            float width = hints.PreferredContentSize.x + WINDOW_CONTENT_PADDING;
-            if (sidebarPreferredWidth > 0f)
-            {
-                width += DEFAULT_SPACING + sidebarPreferredWidth;
-            }
-
-            float height = hints.PreferredContentSize.y + WINDOW_CONTENT_PADDING + TabDrawer.TabHeight;
-            return new Vector2(width, height);
-        }
-
-        private float ComputeBannerHeight(float maximumHeight)
-        {
-            float total = 0f;
-            for (int i = 0; i < bannerProviders.Count && total < maximumHeight; i++)
-            {
-                total += Mathf.Max(0f, bannerProviders[i].CurrentHeight);
-            }
-            return Mathf.Min(total, maximumHeight);
-        }
-
-        private void DrawBanners(Rect inRect, float availableHeight)
-        {
-            float cursorY = inRect.yMin;
-            float remainingHeight = availableHeight;
-            for (int i = 0; i < bannerProviders.Count && remainingHeight > 0f; i++)
-            {
-                float height = Mathf.Min(Mathf.Max(0f, bannerProviders[i].CurrentHeight), remainingHeight);
-                if (height <= 0f)
+                bool collapsed = sideWidth > 0 && (content.width - sideWidth - 8 < 480 || sideWidth < sideMinimum);
+                if (!collapsed) drawerOpen = false;
+                float drawerWidth = collapsed ? 36f : 0f;
+                var utility = new Rect(rect.xMax - utilityWidth, rect.y, utilityWidth, navHeight);
+                if (ClientWidgets.Button(utility, L("settings"), HostThemeDrawing.Current, wrap: true)) OpenUtilities();
+                if (collapsed && ClientWidgets.Button(new Rect(utility.x - drawerWidth - 4, rect.y, drawerWidth, navHeight), "☰", HostThemeDrawing.Current)) drawerOpen = !drawerOpen;
+                Navigation(new Rect(rect.x, rect.y, Mathf.Max(0, utility.x - rect.x - drawerWidth - 12f), navHeight), tabs, selectedTab, id => { selectedTab = id; UnityEngine.GUI.FocusControl(null); });
+                var main = new Rect(content.x, content.y, collapsed ? content.width : Mathf.Max(0, content.width - (sideWidth > 0 ? sideWidth + 8 : 0)), content.height);
+                var tab = tabs.Find(e => e.Id == selectedTab);
+                // Drawer owns input; do not draw interactive main controls beneath it.
+                if (!(collapsed && drawerOpen)) DrawProvider(tab, main, (api, area) => api.Draw(area));
+                if (tab == null) ClientWidgets.Label(main, L("noPages"), HostThemeDrawing.Current, true);
+                if (sidebar != null && (!collapsed || drawerOpen))
                 {
-                    continue;
+                    float width = collapsed ? Mathf.Min(content.width, Mathf.Max(280f, sidePreferred)) : sideWidth;
+                    var panel = new Rect(content.xMax - width, content.y, width, content.height);
+                    ClientWidgets.RoundedSurface(panel, HostThemeDrawing.Current.Surface);
+                    float headerHeight = sidebars.Count > 1 ? Mathf.Min(32, panel.height) : 0;
+                    if (headerHeight > 0) Navigation(new Rect(panel.x, panel.y, panel.width, headerHeight), sidebars, selectedSidebar, id => { selectedSidebar = id; UnityEngine.GUI.FocusControl(null); });
+                    DrawProvider(sidebars.Find(e => e.Id == selectedSidebar), new Rect(panel.x, panel.y + headerHeight, panel.width, Mathf.Max(0, panel.height - headerHeight)), (api, area) => api.Draw(area));
                 }
-
-                bannerProviders[i].Draw(new Rect(inRect.xMin, cursorY, inRect.width, height));
-                cursorY += height;
-                remainingHeight -= height;
+                activeAcceptKeyHandler = tab != null && tab.Current && !tab.Failed && !(collapsed && drawerOpen) ? tab.Api as IUiAcceptKeyHandler : null;
+                if (activeAcceptKeyHandler == null && sidebar != null && sidebar.Current && !sidebar.Failed && (!collapsed || drawerOpen)) activeAcceptKeyHandler = sidebar.Api as IUiAcceptKeyHandler;
+                var current = Event.current;
+                if (hadInputLastDraw && current != null && current.type == EventType.Used && current.rawType == EventType.KeyDown &&
+                    (current.keyCode == KeyCode.Return || current.keyCode == KeyCode.KeypadEnter) && Find.WindowStack.GetsInput(this) && AcceptHandlerCurrent() && CanHandleAcceptKey(activeAcceptKeyHandler)) InvokeAcceptKey();
+                closeOnAccept = CanHandleAcceptKey(activeAcceptKeyHandler);
+                hadInputLastDraw = Find.WindowStack.GetsInput(this);
             }
         }
-
-        private float GetMainTabHeight(float width, Rect referenceRect)
+        private float DrawBanners(Rect rect)
         {
-            if (width <= 0f || tabList.Count == 0)
+            if (navigationWidths.Count >= 256) navigationWidths.Clear();
+            float total = 0;
+            var heights = bannerHeights; heights.Clear();
+            foreach (var entry in banners)
             {
-                return 0f;
+                float height = 0;
+                try { if (entry.Current) height = entry.Failed ? 32 : entry.Api.CurrentHeight; }
+                catch (Exception error) { entry.Failed = true; height = 32; Report(entry.Id, error); }
+                if (float.IsNaN(height) || float.IsInfinity(height)) { entry.Failed = true; Report(entry.Id, new ArgumentException("BannerHeightInvalid")); height = 32; }
+                if (height > 4096) { entry.Failed = true; Report(entry.Id, new ArgumentOutOfRangeException("BannerHeight")); height = 32; }
+                height = Mathf.Max(0, height); heights.Add(height); total += height;
             }
-            if (!Mathf.Approximately(cachedMainTabWidth, width))
+            if (total <= 0 || rect.height < 40) return 0;
+            if (ClientWidgets.Button(new Rect(rect.x, rect.y, rect.width, 28), L(bannersCollapsed ? "showNotices" : "hideNotices"), HostThemeDrawing.Current)) bannersCollapsed = !bannersCollapsed;
+            if (bannersCollapsed) return 36;
+            float heightAvailable = Mathf.Min(total, Mathf.Max(0, rect.height * .3f));
+            var viewport = new Rect(rect.x, rect.y + 32, rect.width, heightAvailable);
+            float width = Mathf.Max(1, viewport.width - 16);
+            bannerScroll.y = Mathf.Clamp(bannerScroll.y, 0, Mathf.Max(0, total - heightAvailable));
+            Widgets.BeginScrollView(viewport, ref bannerScroll, new Rect(0, 0, width, total));
+            try
             {
-                cachedMainTabWidth = width;
-                Rect tabBaseRect = new Rect(referenceRect.xMin, referenceRect.yMin, width, referenceRect.height);
-                cachedMainTabHeight = TabDrawer.GetOverflowTabHeight(tabBaseRect, tabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
+                float y = 0;
+                for (int i = 0; i < banners.Count; i++)
+                {
+                    if (heights[i] > 0 && y + heights[i] >= bannerScroll.y && y <= bannerScroll.y + heightAvailable)
+                        DrawProvider(banners[i], new Rect(0, y, width, heights[i]), (api, area) => api.Draw(area));
+                    y += heights[i];
+                }
             }
-            return Mathf.Max(0f, cachedMainTabHeight);
+            finally { Widgets.EndScrollView(); }
+            return heightAvailable + 40;
         }
-
-        private float GetSidebarTabHeight(float width, Rect referenceRect)
+        private void OpenUtilities()
         {
-            if (width <= 0f || sidebarTabList.Count == 0)
-            {
-                return 0f;
-            }
-            if (!Mathf.Approximately(cachedSidebarTabWidth, width))
-            {
-                cachedSidebarTabWidth = width;
-                Rect tabBaseRect = new Rect(referenceRect.xMin, referenceRect.yMin, width, referenceRect.height);
-                cachedSidebarTabHeight = TabDrawer.GetOverflowTabHeight(tabBaseRect, sidebarTabList, MIN_TAB_WIDTH, MAX_TAB_WIDTH);
-            }
-            return Mathf.Max(0f, cachedSidebarTabHeight);
+            Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> {
+                new FloatMenuOption(L("connection"), () => { if (IsOpen) Find.WindowStack.Add(new SettingsWindow()); }),
+                new FloatMenuOption(L("fullSettings"), () => { if (IsOpen) Find.WindowStack.Add(new FullClientSettingsWindow()); }),
+                new FloatMenuOption(L("themes"), () => { if (IsOpen) Instance.OpenThemeEditor(); }),
+                new FloatMenuOption(L("plugins"), () => { if (IsOpen) Instance.OpenPluginManager(); })
+            }));
         }
-
         private void ClampWindowToScreenSafeArea()
         {
             windowRect = UiScreenSafeArea.ClampWindow(

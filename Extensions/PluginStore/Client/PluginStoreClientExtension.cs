@@ -61,6 +61,8 @@ namespace Phinix.PluginStore
                     local.Borrow(dispatcher);
                     local.Borrow(windows);
                     local.Borrow(theme);
+                    local.Borrow(hostContext.GetRequiredService<IClientPresentationService>());
+                    local.Borrow(hostContext.GetRequiredService<IClientExtensionPointService>());
                     local.Borrow(hostContext.GetRequiredService<IClientThemePackageService>());
                     local.Borrow(hostContext.GetRequiredService<IClientThemeWindowService>());
                     local.Borrow(hostContext.GetRequiredService<IClientLocalizationService>());

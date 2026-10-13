@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_shell_settings>Settings</Phinix_shell_settings>
+  <Phinix_shell_connection>Connection settings</Phinix_shell_connection>
+  <Phinix_shell_fullSettings>All settings</Phinix_shell_fullSettings>
+  <Phinix_shell_themes>Themes and colors</Phinix_shell_themes>
+  <Phinix_shell_plugins>Plugin management</Phinix_shell_plugins>
+  <Phinix_shell_noPages>No active pages. Settings, themes and plugins are available above.</Phinix_shell_noPages>
+  <Phinix_shell_providerFailed>This plugin page is unavailable. Re-enable the plugin and try again.</Phinix_shell_providerFailed>
+  <Phinix_shell_showNotices>Show notices</Phinix_shell_showNotices>
+  <Phinix_shell_hideNotices>Collapse notices</Phinix_shell_hideNotices>
+  <Phinix_theme_label_ui_action_primary>Primary action</Phinix_theme_label_ui_action_primary>
+  <Phinix_theme_label_ui_navigation_selected>Selected navigation</Phinix_theme_label_ui_navigation_selected>
+</LanguageData>

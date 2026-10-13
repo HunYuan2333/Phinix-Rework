@@ -13,6 +13,8 @@ internal static class Program
     {
         try
         {
+            BatchExtractionRunsOneVerifiedStackAtATime();
+            BatchProjectionKeepsAvailableRecordsAndOwnership();
             ReservationLifecycleIsAtomicAndIdempotent();
             OldSnapshotsDefaultToNoReservations();
             InvalidOverlappingLocksAreRejected();
@@ -21,7 +23,7 @@ internal static class Program
             ComponentTypeResolverIsStrictlyScoped();
             ResolvedComponentPreservesSnapshot();
             InventoryJournalScenarios.Run();
-            Console.WriteLine("All 13 inventory reservation, grouping, component snapshot and journal runtime scenarios passed.");
+            Console.WriteLine("All 19 inventory batch, reservation, grouping, component snapshot and journal runtime scenarios passed.");
             return 0;
         }
         catch (Exception exception)
@@ -29,6 +31,53 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void BatchProjectionKeepsAvailableRecordsAndOwnership()
+    {
+        var entries = new[] { DisplayEntry("a", "alice", "event"), DisplayEntry("b", "alice", "event"), DisplayEntry("c", "bob", "other") };
+        var available = new long[] { 0, 5, 7 };
+        var presentations = new[] { DisplayPresentation("stone", 1), DisplayPresentation("stone", 1), DisplayPresentation("stone", 1) };
+        var groups = InventoryDisplayGrouping.Build(entries, presentations, available);
+        using (var tab = new InventoryTab(new BuiltInInventoryClientExtension(), null))
+        {
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(InventoryTab).GetField("entries", flags).SetValue(tab, entries);
+            typeof(InventoryTab).GetField("rowAvailable", flags).SetValue(tab, available);
+            typeof(InventoryTab).GetField("groups", flags).SetValue(tab, groups);
+            var plan = (List<InventoryBatchItem>)typeof(InventoryTab).GetMethod("GroupPlan", flags).Invoke(tab, new object[] { groups[0].Key, 1 });
+            Equal(1, plan.Count, "batch record limit excludes locked zero records"); Equal("b", plan[0].EntryId, "original record identity"); Equal(5L, plan[0].Quantity, "only available quantity");
+            plan = (List<InventoryBatchItem>)typeof(InventoryTab).GetMethod("GroupPlan", flags).Invoke(tab, new object[] { groups[0].Key, 10000 });
+            Equal(1, plan.Count, "whole group cannot cross owner boundary");
+        }
+        var overflow = InventoryDisplayGrouping.Build(entries, presentations, new long[] { long.MaxValue, 5, 7 });
+        True(overflow[0].Key != overflow[1].Key, "overflow groups need distinct selection identities");
+    }
+
+    private static void BatchExtractionRunsOneVerifiedStackAtATime()
+    {
+        var plan = new[] { new InventoryBatchItem("a", 5), new InventoryBatchItem("opaque", 2) };
+        var batch = new InventoryExtractionBatch(plan, new[] { 3, 1 });
+        var delivered = new List<string>();
+        InventoryExtractionBatch.Deliver success = (string id, long units, out string reason) => { delivered.Add(id + ":" + units); reason = null; return true; };
+        batch.Advance(success); Equal(1, delivered.Count, "one stack per frame"); Equal(0, batch.Progress.CompletedRecords, "partial record stays pending");
+        batch.Advance(success); Equal(1, batch.Progress.CompletedRecords, "record completed after legal chunks");
+        batch.Advance(success); batch.Advance(success); batch.Advance(success);
+        Equal("a:3,a:2,opaque:1,opaque:1", string.Join(",", delivered), "opaque records never combine units");
+        Equal(7L, batch.Progress.CompletedUnits, "conservation"); True(!batch.Progress.Running, "completed queue terminal");
+        batch = new InventoryExtractionBatch(plan, new[] { 3, 1 }); batch.Advance(success);
+        batch.Advance((string id, long units, out string reason) => { reason = "uncertain"; return false; });
+        int before = delivered.Count; batch.Advance(success); Equal(before, delivered.Count, "failure cannot retry uncertain delivery");
+        Equal(3L, batch.Progress.CompletedUnits, "already committed units retained"); Equal("uncertain", batch.Progress.Reason, "failure retained");
+        batch = new InventoryExtractionBatch(plan, new[] { 3, 1 }); batch.Advance(success); batch.Stop("changed");
+        before = delivered.Count; batch.Advance(success); Equal(before, delivered.Count, "cancel or save change stops only remaining work");
+        batch = new InventoryExtractionBatch(new[] { new InventoryBatchItem("huge", long.MaxValue) }, new[] { 1 });
+        batch.Advance(success); Equal(1L, batch.Progress.CompletedUnits, "huge quantity still bounded per frame"); batch.Stop("stop");
+        var many = new InventoryBatchItem[1000]; var limits = new int[1000];
+        for (int i = 0; i < many.Length; i++) { many[i] = new InventoryBatchItem("record-" + i, 1); limits[i] = 1; }
+        batch = new InventoryExtractionBatch(many, limits);
+        for (int i = 0; i < many.Length; i++) { batch.Advance(success); Equal(i + 1, batch.Progress.CompletedRecords, "large batch advances one independent record"); }
+        True(!batch.Progress.Running && batch.Progress.CompletedUnits == 1000, "large batch complete");
     }
 
     private static void ReservationLifecycleIsAtomicAndIdempotent()

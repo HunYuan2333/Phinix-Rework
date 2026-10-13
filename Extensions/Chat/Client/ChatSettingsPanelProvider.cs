@@ -7,8 +7,9 @@ namespace Phinix.ChatExtension.Client
 {
     internal sealed class ChatSettingsPanelProvider : IClientSettingsPanelProvider
     {
-        private readonly string[] labels = new string[11];
-        private readonly float[] labelHeights = new float[11];
+        private readonly string[] labels = new string[14];
+        private readonly float[] labelHeights = new float[14];
+        private bool timestampStacked;
         private float cachedWidth = -1f;
         private object cachedLanguage;
 
@@ -36,6 +37,15 @@ namespace Phinix.ChatExtension.Client
             DrawCheckbox(listing, settings, 0, "chat.playNoiseOnMessageReceived", true);
             DrawCheckbox(listing, settings, 1, "chat.showNameFormatting", true);
             DrawCheckbox(listing, settings, 2, "chat.showChatFormatting", true);
+            DrawLabel(listing, 11);
+            bool onRight = settings.Get("chat.timestampOnRight", true);
+            Rect timestampRect = listing.GetRect(timestampStacked ? 2 * ClientWidgets.ControlHeight + 6 : ClientWidgets.ControlHeight);
+            float choiceWidth = timestampStacked ? timestampRect.width : Mathf.Max(1, (timestampRect.width - 8) / 2);
+            Rect leftChoice = new Rect(timestampRect.x, timestampRect.y, choiceWidth, ClientWidgets.ControlHeight);
+            Rect rightChoice = new Rect(timestampStacked ? timestampRect.x : timestampRect.x + choiceWidth + 8,
+                timestampStacked ? timestampRect.y + ClientWidgets.ControlHeight + 6 : timestampRect.y, choiceWidth, ClientWidgets.ControlHeight);
+            if (ClientWidgets.NavigationPill(leftChoice, labels[12], !onRight, ChatTheme.Current)) settings.Set("chat.timestampOnRight", false);
+            if (ClientWidgets.NavigationPill(rightChoice, labels[13], onRight, ChatTheme.Current)) settings.Set("chat.timestampOnRight", true);
             DrawCheckbox(listing, settings, 3, "chat.showUnreadMessageCount", true);
             DrawCheckbox(listing, settings, 4, "chat.showBlockedUnreadMessageCount", false);
 
@@ -80,7 +90,8 @@ namespace Phinix.ChatExtension.Client
                 "Phinix_modSettings_showBlockedUnreadMessageCount", "Phinix_modSettings_chatMessageLimit",
                 "Phinix_modSettings_forceMessageFieldFocus", "Phinix_modSettings_noticeEnabled",
                 "Phinix_modSettings_noticeDefaultDuration", "Phinix_modSettings_chatImagesEnabled",
-                "Phinix_modSettings_chatImagesMaxHeight"
+                "Phinix_modSettings_chatImagesMaxHeight", "Phinix_modSettings_timestampPosition",
+                "Phinix_modSettings_timestampLeft", "Phinix_modSettings_timestampRight"
             };
             for (int i = 0; i < keys.Length; i++)
             {
@@ -88,6 +99,7 @@ namespace Phinix.ChatExtension.Client
                 float textWidth = i <= 4 || i == 6 || i == 7 || i == 9 ? width - 36f : width;
                 labelHeights[i] = Mathf.Max(30f, Text.CalcHeight(labels[i], Mathf.Max(1f, textWidth)));
             }
+            timestampStacked = Text.CalcSize(labels[12]).x + Text.CalcSize(labels[13]).x + 48 > width;
         }
 
         private void DrawCheckbox(Listing_Standard listing, IClientSettingsContext settings,

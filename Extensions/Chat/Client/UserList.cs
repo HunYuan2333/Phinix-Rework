@@ -47,6 +47,12 @@ namespace Phinix.ChatExtension.Client
         private Vector2 scrollPos;
 
         private volatile bool started;
+        private long memberRevision;
+        internal long MemberRevision { get { lock (userListsLock) return memberRevision; } }
+        internal ImmutableUser[] CaptureMembers(bool blocked)
+        { lock (userListsLock) return (blocked ? blockedUsers : onlineUsers).ToArray(); }
+        internal bool TryGetMember(string uuid, out ImmutableUser user) => userDirectory.TryGetUser(uuid, out user);
+        internal string FormatMember(ImmutableUser user) => formatDisplayName(user.DisplayName, user);
 
         public UserList(IChatUiHostContext hostContext, IClientUserDirectory userDirectory, IClientSettingsContext settingsContext)
         {
@@ -60,6 +66,7 @@ namespace Phinix.ChatExtension.Client
             if (started) return;
             started = true;
             hostContext.OnUsersChanged += UsersChanged;
+            hostContext.OnUserDisplayNameChanged += DisplayNameChanged;
             hostContext.OnBlockedUsersChanged += BlockedChanged;
             hostContext.OnDisconnect += Disconnected;
             refreshUserLists();
@@ -69,12 +76,15 @@ namespace Phinix.ChatExtension.Client
         {
             started = false;
             hostContext.OnUsersChanged -= UsersChanged;
+            hostContext.OnUserDisplayNameChanged -= DisplayNameChanged;
             hostContext.OnBlockedUsersChanged -= BlockedChanged;
             hostContext.OnDisconnect -= Disconnected;
             onDisconnect();
         }
 
         private void UsersChanged(object sender, EventArgs args)
+        { if (started) refreshUserLists(); }
+        private void DisplayNameChanged(object sender, UserDisplayNameChangedEventArgs args)
         { if (started) refreshUserLists(); }
         private void BlockedChanged(object sender, UserBlockStateChangedEventArgs args)
         { if (started) refreshUserLists(); }
@@ -307,6 +317,7 @@ namespace Phinix.ChatExtension.Client
         {
             lock (userListsLock)
             {
+                memberRevision++;
                 onlineUsers.Clear();
                 ImmutableUser[] users = userDirectory.GetUsers(true);
                 for (int i = 0; i < users.Length; i++)
@@ -325,6 +336,7 @@ namespace Phinix.ChatExtension.Client
         {
             lock (userListsLock)
             {
+                memberRevision++;
                 blockedUsers.Clear();
                 foreach (string uuid in hostContext.BlockedUsers)
                 {
@@ -342,7 +354,9 @@ namespace Phinix.ChatExtension.Client
         {
             lock (userListsLock)
             {
+                memberRevision++;
                 onlineUsers.Clear();
+                memberRevision++;
                 blockedUsers.Clear();
             }
 

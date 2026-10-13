@@ -1,0 +1,346 @@
+{
+  "date": "2026-10-12 Asia/Singapore",
+  "dirtyWorkingTree": true,
+  "checks": {
+    "clientRelease16": "passed; 0 errors, 3 existing warnings",
+    "chat": "19 non GUI scenarios passed; native FloatMenu constructor not executed by these tests",
+    "game": "fix not retested; user B7 window/text accepted, native menu visible but logs constructor error",
+    "publication": "not performed"
+  },
+  "packages": [
+    {
+      "path": "local-plugin-packages/2026-10-12-b7-fix/phinix-rework-b7-fix-rimworld1.6.zip",
+      "bytes": 1418325,
+      "sha256": "9a1c086ef38b658f3bd75248f63b4d3ef6552badb55169337776cdc6f5b13ed7"
+    },
+    {
+      "path": "local-plugin-packages/2026-10-12-b7/example-1.0.13.zip",
+      "bytes": 18112,
+      "sha256": "c0c00e17e1f600f3c97556531d5f79c8047d3cbbf90869da03921a57c39e95da"
+    }
+  ],
+  "runtimeFiles": [
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/1.6/Assemblies/13-PhinixClient.dll",
+      "bytes": 298496,
+      "sha256": "d624698691bc2a948783951b684be31fb6f166ee521e0ca7a537c75be197d0ff"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/About/About.xml",
+      "bytes": 909,
+      "sha256": "d9b56de5630350191a14d10017694041499ca293508a3e31a497691134c87d6d"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/About/Preview.png",
+      "bytes": 7847,
+      "sha256": "6fc4c0d950688fbf4ea789b6b946afff6f09cb4490981d86403b12a96b058a4d"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/About/PublishedFileId.txt",
+      "bytes": 10,
+      "sha256": "7f2f819fb464fc6db988ac22b1d4d4c6f7e9e2dfe358862c7bb56a62e36242e9"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/01-LiteNetLib.dll",
+      "bytes": 76800,
+      "sha256": "c4ad697e3032a221892d894f1f225738a819b4c061b3de7f8ac4437b01b9e0c8"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/02-Protobuf.dll",
+      "bytes": 487936,
+      "sha256": "7ee052619ec28ca606da410b04c0ed1453080f64c4417137d2fa54b78a2b27da"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/03-Utils.dll",
+      "bytes": 319488,
+      "sha256": "c3ce5d26a6b5a2a9cd66c81543b7b1b9d50af26b6d71d19b747578da1b4a7db4"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/04-Connections.dll",
+      "bytes": 7680,
+      "sha256": "945c0d0aea947a7d8edcd512511031a1835d9946c27f98fd79cd676ada16dbc2"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/05-Connections.Client.dll",
+      "bytes": 11264,
+      "sha256": "ec379bfb9b1c2bc331054d159d0d6b1b69f75ace8a1edfef0ada687e7da7fce0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/06-Authentication.dll",
+      "bytes": 30208,
+      "sha256": "29990c7077fc78a9c545755246653f18430daf6aa5cc51c7fcd13a09c2bc801a"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/07-Authentication.Client.dll",
+      "bytes": 13312,
+      "sha256": "ac70e07b42f6f83c87e4c91fd5b8fe5ad0f28990a89353322979aa9f7c0b96b6"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/08-UserManagement.dll",
+      "bytes": 31232,
+      "sha256": "58eb08c523cf14aacca14391bed5fa69dd61c2883787628f8ac6ea3cb84faef0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/09-UserManagement.Client.dll",
+      "bytes": 13312,
+      "sha256": "4d6da25fc8e7d7bb0982bd34b6b8ec28fec056feb11043c2ba9980f3991b97c0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/10-ClientExtensionAbstractions.dll",
+      "bytes": 71680,
+      "sha256": "898868579b002a92f9be2e6e6e746e831cdcd491a5d6edf166968d02d60894cb"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Autofac.dll",
+      "bytes": 376832,
+      "sha256": "5eb99880aa6fc7deb49f3592c613f467c3890c130aaa72ac3ce45e8cd00a518a"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Microsoft.Bcl.AsyncInterfaces.dll",
+      "bytes": 26904,
+      "sha256": "80678203bd0203a6594f4e330b22543c0de5059382bb1c9334b7868b8f31b1bc"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Phinix.ClientComposition.dll",
+      "bytes": 8192,
+      "sha256": "1cebddcc38b31c41b2d56fc9ada084684f7aa13d3b903730fc7841e3f0ebd56d"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/Stateless.dll",
+      "bytes": 167424,
+      "sha256": "da16bebb822af420779a43a108d05088840e9fd38832e10a506c82af1c29713b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Buffers.dll",
+      "bytes": 20856,
+      "sha256": "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Diagnostics.DiagnosticSource.dll",
+      "bytes": 189104,
+      "sha256": "1887592615fc08bbc91ad62307c8c11dfc14c45bf120d271d66be4a0d1a149a7"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Memory.dll",
+      "bytes": 142240,
+      "sha256": "bf3fb84664f4097f1a8a9bc71a51dcf8cf1a905d4080a4d290da1730866e856f"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Numerics.Vectors.dll",
+      "bytes": 115856,
+      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Runtime.CompilerServices.Unsafe.dll",
+      "bytes": 18024,
+      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Assemblies/System.Threading.Tasks.Extensions.dll",
+      "bytes": 25984,
+      "sha256": "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/08-ChatExtension.dll",
+      "bytes": 22016,
+      "sha256": "3f96b4bda871e1a69a7f85bf8ac54338dc5c4802846ac223dfab1f34fb669794"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/09-TradeExtension.dll",
+      "bytes": 24576,
+      "sha256": "ab72bfeddd25e7591ffdef57910950a08c355d48ad18adf1abdbb693c06f690d"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/10-InventoryExtension.dll",
+      "bytes": 24576,
+      "sha256": "335cc4b9217da0b8a1faca77b49086ae6ff89fcd77be5516346ff3e25969dfd0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/10-LegacyAdapter.Client.dll",
+      "bytes": 84480,
+      "sha256": "3b21426b5d49a5b2c980c6ceda2e2fbecbe765f8be8c7c4e5cf65260151d5c64"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/11-ChatExtension.Client.dll",
+      "bytes": 120832,
+      "sha256": "cd82efd738ad147c70ad30b8966b3f9a8621ec97f9cad45e88d7331b834362bb"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/11-InventoryExtension.Client.dll",
+      "bytes": 95232,
+      "sha256": "192231ab7808133f94806d2244c38eacb837643fb1fb7b61d50e776253748418"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/12-TradeExtension.Client.dll",
+      "bytes": 133120,
+      "sha256": "4df730541baa8b238b26b470a4cb5cebd732cec1f664bc49fd2cbf2f5a9cfcaf"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Common/Extensions/17-PluginStore.Client.dll",
+      "bytes": 306688,
+      "sha256": "22dbce339c20624c16981a98516be15eaaebcbfed35d61d944654541d2622222"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Defs/LetterDefs/Letters.xml",
+      "bytes": 754,
+      "sha256": "a2a6cde5671c0d0d449fca26ff85146f778b65bc90352ed3b2edf1466a8298d8"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Defs/MainButtonDefs/PhinixClient.xml",
+      "bytes": 383,
+      "sha256": "92c3bc01b34978d7f1e75e2441ddc41f1dea45b450f4331fc65d217d2f72b27d"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Defs/ThingDefs/UnknownItem.xml",
+      "bytes": 475,
+      "sha256": "7dcbf05dcf031cd7ee0c4eda1c9ecde1b88e50359980298d952f2a38ccf93af5"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/DefInjected/MainButtonDef/PhinixClient.xml",
+      "bytes": 229,
+      "sha256": "d87b54bc8a41d23146cf493d14d14adfd43a0bed09757cba144f0a8b8acd4ef4"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/DefInjected/ThingDef/UnknownItem.xml",
+      "bytes": 318,
+      "sha256": "ddfd3804d755953a2175bd150545f66b440fde1e49a6bffc2672a5458b3381ec"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/ChatExtension.xml",
+      "bytes": 3213,
+      "sha256": "1e7115a6b794c77c87a862088c1cab16b3f40742bcd8f77189b7e07c2ca0c128"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/Core.xml",
+      "bytes": 12380,
+      "sha256": "a23c7ca41a8fc6d582bbc9ecf0edbba3438094d821c17df9d8eb459572bffdf4"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+      "bytes": 7577,
+      "sha256": "2d7075f5715b26c3d61a2cb228ae8119462b1d1de946174a066bcccc5677d5f2"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/Members.xml",
+      "bytes": 1259,
+      "sha256": "7ff269715159c8d94d89130533833c7aec2efadbf2b5105ed17b6ceb34d70777"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/PluginStore.xml",
+      "bytes": 25464,
+      "sha256": "501efa5a9a059ad41944e589a893293e3c93bdabdffddfa131dd1134f1709f15"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/Presentation.xml",
+      "bytes": 428,
+      "sha256": "772ed25f452d7422fc914e4ebbabe51586f1bbdf165fbea10b4b88a13124807b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/Shell.xml",
+      "bytes": 991,
+      "sha256": "a1a20f592a84fbea919a5a1591c91b192b11bceeac91bcd95db27a8e069d7ad1"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/ThemeItems.xml",
+      "bytes": 20560,
+      "sha256": "e06f47a6a44e23339a69b9b985abd14562b015a2c21be3a24ecfc189298bea68"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/Themes.xml",
+      "bytes": 4373,
+      "sha256": "948d4ccf15a68f96888d2840726b16d066a833d7eb69f71116efa7cee74edb9b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/ChineseSimplified (简体中文)/Keyed/TradeExtension.xml",
+      "bytes": 5041,
+      "sha256": "784a9e97025e640da4df2e1a2f2a39eca81c4be2071d6f16bf324dd5a430eabb"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/ChatExtension.xml",
+      "bytes": 3228,
+      "sha256": "931ec49eb8ecec422fd63362798a931248583bc635f70074c6eef146125ecd21"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/Core.xml",
+      "bytes": 12592,
+      "sha256": "2e6480ac64f5ba228330e3f04bf47172da1286ef04eb85492d401bc0601d866b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/InventoryExtension.xml",
+      "bytes": 7841,
+      "sha256": "4b811d59f2c867f56e4e58ec8d3e8d2e2da941eddae7127d989599bd9077725b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/Members.xml",
+      "bytes": 1278,
+      "sha256": "0c53bda74cd20f2febf3b340e466a9c00f86de312f5dd7cbb6006e7ca83ee823"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/PluginStore.xml",
+      "bytes": 26637,
+      "sha256": "2e2d91ee57ff405bb58f3ce9d8fa31870d4576d1246ee3f6b2bdb717088b84ca"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/Presentation.xml",
+      "bytes": 457,
+      "sha256": "f4eae1a6a8384c87c241f8e50be224c1d2d9a591c8844729a701cbf6e1945051"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/Shell.xml",
+      "bytes": 1010,
+      "sha256": "9512fa295dedc065229ae624622d45d37be1e6d0bcc69e1ee1a2401a7300df56"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/ThemeItems.xml",
+      "bytes": 21024,
+      "sha256": "a7b7115eced6ff24bd61051ae67fab30d64eee12386416eefec75723c79477e0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/Themes.xml",
+      "bytes": 4409,
+      "sha256": "53dfdefc87d8f3b0e710920e8bd633009a0460519fa6e3d4c9cc6088722d1ce0"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Languages/English/Keyed/TradeExtension.xml",
+      "bytes": 5171,
+      "sha256": "0259a736e0c5a8d64cd45d0d4d291bfcd596084151c0316f3564cc347725d5a2"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/LoadFolders.xml",
+      "bytes": 107,
+      "sha256": "abf3ff765a4f84daf06de97c68b3de48ec5c3ca2f3d09d3cea4278f8416a7be7"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Textures/Things/UnknownItem/UnknownItem.png",
+      "bytes": 4285,
+      "sha256": "bd4312fcf0e52587941cf17c2bd67bf0809e5bd25242fb04a24ae75762202d33"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Textures/UI/Phinix/Send.png",
+      "bytes": 333,
+      "sha256": "1ed2106d014b104b6c8c2ce8cfed7024c0011ef255660aed0ff0228db621deab"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Textures/collapse.png",
+      "bytes": 9409,
+      "sha256": "274cb7460b5888196f3dff24cf294bded4b5e2ee5a94c4d86973aa878ba56c8b"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Textures/tradeArrows.png",
+      "bytes": 8053,
+      "sha256": "4ad3bd86783879244734ddd86f4beab0bf7c4e5d4031f6ea4f66e622e609129d"
+    },
+    {
+      "path": "Phinix-Rework/Output/phinix-rework/Themes/default.xml",
+      "bytes": 3964,
+      "sha256": "d83a9cbf7d64d704c4de30233adcd0be5754a2cc5b9704dd4531a507cc81395d"
+    }
+  ],
+  "sources": [
+    {
+      "path": "Phinix-Rework/Extensions/Chat/Client/ChatMessageActions.cs",
+      "bytes": 10054,
+      "sha256": "2976651fcd2d3b299b3f739cd69234bf969ef8bac3c12e727447743b885b10ad"
+    }
+  ]
+}

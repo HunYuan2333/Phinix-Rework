@@ -1,0 +1,365 @@
+{
+  "date": "2026-10-13 Asia/Singapore",
+  "dirtyWorkingTree": true,
+  "checks": {
+    "clientRelease16": "0 errors / 3 existing warnings",
+    "inventory": "19 runtime scenarios passed; 84 actual composition assertions",
+    "presentation": "222 stub renderer/contract checks passed",
+    "redpacket": "SDK1.9 0 errors/0warnings;33 repair;29 actual-model/fake session",
+    "performance": "13 fixtures/35 pipelines,2 warmups/15 samples; soft budget, not real Mono/game",
+    "game": "pending",
+    "R44": "durable physical escrow/Reset receipt/reordered automatic replay incomplete",
+    "R46": "Talent three flows not yet migrated",
+    "publication": "not performed",
+    "staticZip": "Redpacket1.9/current and Example current Host reference validation passed; CRC/XML/digests passed"
+  },
+  "packages": [
+    {
+      "path": "local-plugin-packages/2026-10-13-b37/phinix-rework-b37-rimworld1.6.zip",
+      "bytes": 1461567,
+      "sha256": "b1454d20228c52e31ba5777e40510193dbed47dddb5a417511614546687e8eab"
+    },
+    {
+      "path": "local-plugin-packages/2026-10-13-b36/redpacket-1.1.11.zip",
+      "bytes": 89531,
+      "sha256": "6b684899c1837a0d9cf35f310387295b40ada9f156b5d68e89c3db8a39baff67"
+    },
+    {
+      "path": "local-plugin-packages/2026-10-12-b33/phinix-example-basic-1.0.34.zip",
+      "bytes": 21280,
+      "sha256": "e9dec542763df6b5bfa7f9fead4b90a6c13021bde901c2909012866ad7302466"
+    }
+  ],
+  "runtimeDlls": [
+    {
+      "path": "1.6/Assemblies/13-PhinixClient.dll",
+      "sha256": "0b9e6e6c6bd447508e96dd08eaffc0b639fe2122417ca6ef2ffed76da9bbf2c9"
+    },
+    {
+      "path": "Common/Assemblies/01-LiteNetLib.dll",
+      "sha256": "c4ad697e3032a221892d894f1f225738a819b4c061b3de7f8ac4437b01b9e0c8"
+    },
+    {
+      "path": "Common/Assemblies/02-Protobuf.dll",
+      "sha256": "7ee052619ec28ca606da410b04c0ed1453080f64c4417137d2fa54b78a2b27da"
+    },
+    {
+      "path": "Common/Assemblies/03-Utils.dll",
+      "sha256": "c3ce5d26a6b5a2a9cd66c81543b7b1b9d50af26b6d71d19b747578da1b4a7db4"
+    },
+    {
+      "path": "Common/Assemblies/04-Connections.dll",
+      "sha256": "945c0d0aea947a7d8edcd512511031a1835d9946c27f98fd79cd676ada16dbc2"
+    },
+    {
+      "path": "Common/Assemblies/05-Connections.Client.dll",
+      "sha256": "ec379bfb9b1c2bc331054d159d0d6b1b69f75ace8a1edfef0ada687e7da7fce0"
+    },
+    {
+      "path": "Common/Assemblies/06-Authentication.dll",
+      "sha256": "29990c7077fc78a9c545755246653f18430daf6aa5cc51c7fcd13a09c2bc801a"
+    },
+    {
+      "path": "Common/Assemblies/07-Authentication.Client.dll",
+      "sha256": "ac70e07b42f6f83c87e4c91fd5b8fe5ad0f28990a89353322979aa9f7c0b96b6"
+    },
+    {
+      "path": "Common/Assemblies/08-UserManagement.dll",
+      "sha256": "58eb08c523cf14aacca14391bed5fa69dd61c2883787628f8ac6ea3cb84faef0"
+    },
+    {
+      "path": "Common/Assemblies/09-UserManagement.Client.dll",
+      "sha256": "4d6da25fc8e7d7bb0982bd34b6b8ec28fec056feb11043c2ba9980f3991b97c0"
+    },
+    {
+      "path": "Common/Assemblies/10-ClientExtensionAbstractions.dll",
+      "sha256": "40a68042ac40902ee8d19d8838f1583ee80016c78daf71809230b90a92b15e62"
+    },
+    {
+      "path": "Common/Assemblies/Autofac.dll",
+      "sha256": "5eb99880aa6fc7deb49f3592c613f467c3890c130aaa72ac3ce45e8cd00a518a"
+    },
+    {
+      "path": "Common/Assemblies/Microsoft.Bcl.AsyncInterfaces.dll",
+      "sha256": "80678203bd0203a6594f4e330b22543c0de5059382bb1c9334b7868b8f31b1bc"
+    },
+    {
+      "path": "Common/Assemblies/Phinix.ClientComposition.dll",
+      "sha256": "3630a90485f780d2ccb4a84ad2f145a153e4ac12c35a21dd9745617f2b581bab"
+    },
+    {
+      "path": "Common/Assemblies/Stateless.dll",
+      "sha256": "da16bebb822af420779a43a108d05088840e9fd38832e10a506c82af1c29713b"
+    },
+    {
+      "path": "Common/Assemblies/System.Buffers.dll",
+      "sha256": "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb"
+    },
+    {
+      "path": "Common/Assemblies/System.Diagnostics.DiagnosticSource.dll",
+      "sha256": "1887592615fc08bbc91ad62307c8c11dfc14c45bf120d271d66be4a0d1a149a7"
+    },
+    {
+      "path": "Common/Assemblies/System.Memory.dll",
+      "sha256": "bf3fb84664f4097f1a8a9bc71a51dcf8cf1a905d4080a4d290da1730866e856f"
+    },
+    {
+      "path": "Common/Assemblies/System.Numerics.Vectors.dll",
+      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183"
+    },
+    {
+      "path": "Common/Assemblies/System.Runtime.CompilerServices.Unsafe.dll",
+      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf"
+    },
+    {
+      "path": "Common/Assemblies/System.Threading.Tasks.Extensions.dll",
+      "sha256": "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6"
+    },
+    {
+      "path": "Common/Extensions/08-ChatExtension.dll",
+      "sha256": "0304de394a55f352a49d175009a891230bba7b3ded1f877a8d2dd5ccc4c44e06"
+    },
+    {
+      "path": "Common/Extensions/09-TradeExtension.dll",
+      "sha256": "5b3a9b43f8393fdecf27a26c576d0cdba644334519ed4608e0a5257574ddbd4f"
+    },
+    {
+      "path": "Common/Extensions/10-InventoryExtension.dll",
+      "sha256": "66ab70aa2849e34a38cdd81ff66d6f6f46a4322a7cb2695ba8c94dc4b859b4c6"
+    },
+    {
+      "path": "Common/Extensions/10-LegacyAdapter.Client.dll",
+      "sha256": "63469fdf5e45c6f53d773b247c4453c1beec4196f35e5f2a1f2d9f9201618672"
+    },
+    {
+      "path": "Common/Extensions/11-ChatExtension.Client.dll",
+      "sha256": "90d7780c55cb206121f13a137dc5f218cf48acc867aaab415bf27232c8943fd2"
+    },
+    {
+      "path": "Common/Extensions/11-InventoryExtension.Client.dll",
+      "sha256": "0aff21768627fe21a562c8f63768b376aad2999c55466c468b8cd23fc333fab2"
+    },
+    {
+      "path": "Common/Extensions/12-TradeExtension.Client.dll",
+      "sha256": "669857348474e4efbdb4b178f4195a4863d4ca58d7f085bcea5d366907f3a6d8"
+    },
+    {
+      "path": "Common/Extensions/17-PluginStore.Client.dll",
+      "sha256": "807353482b8863b4a679d2483ea6b2ba0fc0d66d0f2c229c8b985848d8126a1b"
+    }
+  ],
+  "source": [
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/BuiltInLegacyRedPacketClientExtension.cs",
+      "sha256": "21c5104a4a1dc0aec6dfc9a9cbb6d8b6f5af0f30c5b9c962ab1a1f990453a036"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/ClientAdapters.cs",
+      "sha256": "ec5e165a69c2a39438d3eb2b38ca73b0657882efdcd2a961dd62f98321ec7684"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/IRedPacketAnnouncementSender.cs",
+      "sha256": "3bca2bfb25f229607bcea2b460e48a5dd2f1f571e9c240d87bb7b4b73ee930c7"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/PresentationAdapter.cs",
+      "sha256": "0b8366c468a473a7d9bd338fea535bfc1a3e83590dfc3dd395d8c74f583b3908"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Compatibility/ThemeAdapter.cs",
+      "sha256": "f5c3c8ab190e43ad561586401e7e02c2af8d5470a748c5229f56850313c751ac"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/Properties/AssemblyInfo.cs",
+      "sha256": "c750004911859552b9b32f28a36fb5038ed6229e27a6d697b115d179e7359ff4"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacket.cs",
+      "sha256": "17c70b3edb0372551df3d23fc142cdd39fe5ac31c4b48234987680f1999f0778"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketAvailableItem.cs",
+      "sha256": "f4fe00f91aa1b52e091fa470c9508f4992c2a649e5507de963006bc2c0c6200e"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketClaimRowLayout.cs",
+      "sha256": "a715a981b3952aafdd012f57ee2895082bb87abe2bd0a02705e2934daca60b89"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketDetailWindow.cs",
+      "sha256": "388fbd57302428f22a39752e8bdd968cd932c2934a6359c565a3aad25fd1820b"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketDropHelper.cs",
+      "sha256": "4bafb36a3776c4fafe56818eac438557bcfdb79527752430a2f07604bf66e04c"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventoryCodec.cs",
+      "sha256": "f081c87ecdd5c6ef5619704ce4c5a4dedd382a4c66f92e534b07e28438d7f4b9"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventorySendStore.cs",
+      "sha256": "9569127722986736f733bcd9b4beccd3e556395aaea6f7e20a0f57d61d03f86f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventorySending.cs",
+      "sha256": "5785332065184f33ccf14c00c404a62668dda6973151614c568bcbfeaa340831"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketLimits.cs",
+      "sha256": "b2c27427427fb2a9b09a87227a51f5dc27ba844a6f1b38eebf7b7d054d1d0df2"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketLocalization.cs",
+      "sha256": "898a62ac0a4a051ef77d62c415e16c3d10f12730959a7bc36b2f8dd6cbb9680f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketPresentation.cs",
+      "sha256": "6a22fd486f746d2cb76c7cc1323285569b49420efbcb1368bd001b1b7e51fb8f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketPresentationRules.cs",
+      "sha256": "ce64e62e9c73ccdcef331bf3fe57ff6724065a8ae0ffd0f29baa080aa3f40faa"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketRelay.cs",
+      "sha256": "8cb66ef51f7b4b72f1649ed7f40b62fcd22d760df08b88d4f2ea1dfba771a789"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSettings.cs",
+      "sha256": "4c931eef538047a358662a57426d608e14c760a67f2bbb2dec3e766929382325"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSettingsPanel.cs",
+      "sha256": "438f1caab83497e8728e241b1d95c37911b0fad5a32c18389711f31f6d460b5c"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSnapshots.cs",
+      "sha256": "26187defa770fb5d39d1560ab40b6ea09098e44d2fdcca817d74f5f9a01600c2"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketStackTemplate.cs",
+      "sha256": "d975972a7c6130fb256500123e86a7795f61639ec50cf694b80648047833839c"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketStateMachine.cs",
+      "sha256": "de8ef5ae0d0195882c93beda5143749bec596275ae11af07902adc0ebb33d058"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketSummaryQueue.cs",
+      "sha256": "310ee0383ab80c4b3c77d62105eabb493437e3b9421695464511ba9d3936de54"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketTab.cs",
+      "sha256": "e57f38ca2dcf8ceb8022a28c16991a8712622e2a21b14898525f360348ab8c74"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketTheme.cs",
+      "sha256": "3de8f85cb9559110c0738c3bf399e4fe3bc2618de4487b96e01c835dbdd926a9"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Client/RedPacketUnreadBadge.cs",
+      "sha256": "c4fd302c84b75f976ec8e33b84140a1f8103a279abcafaea6d4d70507f67d45f"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/Tests/RedPacketPerformanceTests/Results/sliced-index.json",
+      "sha256": "b7e04cfb4ae0a3e634d6f73a12c187bc681bc008110fdeb2293579a4cd2198ce"
+    },
+    {
+      "path": "Phinix-Legacy-RedPacket/source-manifest.json",
+      "sha256": "4426fbb96a9306fe44b7f7e03b16dd02701e28a2e932040913620e5135e2bab6"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/BuiltInInventoryClientExtension.cs",
+      "sha256": "091d0f224f26d945847f46958b969cab11a98174943f6cf22e9c23cecdf9d28b"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryAssemblyInfo.cs",
+      "sha256": "da890b3d8fc80caf0c32d53d3052209275dc3c2de518d4dfebb5f0c0f682df31"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryBatchExtraction.cs",
+      "sha256": "9ec6a5b282e2290979cca67a5a4a57b3c1cd6c04ed8fc6c5dff2f15cbbd11458"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryDeliveryChoiceDialog.cs",
+      "sha256": "b4387df23c119cd4262944ecd76d7183fbafa497c68be4b1580bb3ded056393d"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryDisplayGrouping.cs",
+      "sha256": "81c8089fd6c0b991fd61e55135c2a595a7b534534c6f778dedb96338d87fc999"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryExtractionBatch.cs",
+      "sha256": "2ca9556103882657fed443c5a8d8c131a51cecc9822c1f42847fe5d4fef3e69a"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryGameComponent.cs",
+      "sha256": "861ed882c6d5c30fc08baed2eba330d03266e209b74bb656d949ea89ce831cef"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryJournal.cs",
+      "sha256": "eb55475fd66ca3340264c398aff277aa70dfedae32f00fc2f052fcef4d38aa60"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryLedger.cs",
+      "sha256": "843b477811cfa1ff172ae28c14d39980e841eb6cc4344ec213d5b8a76eb6fb45"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventorySaveIdentityPatch.cs",
+      "sha256": "31b692e5ebf2323fd61737cc14bb302b144e5ee67e600047b50342bf907528a7"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventorySettingsPanel.cs",
+      "sha256": "56f08e864cf9f153a5f7b692bc35527674be734bfa3bdb42262b79436700cbcd"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryTab.cs",
+      "sha256": "e9482bd3f87e86bd00d0e32d9e428d1cf7a3fc3340f752bfc2793052ed227956"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryTheme.cs",
+      "sha256": "168794d1db45891fa05cbf45582bc761e7839d8d3e2253d827908cf90b55d2e7"
+    },
+    {
+      "path": "Phinix-Rework/Extensions/Inventory/Contracts/InventoryContracts.cs",
+      "sha256": "9632f02d2182b110588ffe3d93d72ed037d30368a689fadec92c6eec028c4061"
+    },
+    {
+      "path": "Phinix-Rework/Tests/InventoryCompositionRuntimeTests/Program.cs",
+      "sha256": "6a29ca243904484bf4956ba46f7422cab0fe6b52d68939434777c711c9b904ff"
+    },
+    {
+      "path": "Phinix-Rework/Tests/InventoryRuntimeTests/InventoryJournalScenarios.cs",
+      "sha256": "87e1abff1412083c540c6d6c06012a6fba75edba1be79bb91f9f503a6bc42ede"
+    },
+    {
+      "path": "Phinix-Rework/Tests/InventoryRuntimeTests/Program.cs",
+      "sha256": "5a7b3b022d44c1eb5c43ccb5abc54b6dc53b10f674b827590bb148ca6d2ef429"
+    },
+    {
+      "path": "Phinix-Rework/docs/Inventory.md",
+      "sha256": "0017a7a307b7d36afb7ee556c783d0b8ace8abbfd6c71082907637c51915c530"
+    },
+    {
+      "path": "Phinix-Rework/docs/branch-local/dev/UI-UX-B36-Performance-2026-10-13.md",
+      "sha256": "6a0f506f70ed94a80d1231f45992cb1efd218f9a576872651a47eb905626f484"
+    },
+    {
+      "path": "Phinix-Rework/docs/branch-local/dev/UI-UX-B37-Game-Check-2026-10-13.md",
+      "sha256": "beb9a2f0d779083b5f66fb00f5db3599a33619e5bfaf0f97a2bc9bf81dcdc387"
+    },
+    {
+      "path": "Phinix-Rework/docs/branch-local/dev/UI-UX-Redesign-Roadmap-2026-10-11.md",
+      "sha256": "004c0955dfa1833de7ea2db29ac5d6ffc9fc1b80cd8afc30b794e0444aa88fd7"
+    },
+    {
+      "path": "Phinix-Rework/Client/Languages/English/Keyed/InventoryExtension.xml",
+      "sha256": "9ce2c2ac1157861e3c150909f92d76b3a9e0df0e538c4631c63971977173410e"
+    },
+    {
+      "path": "Phinix-Rework/Client/Languages/ChineseSimplified (简体中文)/Keyed/InventoryExtension.xml",
+      "sha256": "ee9cf4078d6974d22a121fa794e787cf7bcd0bb4c1389cdf1865b55458a8eb78"
+    }
+  ]
+}

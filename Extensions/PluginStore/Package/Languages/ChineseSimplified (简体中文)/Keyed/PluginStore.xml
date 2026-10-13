@@ -91,7 +91,7 @@
   <Phinix_store2_blocked>操作受阻：</Phinix_store2_blocked>
   <Phinix_store2_legacyTools>旧 Mod 安装记录 / 清理工具</Phinix_store2_legacyTools>
   <Phinix_store2_confirmInstall>将安装以下插件及依赖。DLL 插件由 Phinix 管理，重启游戏后启用。插件代码具有游戏进程权限，请只安装信任的发布者。</Phinix_store2_confirmInstall>
-  <Phinix_store2_confirmUninstall>将标记插件待卸载，下次启动在加载前移除已核验的代码文件。保留插件设置、业务数据和存档。</Phinix_store2_confirmUninstall>
+  <Phinix_store2_confirmUninstall>卸载此插件？重启后移除插件文件，设置、数据和存档仍会保留。</Phinix_store2_confirmUninstall>
   <Phinix_store2_reviewAgain>目录或计划已变化，请重新查看依赖计划。</Phinix_store2_reviewAgain>
   <Phinix_store2_failed>操作失败：</Phinix_store2_failed>
   <Phinix_store2_request>排查编号：</Phinix_store2_request>
@@ -154,7 +154,7 @@
   <Phinix_store2_updateNotice>{0} 个插件有新版本，点击查看商店。</Phinix_store2_updateNotice>
   <Phinix_store2_update>更新插件</Phinix_store2_update>
   <Phinix_store2_updatedPackage>将更新</Phinix_store2_updatedPackage>
-  <Phinix_store2_updateConfirmation>更新以下插件？重启后生效，保留插件设置；此操作不迁移或回退插件业务数据。</Phinix_store2_updateConfirmation>
+  <Phinix_store2_updateConfirmation>更新以下插件？重启后生效，设置保留；插件数据不会自动迁移或回退。</Phinix_store2_updateConfirmation>
   <Phinix_store2_downgradeUnavailable>暂不支持直接覆盖安装旧版本。</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>更新前请先启用此插件；待卸载的插件不能更新。</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub 与 CF 提供同一目录，连接较慢时可切换访问方式。</Phinix_store2_accessExplanation>
@@ -249,4 +249,11 @@
   <Phinix_store2_themeInstall>安装本地主题包</Phinix_store2_themeInstall>
   <Phinix_store2_themeUpdate>更新本地主题包</Phinix_store2_themeUpdate>
   <Phinix_store2_themeInstalled>主题包已保存。请在主题选择器选择；无需重启。</Phinix_store2_themeInstalled>
+  <Phinix_store2_browsePane>插件</Phinix_store2_browsePane>
+  <Phinix_store2_detailPane>详情与操作</Phinix_store2_detailPane>
+  <Phinix_store2_connection>连接方式</Phinix_store2_connection>
+  <Phinix_store2_moreTools>更多</Phinix_store2_moreTools>
+  <Phinix_store2_localPath>ZIP 文件或文件夹路径</Phinix_store2_localPath>
+  <Phinix_store2_localFolder>文件夹</Phinix_store2_localFolder>
+  <Phinix_store2_localDirectoryEmpty>没有可显示的本地包。选择文件夹或粘贴 ZIP 路径。</Phinix_store2_localDirectoryEmpty>
 </LanguageData>

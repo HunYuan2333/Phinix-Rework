@@ -91,7 +91,7 @@
   <Phinix_store2_blocked>Action blocked:</Phinix_store2_blocked>
   <Phinix_store2_legacyTools>Legacy mod records / cleanup</Phinix_store2_legacyTools>
   <Phinix_store2_confirmInstall>Install these plugins and dependencies. Phinix manages their DLL files and enables them after a game restart. Plugin code has game-process access; install only publishers you trust.</Phinix_store2_confirmInstall>
-  <Phinix_store2_confirmUninstall>Mark this plugin for removal before loading on the next startup. Only verified owned code is removed. Settings, business data and saves are retained.</Phinix_store2_confirmUninstall>
+  <Phinix_store2_confirmUninstall>Uninstall this plugin? Its files will be removed on restart. Settings, data and saves are retained.</Phinix_store2_confirmUninstall>
   <Phinix_store2_reviewAgain>The catalog or plan changed. Review dependencies again.</Phinix_store2_reviewAgain>
   <Phinix_store2_failed>Operation failed:</Phinix_store2_failed>
   <Phinix_store2_request>Diagnostic request ID:</Phinix_store2_request>
@@ -154,7 +154,7 @@
   <Phinix_store2_updateNotice>Updates are available for {0} plugins. Click to open the store.</Phinix_store2_updateNotice>
   <Phinix_store2_update>Update plugin</Phinix_store2_update>
   <Phinix_store2_updatedPackage>Will update</Phinix_store2_updatedPackage>
-  <Phinix_store2_updateConfirmation>Update these packages? Changes take effect after restarting. Plugin settings are retained; this does not migrate or roll back plugin data.</Phinix_store2_updateConfirmation>
+  <Phinix_store2_updateConfirmation>Update these plugins? Changes take effect on restart and settings are retained. Plugin data is not automatically migrated or rolled back.</Phinix_store2_updateConfirmation>
   <Phinix_store2_downgradeUnavailable>Installing an older version over this package is unavailable.</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>Enable this package before updating; packages awaiting removal cannot be updated.</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub and CF show the same catalog. Switch access if the connection is slow.</Phinix_store2_accessExplanation>
@@ -249,4 +249,11 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_themeInstall>Install local theme package</Phinix_store2_themeInstall>
   <Phinix_store2_themeUpdate>Update local theme package</Phinix_store2_themeUpdate>
   <Phinix_store2_themeInstalled>Theme package saved. Choose it in the theme selector; no restart is required.</Phinix_store2_themeInstalled>
+  <Phinix_store2_browsePane>Plugins</Phinix_store2_browsePane>
+  <Phinix_store2_detailPane>Details and actions</Phinix_store2_detailPane>
+  <Phinix_store2_connection>Connection</Phinix_store2_connection>
+  <Phinix_store2_moreTools>More</Phinix_store2_moreTools>
+  <Phinix_store2_localPath>ZIP file or folder path</Phinix_store2_localPath>
+  <Phinix_store2_localFolder>Folder</Phinix_store2_localFolder>
+  <Phinix_store2_localDirectoryEmpty>No matching local packages. Choose a folder or paste a ZIP path.</Phinix_store2_localDirectoryEmpty>
 </LanguageData>

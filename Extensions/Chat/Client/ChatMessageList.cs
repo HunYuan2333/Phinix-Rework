@@ -56,6 +56,24 @@ namespace Phinix.ChatExtension.Client
         private readonly Dictionary<string, CachedMessageDisplay> displayCache = new Dictionary<string, CachedMessageDisplay>();
         private readonly Dictionary<string, List<ChatImageState>> messageImageStates = new Dictionary<string, List<ChatImageState>>();
         private readonly IChatUiHostContext hostContext;
+        internal ChatMessageActions MessageActions { private get; set; }
+        internal IClientPresentationService FeedRenderer { private get; set; }
+        private IPhinixExtensionModule feedModule;
+        private IClientPresentationSession feedView;
+        private long feedRevision, feedDataVersion, feedTheme = -1;
+        private object feedLanguage;
+        private bool feedFormatting, feedNames, feedImages, feedTimestampOnRight;
+        private float feedMaxImageHeight;
+        private readonly Dictionary<string, UIChatMessage> feedMessages = new Dictionary<string, UIChatMessage>();
+        internal void StartFeed(IPhinixExtensionModule module) { feedModule = module; }
+        private static string FeedId(UIChatMessage message)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                return "message." + BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes((message.Source ?? "") + "\0" + message.MessageId))).Replace("-", "");
+        }
+
+        private UIChatMessage requestedMessageActions;
+        internal Action<ImmutableUser> MemberActions { get; set; }
 
         private bool messagesChanged;
         private bool layoutDirty = true;
@@ -140,6 +158,7 @@ namespace Phinix.ChatExtension.Client
         internal void Stop()
         {
             started = false;
+            ViewClosed();
             imageDownloads.CancelAll();
             while (imageCompletions.TryDequeue(out _)) { }
             messageImageStates.Clear();
@@ -161,23 +180,17 @@ namespace Phinix.ChatExtension.Client
             using (ChatTheme.BeginDraw())
             using (new ClientGuiScope(true))
             {
+                if (FeedRenderer != null) { feedView?.Draw(inRect); return; }
                 UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
                 DrawContents(inRect);
             }
         }
 
-        private void DrawContents(Rect inRect)
+        internal void ViewUpdate()
         {
-            if (styleVersion != ChatTheme.Version)
-            {
-                styleVersion = ChatTheme.Version;
-                displayCache.Clear(); messageRectCache.Clear(); layoutDirty = true;
-            }
-            if (inRect.width <= SCROLLBAR_WIDTH || inRect.height <= 0f)
-            {
-                return;
-            }
-
+            if (!started) return;
+            if (feedView == null && FeedRenderer != null && feedModule != null)
+            { feedView = FeedRenderer.Open(feedModule, "chat-feed"); layoutDirty = true; }
             // 设计哲学 §3.5 同步韧性：启动即连接时，历史同步可能在聊天列表事件订阅
             // 完成前就已写入消息存储，导致"进入存档后左侧在线用户正常、聊天界面却未初始化"。
             // 复刻 ChatSidebarProvider 的"上线瞬间刷新"：一旦会话上线，就从存储重读一次
@@ -223,6 +236,137 @@ namespace Phinix.ChatExtension.Client
             if (markAsRead)
             {
                 hostContext.ChatService.MarkAsRead();
+            }
+
+
+            UpdateFeed();
+            var requested = requestedMessageActions; requestedMessageActions = null;
+            if (requested != null && MessageActions != null)
+            {
+                string body = requested.Message, id = requested.MessageId, source = requested.Source, sender = requested.SenderUuid;
+                var status = requested.Status;
+                Func<bool> current = () =>
+                {
+                    if (!started || requested.Message != body || requested.MessageId != id || requested.Source != source ||
+                        requested.SenderUuid != sender || requested.Status != status) return false;
+                    lock (messagesLock) return messages.Contains(requested);
+                };
+                MessageActions.Open(requested, parseUrls((body ?? "").StripTags()), current);
+            }
+        }
+        internal void ViewClosed()
+        { requestedMessageActions = null; MessageActions?.CloseView(); var previous = feedView; feedView = null; previous?.Dispose(); feedMessages.Clear(); layoutDirty = true; }
+
+        private void UpdateFeed()
+        {
+            if (feedView == null || feedView.IsClosed) return;
+            var pending = new List<ClientPresentationInput>();
+            while (feedView.TryDequeueInput(out var queuedInput)) pending.Add(queuedInput);
+            foreach (var input in pending)
+            {
+                if (input.Id != "messages" || !feedMessages.TryGetValue(input.Value, out var message)) continue;
+                lock (messagesLock) if (!messages.Contains(message)) continue;
+                if (input.Kind == ClientPresentationInputKind.FeedHeadingSelected) MemberActions?.Invoke(message.User);
+                else if (input.Kind == ClientPresentationInputKind.FeedBodySelected) requestedMessageActions = message;
+                else if (input.Kind == ClientPresentationInputKind.FeedReferenceSelected)
+                {
+                    if (hostContext.ChatService.TryGetMessage(message.ReplyToMessageId, out var original))
+                        foreach (var candidate in feedMessages)
+                            if (candidate.Value.MessageId == original.MessageId && candidate.Value.Source == original.Source &&
+                                candidate.Value.Message == original.Message && candidate.Value.Status == original.Status && candidate.Value.Timestamp == original.Timestamp)
+                            { feedView.ScrollToRow("messages", candidate.Key); break; }
+                }
+                else if ((input.Kind == ClientPresentationInputKind.FeedMediaVisible || input.Kind == ClientPresentationInputKind.FeedMediaSelected) &&
+                    int.TryParse(input.Target, out var index) && messageImageStates.TryGetValue(message.MessageId, out var states) && index >= 0 && index < states.Count)
+                {
+                    var media = states[index];
+                    if (input.Kind == ClientPresentationInputKind.FeedMediaVisible) { if (!media.Failed && !media.IsLoading && media.Texture == null) RequestImage(media); }
+                    else
+                    {
+                        string body = message.Message, source = message.Source; var status = message.Status;
+                        Func<bool> current = () => { lock (messagesLock) return started && messages.Contains(message) && message.Message == body && message.Source == source && message.Status == status; };
+                        MessageActions?.Open(message, parseUrls((body ?? "").StripTags()), current, media.Url,
+                            media.Failed && !media.Unsupported ? (Action)(() => RequestImage(media)) : null);
+                    }
+                }
+            }
+            bool names = hostContext.ShowNameFormatting, formatting = hostContext.ShowChatFormatting, images = hostContext.ShowImages, timestampOnRight = hostContext.TimestampOnRight;
+            if (!layoutDirty && feedTheme == ChatTheme.Version && ReferenceEquals(feedLanguage, LanguageDatabase.activeLanguage) &&
+                feedTimestampOnRight == timestampOnRight && feedNames == names && feedFormatting == formatting && feedImages == images && feedMaxImageHeight == hostContext.MaxImageHeight) return;
+            long revision = ++feedRevision, dataVersion = Interlocked.Read(ref feedDataVersion);
+            var rows = new List<ClientPresentationFeedRow>(); feedMessages.Clear();
+            string lastSender = null; DateTime lastTime = DateTime.MinValue;
+            foreach (var message in filteredMessages)
+            {
+                bool system = message.SenderUuid == FrameworkProtocol.SystemSenderUuid, notice = message.IsNotice;
+                bool confirmed = message.Status == UIChatMessageStatus.Confirmed, self = message.SenderUuid == hostContext.Uuid;
+                bool grouped = !system && !notice && message.SenderUuid == lastSender && (message.Timestamp - lastTime).TotalSeconds < GROUP_TIME_THRESHOLD_SECONDS;
+                if (!grouped) { lastSender = message.SenderUuid; lastTime = message.Timestamp; }
+                string id = FeedId(message); if (feedMessages.ContainsKey(id)) id += ".duplicate." + rows.Count;
+                feedMessages.Add(id, message);
+                string body = formatting && confirmed ? message.Message : TextHelper.StripRichText(message.Message ?? "");
+                if (confirmed && !system && !notice && message.MentionedUuids?.Count > 0) body = HighlightMentions(body);
+                string heading = names && confirmed ? ChatTheme.FormatDisplayName(message.User.DisplayName, message.SenderUuid,
+                    self ? ChatTheme.SelfName : ChatTheme.GetNameColor(message.SenderUuid)) : TextHelper.StripRichText(message.User.DisplayName);
+                string bodyKey = message.Status == UIChatMessageStatus.Pending ? "chat.pendingMessage" : message.Status == UIChatMessageStatus.Denied ? "chat.deniedMessage" : system ? "chat.replyQuoteText" : "chat.messageText";
+                if (message.Status == UIChatMessageStatus.Pending) heading = heading.Colorize(ChatTheme.PendingMessage);
+                else if (message.Status == UIChatMessageStatus.Denied) heading = heading.Colorize(ChatTheme.DeniedMessage);
+                string reference = null;
+                if (!string.IsNullOrEmpty(message.ReplyToMessageId))
+                {
+                    bool found = hostContext.ChatService.TryGetMessage(message.ReplyToMessageId, out var original);
+                    string snippet = message.ReplyToSnippet;
+                    if (string.IsNullOrEmpty(snippet) && found)
+                    {
+                        snippet = TextHelper.StripRichText(original.Message ?? "");
+                        if (snippet.Length > 50) snippet = snippet.Substring(0, 50) + "...";
+                    }
+                    if (!string.IsNullOrEmpty(snippet))
+                    {
+                        string name = found && original.SenderUuid != FrameworkProtocol.SystemSenderUuid ?
+                            ChatTheme.FormatDisplayName(original.User.DisplayName, original.SenderUuid, original.SenderUuid == hostContext.Uuid ? ChatTheme.SelfName : ChatTheme.GetNameColor(original.SenderUuid)) : null;
+                        reference = ("↩ " + (name == null ? "" : name + ": ") + snippet).Colorize(ChatTheme.ReplyQuoteText);
+                    }
+                }
+                var mediaRows = new List<ClientPresentationMedia>();
+                if (images && !system && !notice && message.Status != UIChatMessageStatus.Denied)
+                {
+                    var states = GetOrCreateImageStates(message);
+                    for (int i = 0; i < states.Count; i++)
+                    {
+                        var media = states[i]; var state = media.Texture != null ? ClientPresentationMediaState.Ready : media.Failed ?
+                            media.Unsupported ? ClientPresentationMediaState.Unavailable : ClientPresentationMediaState.Failed : media.IsLoading ? ClientPresentationMediaState.Loading : ClientPresentationMediaState.Idle;
+                        string key = media.Failed ? media.Unsupported ? "Phinix_chat_actions_imageUnavailable" : "Phinix_chat_actions_imageFailure" : "Phinix_chat_imageLoading";
+                        mediaRows.Add(new ClientPresentationMedia(i.ToString(), state, key.Translate(), media.Texture,
+                            media.Texture == null ? 1 : media.Texture.width / (float)Math.Max(1, media.Texture.height),
+                            Mathf.Clamp(hostContext.MaxImageHeight, 48, 4096), media.Failed ? "chat.imageFailedText" : "chat.replyQuoteText", "chat.imagePlaceholderBg"));
+                    }
+                }
+                string surface = notice ? "chat.noticeBg" : self ? "chat.selfMessageBg" : message.MentionedUuids?.Contains(hostContext.Uuid) == true ? "chat.mentionSelfBg" : null;
+                rows.Add(new ClientPresentationFeedRow(id, system || notice || grouped ? "" : heading,
+                    system || notice || grouped ? "" : message.Timestamp.ToLocalTime().ToString("HH:mm"), body, reference, null, mediaRows, grouped, system,
+                    surface, bodyKey, notice ? "chat.noticeAccent" : grouped ? "chat.groupIndentLine" : null, "chat.rowHoverBg", "chat.replyQuoteText", "chat.replyQuoteBorder").WithMetadataLayout(minimumWidth: 64, gap: 12).WithMetadataPlacement(timestampOnRight ? ClientPresentationMetadataPlacement.Right : ClientPresentationMetadataPlacement.AfterHeading));
+            }
+            feedTheme = ChatTheme.Version; feedLanguage = LanguageDatabase.activeLanguage; feedTimestampOnRight = timestampOnRight; feedNames = names; feedFormatting = formatting; feedImages = images; feedMaxImageHeight = hostContext.MaxImageHeight;
+            feedView.Publish(new ClientPresentationPage("chat-feed", "", revision, new[] {
+                new ClientPresentationSection("stream", new ClientPresentationFeed("messages", rows, "Phinix_chat_emptyState".Translate())) }), null,
+                () => started && feedView != null && !feedView.IsClosed && feedRevision == revision && Interlocked.Read(ref feedDataVersion) == dataVersion &&
+                    feedTimestampOnRight == hostContext.TimestampOnRight && feedNames == hostContext.ShowNameFormatting && feedFormatting == hostContext.ShowChatFormatting && feedImages == hostContext.ShowImages &&
+                    ReferenceEquals(feedLanguage, LanguageDatabase.activeLanguage) && feedTheme == ChatTheme.Version && feedMaxImageHeight == hostContext.MaxImageHeight);
+            feedTheme = ChatTheme.Version; feedLanguage = LanguageDatabase.activeLanguage; feedTimestampOnRight = timestampOnRight; feedNames = names; feedFormatting = formatting; feedImages = images; feedMaxImageHeight = hostContext.MaxImageHeight; layoutDirty = false;
+            if (scrollToBottom) { feedView.ScrollToEnd(); scrollToBottom = false; }
+        }
+
+        private void DrawContents(Rect inRect)
+        {
+            if (styleVersion != ChatTheme.Version)
+            {
+                styleVersion = ChatTheme.Version;
+                displayCache.Clear(); messageRectCache.Clear(); layoutDirty = true;
+            }
+            if (inRect.width <= SCROLLBAR_WIDTH || inRect.height <= 0f)
+            {
+                return;
             }
 
             object activeLanguage = LanguageDatabase.activeLanguage;
@@ -319,14 +463,14 @@ namespace Phinix.ChatExtension.Client
 
         public void ScrollToBottom()
         {
-            scrollToBottom = true;
+            scrollToBottom = true; feedView?.ScrollToEnd();
         }
 
         public void Clear()
         {
             lock (messagesLock)
             {
-                messages.Clear();
+                messages.Clear(); Interlocked.Increment(ref feedDataVersion);
                 clearMessages = true;
                 messagesChanged = true;
             }
@@ -349,7 +493,7 @@ namespace Phinix.ChatExtension.Client
             if (!started) return;
             lock (messagesLock)
             {
-                messages.Add(args.Message);
+                messages.Add(args.Message); Interlocked.Increment(ref feedDataVersion);
                 messagesChanged = true;
                 int removedCount = messages.Count - hostContext.ChatMessageLimit;
                 if (removedCount > 0)
@@ -364,6 +508,7 @@ namespace Phinix.ChatExtension.Client
             if (!started) return;
             lock (messagesLock)
             {
+                Interlocked.Increment(ref feedDataVersion);
                 foreach (UIChatMessage chatMessage in messages.Where(m => m.User.Uuid == args.Uuid))
                 {
                     chatMessage.User = new ImmutableUser(chatMessage.User.Uuid, args.NewDisplayName, chatMessage.User.LoggedIn, chatMessage.User.AcceptingTrades);
@@ -880,7 +1025,7 @@ namespace Phinix.ChatExtension.Client
             }
             state.Failed = false;
             state.Unsupported = false;
-            state.IsLoading = true;
+            state.IsLoading = true; Interlocked.Increment(ref feedDataVersion);
             if (!imageDownloads.Request(state.Url, (texture, failure) => ApplyLoadedTexture(state, texture, failure)))
             {
                 state.IsLoading = false; // Queue is full; a visible row can try again on a later frame.
@@ -963,6 +1108,7 @@ namespace Phinix.ChatExtension.Client
 
         private void ApplyLoadedTexture(ChatImageState state, Texture2D texture, ChatImageFailure failure)
         {
+            Interlocked.Increment(ref feedDataVersion);
             state.IsLoading = false;
             state.Failed = texture == null;
             state.Unsupported = failure == ChatImageFailure.Unsupported;
@@ -1134,6 +1280,7 @@ namespace Phinix.ChatExtension.Client
 
         private void drawNameContextMenu(ImmutableUser user)
         {
+            if (MemberActions != null) { MemberActions(user); return; }
             List<FloatMenuOption> items = new List<FloatMenuOption>();
 
             if (user.Uuid != hostContext.Uuid)
@@ -1158,6 +1305,7 @@ namespace Phinix.ChatExtension.Client
 
         private void drawMessageContextMenu(UIChatMessage chatMessage)
         {
+            if (MessageActions != null) { requestedMessageActions = chatMessage; return; }
             List<FloatMenuOption> items = new List<FloatMenuOption>();
 
             foreach (string url in parseUrls(chatMessage.Message.StripTags()))

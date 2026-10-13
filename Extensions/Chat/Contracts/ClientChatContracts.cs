@@ -61,6 +61,7 @@ namespace Phinix.ChatExtension.Client
         bool ShowNameFormatting { get; }
 
         bool ShowChatFormatting { get; }
+        bool TimestampOnRight { get; }
         bool ShowImages { get; }
 
         float MaxImageHeight { get; }
@@ -99,6 +100,61 @@ namespace Phinix.ChatExtension.Client
         event EventHandler ReplyTargetChanged;
 
         bool SendChatMessage(string text, IEnumerable<string> mentionedUuids);
+    }
+
+}
+
+namespace Phinix.ChatExtension.Client
+{
+    // Public context for third-party member actions; no game object or Host business knowledge.
+    public sealed class ChatMemberActionContext
+    {
+        public const string PointId = "builtin.chat.member.actions";
+        public ChatMemberActionContext(string uuid, string displayName, bool blocked, bool online)
+        { Uuid = uuid; DisplayName = displayName; Blocked = blocked; Online = online; }
+        // Uuid is null when no member is selected; contributors must inspect HasSelection.
+        public bool HasSelection => Uuid != null;
+        public string Uuid { get; }
+        public string DisplayName { get; }
+        public bool Blocked { get; }
+        // Local session state; never target presence/idle/away.
+        public bool Online { get; }
+    }
+}
+
+namespace Phinix.ChatExtension.Client
+{
+    public sealed class ChatComposerActionContext
+    {
+        public const string PointId = "builtin.chat.composer.actions";
+        public ChatComposerActionContext(string text, string replyToId) { Text = text; ReplyToId = replyToId; }
+        public string Text { get; }
+        public string ReplyToId { get; }
+    }
+    // Snapshot supplied by Chat; contributors do not receive mutable messages or storage ownership.
+    public sealed class ChatMessageActionContext
+    {
+        public const string PointId = "builtin.chat.message.actions";
+        public ChatMessageActionContext(string messageId, string senderUuid, string text, string source,
+            UIChatMessageStatus status, IEnumerable<string> urls, int urlPage = 0)
+            : this(messageId, senderUuid, text, source, status, urls, urlPage, null, false) { }
+        public ChatMessageActionContext(string messageId, string senderUuid, string text, string source,
+            UIChatMessageStatus status, IEnumerable<string> urls, int urlPage, string selectedMediaUrl, bool canRetryMedia)
+        {
+            SelectedMediaUrl = selectedMediaUrl; CanRetryMedia = canRetryMedia;
+            if (urlPage < 0) throw new ArgumentOutOfRangeException(nameof(urlPage));
+            MessageId = messageId; SenderUuid = senderUuid; Text = text; Source = source; Status = status;
+            Urls = new List<string>(urls ?? new string[0]).AsReadOnly(); UrlPage = urlPage;
+        }
+        public string MessageId { get; }
+        public string SenderUuid { get; }
+        public string Text { get; }
+        public string Source { get; }
+        public UIChatMessageStatus Status { get; }
+        public IReadOnlyList<string> Urls { get; }
+        public int UrlPage { get; }
+        public string SelectedMediaUrl { get; }
+        public bool CanRetryMedia { get; }
     }
 
 }

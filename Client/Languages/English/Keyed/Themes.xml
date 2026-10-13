@@ -18,12 +18,12 @@
   <Phinix_theme_invalidColor>Each RGBA value must be between 0 and 1.</Phinix_theme_invalidColor>
   <Phinix_theme_searchThemes>Search themes by name or source</Phinix_theme_searchThemes>
   <Phinix_theme_searchItems>Search names, modules, groups or keys</Phinix_theme_searchItems>
-  <Phinix_theme_unfinishedInput>Some input is invalid or unfinished. Correct it, clear its override, or reset this theme.</Phinix_theme_unfinishedInput>
+  <Phinix_theme_unfinishedInput>Correct the invalid or unfinished input, or clear the affected changes.</Phinix_theme_unfinishedInput>
   <Phinix_theme_missingDraftTheme>This theme file is missing. Your draft is retained; restore the file and refresh before applying.</Phinix_theme_missingDraftTheme>
   <Phinix_theme_resetDone>User overrides for this theme cleared. Apply to save.</Phinix_theme_resetDone>
   <Phinix_theme_unusedCount>Unused theme keys: {0}</Phinix_theme_unusedCount>
   <Phinix_theme_unusedTip>These keys are not currently registered or their value type is unsupported. File values and user overrides are retained.</Phinix_theme_unusedTip>
-  <Phinix_theme_selectItem>Select a color or parameter. Switching themes retains window drafts; cancel discards unapplied changes.</Phinix_theme_selectItem>
+  <Phinix_theme_selectItem>Select a color or parameter to edit. Switching themes keeps drafts; canceling discards unapplied changes.</Phinix_theme_selectItem>
   <Phinix_theme_itemUnavailable>This item is not registered now. Its draft and input are retained; you can clear its user override.</Phinix_theme_itemUnavailable>
   <Phinix_theme_parameterRange>Parameter range [{0}, {1}]</Phinix_theme_parameterRange>
   <Phinix_theme_invalidInput>Invalid input</Phinix_theme_invalidInput>
@@ -31,8 +31,8 @@
   <Phinix_theme_parameterClamped>Value constrained to registered bounds</Phinix_theme_parameterClamped>
   <Phinix_theme_restoreInheritance>Restore inheritance</Phinix_theme_restoreInheritance>
   <Phinix_theme_restoreDefault>Use registered default</Phinix_theme_restoreDefault>
-  <Phinix_theme_clearTip>Clears user overrides only. Explicit theme file values still apply.</Phinix_theme_clearTip>
-  <Phinix_theme_restoreTip>Bypasses file values for this item and uses its role or registered default. Apply to save.</Phinix_theme_restoreTip>
+  <Phinix_theme_clearTip>Clear your change and use the theme file value.</Phinix_theme_clearTip>
+  <Phinix_theme_restoreTip>Ignore this value in the theme file and use the inherited or default value. Apply to save.</Phinix_theme_restoreTip>
   <Phinix_theme_source_UserOverride>User override</Phinix_theme_source_UserOverride>
   <Phinix_theme_source_Theme>Current theme file</Phinix_theme_source_Theme>
   <Phinix_theme_source_BuiltInTheme>Built-in theme file</Phinix_theme_source_BuiltInTheme>
@@ -48,4 +48,6 @@
   <Phinix_theme_packageVersion>Version</Phinix_theme_packageVersion>
   <Phinix_theme_packagePath>ZIP path</Phinix_theme_packagePath>
   <Phinix_theme_exportPackageTip>Exports a ZIP for local installation in the store. Reuse your package ID and change its version for updates. Existing files are preserved. This does not upload or publish.</Phinix_theme_exportPackageTip>
+  <Phinix_theme_chooseTheme>Choose theme (draft only)</Phinix_theme_chooseTheme>
+  <Phinix_theme_noThemes>No matching themes.</Phinix_theme_noThemes>
 </LanguageData>

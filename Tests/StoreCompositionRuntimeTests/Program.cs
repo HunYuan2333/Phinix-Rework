@@ -89,12 +89,12 @@ internal static partial class Program
         Type viewType=assembly.GetType("Phinix.PluginStore.ManagedPluginStoreView",true);
         Type delegateType=typeof(Func<>).MakeGenericType(viewType);
         var create=Delegate.CreateDelegate(delegateType,typeof(Program).GetMethod("EmptyView",BindingFlags.Static|BindingFlags.NonPublic).MakeGenericMethod(viewType));
-        panel.GetType().GetMethod("Initialize").Invoke(panel,new object[]{null,dispatcher,create});
+        panel.GetType().GetMethod("Initialize").Invoke(panel,new object[]{null,null,dispatcher,create});
         Type windowType=assembly.GetType("Phinix.PluginStore.PluginStoreWindow",true);
         panel.GetType().GetField("window",flags).SetValue(panel,System.Runtime.Serialization.FormatterServices.GetUninitializedObject(windowType));
         var localizer=new Localizer();type.GetField("localizer",flags).SetValue(module,localizer);
         Type controllerType=assembly.GetType("Phinix.PluginStore.ManagedStoreController",true);
-        object controller=controllerType.GetConstructors(flags).Single().Invoke(new object[]{null,null,null,null});
+        object controller=controllerType.GetConstructors(flags).Single().Invoke(new object[]{null,null,null,null,null});
         type.GetField("managedController",flags).SetValue(module,controller);
         type.GetField("activationComposition",flags).SetValue(module,new OwnedFixture(controller,localizer));
         bool failed=false;try{((IActivatablePhinixExtensionModule)module).Shutdown(host);}catch(AggregateException){failed=true;}

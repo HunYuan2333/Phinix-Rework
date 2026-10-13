@@ -193,6 +193,8 @@ namespace Phinix.ChatExtension.Client
 
         public bool ShowNameFormatting => settings.Get<bool>("chat.showNameFormatting", true);
 
+        public bool TimestampOnRight => settings.Get<bool>("chat.timestampOnRight", true);
+
         public bool ShowChatFormatting => settings.Get<bool>("chat.showChatFormatting", true);
         public bool ShowImages => settings.Get<bool>("chat.images.enabled", true);
 

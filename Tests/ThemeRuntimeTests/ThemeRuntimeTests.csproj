@@ -2,8 +2,10 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientThemePackages.cs" Link="Production/IClientThemePackages.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientTheme.cs" Link="Production/IClientTheme.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/UI/ClientWidgets.cs" Link="Production/ClientWidgets.cs" />
+    <Compile Include="../../Client/Source/UI/ThemeDraftValues.cs" Link="Production/ThemeDraftValues.cs" />
     <Compile Include="../../Client/Source/UI/UiTheme.cs" Link="Production/UiTheme.cs" />
     <Compile Include="../../Client/Source/UI/ThemeInputAdapter.cs" Link="Production/ThemeInputAdapter.cs" />
   </ItemGroup>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+<ItemGroup>
+<Reference Include="PhinixClient"><HintPath>../../Client/Source/bin/Release/PhinixClient.dll</HintPath></Reference>
+<Reference Include="ClientExtensionAbstractions"><HintPath>../../Client/ClientExtensionAbstractions/bin/Release/ClientExtensionAbstractions.dll</HintPath></Reference>
+<Reference Include="Utils"><HintPath>../../Dependencies/Phinix.Common/Common/Utils/bin/Release/net472/Utils.dll</HintPath></Reference>
+<Reference Include="Assembly-CSharp"><HintPath>../../GameDlls/Assembly-CSharp.dll</HintPath></Reference>
+<Reference Include="UnityEngine.CoreModule"><HintPath>../../GameDlls/UnityEngine.CoreModule.dll</HintPath></Reference>
+</ItemGroup></Project>

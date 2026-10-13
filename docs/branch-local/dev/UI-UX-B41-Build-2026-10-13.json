@@ -1,0 +1,249 @@
+{
+  "batch": "B41",
+  "date": "2026-10-13",
+  "sourceComplete": true,
+  "compiled": true,
+  "gamePassed": false,
+  "checks": {
+    "host": "228 stub renderer/model checks",
+    "talent": "81 actual DLL + real scope/race rules + fake session; 3 previous SDK binding",
+    "example": "45 activation/shutdown assertions; fake borrowed services, no GUI",
+    "scribe": "Current1.6 game IL + actual candidate IL inspected; one standard FinalizeLoading; no duplicate cross-ref/postinit",
+    "limitations": "No native portrait/Scribe XML/Pawn delivery test; no 1.7 assessment",
+    "build": "Contract/Host/Talent 0 warnings 0 errors; existing reference artifacts, not changed SDK pins; Example 0 errors with pre-existing warnings"
+  },
+  "packages": [
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b41/phinix-rework-b41-rimworld1.6.zip",
+      "bytes": 1461775,
+      "sha256": "a8d8f8423ae1ed57ebadf2700a25700200f4583a07b043943c7012675d06b74e"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b41/talent-trade-1.1.7.zip",
+      "bytes": 90176,
+      "sha256": "9fc22ac98a0af9aa27cf7d0bdb7c428cb3590d60efd880226f2da7055ace4428"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/local-plugin-packages/2026-10-13-b41/phinix-example-basic-1.0.35.zip",
+      "bytes": 21344,
+      "sha256": "c90fb25b086b8fd2f71116b38399aeaf5eccf2769cbea80a7217f08124a07963"
+    }
+  ],
+  "redpacket": "1.1.11 unchanged",
+  "source": [
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/Tests/Program.cs",
+      "sha256": "69c76173d25dfd505d4c5b68981966c84d4bf9a7c34c8e2d92cc05d8ff600fde"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Example-Plugin/example/ExamplePresentation.cs",
+      "sha256": "ef8a5137d155a40ba76d4e98f0da8be3fbf873bc6d726790ac0d3e6799264adf"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/BuiltInLegacyTalentTradeClientExtension.cs",
+      "sha256": "388e9a0bdc13c9db9c75775346c451f75bf190e5480706fe43983ecbf3163c53"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Compatibility/PresentationAdapter.cs",
+      "sha256": "277bf8183ff6e04f77a0c9a6fc8101c30bf675dda1ada0f22e8f8c33dfd3987c"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Compatibility/ThemeAdapter.cs",
+      "sha256": "9d98e9e6cdb15f65c9c4bd1d7129d421f06e3a5e741167aa855204fdffc25402"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/DefManifestHelper.cs",
+      "sha256": "768a2905047dfacbd9fa762d2990234eedc772865e36b1fd4318ef97e4ed0c7b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/DirectTrade.cs",
+      "sha256": "e21eef3a5c506635671aafa0e75108bb8787a5cb6553d4b4f4473deaac0c2a3c"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/DirectTradePanel.cs",
+      "sha256": "d48b89082cf15392db4201c45993d7f9e2b9ed0488e246a50da9525d247264d9"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/DirectTradePresentation.cs",
+      "sha256": "4574407cff689d179defe6439ba80d946f6a3ecf34f8a81be1a307ff74325d2a"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/DirectTradeWindow.cs",
+      "sha256": "a5b177d45ea11b5c7da053d2b03ef88147e67926d4b2a35893fc1bb417abc1ff"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/DirectTradeWindowPresentation.cs",
+      "sha256": "c5942c5fe4c46d335ae3307bf85da0db9e27ffd1b2f2c70025092d8c9dc2405d"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/GenScenePatches.cs",
+      "sha256": "1b31cf44489a95d693de1114b247f9647c35f6d27bf01d23de274eb5b67bd795"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/LegacyTalentTradeRuntime.cs",
+      "sha256": "68d66ba57c68b2be629e7f7df781a941e5cd1bad6a9d4864219bdc65bcbf1f46"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/LegacyTalentTradeSettings.cs",
+      "sha256": "0d7b8ffa32d5b5f6dc4efc89b788457b0dd5fd006085cee01a09c7e93aef055b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/LegacyTalentTradeSettingsPanel.cs",
+      "sha256": "8c0b60b7dd785cd7517af6e067972780ef69824eb8f4b26b50d7d6d66d12e6be"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/MarketListing.cs",
+      "sha256": "23768812bbe0c1d17d4daef1d5eb61ff50bfea9aef059df9ed47456ab3dd4ad0"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/MarketPanel.cs",
+      "sha256": "1a56dda9270ddded59930b4324dc685d1b12ffaa962cf7c3347e358c0ac0ce32"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PawnDeserializer.cs",
+      "sha256": "f6fde4bc29e7614d666f0a2326f68908131c61e9f5ea7f5f03d34f8309d44299"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PawnScribeLoadScope.cs",
+      "sha256": "15ea0833391929829f462a37438e8f14908aa9a8b9ec38f68e7cc0cfd38107b2"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PawnSerializer.cs",
+      "sha256": "a0bc45eab9111e69ada20dc4c1c6d662b802eff5c3ad8079929ad30657e65353"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PawnSummary.cs",
+      "sha256": "cf98faf013ccc5e237e3834bf7e016b95df98a3b139312101d7066941b5433e8"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PawnTextureAtlasGCPatch.cs",
+      "sha256": "a208cfa840482d78d927017be9784aba4752d94b9c12738b2ade44fab5e9c0ab"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PendingMarketPurchase.cs",
+      "sha256": "f38d563e895c81dc59837c406ed81bbb38bf2856236774d80bd6022931314ea7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PendingPawnReturnAudit.cs",
+      "sha256": "fd57cd5c8f8eb7fd64da40614c2c01a2831595dd7eef9e89828dce5c49ede88d"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/PendingPawnReturnLedger.cs",
+      "sha256": "61f1a9b66591214284fb14579bd8d49df124b51abba1e45b8f01cefa6c20ace9"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/Properties/AssemblyInfo.cs",
+      "sha256": "a3e506b7c3402f55d2c9cdeb8fbe010f73b4a97da86c44714bffb25c14737686"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/RentalContract.cs",
+      "sha256": "db1146e79c0c61b9c4308d7c3a5b0cc29041d15fec81341117fd2b90f9533207"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/RentalPanel.cs",
+      "sha256": "e0f78655433568083e31cb50d3fab99b427b2f71832f03a137e1874fc0cac06f"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentCatalogOwners.cs",
+      "sha256": "ba97a14ea696bd68368360e2aa909e216ba672d470699ef25a6c8c89f72530aa"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentCatalogPresentation.cs",
+      "sha256": "af87102bbc6f0c42e19b6098238e6f8fa90c90e38e914c83c3eed867d2b6a99b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentOfferLayout.cs",
+      "sha256": "0db8be69a8a806d511744deb455bed3342631554aedb4285598e48479d5988c7"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentPawnIcons.cs",
+      "sha256": "4a6e2b0683fdabb6a829e3749f97447b170405448396bddb2bdd979f4e124567"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentPresentationView.cs",
+      "sha256": "fea4a2d7d24b944c53c2c3e3ff2868b5e473f60e80c28bb3fc8e8701ac33b9ba"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentProjectionFingerprint.cs",
+      "sha256": "ea4871c37fc32fe8ae08fb8919169c3e00384010c861458faf773e361df6e45b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentSettingsPresentation.cs",
+      "sha256": "de80faf0175c0a4d4c69a465167548c899dabf7b5f99d1e23a6bad6f6743e9ab"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeGameComponent.cs",
+      "sha256": "291e4c8282f49636f7a782816748da3c6b5d64ff4bee62362635d1da583a63fc"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeInputLimits.cs",
+      "sha256": "8b0a917c221b6694729676787689c77657705c21dda49ae124236f1b659a07ee"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeLocalization.cs",
+      "sha256": "b554969c207123741425d361d0af0f36bf542dad229f8572fef2ff83ef058e24"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeManager.cs",
+      "sha256": "456fb30ecdcba104ee9f37e9dafbe2e83bec77657d5574ffbb7bb4b69e9bc692"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeTab.cs",
+      "sha256": "d9c0960317b507c57d2f4ef9e9f9d88e9a67b521c19fe2b370c918f0298d6840"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeTheme.cs",
+      "sha256": "81a6013349d9e78abc1e39cd4bd7cc5e1998f3ab100918a7fecab18f458d2ef8"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeTransport.cs",
+      "sha256": "d998eb3c8304d7c7174eda8e44b50df1ba557f2e9e31005d8d4f87fc8f0f1441"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TalentTradeUi.cs",
+      "sha256": "d55079eb61155bd9798a5632f9ae97d9d739050a9166714be444461e26a2fa8e"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TradeOfferSerializer.cs",
+      "sha256": "0d3e1ff4fae9a89ee678e3006d664dab923c1453a2f132c956ca551dac0d361e"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TradeablePawnUtility.cs",
+      "sha256": "62c950808244a322b2d893f654737652021ea724956ccd273caaa8420bdd1342"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/TransferCompatibilityUi.cs",
+      "sha256": "7d60e057a09be9fb633bd92920114701de2e03054a2f727549552d830d49780b"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Client/VersionNotifier.cs",
+      "sha256": "3070c19ee972365fa95a4f6121ef39c3def462b1aa3bbc630aa9c819f0ab7286"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/Tests/TalentPresentationRuntimeTests/CurrentProbe.cs",
+      "sha256": "5b7e72dabb6b909f99ca8f3f8eec9615d7546f57394163b28b68a51cd9cd4942"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Legacy-TalentTrade/source-manifest.json",
+      "sha256": "94d27ee8424427a927b99e2279451ffdf48d541d9ec93eb52a4e8c741b8dd53c"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs",
+      "sha256": "f2c14103b66106d22bf76e137a08fc645c2cea076aa0ca8a1a145885f95413c9"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Client/Source/UI/ClientPresentationService.cs",
+      "sha256": "921908d7775f900d26c224fb6ba2280bb7c82d9f41bf7161b2fff46aeba3ea08"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Tests/PresentationRuntimeTests/ReadOnlyListTests.cs",
+      "sha256": "deb462eafaa24e5d9f75dc743c917e220c925e9c1626f548b37713fb6951d32e"
+    },
+    {
+      "path": "/home/hunyuan2333/Phinix/Phinix-Rework/Tests/PresentationRuntimeTests/Stubs.cs",
+      "sha256": "cb49da8151b6fd2a5de6e68302b8e6d7bcba733e3655be14cf0f551f201f3175"
+    }
+  ],
+  "published": false,
+  "deployed": false
+}
