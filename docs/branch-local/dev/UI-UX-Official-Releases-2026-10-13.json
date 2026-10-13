@@ -40,6 +40,14 @@
       "sha256": "54388da9bf1cbd937a9591138b42daec54cd37a797ccc85ba2b59fecb90203fa"
     }
   },
-  "indexManualRun": 38336114031,
-  "indexStatus": "queued"
+  "indexManualRun": 38336336390,
+  "indexStatus": "success",
+  "indexPreviousRun": {
+    "id": 38336114031,
+    "conclusion": "failure",
+    "reason": "TrustedHeadChanged while queued; fresh main dispatch succeeded"
+  },
+  "officialStableSnapshot": "bb77c26ddd634bc301822dc0f5ba2947fda79b12",
+  "officialCatalogSha256": "f9a1973bc93ed7dd41bb67374d21dafe78f1985069f66f73bc1044f9132d75fc",
+  "allThreeOfficialVersionsPresent": true
 }

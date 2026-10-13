@@ -1286,3 +1286,5 @@ Host 源码已合入 main：783fcb0bb6ad56b97e8ca5875457babfe6520c25，产品 0.
 首次 CI 暴露人才脚本重复 --version 注册及红包打包仍要求 API 1.9，已修复。废弃旧基线任务已取消；保留已占用的失败/取消草稿，不覆写历史版本。红包发布 1.2.2（76fd3dc3cec9d25414c9ca6282164459faef3470）；人才发布 1.2.1（caaddedb41efb04120ea65ae8e821e9f090d4a9b）；Example 发布 1.1.0（9186f6535037b1e749e9b766f00c40d7b44cbb80）。三份正式 build-summary 均固定 Host 783fcb0 和 Common 6a1320bc；下载后的 SHA256、ZIP CRC 和 manifest API 范围核对通过。红包/人才各 18 项发布回归测试与源码摘要检查通过。GitHub 正式 Release 已发布；这不新增 1.7 游戏兼容证据。
 
 按用户授权手动触发 Index plugin-source-updates.yml，check_only=false，运行 https://github.com/HunYuan2333/Phinix-Plugin-Index/actions/runs/38336114031 。商店元数据写入使用现有串行队列和准入规则，触发不等于入库完成；后续按实际扫描/发布结果记录。工坊上传由用户进行。
+
+入库最终结果：首次手动任务 38336114031 因排队时 main 更新，被 TrustedHeadChanged 保护拒绝，未绕过。重新触发最新 main 的 38336336390 已成功，扫描 changed=false/errors=0（自动流程已入库）。下载 stable 指向 bb77c26ddd634bc301822dc0f5ba2947fda79b12 的正式 catalog.json 并核对 SHA256，确认红包 1.2.2、人才 1.2.1、Example 1.1.0 均实际存在。三个插件正式发行与商店入库闭环完成；1.7 兼容与 R44 后续业务增强仍未完成。
