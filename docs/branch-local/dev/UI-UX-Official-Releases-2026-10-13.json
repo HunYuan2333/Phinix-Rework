@@ -1,0 +1,45 @@
+{
+  "hostProductVersion": "0.10.0",
+  "gameAcceptance": "user reported 没问题了; no new 1.7 test evidence",
+  "downloadedReleaseShaAndZipChecksPassed": true,
+  "releases": {
+    "Phinix-Legacy-RedPacket": {
+      "schemaVersion": 1,
+      "repository": "HunYuan2333/Phinix-Legacy-RedPacket",
+      "sourceCommit": "76fd3dc3cec9d25414c9ca6282164459faef3470",
+      "hostCommit": "783fcb0bb6ad56b97e8ca5875457babfe6520c25",
+      "commonCommit": "6a1320bcfd6e17f5d4e46efcb3c021b6f132a37e",
+      "packageId": "phinix.legacy.redpacket",
+      "version": "1.2.2",
+      "asset": "phinix-legacy-redpacket-1.2.2.zip",
+      "sizeBytes": 89582,
+      "sha256": "e069c88b344c1dda82d9e52bc9ad617b12a8133f4f46630b7da01d88d6e70bbf"
+    },
+    "Phinix-Legacy-TalentTrade": {
+      "schemaVersion": 1,
+      "repository": "HunYuan2333/Phinix-Legacy-TalentTrade",
+      "sourceCommit": "caaddedb41efb04120ea65ae8e821e9f090d4a9b",
+      "hostCommit": "783fcb0bb6ad56b97e8ca5875457babfe6520c25",
+      "commonCommit": "6a1320bcfd6e17f5d4e46efcb3c021b6f132a37e",
+      "packageId": "phinix.legacy.talent-trade",
+      "version": "1.2.1",
+      "asset": "phinix-legacy-talenttrade-1.2.1.zip",
+      "sizeBytes": 90073,
+      "sha256": "b1f86ea149f0181a8bd8ca3daea6dbdf9f12a565c4aecf7450b7c0070f6eb1df"
+    },
+    "Phinix-Example-Plugin": {
+      "schemaVersion": 1,
+      "repository": "HunYuan2333/Phinix-Example-Plugin",
+      "sourceCommit": "9186f6535037b1e749e9b766f00c40d7b44cbb80",
+      "hostCommit": "783fcb0bb6ad56b97e8ca5875457babfe6520c25",
+      "commonCommit": "6a1320bcfd6e17f5d4e46efcb3c021b6f132a37e",
+      "packageId": "phinix.example.basic",
+      "version": "1.1.0",
+      "asset": "phinix-example-basic-1.1.0.zip",
+      "sizeBytes": 21141,
+      "sha256": "54388da9bf1cbd937a9591138b42daec54cd37a797ccc85ba2b59fecb90203fa"
+    }
+  },
+  "indexManualRun": 38336114031,
+  "indexStatus": "queued"
+}

@@ -1278,3 +1278,11 @@ workflow改为读取ci/config.json.hostCommit（不重复硬编码SHA），ci/bu
 ### 16.51 1.6 收口发布授权（2026-10-13）
 
 用户集中测试后反馈“没问题了”，授权提交、合并 main、发布三个独立插件并手动触发商店入库检查。此记录为用户游戏验收反馈，不替代逐项自动测试日志；1.7 兼容矩阵未测试。B42 源码、编译和白盒结果沿用上节，发布须固定最终 Host main SHA，并等待实际 CI 与 Index 检查结果。R44 持久托管、Reset 回执与乱序恢复仍为后续业务补全增强。
+
+### 16.52 正式插件发布与当前客户端范围（2026-10-13）
+
+Host 源码已合入 main：783fcb0bb6ad56b97e8ca5875457babfe6520c25，产品 0.10.0。三插件同批源码、公共 renderer/契约和 Example 均已提交合并。用户随后明确“不考虑老 mod 兼容”，本轮新正式包只面向 API >=2.0.0 <3.0.0；撤销为旧客户端再构建 API 1.9 基线的发行方案。内部旧 adapter 暂留，不代表新包承诺旧客户端兼容。CLR/协议/保存键未因发行范围改变。
+
+首次 CI 暴露人才脚本重复 --version 注册及红包打包仍要求 API 1.9，已修复。废弃旧基线任务已取消；保留已占用的失败/取消草稿，不覆写历史版本。红包发布 1.2.2（76fd3dc3cec9d25414c9ca6282164459faef3470）；人才发布 1.2.1（caaddedb41efb04120ea65ae8e821e9f090d4a9b）；Example 发布 1.1.0（9186f6535037b1e749e9b766f00c40d7b44cbb80）。三份正式 build-summary 均固定 Host 783fcb0 和 Common 6a1320bc；下载后的 SHA256、ZIP CRC 和 manifest API 范围核对通过。红包/人才各 18 项发布回归测试与源码摘要检查通过。GitHub 正式 Release 已发布；这不新增 1.7 游戏兼容证据。
+
+按用户授权手动触发 Index plugin-source-updates.yml，check_only=false，运行 https://github.com/HunYuan2333/Phinix-Plugin-Index/actions/runs/38336114031 。商店元数据写入使用现有串行队列和准入规则，触发不等于入库完成；后续按实际扫描/发布结果记录。工坊上传由用户进行。
