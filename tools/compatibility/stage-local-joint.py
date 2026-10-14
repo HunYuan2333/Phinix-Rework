@@ -109,7 +109,7 @@ for game in ['1.6', '1.7']:
                 if ref['version'] != '3.0.0.0':
                     raise RuntimeError('Old API reference in local cohort: ' + row['identity'])
 about = ET.parse(package / 'About/About.xml')
-about.getroot().find('name').text = 'Phinix Rework (Local Test)'
+about.getroot().find('name').text = 'Phinix Rework'
 versions = about.getroot().find('supportedVersions')
 versions.clear()
 for game in ['1.6', '1.7']:

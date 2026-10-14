@@ -28,7 +28,7 @@ python3 tools/compatibility/build-dual-host.py \
 /tmp/phinix-dual-build-01/staged/reference-closure.json
 ```
 
-ZIP内为 `phinix-rework/`，静态资源共用，DLL分别在1.6/1.7目录。没有Common跨TFM DLL混装，没有独立红包/人才/Example重复bundle，没有游戏/Harmony DLL。About明确标记发行候选并声明两版，产品二进制版本来自当前源码，不擅自分配正式版本。
+ZIP内为 `phinix-rework/`，静态资源共用，DLL分别在1.6/1.7目录。没有Common跨TFM DLL混装，没有独立红包/人才/Example重复bundle，没有游戏/Harmony DLL。About显示 `Phinix Rework` 和原有简介，声明两版支持；构建/验收状态保留在开发记录中。产品二进制版本来自当前源码，不擅自分配正式版本。
 
 入口顺序：隔离完整1.6源图及三个独立插件编译；隔离完整1.7源图；从仓库源码新编译元数据检查工具；检查TFM、源身份/引用与禁止入包的游戏程序集；合并目录并CRC检查ZIP。保留工作区bin/obj/Output与既有制品。独立插件仅编译验证，不生成/内置其托管ZIP。
 

@@ -9,6 +9,7 @@ import subprocess
 import zipfile
 import hashlib
 import xml.etree.ElementTree as ET
+from host_package import validate_host_package
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--game16', type=Path, required=True)
@@ -60,13 +61,18 @@ run(['python3', repo / 'tools/compatibility/stage-versioned-host.py', '--host16'
 host = out / 'staged/phinix-rework-analysis'
 about = ET.parse(host / 'About/About.xml')
 root = about.getroot()
-root.find('name').text = 'Phinix Rework (Dual-version Release Candidate)'
+root.find('name').text = 'Phinix Rework'
 versions = root.find('supportedVersions')
 versions.clear()
 for game in ['1.6', '1.7']:
     ET.SubElement(versions, 'li').text = game
-root.find('description').text = (root.findtext('description') or '').strip() + '\nLocal release candidate: RimWorld 1.6/net472 and 1.7/net10.0; client API3. Game acceptance is required before publication.'
+root.find('description').text = ET.parse(repo / 'Client/About/About.xml').getroot().findtext('description')
 about.write(host / 'About/About.xml', encoding='utf-8', xml_declaration=True)
+# Analysis staging strips Workshop identity; the distribution package updates the existing item.
+published_id = (repo / 'Client/About/PublishedFileId.txt').read_text().strip()
+if not re.fullmatch(r'[1-9][0-9]*', published_id):
+    raise RuntimeError('Invalid Workshop upload identity in source About directory.')
+(host / 'About/PublishedFileId.txt').write_text(published_id + '\n')
 archive = out / 'phinix-rework-dual-release-candidate.zip'
 with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as z:
     for file in sorted(host.rglob('*')):
@@ -75,6 +81,8 @@ with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as z:
 with zipfile.ZipFile(archive) as z:
     if z.testzip() is not None:
         raise RuntimeError('ZIP CRC failure.')
-result = {'hostZip': str(archive), 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(), 'games': ['1.6', '1.7'], 'clientApi': '3.0.0', 'scope': 'local release candidate; no publication or game acceptance', 'independentPluginZips': 'Not bundled; plugin release workflows require separate dual-runtime migration.'}
+package_check = validate_host_package(archive, repo / 'Client', host)
+(out / 'package-audit.json').write_text(json.dumps(package_check, indent=2))
+result = {'hostZip': str(archive), 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(), 'games': ['1.6', '1.7'], 'clientApi': '3.0.0', 'scope': 'local release candidate; no publication or game acceptance', 'independentPluginZips': 'Not bundled; installed from separate dual-runtime plugin ZIPs.'}
 (out / 'result.json').write_text(json.dumps(result, indent=2))
 print(json.dumps(result, indent=2))

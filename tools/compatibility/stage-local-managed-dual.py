@@ -44,12 +44,12 @@ if any((host / game / 'Extensions' / package['packageId']).exists()
        for game in ['1.6', '1.7'] for package in records):
     raise RuntimeError('Independent plugin must not also be bundled.')
 about = ET.parse(host / 'About/About.xml')
-about.getroot().find('name').text = 'Phinix Rework (Local 1.6/1.7 Test)'
+about.getroot().find('name').text = 'Phinix Rework'
 versions = about.getroot().find('supportedVersions')
 versions.clear()
 for game in ['1.6', '1.7']:
     ET.SubElement(versions, 'li').text = game
-about.getroot().find('description').text = 'Phinix Rework local dual-version test: RimWorld 1.6/net472 and 1.7/net10.0; client API 3.0. Game compatibility testing is ongoing; this is not an official release.'
+about.getroot().find('description').text = ET.parse(Path(__file__).resolve().parents[2] / 'Client/About/About.xml').getroot().findtext('description')
 about.write(host / 'About/About.xml', encoding='utf-8', xml_declaration=True)
 archive = out / 'phinix-rework-dual-managed-local-host.zip'
 with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as z:
