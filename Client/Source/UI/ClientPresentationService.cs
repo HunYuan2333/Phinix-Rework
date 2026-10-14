@@ -686,6 +686,11 @@ namespace PhinixClient
                             Find.WindowStack.Add(new FloatMenu(menu));
                         }
                         var ev = Event.current;
+                        // Single-line text fields may consume Return even without editing
+                        // text. Capture the intent while the event still has its key data.
+                        bool enterBefore = ev != null && ev.type == EventType.KeyDown &&
+                            (ev.keyCode == KeyCode.Return || ev.keyCode == KeyCode.KeypadEnter) &&
+                            UnityEngine.GUI.GetNameOfFocusedControl() == ComposerControlName;
                         // Text bridges can commit during Layout/Repaint. Preserve returned text in
                         // the view draft; only explicit submit intents may execute owner actions.
                         bool composingBefore = !string.IsNullOrEmpty(Input.compositionString);
@@ -698,9 +703,9 @@ namespace PhinixClient
                             if (UnityEngine.GUI.enabled && value != ComposerDraft) SetComposerDraft(value);
                         }
                         ComposerFocused = UnityEngine.GUI.GetNameOfFocusedControl() == ComposerControlName;
-                        // Let the field/IME handle the key first. A consumed Return or a Return
-                        // that commits text is not a send command, including external IME bridges.
-                        bool enter = ev != null && ev.type == EventType.KeyDown && (ev.keyCode == KeyCode.Return || ev.keyCode == KeyCode.KeypadEnter) &&
+                        // Let the field/IME commit first. Consuming the key alone is not an
+                        // IME commit; composition or changed text still suppresses sending.
+                        bool enter = enterBefore &&
                             ComposerFocused && !composingBefore && string.IsNullOrEmpty(Input.compositionString) &&
                             draftBefore == ComposerDraft && Find.WindowStack.FloatMenu == null;
                         if (composerFocusAttempts > 0 && ev != null && ev.type == EventType.Repaint && Find.WindowStack.FloatMenu == null &&

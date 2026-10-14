@@ -163,6 +163,10 @@ namespace Phinix.ChatExtension.Client
             Rect replyBarRect = replyBarHeight > 0f
                 ? inRect.BottomPartPixels(Mathf.Min(inputAreaHeight + replyBarHeight, inRect.height)).TopPartPixels(Mathf.Min(replyBarHeight, Mathf.Max(0, inRect.height - inputAreaHeight))) : default;
             Rect chatRect = inRect.TopPartPixels(Mathf.Max(0, inRect.height - inputAreaHeight - replyBarHeight - 8));
+            // IMGUI text editing is owned by a numeric control ID, not just the
+            // control name. Allocate the composer before the changing feed/reply
+            // controls so incoming messages cannot shift its keyboard/IME state.
+            composer?.Draw(inputAreaRect);
             chatMessageList.Draw(chatRect);
             if (replyTarget != null && replyBarRect.height > 0f)
             {
@@ -187,7 +191,6 @@ namespace Phinix.ChatExtension.Client
                 }
             }
 
-            composer?.Draw(inputAreaRect);
             HandleAtAutocomplete();
         }
 

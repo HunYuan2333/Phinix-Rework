@@ -94,8 +94,19 @@ internal static partial class Program
         composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"IME composition Enter does not submit");
         Input.compositionString="";Event.current.type=EventType.KeyDown;composerSession.Draw(new Rect(0,0,600,64));Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested,"Focused Enter emits explicit intent");
         Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;composerSession.Draw(new Rect(0,0,600,64));
-        Check(!composerSession.TryDequeueInput(out input),"Return consumed by field/bridge is not a submit intent");
-        Event.current.type=EventType.KeyDown;Widgets.FieldValue="中文";composerSession.Draw(new Rect(0,0,600,64));
+        Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested&&!composerSession.TryDequeueInput(out input),"Text field consuming unchanged Return still emits exactly one submit intent");
+        foreach(var key in new[]{KeyCode.Return,KeyCode.KeypadEnter})
+        {
+            Event.current.type=EventType.KeyDown;Event.current.keyCode=key;Widgets.ConsumeFieldEvent=true;Input.compositionString="中";
+            composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Consumed IME confirmation does not submit: "+key);
+            Input.compositionString="";Event.current.type=EventType.KeyDown;Event.current.keyCode=key;Widgets.ConsumeFieldEvent=true;
+            composerSession.Draw(new Rect(0,0,600,64));Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested&&!composerSession.TryDequeueInput(out input),"Consumed submit works with either Enter key: "+key);
+            composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Already consumed event cannot submit twice: "+key);
+        }
+        GUI.FocusControl("");Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;
+        composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Unfocused consumed Enter does not submit");
+        GUI.FocusControl(composerSession.ComposerControlName);
+        Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;Widgets.FieldValue="中文";composerSession.Draw(new Rect(0,0,600,64));
         Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.TextChanged&&input.Value=="中文"&&!composerSession.TryDequeueInput(out input),"Return committing text retains it without submitting");
         foreach(var pass in new[]{EventType.Layout,EventType.Repaint})
         {
