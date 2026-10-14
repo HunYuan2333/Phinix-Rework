@@ -51,7 +51,7 @@ for game in ['1.6', '1.7']:
     ET.SubElement(versions, 'li').text = game
 about.getroot().find('description').text = 'Phinix Rework local dual-version test: RimWorld 1.6/net472 and 1.7/net10.0; client API 3.0. Game compatibility testing is ongoing; this is not an official release.'
 about.write(host / 'About/About.xml', encoding='utf-8', xml_declaration=True)
-archive = out / 'phinix-rework-dual-managed-local-host.zip' 
+archive = out / 'phinix-rework-dual-managed-local-host.zip'
 with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as z:
     for path in sorted(host.rglob('*')):
         if path.is_file():
