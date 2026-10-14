@@ -49,7 +49,7 @@ internal static partial class Program
                 Assert(!result.Succeeded && result.Code=="CandidateAssemblyReferenceUnavailable","Host downgrade still refuses install");
                 Assert(result.ReferenceFailure?.ReferencingAssembly=="Fixture.Managed.Plugin" && result.ReferenceFailure.RequiredReference.Contains("Utils, Version=0.9.7.0") && result.ReferenceFailure.AvailableReferences.Single().Contains("Utils, Version=0.9.6.0"),"Install result reports required and available identities");
                 Assert(!Directory.Exists(wrongPaths.PackagesDirectory) && !Directory.Exists(wrongPaths.TransactionsDirectory),"Reference refusal precedes transaction/files");
-                string audit=ManagedExtensionAuditJson.Format(wrongLogs.Single(e=>e.Code=="CandidateAssemblyReferenceUnavailable"));
+                string audit=ManagedExtensionAuditJson.Format(wrongLogs.Single(e=>e.Stage=="install" && e.Code=="CandidateAssemblyReferenceUnavailable"));
                 Assert(audit.Contains("\"requiredReference\":\"Utils, Version=0.9.7.0") && audit.Contains("\"availableReferences\":[\"Utils, Version=0.9.6.0") && !audit.Contains(wrongPaths.RootDirectory),"Host reference audit is correlated and excludes local paths");
             }
 

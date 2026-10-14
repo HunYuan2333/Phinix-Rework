@@ -200,6 +200,7 @@ internal static partial class Program
             StartupRegression(files);
             ManagementRegression(files);
             InstallationRuntimeRegression(files);
+            HostMigrationReplacementRegression(files);
             ReplacementRuntimeRegression(files);
             LocalDevelopmentRegression(files);
             StoreSynchronizationRegression(files);
