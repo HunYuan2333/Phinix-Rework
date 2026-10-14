@@ -6,12 +6,13 @@ from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--game',type=Path,required=True);p.add_argument('--harmony',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
 p.add_argument('--plugin-project',type=Path,action='append',help='Explicit standalone consumer project; replaces default three sibling consumers.')
 p.add_argument('--plugin-version',help='Override generated client version for an immutable plugin release.')
+p.add_argument('--online-restore',action='store_true',help='Restore pinned NuGet dependencies in a fresh CI runner.')
 a=p.parse_args();repo=Path(__file__).resolve().parents[2];out=a.output.resolve();game=a.game.resolve()
 if out.is_relative_to(repo.parent) or game.is_relative_to(out) or out.is_relative_to(game):p.error('Use output outside workspace and game references.')
 if out.exists() and any(out.iterdir()):p.error('Use fresh output.')
 for name in ['Assembly-CSharp.dll','UnityStubs.dll']:
  if not (game/name).is_file():p.error('Missing 1.7 reference: '+name)
-out.mkdir(parents=True);(out/'NuGet.Config').write_text('<configuration><packageSources><clear /></packageSources></configuration>')
+out.mkdir(parents=True);(out/'NuGet.Config').write_text('<configuration><packageSources><clear />'+('<add key="nuget.org" value="https://api.nuget.org/v3/index.json" />' if a.online_restore else '')+'</packageSources></configuration>')
 tag=lambda x:x.tag.split('}')[-1]
 roots=[repo/'Client/Source/Client.csproj',repo/'Extensions/Chat/Client/ChatExtension.Client.csproj',repo/'Extensions/Trade/Client/TradeExtension.Client.csproj',repo/'Extensions/Inventory/Client/InventoryExtension.Client.csproj',repo/'Extensions/LegacyAdapter/Client/PhinixLegacyAdapter.Client.csproj',repo/'Extensions/PluginStore/Client/PluginStore.Client.csproj',repo.parent/'Phinix-Legacy-RedPacket/Client/LegacyRedPacketExtension.Client.csproj',repo.parent/'Phinix-Legacy-TalentTrade/Client/LegacyTalentTradeExtension.Client.csproj',repo.parent/'Phinix-Example-Plugin/example/Example.csproj']
 if a.plugin_project:roots=roots[:6]+[path.resolve() for path in a.plugin_project]

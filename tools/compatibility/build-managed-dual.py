@@ -4,6 +4,7 @@ import argparse,hashlib,json,os,re,subprocess,tempfile,xml.etree.ElementTree as 
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)
 for name in ['host','plugin','game16','game17','harmony17','output']:p.add_argument('--'+name,type=Path,required=True)
+p.add_argument('--online-restore',action='store_true',help='Allow public pinned NuGet restore for cloud CI.')
 p.add_argument('--version',required=True);p.add_argument('--work',type=Path)
 a=p.parse_args();host=a.host.resolve();plugin=a.plugin.resolve();output=a.output.resolve()
 if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)',a.version):p.error('Use an immutable three-part release version.')
@@ -25,8 +26,9 @@ env=os.environ.copy();installed=[re.fullmatch(r'(10\.[^ ]+) \[(.*)\]',line) for 
 if not installed:p.error('A .NET10 SDK is required.')
 env['MSBuildSDKsPath']=str(Path(installed[-1].group(2))/installed[-1].group(1)/'Sdks')
 def run(args):subprocess.run([str(x) for x in args],env=env,cwd=host,check=True)
-run(['python3',host/'tools/compatibility/build-graph-isolated.py','--output',work/'build16','--game',a.game16.resolve(),'--plugin-root',plugin,'--plugin-version',a.version])
-run(['python3',host/'tools/compatibility/build-net10-graph.py','--output',work/'build17','--game',a.game17.resolve(),'--harmony',a.harmony17.resolve(),'--plugin-project',project,'--plugin-version',a.version])
+restore_args=['--online-restore'] if a.online_restore else []
+run(['python3',host/'tools/compatibility/build-graph-isolated.py','--output',work/'build16','--game',a.game16.resolve(),'--plugin-root',plugin,'--plugin-version',a.version,*restore_args])
+run(['python3',host/'tools/compatibility/build-net10-graph.py','--output',work/'build17','--game',a.game17.resolve(),'--harmony',a.harmony17.resolve(),'--plugin-project',project,'--plugin-version',a.version,*restore_args])
 snapshot=work/'build16/Phinix-Rework';tool_project=snapshot/'Extensions/PluginStore/Tools/ManagedPackageTool/ManagedPackageTool.csproj'
 run(['dotnet','build',tool_project,'-c','Release','-p:NuGetAudit=false','-p:BuildInParallel=false','-m:1'])
 tool=tool_project.parent/'bin/Release/net10.0/ManagedPackageTool.dll'
