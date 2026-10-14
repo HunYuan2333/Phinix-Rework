@@ -70,6 +70,11 @@ def main():
     by17 = {identity_name(row): row for row in rows17}
     if len(by17) != len(rows17):
         raise ValueError('Duplicate identity names in 1.7 graph.')
+    # Product/CLR identities do not establish the version actually used by store planning.
+    for game, rows in [('1.6', by16), ('1.7', by17)]:
+        version = rows['PhinixClient'].get('compatibilityVersion')
+        if version is None or tuple(map(int, version.split('.'))) < (0, 10, 1):
+            raise ValueError('Host reports an obsolete store compatibility version for ' + game)
     graph = json.loads((args.graph17 / 'graph.json').read_text())
     source_names = {node['name'] for node in graph}
     host_names = set(by16) & source_names

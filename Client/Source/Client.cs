@@ -25,7 +25,7 @@ namespace PhinixClient
         public static Client Instance;
         public static readonly Version Version = new Version(((System.Reflection.AssemblyFileVersionAttribute)
             Attribute.GetCustomAttribute(typeof(Client).Assembly, typeof(System.Reflection.AssemblyFileVersionAttribute))).Version);
-        public const string CompatibilityVersion = "0.9.7";
+        public const string CompatibilityVersion = "0.10.1";
         public const string PackageId = "Thomotron.Phinix";
 
         public void Log(LogEventArgs e) => ILoggableHandler(null, e);

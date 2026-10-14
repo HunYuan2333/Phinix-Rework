@@ -46,6 +46,7 @@ internal static partial class Program
     {
         if(args.Length==3 && args[0]=="lazy-startup") return LazyStartupProbe(args[1],args[2]=="positive");
         if(args.Length==2 && args[0]=="dual-package") return DualPackageProbe(args[1]);
+        if(args.Length==3 && args[0]=="dual-package") return DualPackageProbe(args[1],args[2]);
         if(args.Length==2 && args[0]=="target-framework") return TargetFrameworkProbe(args[1]);
         if(args.Length!=0 && (args[0]=="positive" || args[0]=="lease" || args[0]=="managed-intent" || args[0]=="install-startup" || args[0]=="upgrade-live" || args[0]=="upgrade-restart" || args[0]=="host-upgrade")) return StartupChild(args);
         string root = Path.Combine(Path.GetTempPath(), "phinix-managed-metadata-" + Guid.NewGuid().ToString("N"));

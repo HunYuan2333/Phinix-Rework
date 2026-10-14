@@ -11,7 +11,7 @@ using PhinixClient.Framework;
 internal static partial class Program
 {
     // Real package bytes; installation and profile switching never execute business code.
-    private static int DualPackageProbe(string file)
+        private static int DualPackageProbe(string file,string hostCompatibility="0.10.1")
     {
         string root=Path.Combine(Path.GetTempPath(),"phinix-dual-package-"+Guid.NewGuid().ToString("N"));
         try
@@ -42,7 +42,7 @@ internal static partial class Program
                     Assert(framework.Any(a=>a.Name=="System.Runtime.Serialization.Xml") && framework.Any(a=>a.Name=="System.Net.WebHeaderCollection"),"Production facts contain both log-reported lazy framework dependencies");
                 }
                 var moduleIds=selected.Modules.Select(m=>m.Id).ToArray();
-                var facts=new ManagedExtensionHostFacts(game,"0.10.1","3.0.0",references,selected.Modules.SelectMany(m=>m.DependsOn).Where(id=>!moduleIds.Contains(id)),selected.ExternalMods.Select(m=>m.PackageId));
+                var facts=new ManagedExtensionHostFacts(game,hostCompatibility,"3.0.0",references,selected.Modules.SelectMany(m=>m.DependsOn).Where(id=>!moduleIds.Contains(id)),selected.ExternalMods.Select(m=>m.PackageId));
                 var paths=new ManagedExtensionPaths(Path.Combine(root,game));
                 var logs=new List<ManagedExtensionRuntimeAudit>();
                 string codeRoot;
@@ -54,7 +54,7 @@ internal static partial class Program
                 using(var runtime=EmptyRuntime(paths,facts,logs))
                 {
                     var baseline=FlowEnvironment(paths,facts);
-                    var environment=new ClientEnvironmentSnapshot(baseline.Paths,baseline.HostModRoot,game,"0.10.1","3.0.0",baseline.InstalledMods,baseline.LoadedAssemblies,
+                    var environment=new ClientEnvironmentSnapshot(baseline.Paths,baseline.HostModRoot,game,hostCompatibility,"3.0.0",baseline.InstalledMods,baseline.LoadedAssemblies,
                         facts.ModuleIds.Select(id=>new ClientModuleSnapshot(id,baseline.HostModRoot,true)),new string[0]);
                     var planner=new ManagedStorePlanner(catalog,environment,runtime.Refresh(new string[0],CancellationToken.None),new RepositoryEndpoint("https://store.test",ManagedSource));
                     Assert(planner.Plan(catalog.Packages.Single(),CancellationToken.None)!=null,"Store plans the same package for this game");
