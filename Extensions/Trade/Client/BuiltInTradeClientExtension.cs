@@ -153,7 +153,7 @@ namespace Phinix.TradeExtension.Client
                     local.Borrow(tradeUiHostContext);
                     local.Borrow(hostContext.GetRequiredService<IClientUserDirectory>());
                     local.Borrow(hostContext.GetRequiredService<IClientMainThreadDispatcher>());
-                    local.Borrow(hostContext.GetRequiredService<IClientWindowService>());
+                    local.Borrow(hostContext.GetRequiredService<IClientGameWindowService>());
                     local.Borrow(settingsContext);
                     local.Borrow(userEvents);
                     local.Borrow(lifecycle);
@@ -259,7 +259,7 @@ namespace Phinix.TradeExtension.Client
             Action<LogEventArgs> log = args => hostLog?.Invoke(args.Message, args.LogLevel);
             IClientUserDirectory userDirectory = hostContext.GetRequiredService<IClientUserDirectory>();
             IClientMainThreadDispatcher dispatcher = hostContext.GetRequiredService<IClientMainThreadDispatcher>();
-            IClientWindowService windowService = hostContext.GetRequiredService<IClientWindowService>();
+            IClientGameWindowService windowService = hostContext.GetRequiredService<IClientGameWindowService>();
 
             itemPipeline.SetCompatibilityMode(lifecycle.CompatibilityMode);
             (tradeApi as PhinixFrameworkTradeClientService)?.InitializeUserDirectory(userDirectory);
@@ -283,16 +283,16 @@ namespace Phinix.TradeExtension.Client
 
         private static void RegisterThemeDefaults(IClientThemeRegistration theme)
         {
-            theme.RegisterColor("trade.ourOfferAccent", new Color(0.30f, 0.65f, 0.35f, 0.70f), label: "Phinix_theme_label_trade_ourOfferAccent", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_ourOfferAccent");
-            theme.RegisterColor("trade.theirOfferAccent", new Color(0.45f, 0.75f, 1.00f, 0.70f), label: "Phinix_theme_label_trade_theirOfferAccent", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_theirOfferAccent");
-            theme.RegisterColor("trade.ourOfferBg", new Color(0.30f, 0.65f, 0.35f, 0.04f), label: "Phinix_theme_label_trade_ourOfferBg", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_ourOfferBg");
-            theme.RegisterColor("trade.theirOfferBg", new Color(0.45f, 0.75f, 1.00f, 0.04f), label: "Phinix_theme_label_trade_theirOfferBg", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_theirOfferBg");
-            theme.RegisterColor("trade.cancelButton", new Color(0.85f, 0.30f, 0.25f, 1.00f), fallbackKey: "ui.error", label: "Phinix_theme_label_trade_cancelButton", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_cancelButton");
-            theme.RegisterColor("trade.acceptedBadge", new Color(0.30f, 0.65f, 0.35f, 1.00f), fallbackKey: "ui.success", label: "Phinix_theme_label_trade_acceptedBadge", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_acceptedBadge");
-            theme.RegisterColor("trade.pendingBadge", new Color(0.55f, 0.52f, 0.48f, 0.80f), fallbackKey: "ui.pending", label: "Phinix_theme_label_trade_pendingBadge", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_pendingBadge");
-            theme.RegisterColor("trade.rowHoverBg", new Color(1.00f, 1.00f, 1.00f, 0.04f), fallbackKey: "ui.hover", label: "Phinix_theme_label_trade_rowHoverBg", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_rowHoverBg");
-            theme.RegisterColor("trade.panelBg", new Color(1.00f, 1.00f, 1.00f, 0.03f), fallbackKey: "ui.surface", label: "Phinix_theme_label_trade_panelBg", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_panelBg");
-            theme.RegisterColor("trade.searchPlaceholder", new Color(0.55f, 0.52f, 0.48f, 0.50f), fallbackKey: "ui.text.secondary", label: "Phinix_theme_label_trade_searchPlaceholder", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_searchPlaceholder");
+            theme.RegisterColor("trade.ourOfferAccent", new ClientRgba(0.30f, 0.65f, 0.35f, 0.70f), label: "Phinix_theme_label_trade_ourOfferAccent", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_ourOfferAccent");
+            theme.RegisterColor("trade.theirOfferAccent", new ClientRgba(0.45f, 0.75f, 1.00f, 0.70f), label: "Phinix_theme_label_trade_theirOfferAccent", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_theirOfferAccent");
+            theme.RegisterColor("trade.ourOfferBg", new ClientRgba(0.30f, 0.65f, 0.35f, 0.04f), label: "Phinix_theme_label_trade_ourOfferBg", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_ourOfferBg");
+            theme.RegisterColor("trade.theirOfferBg", new ClientRgba(0.45f, 0.75f, 1.00f, 0.04f), label: "Phinix_theme_label_trade_theirOfferBg", group: "Phinix_theme_group_offers", description: "Phinix_theme_desc_trade_theirOfferBg");
+            theme.RegisterColor("trade.cancelButton", new ClientRgba(0.85f, 0.30f, 0.25f, 1.00f), fallbackKey: "ui.error", label: "Phinix_theme_label_trade_cancelButton", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_cancelButton");
+            theme.RegisterColor("trade.acceptedBadge", new ClientRgba(0.30f, 0.65f, 0.35f, 1.00f), fallbackKey: "ui.success", label: "Phinix_theme_label_trade_acceptedBadge", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_acceptedBadge");
+            theme.RegisterColor("trade.pendingBadge", new ClientRgba(0.55f, 0.52f, 0.48f, 0.80f), fallbackKey: "ui.pending", label: "Phinix_theme_label_trade_pendingBadge", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_pendingBadge");
+            theme.RegisterColor("trade.rowHoverBg", new ClientRgba(1.00f, 1.00f, 1.00f, 0.04f), fallbackKey: "ui.hover", label: "Phinix_theme_label_trade_rowHoverBg", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_rowHoverBg");
+            theme.RegisterColor("trade.panelBg", new ClientRgba(1.00f, 1.00f, 1.00f, 0.03f), fallbackKey: "ui.surface", label: "Phinix_theme_label_trade_panelBg", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_panelBg");
+            theme.RegisterColor("trade.searchPlaceholder", new ClientRgba(0.55f, 0.52f, 0.48f, 0.50f), fallbackKey: "ui.text.secondary", label: "Phinix_theme_label_trade_searchPlaceholder", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_trade_searchPlaceholder");
         }
 
         public IEnumerable<string> GetCapabilities()

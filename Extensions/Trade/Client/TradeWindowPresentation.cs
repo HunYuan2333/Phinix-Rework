@@ -21,6 +21,10 @@ namespace Phinix.TradeExtension.Client
         private readonly Dictionary<string,TradeAvailableItem> itemRows=new Dictionary<string,TradeAvailableItem>();
         private int itemPage,itemPages=1;
         private string quantityDraft="0",quantityError,editorNotice="";
+        private long nextItemRow;
+        private readonly Dictionary<TradeAvailableItem,string> stableItemRows=new Dictionary<TradeAvailableItem,string>();
+        private readonly Dictionary<TradeAvailableItem,string> rowDrafts=new Dictionary<TradeAvailableItem,string>();
+        private readonly Dictionary<TradeAvailableItem,string> rowErrors=new Dictionary<TradeAvailableItem,string>();
         private bool cancelSubmitted;
         private static string L(string key)=>("Phinix_trade_"+key).Translate();
         private static string Safe(string text)
@@ -36,21 +40,22 @@ namespace Phinix.TradeExtension.Client
         }
         private void ClosePresentation()
         {var old=view;view=null;old?.Dispose();presentation?.Remove(presentationId);presentation=null;}
-        public override void DoWindowContents(Rect rect)=>view?.Draw(rect);
+        public override void DoWindowContents(Rect rect)=>view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height));
         private void SetQuantity(int value)
         {
             if(selectedItem==null||EditorBusy)return;
             selectedItem.Selected=Math.Max(0,Math.Min(selectedItem.Count,value));
-            quantityDraft=selectedItem.Selected.ToString();quantityError=null;presentationDirty=true;
+            quantityDraft=selectedItem.Selected.ToString();quantityError=null;rowDrafts.Remove(selectedItem);rowErrors.Remove(selectedItem);presentationDirty=true;
         }
         internal IEnumerable<ClientActionDefinition> PresentationActions()
         {
             var actions=new List<ClientActionDefinition>();
-            string blocked=EditorBusy?L("editorWaiting"):quantityError;
+            string busy=EditorBusy?L("editorWaiting"):null;
+            string blocked=busy??rowErrors.Values.FirstOrDefault()??quantityError;
             actions.Add(new ClientActionDefinition("submit",L("editorSubmitQuote"),()=>{UpdateTradeItems();presentationDirty=true;},blocked??(availableItems.Any(i=>i.Selected>0)?null:L("editorSelectQuantity"))));
             actions.Add(new ClientActionDefinition("accept",L(trade.Accepted?"editorWithdraw":"confirmTrade"),()=>{sendTradeStatusUpdate(!trade.Accepted);presentationDirty=true;},blocked));
-            actions.Add(new ClientActionDefinition("reset",L("resetButton"),()=>{ResetTradeItems();presentationDirty=true;},blocked??(trade.ItemsOnOffer.Length==0?L("quoteEmpty"):null)));
-            actions.Add(new ClientActionDefinition("cancel",L("cancelButton"),()=>{sendCancelTradeRequest();cancelSubmitted=true;editorNotice=L("listCancelPending");presentationDirty=true;},blocked));
+            actions.Add(new ClientActionDefinition("reset",L("resetButton"),()=>{ResetTradeItems();presentationDirty=true;},busy??(trade.ItemsOnOffer.Length==0?L("quoteEmpty"):null)));
+            actions.Add(new ClientActionDefinition("cancel",L("cancelButton"),()=>{sendCancelTradeRequest();cancelSubmitted=true;editorNotice=L("listCancelPending");presentationDirty=true;},busy));
             actions.Add(new ClientActionDefinition("refresh-items",L("editorRefresh"),refreshAvailableItems,EditorBusy?L("editorWaiting"):null));
             if(itemPage>0)actions.Add(new ClientActionDefinition("previous",L("browsePrevious"),()=>{itemPage--;presentationDirty=true;}));
             if(itemPage+1<itemPages)actions.Add(new ClientActionDefinition("next",L("browseNext"),()=>{itemPage++;presentationDirty=true;}));
@@ -67,19 +72,21 @@ namespace Phinix.TradeExtension.Client
         private void UpdatePresentation()
         {
             if(view==null||view.IsClosed||closed)return;
-            var renderedItem=selectedItem;
             while(view.TryDequeueInput(out var input))
             {
                 if(input.Revision!=presentationRevision)continue;
                 if(input.Id=="search"){searchText=input.Value??"";itemPage=0;RebuildAvailableItemFilter();}
                 else if(input.Id=="available"&&itemRows.TryGetValue(input.Value,out var item))
                 {selectedItem=item;quantityDraft=item.Selected.ToString();quantityError=null;}
-                else if(input.Id=="quantity"&&selectedItem!=null&&ReferenceEquals(renderedItem,selectedItem)&&!EditorBusy)
+                else if(input.Id.StartsWith("quantity.",StringComparison.Ordinal)&&itemRows.TryGetValue(input.Id.Substring("quantity.".Length),out var editedItem)&&!EditorBusy)
                 {
-                    quantityDraft=input.Value;
-                    if(TradeQuantityDraft.TryParse(quantityDraft,selectedItem.Count,out int quantity))
-                    {selectedItem.Selected=quantity;quantityError=null;}
-                    else quantityError=string.Format(L("editorQuantityInvalid"),selectedItem.Count);
+                    // Row id belongs to the published revision; no selection switch is needed.
+                    rowDrafts[editedItem]=input.Value;
+                    if(TradeQuantityDraft.TryParse(input.Value,editedItem.Count,out int quantity))
+                    {editedItem.Selected=quantity;rowErrors.Remove(editedItem);}
+                    else rowErrors[editedItem]=string.Format(L("editorQuantityInvalid"),editedItem.Count);
+                    if(ReferenceEquals(editedItem,selectedItem))
+                    {quantityDraft=input.Value;quantityError=rowErrors.TryGetValue(editedItem,out var error)?error:null;}
                 }
                 presentationDirty=true;
             }
@@ -87,13 +94,16 @@ namespace Phinix.TradeExtension.Client
             var lang=LanguageDatabase.activeLanguage;
             if(!presentationDirty&&shownTheme==tv&&shownPoints==pv&&ReferenceEquals(shownLanguage,lang)&&ReferenceEquals(shownResult,view.LastActionResult))return;
             if(selectedItem!=null&&!availableItems.Contains(selectedItem)){selectedItem=null;quantityError=null;}
+            foreach(var stale in rowDrafts.Keys.Where(item=>!availableItems.Contains(item)).ToArray()){rowDrafts.Remove(stale);rowErrors.Remove(stale);}
             itemPages=Math.Max(1,(filteredAvailableItems.Count+99)/100);itemPage=Math.Min(itemPage,itemPages-1);
             itemRows.Clear();string selectedRow=null;
             var rows=filteredAvailableItems.Skip(itemPage*100).Take(100).Select((item,index)=>
             {
-                string id="item."+(itemPage*100+index);itemRows.Add(id,item);if(ReferenceEquals(item,selectedItem))selectedRow=id;
-                return new ClientPresentationRow(id,Safe(item.Label),string.Format(L("editorUnits"),item.Selected,item.Count))
-                    .WithBadges(new[]{new ClientPresentationBadge("source",L(item.IsInventory?"editorInventory":"editorMap"),item.ThingDef?.uiIcon).WithColor(item.IsInventory?"ui.accent":"ui.text.secondary")});
+                if(!stableItemRows.TryGetValue(item,out var id)){id="item."+(++nextItemRow);stableItemRows.Add(item,id);}
+                itemRows.Add(id,item);if(ReferenceEquals(item,selectedItem))selectedRow=id;
+                return new ClientPresentationRow(id,Safe(item.Label),string.Format(L("editorUnits"),item.Selected,item.Count)+" · "+L(item.IsInventory?"editorInventory":"editorMap"))
+                    .WithControls(null,ClientPresentationTextField.Integer("quantity."+id,"",rowDrafts.TryGetValue(item,out var draft)?draft:item.Selected.ToString(),rowErrors.TryGetValue(item,out var error)?error:null,EditorBusy?L("editorWaiting"):null))
+                    .WithImage(ClientTextureImage.FromTexture(item.ThingDef?.uiIcon));
             }).ToArray();
             long ticket=++presentationRevision;var expectedTrade=trade;long ov=clientHostContext.OfferOperations.Revision;
             var expectedItem=selectedItem;
@@ -113,29 +123,25 @@ namespace Phinix.TradeExtension.Client
                 Func<ClientPresentationAction,bool> itemAction=b=>b.Action.OwnerId==presentation.Owner.ExtensionId&&(b.Action.Id.StartsWith("step.")||new[]{"all","half","none","hundred"}.Contains(b.Action.Id));
                 Func<ClientPresentationAction,bool> browseAction=b=>b.Action.OwnerId==presentation.Owner.ExtensionId&&new[]{"refresh-items","previous","next"}.Contains(b.Action.Id);
                 Func<ClientPresentationAction,bool> submitAction=b=>b.Action.OwnerId==presentation.Owner.ExtensionId&&b.Action.Id=="submit";
-                var sections=new List<ClientPresentationSection>{
-                    new ClientPresentationSection("trade-state",string.Format(L("activeTrade_tradeWithLabel"),Safe(trade.OtherPartyDisplayName)),L("editorCloseNote"),
-                        status:new ClientPresentationStatus(EditorBusy?L("editorWaiting"):editorNotice,EditorBusy?ClientPresentationTone.Pending:ClientPresentationTone.Neutral))
-                        .WithBadges(new[]{new ClientPresentationBadge("ours",L("ourOfferLabel")+" · "+L(trade.Accepted?"editorConfirmed":"editorUnconfirmed")).WithColor(trade.Accepted?"ui.success":"ui.warning"),
-                            new ClientPresentationBadge("theirs",Safe(trade.OtherPartyDisplayName)+" · "+L(trade.OtherPartyAccepted?"editorConfirmed":"editorUnconfirmed")).WithColor(trade.OtherPartyAccepted?"ui.success":"ui.warning")}).WithPlainLayout(),
-                    new ClientPresentationSection("browse",L("editorAvailable"),string.Format(L("browsePage"),itemPage+1,itemPages),bindings.Where(browseAction),fields:new[]{new ClientPresentationTextField("search",L("searchLabel"),searchText,maxLength:256)}).WithPlainLayout().WithWrappedActions(),
-                    new ClientPresentationSection("items","","",list:new ClientPresentationList("available",rows,L("quoteEmpty"),selectedRow)).WithPlainLayout(),
-                    new ClientPresentationSection("draft",selectedItem==null?L("editorSelectQuantity"):Safe(selectedItem.Label),L("editorLocalDraft"),bindings.Where(b=>itemAction(b)||submitAction(b)),fields:selectedItem==null?null:new[]{ClientPresentationTextField.Integer("quantity",string.Format(L("editorUnits"),selectedItem.Selected,selectedItem.Count),quantityDraft,quantityError,EditorBusy?L("editorWaiting"):null)})
-                        .WithPlainLayout().WithWrappedActions().WithActionMenus(selectedItem==null?null:new[]{new ClientPresentationActionMenu("quantity-tools",L("editorQuantityTools"),bindings.Where(itemAction).Select(b=>b.Id))}),
-                    new ClientPresentationSection("our-quote",L("ourOfferLabel"),L("editorAcknowledgedQuote"),surfaceKey:"ui.surface",
-                        list:new ClientPresentationList("our-quote",TradeQuoteRows.Build(trade.ItemsOnOffer,DefLabel,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly())
-                        .WithBadges(new[]{new ClientPresentationBadge("side",L("editorYouGive")).WithColor("ui.success")}),
-                    new ClientPresentationSection("their-quote",Safe(trade.OtherPartyDisplayName)+" · "+L("theirOfferLabel"),L("editorAcknowledgedQuote"),surfaceKey:"ui.surface",
-                        list:new ClientPresentationList("their-quote",TradeQuoteRows.Build(trade.OtherPartyItemsOnOffer,DefLabel,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly())
-                        .WithBadges(new[]{new ClientPresentationBadge("side",L("editorYouReceive")).WithColor("ui.info")}),
-                    new ClientPresentationSection("commands",L("editorTradeActions"),L("editorConfirmNote"),bindings.Where(b=>!browseAction(b)&&!itemAction(b)&&!submitAction(b))).WithPlainLayout().WithWrappedActions()
-                };
+                var state=new ClientPresentationSection("trade-state",string.Format(L("activeTrade_tradeWithLabel"),Safe(trade.OtherPartyDisplayName)),"",bindings.Where(b=>!browseAction(b)&&!itemAction(b)&&!submitAction(b)),
+                    status:new ClientPresentationStatus(EditorBusy?L("editorWaiting"):editorNotice,EditorBusy?ClientPresentationTone.Pending:ClientPresentationTone.Neutral))
+                    .WithPlainLayout().WithInlineToolbar();
+                var ours=new ClientPresentationSection("our-quote",L("ourOfferLabel")+" · "+L(trade.Accepted?"editorConfirmed":"editorUnconfirmed"),"",
+                    list:new ClientPresentationList("our-quote",TradeQuoteRows.Build(trade.ItemsOnOffer,DefLabel,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly().WithCompactRows()).WithPlainLayout();
+                var theirs=new ClientPresentationSection("their-quote",L("theirOfferLabel")+" · "+L(trade.OtherPartyAccepted?"editorConfirmed":"editorUnconfirmed"),"",
+                    list:new ClientPresentationList("their-quote",TradeQuoteRows.Build(trade.OtherPartyItemsOnOffer,DefLabel,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly().WithCompactRows()).WithPlainLayout();
+                var browse=new ClientPresentationSection("browse","",L("editorLocalDraft")+" · "+L("editorCloseNote")+(itemPages>1?" · "+string.Format(L("browsePage"),itemPage+1,itemPages):""),bindings.Where(b=>browseAction(b)||submitAction(b)||itemAction(b)).OrderBy(b=>b.Action.Id=="refresh-items"?0:submitAction(b)?1:2),
+                    fields:new[]{new ClientPresentationTextField("search","",searchText,placeholder:L("searchLabel"),maxLength:256)})
+                    .WithPlainLayout().WithInlineToolbar().WithActionMenus(selectedItem==null?null:new[]{new ClientPresentationActionMenu("quantity-tools",Safe(L("editorQuantityTools")+" · "+selectedItem.Label),bindings.Where(itemAction).Select(b=>b.Id))});
+                var items=new ClientPresentationSection("items","","",list:new ClientPresentationList("available",rows,L("quoteEmpty"),selectedRow).WithCompactRows()).WithPlainLayout();
+                var sections=new[]{state,ours,theirs,browse,items};
                 presentationDirty=false;
-                view.Publish(new ClientPresentationPage(presentationId,L("editorTitle"),ticket,sections).WithSplitView(new ClientPresentationSplitView(4,L("editorAvailable"),L("editorQuotes"),.45f).WithFixedHeaders(1,1,0).WithFixedFooters(1,1)),owned,current);
+                view.Publish(new ClientPresentationPage(presentationId,"",ticket,sections).WithSplitView(new ClientPresentationSplitView(2,L("ourOfferLabel"),L("theirOfferLabel"),.5f).WithFixedHeaders(1,0,0).WithSharedFooter(2,trade.ItemsOnOffer.Length==0&&trade.OtherPartyItemsOnOffer.Length==0?.65f:.6f,1)),owned,current);
                 shownTheme=tv;shownPoints=pv;shownLanguage=lang;shownResult=view.LastActionResult;
             }
             catch {presentationDirty=true;owned.Dispose();throw;}
         }
+        private void ClearQuantityDrafts(){rowDrafts.Clear();rowErrors.Clear();stableItemRows.Clear();quantityDraft="0";quantityError=null;}
         private static string DefLabel(string id)=>string.IsNullOrEmpty(id)?null:DefDatabase<ThingDef>.GetNamedSilentFail(id)?.label;
     }
 }

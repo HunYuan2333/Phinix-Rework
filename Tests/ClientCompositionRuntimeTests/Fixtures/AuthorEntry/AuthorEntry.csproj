@@ -7,6 +7,7 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="../../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
   </ItemGroup>
 </Project>

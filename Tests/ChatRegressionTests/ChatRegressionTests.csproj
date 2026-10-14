@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\Client\Common\Connections.Client\Connections.Client.csproj" />
     <ProjectReference Include="..\..\Client\Common\Authentication.Client\Authentication.Client.csproj" />
     <ProjectReference Include="..\..\Client\Common\UserManagement.Client\UserManagement.Client.csproj" />
+    <ProjectReference Include="../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj" />
     <ProjectReference Include="..\..\Client\Composition\Phinix.ClientComposition.csproj" />
     <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj" />

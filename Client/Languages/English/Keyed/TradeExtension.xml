@@ -116,6 +116,7 @@
     <Phinix_trade_browseNext>Next</Phinix_trade_browseNext>
     <Phinix_trade_browsePage>Page {0} / {1}</Phinix_trade_browsePage>
   <Phinix_trade_editorTitle>Trade offer</Phinix_trade_editorTitle>
+  <Phinix_trade_editorQuantity>Quantity</Phinix_trade_editorQuantity>
   <Phinix_trade_editorAvailable>Available items</Phinix_trade_editorAvailable>
   <Phinix_trade_editorWaiting>Waiting for the result. Do not submit again.</Phinix_trade_editorWaiting>
   <Phinix_trade_editorOfferSubmitted>Offer submitted. Waiting for confirmation.</Phinix_trade_editorOfferSubmitted>

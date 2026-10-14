@@ -76,7 +76,6 @@
     <Compile Include="Framework\IClientExtensionAbstractions.cs" />
     <Compile Include="Framework\IClientComposition.cs" />
     <Compile Include="Framework\IClientTaskService.cs" />
-    <Compile Include="Framework\IClientExtensionPoints.cs" />
     <Compile Include="Framework\IClientApiDirectory.cs" />
     <Compile Include="Framework\IClientLifetimeService.cs" />
     <Compile Include="Framework\IClientExtensionManagementWindowService.cs" />
@@ -94,10 +93,12 @@
     <Compile Include="UI\IUiAcceptKeyHandler.cs" />
     <Compile Include="UI\IServerSidebarProvider.cs" />
     <Compile Include="UI\INoticeBannerProvider.cs" />
-    <Compile Include="UI\IClientTheme.cs" />
-    <Compile Include="UI\ClientThemePresentationActionContext.cs" />
-    <Compile Include="UI\IClientThemePackages.cs" />
-    <Compile Include="UI\IClientPresentationService.cs" />
+    <Compile Include="Game\ClientTextureImages.cs" />
+    <Compile Include="Game\ClientColorValues.cs" />
+    <Compile Include="Game\ClientPresentationMenus.cs" />
+    <Compile Include="Game\IClientGameWindowService.cs" />
+    <Compile Include="Game\Drawing\ClientGameDrawing16.cs" />
+    <Compile Include="Game\Drawing\ClientGameDrawing17.cs" />
     <Compile Include="UI\ClientPresentationMainTab.cs" />
     <Compile Include="UI\ClientWidgets.cs" />
     <Compile Include="UI\ResponsiveFormLayout.cs" />
@@ -108,6 +109,7 @@
     <Compile Include="UI\VirtualListLayout.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj">
       <Project>{4E8C099F-DCAB-418A-A2FE-2705A7065EC3}</Project>
       <Name>UserManagement</Name>

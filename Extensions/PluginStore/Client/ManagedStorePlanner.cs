@@ -88,7 +88,7 @@ namespace Phinix.PluginStore
         private void Compatible(ManagedStoreRecord p)
         {
             var c=p.Manifest.Compatibility;
-            if(!c.RimWorldVersions.Contains(environment.RimWorldVersion) || !c.PhinixRange.Contains(ManagedExtensionVersion.Parse(environment.PhinixCompatibilityVersion)) || !c.AbstractionsRange.Contains(ManagedExtensionVersion.Parse(environment.AbstractionsCompatibilityVersion))) throw Error("CandidateHostIncompatible");
+            if(!p.Manifest.SupportsGame(environment.RimWorldVersion) || !c.RimWorldVersions.Contains(environment.RimWorldVersion) || !c.PhinixRange.Contains(ManagedExtensionVersion.Parse(environment.PhinixCompatibilityVersion)) || !c.AbstractionsRange.Contains(ManagedExtensionVersion.Parse(environment.AbstractionsCompatibilityVersion))) throw Error("CandidateHostIncompatible");
             if(p.Manifest.ExternalMods.Any(m=>!environment.InstalledMods.Any(i=>i.Enabled && string.Equals(i.PackageId,m.PackageId,StringComparison.OrdinalIgnoreCase)))) throw Error("CandidateExternalModMissing");
             if(p.Manifest.Modules.All(m=>environment.DisabledModuleIds.Contains(m.Id,StringComparer.OrdinalIgnoreCase))) throw Error("ManagedAllModulesDisabled");
         }

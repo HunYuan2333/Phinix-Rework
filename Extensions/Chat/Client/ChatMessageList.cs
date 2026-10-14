@@ -180,8 +180,8 @@ namespace Phinix.ChatExtension.Client
             using (ChatTheme.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                if (FeedRenderer != null) { feedView?.Draw(inRect); return; }
-                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                if (FeedRenderer != null) { feedView?.Draw(new ClientPresentationBounds(inRect.x, inRect.y, inRect.width, inRect.height)); return; }
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText.ToUnityColor();
                 DrawContents(inRect);
             }
         }
@@ -337,7 +337,7 @@ namespace Phinix.ChatExtension.Client
                         var media = states[i]; var state = media.Texture != null ? ClientPresentationMediaState.Ready : media.Failed ?
                             media.Unsupported ? ClientPresentationMediaState.Unavailable : ClientPresentationMediaState.Failed : media.IsLoading ? ClientPresentationMediaState.Loading : ClientPresentationMediaState.Idle;
                         string key = media.Failed ? media.Unsupported ? "Phinix_chat_actions_imageUnavailable" : "Phinix_chat_actions_imageFailure" : "Phinix_chat_imageLoading";
-                        mediaRows.Add(new ClientPresentationMedia(i.ToString(), state, key.Translate(), media.Texture,
+                        mediaRows.Add(new ClientPresentationMedia(i.ToString(), state, key.Translate(), ClientTextureImage.FromTexture(media.Texture),
                             media.Texture == null ? 1 : media.Texture.width / (float)Math.Max(1, media.Texture.height),
                             Mathf.Clamp(hostContext.MaxImageHeight, 48, 4096), media.Failed ? "chat.imageFailedText" : "chat.replyQuoteText", "chat.imagePlaceholderBg"));
                     }

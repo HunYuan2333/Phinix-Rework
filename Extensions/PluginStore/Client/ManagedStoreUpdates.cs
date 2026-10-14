@@ -18,6 +18,7 @@ namespace Phinix.PluginStore
                     p.Package.DiagnosticCode==null && inventory.Packages.Count(i=>i.Package.PackageId==p.Package.PackageId)==1)
                 .Select(p=>latest.TryGetValue(p.Package.PackageId,out var candidates)?candidates.FirstOrDefault(c=>
                     c.Manifest.Version.CompareTo(ManagedExtensionVersion.Parse(p.Package.Version))>0 &&
+                    c.Manifest.SupportsGame(environment.RimWorldVersion) &&
                     c.Manifest.Compatibility.RimWorldVersions.Contains(environment.RimWorldVersion) &&
                     c.Manifest.Compatibility.PhinixRange.Contains(ManagedExtensionVersion.Parse(environment.PhinixCompatibilityVersion)) &&
                     c.Manifest.Compatibility.AbstractionsRange.Contains(ManagedExtensionVersion.Parse(environment.AbstractionsCompatibilityVersion))):null)

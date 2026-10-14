@@ -104,6 +104,7 @@
     <Compile Include="TradeQuantityDraft.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
@@ -112,6 +113,7 @@
       <Project>{D1C9486E-43DA-4816-BA8C-EC7C0F233C2C}</Project>
       <Name>TradeExtension</Name>
     </ProjectReference>
+    <ProjectReference Include="../../Inventory/GameAdapter/InventoryExtension.GameAdapter.csproj" />
     <ProjectReference Include="..\..\Inventory\Contracts\InventoryExtension.csproj">
       <Project>{F25C60B4-39F1-45E7-A02B-9CB9707C74A1}</Project>
       <Name>InventoryExtension</Name>

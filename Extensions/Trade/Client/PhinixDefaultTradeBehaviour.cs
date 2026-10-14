@@ -19,7 +19,7 @@ namespace Phinix.TradeExtension.Client
         private readonly IClientUserDirectory userDirectory;
         private readonly IClientSettingsContext settingsContext;
         private readonly IClientMainThreadDispatcher dispatcher;
-        private readonly IClientWindowService windowService;
+        private readonly IClientGameWindowService windowService;
         private readonly ClientTradeUiHostContext tradeUiHostContext;
         private readonly TradeInventoryDelivery inventoryDelivery;
         private readonly IInventoryReadApi inventoryReadApi;
@@ -34,7 +34,7 @@ namespace Phinix.TradeExtension.Client
             IClientUserDirectory userDirectory,
             IClientSettingsContext settingsContext,
             IClientMainThreadDispatcher dispatcher,
-            IClientWindowService windowService,
+            IClientGameWindowService windowService,
             ClientTradeUiHostContext tradeUiHostContext,
             TradeInventoryDelivery inventoryDelivery,
             IInventoryReadApi inventoryReadApi,

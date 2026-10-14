@@ -201,7 +201,7 @@ namespace Phinix.TradeExtension.Client
                 string token=owner.Begin(id,true,()=>escrow.ReturnFrozen(payloads),()=>TradeOfferSettlement.Done,null,errorSource:()=>escrow.LastError);
                 owner.Submit(token,correlation=>tradeService.UpdateTradeItems(id,Array.Empty<TradeItemSnapshot>(),correlation));
                 foreach(var stack in availableItems)stack.Selected=0;
-                quantityDraft="0";quantityError=null;editorNotice=L("editorResetSubmitted");
+                rowDrafts.Clear();rowErrors.Clear();quantityDraft="0";quantityError=null;editorNotice=L("editorResetSubmitted");
             }
             catch(Exception error){editorNotice=L("editorPreparationFailed");hostContext.Log(new LogEventArgs("Trade reset request failed: "+error,LogLevel.ERROR));}
         }
@@ -305,6 +305,7 @@ namespace Phinix.TradeExtension.Client
 
         private void DisposeAvailableItems()
         {
+            ClearQuantityDrafts();
             foreach (TradeAvailableItem item in availableItems) item?.Dispose();
             availableItems.Clear();
             filteredAvailableItems.Clear();

@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Game/ClientColorValues.cs" Link="Production/ColorValues.cs" />
+    <Compile Include="../../../Phinix-Legacy-RedPacket/Client/Compatibility/ThemeAdapter.cs" Link="Production/RedThemeAdapter.cs" />
+    <Compile Include="../../../Phinix-Legacy-TalentTrade/Client/Compatibility/ThemeAdapter.cs" Link="Production/TalentThemeAdapter.cs" />
     <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
-    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientThemePackages.cs" Link="Production/IClientThemePackages.cs" />
-    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientTheme.cs" Link="Production/IClientTheme.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/IClientThemePackages.cs" Link="Production/IClientThemePackages.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/ClientPresentationValues.cs" Link="Production/Values.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/IClientTheme.cs" Link="Production/IClientTheme.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/UI/ClientWidgets.cs" Link="Production/ClientWidgets.cs" />
     <Compile Include="../../Client/Source/UI/ThemeDraftValues.cs" Link="Production/ThemeDraftValues.cs" />
     <Compile Include="../../Client/Source/UI/UiTheme.cs" Link="Production/UiTheme.cs" />

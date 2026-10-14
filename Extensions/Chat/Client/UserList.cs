@@ -107,7 +107,7 @@ namespace Phinix.ChatExtension.Client
             using (ChatTheme.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText.ToUnityColor();
                 DrawContents(inRect);
             }
         }
@@ -380,7 +380,7 @@ namespace Phinix.ChatExtension.Client
             if (Mouse.IsOver(inRect))
             {
                 string stripped = TextHelper.StripRichText(formattedDisplayName);
-                ClientWidgets.Label(paddedRect, stripped, ChatTheme.Current.GetColor("ui.accent"));
+                ClientWidgets.Label(paddedRect, stripped, ChatTheme.Current.GetColor("ui.accent").ToUnityColor());
             }
             else
             {

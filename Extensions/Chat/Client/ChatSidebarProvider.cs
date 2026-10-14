@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Phinix.TradeExtension;
 using PhinixClient;
 using PhinixClient.Framework;
 using UnityEngine;
@@ -210,12 +211,12 @@ namespace Phinix.ChatExtension.Client
                         new[] { new ClientPresentationSection("actions", "", "", bindings) }), actions, current);
                 }
                 catch { actions.Dispose(); throw; }
-                Options = session.CreateActionMenuOptions();
+                Options = ClientPresentationMenus.ToGameOptions(session.CreateActionMenuItems());
                 if (Options.Count == 0) throw new InvalidOperationException("ChatMemberActionsMissing");
                 name = nextName; blocked = nextBlocked; connected = nextConnected; contributions = nextContributions; tradeId = nextTradeId; language = nextLanguage; result = nextResult;
             }
         }
-        public void Draw(Rect rect) { view?.Draw(rect); }
+        public void Draw(Rect rect) { view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height)); }
         public void Dispose() { ViewClosed(); scope?.Dispose(); scope = null; point = null; module = null; }
     }
 }

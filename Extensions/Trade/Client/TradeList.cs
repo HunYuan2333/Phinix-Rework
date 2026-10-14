@@ -73,6 +73,7 @@ namespace Phinix.TradeExtension.Client
             if(view==null||view.IsClosed)return;
             while(view.TryDequeueInput(out var input))
             {
+                if(input.Revision!=revision)continue;
                 if(input.Id=="search"){search=input.Value;browsePage=0;}
                 else if(input.Id=="trades"&&recoveryRows.TryGetValue(input.Value,out var reservationId)){selectedRecovery=reservationId;selected=null;selectedOperation=null;}
                 else if(input.Id=="trades"&&operationRows.TryGetValue(input.Value,out var token)){selectedOperation=token;selected=null;selectedRecovery=null;}
@@ -81,7 +82,7 @@ namespace Phinix.TradeExtension.Client
             }
             Refresh();
         }
-        public void Draw(Rect rect){if(!disposed)view?.Draw(rect);}
+        public void Draw(Rect rect){if(!disposed)view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height));}
         public void Dispose()
         {
             if(disposed)return;disposed=true;ViewClosed();
@@ -118,7 +119,8 @@ namespace Phinix.TradeExtension.Client
             var actions=new List<ClientActionDefinition>();
             if(context.PageId=="trade-list"&&expected!=null)
             {
-                bool busy=operations?.GetPending().Any(p=>string.Equals(p.TradeId,expected.TradeId,StringComparison.OrdinalIgnoreCase))==true;
+                bool busy;lock(sync)busy=waiting.Contains(expected.TradeId);
+                busy=busy||operations?.GetPending().Any(p=>string.Equals(p.TradeId,expected.TradeId,StringComparison.OrdinalIgnoreCase))==true;
                 actions.Add(new ClientActionDefinition("open",L("activeTrade_openButton"),()=>host.OpenTradeWindow(expected),string.IsNullOrWhiteSpace(expected.OtherPartyUuid)?L("listPartyUnavailable"):null));
                 actions.Add(new ClientActionDefinition("cancel",L("activeTrade_cancelButton"),()=>Cancel(expected.TradeId),busy?L("listOfferPending"):null));
             }
@@ -159,7 +161,7 @@ namespace Phinix.TradeExtension.Client
                 if(search.Length>0&&(name+" "+trade.TradeId).IndexOf(search,StringComparison.OrdinalIgnoreCase)<0)continue;
                 string id=RowId(trade.TradeId);rows[id]=trade.TradeId;if(trade.TradeId==selected)selectedRow=id;
                 string state=L(trade.OtherPartyAccepted?"activeTrade_theyHaveAccepted":"activeTrade_theyHaveNotAccepted");
-                var row=new ClientPresentationRow(id,string.Format(L("activeTrade_tradeWithLabel"),name),state+"\n"+string.Format(L("listStackCounts"),trade.ItemsOnOffer.Length,trade.OtherPartyItemsOnOffer.Length));
+                var row=new ClientPresentationRow(id,string.Format(L("activeTrade_tradeWithLabel"),name),state+" · "+string.Format(L("listStackCounts"),trade.ItemsOnOffer.Length,trade.OtherPartyItemsOnOffer.Length));
                 if(pending.Contains(trade.TradeId))row=row.WithBadges(new[]{new ClientPresentationBadge("pending",L("listWaiting")).WithColor("ui.warning")});
                 list.Add(row);
             }
@@ -183,17 +185,31 @@ namespace Phinix.TradeExtension.Client
             long ticket=++revision,tv=theme.Version,pv=points.Revision;var lang=LanguageDatabase.activeLanguage;var expectedResult=view.LastActionResult;string expectedSelection=selected,expectedOperation=selectedOperation,expectedRecovery=selectedRecovery;
             Func<bool> current=()=>!disposed&&view!=null&&!view.IsClosed&&!dirty&&ticket==revision&&epoch==Interlocked.Read(ref changed)&&tv==theme.Version&&pv==points.Revision&&ReferenceEquals(lang,LanguageDatabase.activeLanguage)&&ReferenceEquals(expectedResult,view.LastActionResult)&&selected==expectedSelection&&selectedOperation==expectedOperation&&selectedRecovery==expectedRecovery&&rv==(recovery?.Revision??0)&&ov==(operations?.Revision??0);
             var context=new TradePresentationActionContext(pickedRecovery==null?"trade-list":"trade-inventory-recovery",ticket,picked?.TradeId??pickedOperation?.TradeId??pickedRecovery?.TradeId,picked?.Accepted??false,picked?.OtherPartyAccepted??false,picked?.ItemsOnOffer.Length??0,picked?.OtherPartyItemsOnOffer.Length??0,pickedOperation?.Token,pickedOperation?.State.ToString(),pickedOperation?.CanRetry??false,picked!=null,pickedRecovery?.ReservationId,pickedRecovery?.OperationId);
-            var owned=point.Collect(context,current);
+            var owned=new RowActionSets();
             try
             {
-                var bindings=owned.Actions.Select(a=>new ClientPresentationAction(a.OwnerId+"."+a.Id,a,
+                // Each row captures its own trade context; opening no longer depends on selection.
+                for(int i=0;i<pageRows.Length;i++)
+                {
+                    var row=pageRows[i];
+                    if(!rows.TryGetValue(row.Id,out var tradeId))continue;
+                    var rowTrade=snapshot.First(t=>t.TradeId==tradeId);
+                    var rowContext=new TradePresentationActionContext("trade-list",ticket,rowTrade.TradeId,rowTrade.Accepted,rowTrade.OtherPartyAccepted,rowTrade.ItemsOnOffer.Length,rowTrade.OtherPartyItemsOnOffer.Length);
+                    var rowSet=owned.Add(point.Collect(rowContext,current));
+                    var rowActions=rowSet.Actions.Where(a=>a.OwnerId==owner.ExtensionId&&(a.Id=="open"||a.Id=="cancel")).Select(a=>new ClientPresentationAction(row.Id+"."+a.OwnerId+"."+a.Id,a,
+                        a.Id=="open"?ClientButtonKind.Primary:ClientButtonKind.Danger,
+                        a.Id=="cancel"?new ClientPresentationConfirmation(L("activeTrade_cancelButton"),string.Format(L("listCancelConfirmation"),Safe(PartyName(rowTrade),256)),L("activeTrade_cancelButton"),L("listKeepTrade")):null));
+                    pageRows[i]=row.WithControls(rowActions);
+                }
+                var selectedSet=owned.Add(point.Collect(context,current));
+                var bindings=selectedSet.Actions.Select(a=>new ClientPresentationAction(a.OwnerId+"."+a.Id,a,
                     a.OwnerId==owner.ExtensionId&&a.Id=="cancel"?ClientButtonKind.Danger:a.OwnerId==owner.ExtensionId&&a.Id=="open"?ClientButtonKind.Primary:ClientButtonKind.Normal,
                     a.OwnerId==owner.ExtensionId&&a.Id=="retry-settlement"?new ClientPresentationConfirmation(L("listRetrySettlement"),L("listRetrySettlementConfirm"),L("listRetrySettlement"),L("listKeepTrade")):a.OwnerId==owner.ExtensionId&&a.Id=="cancel"?new ClientPresentationConfirmation(L("activeTrade_cancelButton"),string.Format(L("listCancelConfirmation"),Safe(PartyName(picked),256)),L("activeTrade_cancelButton"),L("listKeepTrade")):null)).ToArray();
                 string details=picked==null?(pickedOperation==null?L("listSelectTrade"):Safe(pickedOperation.TradeId)+"\n"+L("listOffer_"+pickedOperation.State)+"\n"+OperationMessage(pickedOperation)):string.Format(L("listStackCounts"),picked.ItemsOnOffer.Length,picked.OtherPartyItemsOnOffer.Length)+"\n"+L(picked.Accepted?"confirmOurTradeCheckboxChecked":"confirmOurTradeCheckboxUnchecked")+"\n"+string.Format(L(picked.OtherPartyAccepted?"confirmTheirTradeCheckboxChecked":"confirmTheirTradeCheckboxUnchecked"),Safe(PartyName(picked),256))+"\n"+Safe(picked.TradeId);
                 if(pickedRecovery!=null)details=L("inventoryRecoveryReservation")+": "+Safe(pickedRecovery.ReservationId)+"\n"+L("inventoryRecoveryOperation")+": "+Safe(pickedRecovery.OperationId)+"\n"+L("inventoryRecovery_"+pickedRecovery.State)+"\n"+L("inventoryRecoveryEvidence")+": "+Safe(pickedRecovery.Evidence);
                 var sections=new List<ClientPresentationSection>{
-                    new ClientPresentationSection("tools",TabTitle(),browsePages>1?string.Format(L("browsePage"),browsePage+1,browsePages):"",bindings.Where(BrowseAction),status:new ClientPresentationStatus(message),fields:new[]{new ClientPresentationTextField("search",L("listSearch"),search,maxLength:256)}).WithPlainLayout(),
-                    new ClientPresentationSection("list",string.Format(L("listEntryCounts"),snapshot.Length,operationInfo.Count)+" · "+string.Format(L("inventoryRecoveryCount"),recovered.Count),"",list:new ClientPresentationList("trades",pageRows,L("noActiveTradesPlaceholder"),selectedRow)).WithPlainLayout(),
+                    new ClientPresentationSection("tools",TabTitle(),browsePages>1?string.Format(L("browsePage"),browsePage+1,browsePages):"",bindings.Where(BrowseAction),status:new ClientPresentationStatus(message),fields:new[]{new ClientPresentationTextField("search","",search,placeholder:L("listSearch"),maxLength:256)}).WithPlainLayout().WithInlineToolbar(),
+                    new ClientPresentationSection("list",string.Format(L("listEntryCounts"),snapshot.Length,operationInfo.Count)+" · "+string.Format(L("inventoryRecoveryCount"),recovered.Count),"",list:new ClientPresentationList("trades",pageRows,L("noActiveTradesPlaceholder"),selectedRow).WithCompactRows()).WithPlainLayout(),
                     new ClientPresentationSection("selection",pickedRecovery!=null?L("inventoryRecoveryTitle"):picked==null?(pickedOperation==null?L("listDetails"):L("listOfferRecovery")):string.Format(L("activeTrade_tradeWithLabel"),Safe(PartyName(picked),256)),"",bindings.Where(b=>!BrowseAction(b))).WithWrappedActions().WithPlainLayout(),
                     new ClientPresentationSection("details","",details,status:new ClientPresentationStatus(pickedRecovery!=null?L("inventoryRecoveryNote"):pickedOperation!=null?OperationStatus(pickedOperation):picked!=null&&pending.Contains(picked.TradeId)?L("listCancelPending"):L("listAuthorityNote"),pickedRecovery!=null||pickedOperation!=null||picked!=null&&pending.Contains(picked.TradeId)?ClientPresentationTone.Warning:ClientPresentationTone.Neutral)).WithPlainLayout()
                 };
@@ -206,14 +222,22 @@ namespace Phinix.TradeExtension.Client
                 {
                     Func<string,string> label=id=>string.IsNullOrEmpty(id)?null:DefDatabase<ThingDef>.GetNamedSilentFail(id)?.label;
                     sections.Add(new ClientPresentationSection("our-quote",L("ourOfferLabel"),L("quotePreviewNote"),
-                        list:new ClientPresentationList("our-quote-items",TradeQuoteRows.Build(picked.ItemsOnOffer,label,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly()).WithPlainLayout());
+                        list:new ClientPresentationList("our-quote-items",TradeQuoteRows.Build(picked.ItemsOnOffer,label,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly().WithCompactRows()).WithPlainLayout());
                     sections.Add(new ClientPresentationSection("their-quote",L("theirOfferLabel"),"",
-                        list:new ClientPresentationList("their-quote-items",TradeQuoteRows.Build(picked.OtherPartyItemsOnOffer,label,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly()).WithPlainLayout());
+                        list:new ClientPresentationList("their-quote-items",TradeQuoteRows.Build(picked.OtherPartyItemsOnOffer,label,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly().WithCompactRows()).WithPlainLayout());
                 }
-                dirty=false;view.Publish(new ClientPresentationPage("trade-list",TabTitle(),ticket,sections).WithSplitView(new ClientPresentationSplitView(2,TabTitle(),L("listDetails"),.5f).WithFixedHeaders(0,1,1,pickedRecovery!=null?RowId("inventory:"+pickedRecovery.ReservationId):picked==null?(pickedOperation==null?"none":RowId("operation:"+pickedOperation.Token)):RowId(picked.TradeId)).WithAlignedHeaders()),owned,current);
+                if(picked==null&&pickedOperation==null&&pickedRecovery==null)sections.RemoveRange(2,sections.Count-2);
+                dirty=false;view.Publish(new ClientPresentationPage("trade-list","",ticket,sections).WithFixedHeaderSections(1),owned,current);
             }
             catch {dirty=true;owned.Dispose();throw;}
             shown=epoch;operationVersion=ov;recoveryVersion=rv;themeVersion=tv;pointVersion=pv;language=lang;result=expectedResult;
+        }
+        private sealed class RowActionSets:IClientActionSet
+        {
+            private readonly List<IClientActionSet> sets=new List<IClientActionSet>();
+            public IReadOnlyList<IClientContributedAction> Actions=>sets.SelectMany(s=>s.Actions).ToArray();
+            public IClientActionSet Add(IClientActionSet set){sets.Add(set);return set;}
+            public void Dispose(){var owned=sets.ToArray();sets.Clear();var failures=new List<Exception>();foreach(var set in owned)try{set.Dispose();}catch(Exception error){failures.Add(error);}if(failures.Count>0)throw new AggregateException(failures);}
         }
         private static string TabTitle()=>"Phinix_tabs_trades".Translate();
         private void Disconnected(object sender,EventArgs args){lock(sync){trades.Clear();waiting.Clear();notice="";noticeKey="listDisconnected";changed++;}}

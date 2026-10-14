@@ -50,7 +50,7 @@ namespace Phinix.PluginStore
                 var environment=hostContext.GetRequiredService<IClientEnvironmentService>();
                 var settings=hostContext.GetRequiredService<IClientSettingsContext>();
                 var dispatcher=hostContext.GetRequiredService<IClientMainThreadDispatcher>();
-                var windows=hostContext.GetRequiredService<IClientWindowService>();
+                var windows=hostContext.GetRequiredService<IClientGameWindowService>();
                 var theme=hostContext.GetRequiredService<IClientTheme>();
                 activationComposition=hostContext.GetRequiredService<IClientCompositionFactory>().CreateScope(local=>
                 {
@@ -82,10 +82,10 @@ namespace Phinix.PluginStore
                 });
                 localizer=activationComposition.Resolve<IClientLocalizer>();
                 themeRegistration = hostContext.GetRequiredService<IClientThemeRegistry>().RegisterModule(this, "plugin-store", "Phinix_theme_owner_store");
-                themeRegistration.RegisterColor("plugin-store.badge.official",new UnityEngine.Color(.94f,.76f,.36f), label: "Phinix_theme_label_plugin_store_badge_official", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_official");
-                themeRegistration.RegisterColor("plugin-store.badge.managed",new UnityEngine.Color(.43f,.81f,.77f), label: "Phinix_theme_label_plugin_store_badge_managed", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_managed");
-                themeRegistration.RegisterColor("plugin-store.badge.workshop",new UnityEngine.Color(.53f,.73f,.96f), label: "Phinix_theme_label_plugin_store_badge_workshop", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_workshop");
-                themeRegistration.RegisterColor("plugin-store.badge.local",new UnityEngine.Color(.96f,.49f,.61f), label: "Phinix_theme_label_plugin_store_badge_local", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_local");
+                themeRegistration.RegisterColor("plugin-store.badge.official",new ClientRgba(.94f,.76f,.36f), label: "Phinix_theme_label_plugin_store_badge_official", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_official");
+                themeRegistration.RegisterColor("plugin-store.badge.managed",new ClientRgba(.43f,.81f,.77f), label: "Phinix_theme_label_plugin_store_badge_managed", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_managed");
+                themeRegistration.RegisterColor("plugin-store.badge.workshop",new ClientRgba(.53f,.73f,.96f), label: "Phinix_theme_label_plugin_store_badge_workshop", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_workshop");
+                themeRegistration.RegisterColor("plugin-store.badge.local",new ClientRgba(.96f,.49f,.61f), label: "Phinix_theme_label_plugin_store_badge_local", group: "Phinix_theme_group_source", description: "Phinix_theme_desc_plugin_store_badge_local");
                 themeRegistration.Commit();
                 managedController=activationComposition.Resolve<StoreControllerLease>().Controller;
                 badgeIcons=activationComposition.Resolve<StoreBadgeIcons>();

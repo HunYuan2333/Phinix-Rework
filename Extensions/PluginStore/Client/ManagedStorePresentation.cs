@@ -140,9 +140,9 @@ namespace Phinix.PluginStore
         private IEnumerable<ClientPresentationBadge> BuildBadges(ManagedStoreEntry entry, ManagedStoreSnapshot snapshot)
         {
             if (maintainers.IsOfficial(entry.CatalogRecord, snapshot.Catalog, snapshot.Repository?.Endpoint))
-                yield return new ClientPresentationBadge("official", T("officialBadge"), badgeIcons?.Get(StoreBadgeKind.Official)).WithColor("ui.badge.maintained");
+                yield return new ClientPresentationBadge("official", T("officialBadge"), ClientTextureImage.FromTexture(badgeIcons?.Get(StoreBadgeKind.Official))).WithColor("ui.badge.maintained");
             StoreBadgeKind kind = entry.IsLocalDevelopment ? StoreBadgeKind.Local : entry.IsWorkshop ? StoreBadgeKind.Workshop : StoreBadgeKind.Managed;
-            yield return new ClientPresentationBadge(kind.ToString().ToLowerInvariant(), T(entry.IsLocalDevelopment ? "localBadge" : entry.IsWorkshop ? "workshop" : "managedBadge"), badgeIcons?.Get(kind)).WithColor(entry.IsLocalDevelopment ? "ui.badge.development" : entry.IsWorkshop ? "ui.badge.external" : "ui.badge.managed");
+            yield return new ClientPresentationBadge(kind.ToString().ToLowerInvariant(), T(entry.IsLocalDevelopment ? "localBadge" : entry.IsWorkshop ? "workshop" : "managedBadge"), ClientTextureImage.FromTexture(badgeIcons?.Get(kind))).WithColor(entry.IsLocalDevelopment ? "ui.badge.development" : entry.IsWorkshop ? "ui.badge.external" : "ui.badge.managed");
         }
         private string PlanSummary(ManagedStorePlan plan) => T(plan.ReplacesPackages ? "updateConfirmation" : "dependencyConfirmation") + "\n\n" + string.Join("\n", plan.Items.Select(item => Clean(item.Package.DisplayName(locale)) + " " + item.Package.Manifest.Version + " · " + T(item.Installed == null ? "newPackage" : item.RequiresDownload ? "updatedPackage" : "existingPackage"))) + "\n\n" + T("downloadSize") + " " + (plan.DownloadBytes / 1024d / 1024d).ToString("F2") + " MiB";
         private IEnumerable<ClientActionDefinition> BuildPresentationActions(ManagedStoreSnapshot snapshot, ManagedStoreEntry picked)

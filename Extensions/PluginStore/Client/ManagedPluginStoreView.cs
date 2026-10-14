@@ -70,7 +70,7 @@ namespace Phinix.PluginStore
         }
         private static string T(string key) { return ("Phinix_store2_"+key).Translate(); }
         private static string Clean(string value) { return (value??"").Replace("<","‹").Replace(">","›"); }
-        internal void Draw(Rect rect) { if (!stopped) presentation?.Draw(rect); }
+        internal void Draw(Rect rect) { if (!stopped) presentation?.Draw(new ClientPresentationBounds(rect.x,rect.y,rect.width,rect.height)); }
         private ManagedStoreSnapshot AdvanceOwner()
         {
                 var snapshot=controller.Snapshot;

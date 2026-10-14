@@ -47,7 +47,7 @@ namespace PhinixClient.Framework
             bool oldEnabled=UnityEngine.GUI.enabled, oldWrap=Text.WordWrap; GameFont oldFont=Text.Font; Color oldColor=UnityEngine.GUI.color;
             try
             {
-                Text.WordWrap=false; Text.Font=GameFont.Small; UnityEngine.GUI.color=theme.PrimaryText;
+                Text.WordWrap=false; Text.Font=GameFont.Small; UnityEngine.GUI.color=theme.PrimaryText.ToUnityColor();
                 float top=Mathf.Min(32f,Mathf.Max(0f,rect.height));
                 UnityEngine.GUI.enabled=oldEnabled && !controller.Busy && controlState?.Busy!=true;
                 if(ClientWidgets.Button(new Rect(rect.x,rect.y,Mathf.Min(110f,Mathf.Max(0f,rect.width)),top),refreshLabel, theme)) controller.Refresh(service,settings?.DisabledExtensions);

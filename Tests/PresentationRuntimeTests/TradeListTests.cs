@@ -47,11 +47,11 @@ internal static partial class Program
         public string OwnerId=>"test";public string PageId {get;private set;}public bool IsClosed {get;private set;}public string FailureCode=>null;
         public ClientActionExecutionResult LastActionResult=>null;
         public void Publish(ClientPresentationPage page,IClientActionSet actions,Func<bool> current){set?.Dispose();set=actions;Page=page;}
-        public void Draw(Rect rect){}public float MeasureComposerHeight(float width)=>0;
+        public void Draw(ClientPresentationBounds bounds){}public float MeasureComposerHeight(float width)=>0;
         public bool TryDequeueInput(out ClientPresentationInput input){if(Inputs.Count==0){input=null;return false;}input=Inputs.Dequeue();return true;}
         public string ComposerDraft=>"";public string ComposerControlName=>"";public bool ComposerFocused=>false;
         public void SetComposerDraft(string value){}public void RequestComposerFocus(){}public void InvokeAction(string id){}
-        public List<FloatMenuOption> CreateActionMenuOptions()=>new List<FloatMenuOption>();public void ScrollToRow(string feed,string row){}public void ScrollToEnd(){}
+        public IReadOnlyList<ClientPresentationMenuItem> CreateActionMenuItems()=>Array.Empty<ClientPresentationMenuItem>();public void ScrollToRow(string feed,string row){}public void ScrollToEnd(){}
         public void Dispose(){IsClosed=true;set?.Dispose();set=null;Inputs.Clear();}
     }
     private static void CheckTradeListProjection()
@@ -62,8 +62,13 @@ internal static partial class Program
         using(var list=new TradeList(fixture))
         {
             list.Start(new Module(),renderer,points,theme);list.ViewOpened();
-            Check(renderer.Page.SplitView!=null&&renderer.Page.Sections[1].List.Rows.Count==2,"Trade owner projects fixed two-pane list using public page");
-            Check(points.Last.Actions.Count==0,"No trade selection exposes no owner mutation actions");
+            Check(renderer.Page.SplitView==null&&renderer.Page.FixedHeaderSectionCount==1&&renderer.Page.Sections[1].List.Rows.Count==2,"Trade list restores full-width rows with pinned search");
+            Check(points.Last.Actions.Count==0,"No trade selection exposes no detail mutation actions");
+            var direct=renderer.Page.Sections[1].List.Rows[1].Actions.Single(a=>a.Action.Id=="open");
+            Check(direct.Action.TryExecute().Completed&&fixture.Opens==1,"Row open works without selecting a trade first");
+            list.ViewUpdate();
+            var directCancel=renderer.Page.Sections[1].List.Rows[0].Actions.Single(a=>a.Action.Id=="cancel");
+            Check(directCancel.Confirmation!=null&&fixture.Cancels==0,"Each direct cancellation retains public confirmation");
             var row=renderer.Page.Sections[1].List.Rows[0];renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,"trades",ClientPresentationInputKind.RowSelected,row.Id));list.ViewUpdate();
             Check(renderer.Page.Sections.Single(s=>s.Id=="our-quote").List.Rows.Count==1 && renderer.Page.Sections.Single(s=>s.Id=="their-quote").List.Rows.Count==0,"Selected quote preserves separate actual sides including empty gift side");
             Check(renderer.Page.Sections.Single(s=>s.Id=="our-quote").List.IsReadOnly,"Quote browsing cannot submit row-selection or item mutation intent");
@@ -71,6 +76,7 @@ internal static partial class Program
             Check(binding.Confirmation!=null&&fixture.Cancels==0,"Cancel intent requires public confirmation; projection submits nothing");
             fixture.Update(first);Check(!oldCancel.TryExecute().Completed&&fixture.Cancels==0,"Incoming snapshot invalidates old cancellation before view update");list.ViewUpdate();
             Check(points.Last.Actions.Single(a=>a.Id=="cancel").TryExecute().Completed&&fixture.Cancels==1&&fixture.CancelId=="one","Explicit cancel intent submits selected ID once");list.ViewUpdate();
+            Check(renderer.Page.Sections[1].List.Rows[0].Actions.Single(a=>a.Action.Id=="cancel").Action.DisabledReason!=null,"Pending row cannot repeat cancellation while awaiting authority");
             Check(renderer.Page.Sections[1].List.Rows.Count==2&&renderer.Page.Sections[1].List.Rows[0].Badges.Count==1,"Submitted callback retains active trade and displays waiting; no completion inferred");
             var beforeClose=points.Last.Actions.Single(a=>a.Id=="cancel");list.ViewClosed();
             Check(!beforeClose.TryExecute().Completed&&fixture.Cancels==1,"Closing view invalidates action and submits no cancellation");list.ViewOpened();

@@ -5,3 +5,7 @@
 Output/
 GameDlls/
 .nuget/
+
+# Local Python analysis/build caches
+__pycache__/
+*.pyc

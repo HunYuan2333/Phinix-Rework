@@ -23,7 +23,7 @@ namespace Phinix.TradeExtension.Client
                 if(item==null)
                 {
                     rows.Add(new ClientPresentationRow("item."+index,translate("quoteInvalid"))
-                        .WithBadges(new[]{new ClientPresentationBadge("invalid",translate("quoteInvalid")).WithColor("ui.warning")}).WithIcon(icon?.Invoke(null)));
+                        .WithBadges(new[]{new ClientPresentationBadge("invalid",translate("quoteInvalid")).WithColor("ui.warning")}).WithImage(ClientTextureImage.FromTexture(icon?.Invoke(null))));
                     continue;
                 }
                 string name=label(item.DefName);
@@ -36,7 +36,7 @@ namespace Phinix.TradeExtension.Client
                 if(item.InnerItem!=null)details.Add(translate("quoteContains")+": "+Text(label(item.InnerItem.DefName)??item.InnerItem.DefName)+" × "+item.InnerItem.StackCount);
                 if(!string.IsNullOrEmpty(item.StateCodecId))badges.Add(new ClientPresentationBadge("state",translate("quoteHasState")).WithColor("ui.info"));
                 if(item.StackCount<=0)badges.Add(new ClientPresentationBadge("invalid",translate("quoteInvalidQuantity")).WithColor("ui.warning"));
-                rows.Add(new ClientPresentationRow("item."+index,Text(name)+" × "+item.StackCount,string.Join("\n",details)).WithBadges(badges).WithIcon(icon?.Invoke(item.InnerItem?.DefName ?? item.DefName)));
+                rows.Add(new ClientPresentationRow("item."+index,Text(name)+" × "+item.StackCount,string.Join(" · ",details)).WithBadges(badges).WithImage(ClientTextureImage.FromTexture(icon?.Invoke(item.InnerItem?.DefName ?? item.DefName))));
             }
             return rows;
         }

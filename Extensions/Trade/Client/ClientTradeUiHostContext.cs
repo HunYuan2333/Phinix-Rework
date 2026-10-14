@@ -31,7 +31,7 @@ namespace Phinix.TradeExtension.Client
         private IClientSettingsContext settingsContext;
         private IClientUserEventStream userEvents;
         private IClientMainThreadDispatcher dispatcher;
-        private IClientWindowService windowService;
+        private IClientGameWindowService windowService;
         private Action<LogEventArgs> log;
         private IInventoryReadApi inventoryReadApi;
         private IInventoryReservationApi inventoryReservationApi;
@@ -49,7 +49,7 @@ namespace Phinix.TradeExtension.Client
             IClientSettingsContext settingsContext,
             IClientUserEventStream userEvents,
             IClientMainThreadDispatcher dispatcher,
-            IClientWindowService windowService,
+            IClientGameWindowService windowService,
             Action<LogEventArgs> log,
             IInventoryReadApi inventoryReadApi,
             IInventoryReservationApi inventoryReservationApi)

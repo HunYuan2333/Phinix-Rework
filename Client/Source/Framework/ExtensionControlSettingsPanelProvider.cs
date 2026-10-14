@@ -125,7 +125,7 @@ namespace PhinixClient.Framework
                 if (cachedHints[i] != null)
                 {
                     Rect hintRect = listing.GetRect(cachedHintHeights[i]);
-                    ClientWidgets.Label(hintRect, cachedHints[i], cachedHintWarning[i] ? palette.Warning : palette.SecondaryText);
+                    ClientWidgets.Label(hintRect, cachedHints[i], cachedHintWarning[i] ? palette.Warning.ToUnityColor() : palette.SecondaryText.ToUnityColor());
                     TooltipHandler.TipRegion(hintRect, cachedHints[i]);
                 }
             }

@@ -59,7 +59,7 @@ internal static class Program
                     host.AddService<IClientSettingsContext>(services);
                     host.AddService<IClientMainThreadDispatcher>(services);
                     host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
-                    if(scenario!="missing-host") host.AddService<IClientWindowService>(services);
+                    if(scenario!="missing-host") host.AddService<IClientGameWindowService>(services);
                     var module=(IPhinixExtensionModule)Activator.CreateInstance(type);
                     object ledger=type.GetField("ledger",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(module);
                     var builder=new Builder(host,scenario=="register-failure"); bool failed=false;
@@ -123,7 +123,7 @@ internal static class Program
                 var host=new ExtensionHostContext(); var services=new Services(); var factory=new Factory(inner,false);
                 host.AddService<IClientCompositionFactory>(factory);
                 host.AddService<IClientSettingsContext>(services); host.AddService<IClientMainThreadDispatcher>(services);
-                host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services); host.AddService<IClientWindowService>(services);
+                host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services); host.AddService<IClientGameWindowService>(services);
                 host.AddService<IExtensionDiscoveryPolicy>(new Discovery(type));
                 var disabled=PhinixExtensionRegistry.DiscoverExtensions(host,new Disabled());
                 Assert(disabled.Modules.Count==0 && disabled.ExtensionResults.Single().State==ExtensionModuleState.Disabled && factory.Created==0,
@@ -170,7 +170,7 @@ internal static class Program
             var factory=new Factory(inner,false);
             host.AddService<IClientCompositionFactory>(factory); host.AddService<IClientSettingsContext>(services);
             host.AddService<IClientMainThreadDispatcher>(services); host.AddService<IClientShellEventStream>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
-            host.AddService<IClientWindowService>(services);
+            host.AddService<IClientGameWindowService>(services);
             var module=(IPhinixExtensionModule)Activator.CreateInstance(type); module.Register(new Builder(host,false));
             try
             {
@@ -273,19 +273,19 @@ internal static class Program
         }
         finally { type.GetField("active",BindingFlags.NonPublic|BindingFlags.Static).SetValue(null,null); journal.Dispose(); if(Directory.Exists(directory)) Directory.Delete(directory,true); }
     }
-    private sealed class Services : IClientSettingsContext,IClientMainThreadDispatcher,IClientShellEventStream,IClientWindowService,IClientTheme,IClientThemeRegistry,IDisposable
+    private sealed class Services : IClientSettingsContext,IClientMainThreadDispatcher,IClientShellEventStream,IClientGameWindowService,IClientTheme,IClientThemeRegistry,IDisposable
     {
         public long Version => 0;
         public event Action Changed { add { } remove { } }
         public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new ThemeRegistration();
-        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, UnityEngine.Color>(), new Dictionary<string, float>());
-        public UnityEngine.Color PrimaryText => default(UnityEngine.Color); public UnityEngine.Color SecondaryText => default(UnityEngine.Color);
-        public UnityEngine.Color Background => default(UnityEngine.Color); public UnityEngine.Color Surface => default(UnityEngine.Color);
-        public UnityEngine.Color Separator => default(UnityEngine.Color); public UnityEngine.Color HoverHighlight => default(UnityEngine.Color);
-        public UnityEngine.Color Pending => default(UnityEngine.Color); public UnityEngine.Color Error => default(UnityEngine.Color);
-        public UnityEngine.Color Success => default(UnityEngine.Color); public UnityEngine.Color Warning => default(UnityEngine.Color);
-        public UnityEngine.Color GetColor(string key) => default(UnityEngine.Color);
-        public bool TryGetColor(string key, out UnityEngine.Color value) { value = default(UnityEngine.Color); return true; }
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, ClientRgba>(), new Dictionary<string, float>());
+        public PhinixClient.Framework.ClientRgba PrimaryText => default(PhinixClient.Framework.ClientRgba); public PhinixClient.Framework.ClientRgba SecondaryText => default(PhinixClient.Framework.ClientRgba);
+        public PhinixClient.Framework.ClientRgba Background => default(PhinixClient.Framework.ClientRgba); public PhinixClient.Framework.ClientRgba Surface => default(PhinixClient.Framework.ClientRgba);
+        public PhinixClient.Framework.ClientRgba Separator => default(PhinixClient.Framework.ClientRgba); public PhinixClient.Framework.ClientRgba HoverHighlight => default(PhinixClient.Framework.ClientRgba);
+        public PhinixClient.Framework.ClientRgba Pending => default(PhinixClient.Framework.ClientRgba); public PhinixClient.Framework.ClientRgba Error => default(PhinixClient.Framework.ClientRgba);
+        public PhinixClient.Framework.ClientRgba Success => default(PhinixClient.Framework.ClientRgba); public PhinixClient.Framework.ClientRgba Warning => default(PhinixClient.Framework.ClientRgba);
+        public PhinixClient.Framework.ClientRgba GetColor(string key) => default(PhinixClient.Framework.ClientRgba);
+        public bool TryGetColor(string key, out PhinixClient.Framework.ClientRgba value) { value = default(PhinixClient.Framework.ClientRgba); return true; }
         public float GetFloat(string key, float defaultValue = 0f) => defaultValue;
         public int Queued,Opened,Disposed; private EventHandler shell;
         public bool ThrowOnRemove; public readonly List<Action> Actions=new List<Action>();
@@ -302,7 +302,7 @@ internal static class Program
     }
     private sealed class ThemeRegistration : IClientThemeRegistration
     {
-        public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+        public void RegisterColor(string key, PhinixClient.Framework.ClientRgba value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
         public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
         public void Commit() { }
         public void Dispose() { }

@@ -28,15 +28,15 @@ internal static partial class Program
     private sealed class LongCommand : IClientContributedAction
     { public string Label => new string('x', 50); public string DisabledReason => null; public ClientActionExecutionResult TryExecute() => new ClientActionExecutionResult { Completed = true }; }
     private sealed class Region : IClientPresentationRegion
-    { public float Measure(float width,IClientThemeReader t)=>float.NaN; public void Draw(Rect r,IClientThemeReader t)=>throw new Exception("region"); }
+    { public float Measure(float width,IClientThemeReader t)=>float.NaN; public void Draw(IClientPresentationDrawContext context)=>throw new Exception("region"); }
     private sealed class Theme : IClientTheme
     {
         private long version;
         public long Version=>version; public event Action Changed;
         public void Change(){version++;Changed?.Invoke();}
-        public Color PrimaryText=>Color.white;public Color SecondaryText=>Color.gray;public Color Background=>Color.clear;public Color Surface=>Color.gray;public Color Separator=>Color.gray;public Color HoverHighlight=>Color.gray;public Color Pending=>Color.gray;public Color Error=>Color.gray;public Color Success=>Color.gray;public Color Warning=>Color.gray;
-        public Color GetColor(string k)=>Color.white;public bool TryGetColor(string k,out Color c){c=Color.white;return true;}public float GetFloat(string k,float d=0)=>d;
-        public ClientThemeSnapshot Capture(){var colors=new Dictionary<string,Color>();foreach(var k in new[]{"ui.text.primary","ui.text.secondary","ui.background","ui.surface","ui.separator","ui.hover","ui.pending","ui.error","ui.success","ui.warning","ui.accent","ui.button.background","ui.button.hover","ui.button.pressed","ui.control.disabled","ui.input.background","ui.input.focus"})colors[k]=Color.white;colors["plugin.hover"]=new Color(.123f,.234f,.345f);colors["plugin.selected"]=new Color(.456f,.567f,.678f);return new ClientThemeSnapshot(version,colors,new Dictionary<string,float>());}
+        public PhinixClient.Framework.ClientRgba PrimaryText=>new ClientRgba(1,1,1);public PhinixClient.Framework.ClientRgba SecondaryText=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Background=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Surface=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Separator=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba HoverHighlight=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Pending=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Error=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Success=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Warning=>new ClientRgba(.5f,.5f,.5f);
+        public PhinixClient.Framework.ClientRgba GetColor(string k)=>new ClientRgba(1,1,1);public bool TryGetColor(string k,out PhinixClient.Framework.ClientRgba c){c=new ClientRgba(1,1,1);return true;}public float GetFloat(string k,float d=0)=>d;
+        public ClientThemeSnapshot Capture(){var colors=new Dictionary<string,ClientRgba>();foreach(var k in new[]{"ui.text.primary","ui.text.secondary","ui.background","ui.surface","ui.separator","ui.hover","ui.pending","ui.error","ui.success","ui.warning","ui.accent","ui.button.background","ui.button.hover","ui.button.pressed","ui.control.disabled","ui.input.background","ui.input.focus"})colors[k]=new ClientRgba(1,1,1);colors["plugin.hover"]=new ClientRgba(.123f,.234f,.345f);colors["plugin.selected"]=new ClientRgba(.456f,.567f,.678f);return new ClientThemeSnapshot(version,colors,new Dictionary<string,float>());}
     }
     private static ClientPresentationPage Page(long revision,ClientPresentationAction binding=null,ClientPresentationRegion region=null)
     {return new ClientPresentationPage("page","title",revision,new[]{new ClientPresentationSection("section","","",binding==null?null:new[]{binding},fields:new[]{new ClientPresentationTextField("filter","Filter","")},region:region)});}
@@ -46,7 +46,14 @@ internal static partial class Program
         CheckListThemeRoles();
         CheckTradeQuantityDraft();
         CheckTradeListProjection();
+        CheckRowControlsAndSharedFooter();
+        CheckInlineTradeOfferDrafts();
+        CheckCompactPresentationLayout();
         CheckReadOnlyList();
+        CheckImageLeases();
+        CheckImageSlots();
+        CheckDrawContext();
+        CheckMenuSnapshots();
         var roleList=new ClientPresentationList("roles",new[]{new ClientPresentationRow("one","One")},"", "one");
         var colored=roleList.WithColors("plugin.hover","plugin.selected");
         Check(roleList.HoverColorKey==null&&colored.HoverColorKey=="plugin.hover"&&colored.SelectedId=="one","Public list roles are immutable and preserve selection");
@@ -62,70 +69,70 @@ internal static partial class Program
         var session=service.Open(new Module(),"page");var command=new Command();var set=new ActionSet{Actions=new[]{command}};
         var binding=new ClientPresentationAction("execute",command);
         session.Publish(Page(1,binding),set,()=>current);
-        var menu = session.CreateActionMenuOptions();
+        var menu = session.CreateActionMenuItems();
         Check(menu.Count == 1 && menu[0].Label == command.Label, "Native menu uses published owned binding");
-        current = false; Event.current.type = EventType.MouseDown; menu[0].Action();
+        current = false; Event.current.type = EventType.MouseDown; menu[0].Request();
         Check(command.Calls == 0, "Native menu rejects stale context");
-        Check(session.CreateActionMenuOptions()[0].Action == null, "Stale menu options are disabled");
+        Check(session.CreateActionMenuItems()[0].Request == null, "Stale menu options are disabled");
         current = true;
         var rejected=new ActionSet{Actions=new IClientContributedAction[0]};
         Reject(()=>session.Publish(Page(2,binding),rejected,()=>true),"Foreign action rejected before transfer");Check(set.Disposals==0&&rejected.Disposals==0,"Failed publication retains prior owner and caller set");
         Reject(()=>session.Publish(Page(1),null,()=>true),"Old revision rejected");
         Reject(()=>session.Publish(Page(2,binding),set,()=>true),"Owned set cannot be reused");
-        Event.current.type=EventType.Layout;Widgets.ClickLabel="execute";session.Draw(new Rect(0,0,600,500));Check(command.Calls==0,"Layout never executes commands");
-        Event.current.type=EventType.MouseDown;Widgets.ClickLabel="execute";session.Draw(new Rect(0,0,600,500));Check(command.Calls==1,"Explicit input executes once");
-        Widgets.ClickLabel="execute";session.Draw(new Rect(0,0,600,500));Check(command.Calls==1,"Same binding cannot execute twice");
+        Event.current.type=EventType.Layout;Widgets.ClickLabel="execute";session.Draw(new ClientPresentationBounds(0,0,600,500));Check(command.Calls==0,"Layout never executes commands");
+        Event.current.type=EventType.MouseDown;Widgets.ClickLabel="execute";session.Draw(new ClientPresentationBounds(0,0,600,500));Check(command.Calls==1,"Explicit input executes once");
+        Widgets.ClickLabel="execute";session.Draw(new ClientPresentationBounds(0,0,600,500));Check(command.Calls==1,"Same binding cannot execute twice");
         var draftSet=new ActionSet{Actions=new[]{command}};session.Publish(Page(2,binding),draftSet,()=>current);
-        Event.current.type=EventType.KeyDown;Widgets.FieldValue="unconsumed";session.Draw(new Rect(0,0,600,500));
-        Event.current.type=EventType.MouseDown;Widgets.ClickLabel="execute";session.Draw(new Rect(0,0,600,500));Check(command.Calls==1,"Unconsumed drafts cannot execute old projected arguments");
+        Event.current.type=EventType.KeyDown;Widgets.FieldValue="unconsumed";session.Draw(new ClientPresentationBounds(0,0,600,500));
+        Event.current.type=EventType.MouseDown;Widgets.ClickLabel="execute";session.Draw(new ClientPresentationBounds(0,0,600,500));Check(command.Calls==1,"Unconsumed drafts cannot execute old projected arguments");
         session.Publish(Page(3),null,()=>current);Check(set.Disposals==1,"Replacement releases transferred actions");
-        Event.current.type=EventType.KeyDown;Widgets.FieldValue="query";session.Draw(new Rect(0,0,600,500));Check(session.TryDequeueInput(out var input)&&input.Value=="query"&&input.Revision==3,"Fields emit revision-scoped draft input");
-        Widgets.FieldValue="old";session.Draw(new Rect(0,0,600,500));session.Publish(Page(4),null,()=>current);Check(!session.TryDequeueInput(out input),"Publish invalidates queued input");
-        Widgets.FieldValue="stale";current=false;session.Draw(new Rect(0,0,600,500));Check(!session.TryDequeueInput(out input),"Stale context emits no usable input");current=true;
-        session.Publish(Page(5,region:new ClientPresentationRegion("region",new Region())),null,()=>current);session.Draw(new Rect(0,0,600,500));Check(session.FailureCode=="RegionMeasureFailed","Region failure isolated and reported");theme.Change();session.Draw(new Rect(0,0,600,500));
+        Event.current.type=EventType.KeyDown;Widgets.FieldValue="query";session.Draw(new ClientPresentationBounds(0,0,600,500));Check(session.TryDequeueInput(out var input)&&input.Value=="query"&&input.Revision==3,"Fields emit revision-scoped draft input");
+        Widgets.FieldValue="old";session.Draw(new ClientPresentationBounds(0,0,600,500));session.Publish(Page(4),null,()=>current);Check(!session.TryDequeueInput(out input),"Publish invalidates queued input");
+        Widgets.FieldValue="stale";current=false;session.Draw(new ClientPresentationBounds(0,0,600,500));Check(!session.TryDequeueInput(out input),"Stale context emits no usable input");current=true;
+        session.Publish(Page(5,region:new ClientPresentationRegion("region",new Region())),null,()=>current);session.Draw(new ClientPresentationBounds(0,0,600,500));Check(session.FailureCode=="RegionMeasureFailed","Region failure isolated and reported");theme.Change();session.Draw(new ClientPresentationBounds(0,0,600,500));
         mainThread=false;Reject(()=>session.TryDequeueInput(out input),"Input drain enforces main thread");mainThread=true;
         var confirmSet=new ActionSet{Actions=new[]{command}};session.Publish(Page(6,new ClientPresentationAction("execute",command,confirmation:new ClientPresentationConfirmation("Confirm","Body","Accept","Cancel"))),confirmSet,()=>current);
-        Widgets.ClickLabel="execute";Event.current.type=EventType.MouseDown;session.Draw(new Rect(0,0,600,500));var confirmation=Find.WindowStack.Last;Check(confirmation!=null&&command.Calls==1,"Confirmation does not execute early");
+        Widgets.ClickLabel="execute";Event.current.type=EventType.MouseDown;session.Draw(new ClientPresentationBounds(0,0,600,500));var confirmation=Find.WindowStack.Last;Check(confirmation!=null&&command.Calls==1,"Confirmation does not execute early");
         life.Dispose();Widgets.ClickLabel="Accept";confirmation.DoWindowContents(new Rect(0,0,500,350));Check(session.IsClosed&&command.Calls==1&&confirmSet.Disposals==1,"Module stop closes view and invalidates confirmation");
         session.Dispose();Check(confirmSet.Disposals==1,"Close is idempotent");
         var composerSession=service.Open(new Module(),"dock");var submitSet=new ActionSet{Actions=new[]{command}};
         composerSession.Publish(new ClientPresentationPage("dock","",1,null,new ClientPresentationComposer(new ClientPresentationTextField("draft","",""),binding)),submitSet,()=>current);
         GUI.FocusControl(composerSession.ComposerControlName);Input.compositionString="中";Event.current.type=EventType.KeyDown;Event.current.keyCode=KeyCode.Return;
-        composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"IME composition Enter does not submit");
-        Input.compositionString="";Event.current.type=EventType.KeyDown;composerSession.Draw(new Rect(0,0,600,64));Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested,"Focused Enter emits explicit intent");
-        Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;composerSession.Draw(new Rect(0,0,600,64));
+        composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"IME composition Enter does not submit");
+        Input.compositionString="";Event.current.type=EventType.KeyDown;composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested,"Focused Enter emits explicit intent");
+        Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;composerSession.Draw(new ClientPresentationBounds(0,0,600,64));
         Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested&&!composerSession.TryDequeueInput(out input),"Text field consuming unchanged Return still emits exactly one submit intent");
         foreach(var key in new[]{KeyCode.Return,KeyCode.KeypadEnter})
         {
             Event.current.type=EventType.KeyDown;Event.current.keyCode=key;Widgets.ConsumeFieldEvent=true;Input.compositionString="中";
-            composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Consumed IME confirmation does not submit: "+key);
+            composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Consumed IME confirmation does not submit: "+key);
             Input.compositionString="";Event.current.type=EventType.KeyDown;Event.current.keyCode=key;Widgets.ConsumeFieldEvent=true;
-            composerSession.Draw(new Rect(0,0,600,64));Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested&&!composerSession.TryDequeueInput(out input),"Consumed submit works with either Enter key: "+key);
-            composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Already consumed event cannot submit twice: "+key);
+            composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.SubmitRequested&&!composerSession.TryDequeueInput(out input),"Consumed submit works with either Enter key: "+key);
+            composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Already consumed event cannot submit twice: "+key);
         }
         GUI.FocusControl("");Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;
-        composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Unfocused consumed Enter does not submit");
+        composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Unfocused consumed Enter does not submit");
         GUI.FocusControl(composerSession.ComposerControlName);
-        Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;Widgets.FieldValue="中文";composerSession.Draw(new Rect(0,0,600,64));
+        Event.current.type=EventType.KeyDown;Widgets.ConsumeFieldEvent=true;Widgets.FieldValue="中文";composerSession.Draw(new ClientPresentationBounds(0,0,600,64));
         Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.TextChanged&&input.Value=="中文"&&!composerSession.TryDequeueInput(out input),"Return committing text retains it without submitting");
         foreach(var pass in new[]{EventType.Layout,EventType.Repaint})
         {
-            Event.current.type=pass;Widgets.FieldValue=pass.ToString()+"中文";composerSession.Draw(new Rect(0,0,600,64));
+            Event.current.type=pass;Widgets.FieldValue=pass.ToString()+"中文";composerSession.Draw(new ClientPresentationBounds(0,0,600,64));
             Check(composerSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.TextChanged&&input.Value==composerSession.ComposerDraft,"Asynchronous bridge commit survives GUI pass: "+pass);
-            composerSession.Draw(new Rect(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Unchanged pass does not duplicate bridge input: "+pass);
+            composerSession.Draw(new ClientPresentationBounds(0,0,600,64));Check(!composerSession.TryDequeueInput(out input),"Unchanged pass does not duplicate bridge input: "+pass);
         }
         Check(command.Calls==1,"Async text acceptance never executes a business action");
         var fieldService=new ClientPresentationService(new Lifetime(),theme,()=>true,_=>{});
         var fieldSession=fieldService.Open(new Module(),"page");fieldSession.Publish(Page(1),null,()=>true);
         foreach(var pass in new[]{EventType.Layout,EventType.Repaint})
         {
-            Event.current.type=pass;Widgets.FieldValue=pass.ToString()+"字段";fieldSession.Draw(new Rect(0,0,600,500));
+            Event.current.type=pass;Widgets.FieldValue=pass.ToString()+"字段";fieldSession.Draw(new ClientPresentationBounds(0,0,600,500));
             Check(fieldSession.TryDequeueInput(out input)&&input.Value==pass.ToString()+"字段","Ordinary public field accepts bridge commit: "+pass);
         }
         fieldSession.Dispose();
         GUI.FocusControl("");
-        Event.current.type=EventType.KeyDown;Widgets.FieldValue="latest";composerSession.Draw(new Rect(0,0,600,64));
-        Event.current.type=EventType.MouseDown;Widgets.ClickLabel="execute";composerSession.Draw(new Rect(0,0,600,64));
+        Event.current.type=EventType.KeyDown;Widgets.FieldValue="latest";composerSession.Draw(new ClientPresentationBounds(0,0,600,64));
+        Event.current.type=EventType.MouseDown;Widgets.ClickLabel="execute";composerSession.Draw(new ClientPresentationBounds(0,0,600,64));
         Check(command.Calls==1,"Composer input never dispatches business during Draw");
         bool submitted=false;while(composerSession.TryDequeueInput(out input)) if(input.Kind==ClientPresentationInputKind.SubmitRequested){submitted=input.Value=="latest";}
         Check(submitted,"Composer submit intent carries latest draft");
@@ -140,17 +147,17 @@ internal static partial class Program
         Reject(()=>new ClientPresentationFeed("duplicate",new[]{feed.Rows[0],feed.Rows[0]},""),"Feed rejects duplicate row identity");
         Reject(()=>new ClientPresentationMedia("invalid",ClientPresentationMediaState.Ready,"",aspectRatio:float.NaN),"Media rejects nonfinite geometry");
         feedSession.Publish(new ClientPresentationPage("feed","",1,new[]{new ClientPresentationSection("stream-section",feed)}),null,()=>current);
-        Event.current.type=EventType.Layout;Widgets.InvisibleClicks=1;feedSession.Draw(new Rect(0,0,600,400));Check(!feedSession.TryDequeueInput(out input),"Feed Layout neither selects nor requests media");
-        Widgets.InvisibleClicks=0;Event.current.type=EventType.Repaint;feedSession.Draw(new Rect(0,0,600,400));
+        Event.current.type=EventType.Layout;Widgets.InvisibleClicks=1;feedSession.Draw(new ClientPresentationBounds(0,0,600,400));Check(!feedSession.TryDequeueInput(out input),"Feed Layout neither selects nor requests media");
+        Widgets.InvisibleClicks=0;Event.current.type=EventType.Repaint;feedSession.Draw(new ClientPresentationBounds(0,0,600,400));
         Check(feedSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.FeedMediaVisible&&input.Value=="row"&&input.Target=="image","Visible media is a revision-scoped owner intent");
-        feedSession.Draw(new Rect(0,0,600,400));Check(!feedSession.TryDequeueInput(out input),"Repeated Repaint does not duplicate media requests");
-        Event.current.type=EventType.MouseDown;Widgets.InvisibleClicks=1;feedSession.Draw(new Rect(0,0,600,400));
+        feedSession.Draw(new ClientPresentationBounds(0,0,600,400));Check(!feedSession.TryDequeueInput(out input),"Repeated Repaint does not duplicate media requests");
+        Event.current.type=EventType.MouseDown;Widgets.InvisibleClicks=1;feedSession.Draw(new ClientPresentationBounds(0,0,600,400));
         Check(feedSession.TryDequeueInput(out input)&&input.Kind==ClientPresentationInputKind.FeedHeadingSelected,"Feed heading emits a selection, not a business command");
         feedSession.ScrollToRow("stream","row");feedSession.ScrollToEnd();
-        Event.current.type=EventType.MouseDown;Widgets.InvisibleClicks=1;feedSession.Draw(new Rect(0,0,600,400));
+        Event.current.type=EventType.MouseDown;Widgets.InvisibleClicks=1;feedSession.Draw(new ClientPresentationBounds(0,0,600,400));
         feedSession.Publish(new ClientPresentationPage("feed","",2,new[]{new ClientPresentationSection("stream-section",feed)}),null,()=>current);
         Check(!feedSession.TryDequeueInput(out input),"Replacing feed invalidates queued row input");
-        current=false;Widgets.InvisibleClicks=1;feedSession.Draw(new Rect(0,0,600,400));Check(!feedSession.TryDequeueInput(out input),"Stale feed emits no usable input");current=true;
+        current=false;Widgets.InvisibleClicks=1;feedSession.Draw(new ClientPresentationBounds(0,0,600,400));Check(!feedSession.TryDequeueInput(out input),"Stale feed emits no usable input");current=true;
         feedSession.Dispose();Reject(()=>feedSession.ScrollToEnd(),"Closed feed rejects late scroll intent");
         var mediaSession = service.Open(new Module(), "media-saturation");
         var manyMedia = new System.Collections.Generic.List<ClientPresentationMedia>();
@@ -161,10 +168,10 @@ internal static partial class Program
         }, "", false);
         mediaSession.Publish(new ClientPresentationPage("media-saturation", "", 1,
             new[] { new ClientPresentationSection("media-stream", saturationFeed) }), null, () => true);
-        Event.current.type = EventType.Repaint; mediaSession.Draw(new Rect(0, 0, 600, 8000));
+        Event.current.type = EventType.Repaint; mediaSession.Draw(new ClientPresentationBounds(0, 0, 600, 8000));
         int delivered = 0; while (mediaSession.TryDequeueInput(out input)) delivered++;
         Check(delivered == 32, "Visible media delivery respects bounded input queue");
-        mediaSession.Draw(new Rect(0, 0, 600, 8000));
+        mediaSession.Draw(new ClientPresentationBounds(0, 0, 600, 8000));
         Check(mediaSession.TryDequeueInput(out input) && input.Value == "second" && !mediaSession.TryDequeueInput(out input),
             "Undelivered visible media retries without republishing or duplicating delivered events");
         mediaSession.Dispose();
@@ -172,13 +179,13 @@ internal static partial class Program
         integerSession.Publish(new ClientPresentationPage("integer", "", 1, new[] { new ClientPresentationSection("number", "", "",
             fields: new[] { ClientPresentationTextField.Integer("quantity", "Quantity", "1") }) }), null, () => true);
         Event.current.type = EventType.KeyDown; Widgets.FieldValue = "9223372036854775807";
-        integerSession.Draw(new Rect(0, 0, 600, 400));
+        integerSession.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         Check(integerSession.TryDequeueInput(out input) && input.Value == long.MaxValue.ToString(), "Integer field retains full Int64 text without float conversion");
-        Widgets.FieldValue = "9223372036854775808"; integerSession.Draw(new Rect(0, 0, 600, 400));
+        Widgets.FieldValue = "9223372036854775808"; integerSession.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         Check(integerSession.TryDequeueInput(out input) && !long.TryParse(input.Value, out _), "Integer overflow remains an owner validation draft rather than clamping to another quantity");
-        Widgets.FieldValue = "-"; integerSession.Draw(new Rect(0, 0, 600, 400));
+        Widgets.FieldValue = "-"; integerSession.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         Check(integerSession.TryDequeueInput(out input) && input.Value == "-", "Integer syntax permits intermediate minus draft");
-        Widgets.FieldValue = "abc"; integerSession.Draw(new Rect(0, 0, 600, 400));
+        Widgets.FieldValue = "abc"; integerSession.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         Check(!integerSession.TryDequeueInput(out input) && Widgets.LastValidator != null, "Host applies numeric syntax hint without business execution");
         integerSession.Dispose();
         var longSummary = new string('x', 5000);
@@ -197,20 +204,20 @@ internal static partial class Program
         }).WithSplitView(new ClientPresentationSplitView(1, "Browse", "Details"));
         splitSession.Publish(splitPage(1, null), new ActionSet { Actions = new[] { command } }, () => current);
         Widgets.FieldValue = null; Widgets.ClickLabel = null; Widgets.ScrollStarts.Clear(); Widgets.NextScrollY = 300;
-        Event.current.type = EventType.Repaint; splitSession.Draw(new Rect(0, 0, 1000, 400));
+        Event.current.type = EventType.Repaint; splitSession.Draw(new ClientPresentationBounds(0, 0, 1000, 400));
         Check(Widgets.ScrollStarts.Count == 2, "Wide split renders two independent scroll viewports");
-        Widgets.ScrollStarts.Clear(); splitSession.Draw(new Rect(0, 0, 1000, 400));
+        Widgets.ScrollStarts.Clear(); splitSession.Draw(new ClientPresentationBounds(0, 0, 1000, 400));
         Check(Widgets.ScrollStarts[0] == 300 && Widgets.ScrollStarts[1] == 0, "Catalogue scroll does not move details");
         splitSession.Publish(splitPage(2, "row.50"), new ActionSet { Actions = new[] { command } }, () => current);
-        Widgets.ScrollStarts.Clear(); splitSession.Draw(new Rect(0, 0, 1000, 400));
+        Widgets.ScrollStarts.Clear(); splitSession.Draw(new ClientPresentationBounds(0, 0, 1000, 400));
         Check(Widgets.ScrollStarts[0] == 300 && Widgets.ScrollStarts[1] == 0, "Selection refresh preserves catalogue position");
-        Widgets.ScrollStarts.Clear(); splitSession.Draw(new Rect(0, 0, 500, 400));
+        Widgets.ScrollStarts.Clear(); splitSession.Draw(new ClientPresentationBounds(0, 0, 500, 400));
         Check(Widgets.ScrollStarts.Count == 1, "Narrow split shows one pane instead of stacked long page");
         int splitCalls = command.Calls;
-        Widgets.ClickLabel = "execute"; Event.current.type = EventType.MouseDown; splitSession.Draw(new Rect(0, 0, 500, 400));
+        Widgets.ClickLabel = "execute"; Event.current.type = EventType.MouseDown; splitSession.Draw(new ClientPresentationBounds(0, 0, 500, 400));
         Check(command.Calls == splitCalls + 1, "Narrow details retain same owned action execution");
         current = false; splitSession.Publish(splitPage(3, "row.50"), new ActionSet { Actions = new[] { command } }, () => current);
-        Widgets.ClickLabel = "execute"; splitSession.Draw(new Rect(0, 0, 1000, 400));
+        Widgets.ClickLabel = "execute"; splitSession.Draw(new ClientPresentationBounds(0, 0, 1000, 400));
         Check(command.Calls == splitCalls + 1, "Split actions reject stale owner context"); current = true;
         splitSession.Dispose();
         var footerSession = service.Open(new Module(), "footer-demo");
@@ -224,20 +231,20 @@ internal static partial class Program
             new ClientPresentationSection("other", "Other", "") }).WithSplitView(new ClientPresentationSplitView(3,"Left","Right").WithFixedHeaders(0,1,0).WithFixedFooters(1,0));
         Check(dockedPage.SplitView.WithAlignedHeaders().PrimaryFooterSections == 1, "Split copies retain fixed footer hints");
         footerSession.Publish(dockedPage,new ActionSet { Actions=new[] { command } },()=>true);
-        Event.current.type=EventType.Repaint;Widgets.Labels.Clear();Widgets.ScrollStarts.Clear();footerSession.Draw(new Rect(0,0,1200,900));
+        Event.current.type=EventType.Repaint;Widgets.Labels.Clear();Widgets.ScrollStarts.Clear();footerSession.Draw(new ClientPresentationBounds(0,0,1200,900));
         var amountLabel=Widgets.Labels.Find(l=>l.Text=="Amount");var portionLabel=Widgets.Labels.Find(l=>l.Text=="Portions");
         Check(amountLabel.Rect.y==portionLabel.Rect.y&&amountLabel.Rect.x<portionLabel.Rect.x,"Wide footer fields occupy the same row");
         Check(Widgets.ScrollStarts.Count==3,"Fixed footer, item body and secondary pane have independent scrolling");
-        Widgets.Labels.Clear();footerSession.Draw(new Rect(0,0,350,900));
+        Widgets.Labels.Clear();footerSession.Draw(new ClientPresentationBounds(0,0,350,900));
         amountLabel=Widgets.Labels.Find(l=>l.Text=="Amount");portionLabel=Widgets.Labels.Find(l=>l.Text=="Portions");
         Check(portionLabel.Rect.y>amountLabel.Rect.y,"Field columns collapse at the declared minimum width");
-        int footerCalls=command.Calls;Widgets.ClickLabel="execute";Event.current.type=EventType.MouseDown;footerSession.Draw(new Rect(0,0,1200,900));
+        int footerCalls=command.Calls;Widgets.ClickLabel="execute";Event.current.type=EventType.MouseDown;footerSession.Draw(new ClientPresentationBounds(0,0,1200,900));
         Check(command.Calls==footerCalls+1,"Fixed footer executes the same public owned action");
         var closeFooter=new ClosingCommand {Close=footerSession.Dispose};var closeBinding=new ClientPresentationAction("close",closeFooter);
         footerSession.Publish(new ClientPresentationPage("footer-demo","",2,new[]{
             new ClientPresentationSection("body","Body",""), new ClientPresentationSection("dock","","",new[]{closeBinding}), new ClientPresentationSection("secondary","Other","")
         }).WithSplitView(new ClientPresentationSplitView(2,"Left","Right").WithFixedFooters(1,0)),new ActionSet {Actions=new[]{closeFooter}},()=>true);
-        Widgets.ClickLabel="close-footer";footerSession.Draw(new Rect(0,0,1200,900));Check(footerSession.IsClosed,"An action can close its view during fixed-footer Draw without dereferencing the disposed page");
+        Widgets.ClickLabel="close-footer";footerSession.Draw(new ClientPresentationBounds(0,0,1200,900));Check(footerSession.IsClosed,"An action can close its view during fixed-footer Draw without dereferencing the disposed page");
         var rightMetadata = new ClientPresentationFeedRow("metadata", "Name", "12:34", "Body");
         var leftMetadata = rightMetadata.WithMetadataPlacement(ClientPresentationMetadataPlacement.AfterHeading);
         Check(rightMetadata.MetadataPlacement == ClientPresentationMetadataPlacement.Right && leftMetadata.MetadataPlacement == ClientPresentationMetadataPlacement.AfterHeading,
@@ -268,7 +275,7 @@ internal static partial class Program
             new ClientPresentationSection("metadata-section", new ClientPresentationFeed("metadata-feed", new[] { rightMetadata }, ""))
         }), null, () => current);
         Widgets.Labels.Clear(); int ellipsisBefore = Widgets.EllipsisCalls;
-        Event.current.type = EventType.Repaint; metadataSession.Draw(new Rect(0, 0, 600, 400));
+        Event.current.type = EventType.Repaint; metadataSession.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         bool timeRendered = false;
         foreach (var label in Widgets.Labels) if (label.Text == "12:34") timeRendered = label.Font == GameFont.Tiny && label.Rect.width >= 64;
         Check(timeRendered && Widgets.EllipsisCalls == ellipsisBefore,
@@ -277,10 +284,10 @@ internal static partial class Program
         var selectedBinding = binding.WithSelection();
         Check(!binding.IsSelected && selectedBinding.IsSelected && ReferenceEquals(binding.Action, selectedBinding.Action),
             "Selected action projection is immutable and retains original owned authority");
-        var badge = new ClientPresentationBadge("official", "Owner supplied", Texture2D.whiteTexture);
+        var badge = new ClientPresentationBadge("official", "Owner supplied", ClientTextureImage.FromTexture(Texture2D.whiteTexture));
         var plainRow = new ClientPresentationRow("badge-row", "Package");
         var badgeRow = plainRow.WithBadges(new[] { badge });
-        Check(plainRow.Badges.Count == 0 && badgeRow.Badges.Count == 1 && ReferenceEquals(badgeRow.Badges[0].Icon, Texture2D.whiteTexture), "Borrowed badges retain original icon without mutating row");
+        Check(plainRow.Badges.Count == 0 && badgeRow.Badges.Count == 1 && ImageTexture(badgeRow.Badges[0].Image, Texture2D.whiteTexture), "Borrowed badges retain original icon without mutating row");
         var badgeSection = new ClientPresentationSection("badge-section", "Title", "").WithBadges(new[] { badge });
         Check(!badgeSection.WrapActions && badgeSection.WithWrappedActions().Badges.Count == 1, "Badge and action-wrap projections compose independently");
         Reject(() => plainRow.WithBadges(new[] { badge, badge }), "Duplicate badge identity rejected");
@@ -294,23 +301,23 @@ internal static partial class Program
         }).WithSplitView(new ClientPresentationSplitView(3, "Browse", "Details").WithFixedHeaders(1, 1, 1, contextId).WithAlignedHeaders());
         pinned.Publish(pinnedPage(1, "entry.a"), new ActionSet { Actions = new[] { command } }, () => true);
         Event.current.type = EventType.Repaint; Widgets.ScrollStarts.Clear(); Widgets.ScrollWorldY.Clear(); Widgets.NextScrollY = 300;
-        pinned.Draw(new Rect(0, 0, 1000, 1000));
+        pinned.Draw(new ClientPresentationBounds(0, 0, 1000, 1000));
         Check(Widgets.ScrollStarts.Count == 2, "Global tools and both pane headers remain fixed while only content scrolls");
         Check(Widgets.ScrollWorldY[0] == Widgets.ScrollWorldY[1], "Explicit aligned headers give catalogue and detail body the same baseline");
-        Event.current.type = EventType.MouseDown; Widgets.ClickLabel = "Details"; Widgets.NextScrollY = 200; pinned.Draw(new Rect(0, 0, 500, 1000));
-        Event.current.type = EventType.Repaint; Widgets.ScrollStarts.Clear(); pinned.Draw(new Rect(0, 0, 500, 1000));
+        Event.current.type = EventType.MouseDown; Widgets.ClickLabel = "Details"; Widgets.NextScrollY = 200; pinned.Draw(new ClientPresentationBounds(0, 0, 500, 1000));
+        Event.current.type = EventType.Repaint; Widgets.ScrollStarts.Clear(); pinned.Draw(new ClientPresentationBounds(0, 0, 500, 1000));
         Check(Widgets.ScrollStarts.Count == 1 && Widgets.ScrollStarts[0] == 200, "Details body scroll remains independent beneath fixed actions");
         pinned.Publish(pinnedPage(2, "entry.b"), new ActionSet { Actions = new[] { command } }, () => true);
-        Widgets.ScrollStarts.Clear(); pinned.Draw(new Rect(0, 0, 500, 1000));
+        Widgets.ScrollStarts.Clear(); pinned.Draw(new ClientPresentationBounds(0, 0, 500, 1000));
         Check(Widgets.ScrollStarts[0] == 0, "Owner context identity resets details even when selected list row is absent or unchanged");
-        Widgets.ScrollStarts.Clear(); pinned.Draw(new Rect(0, 0, 1000, 1000));
+        Widgets.ScrollStarts.Clear(); pinned.Draw(new ClientPresentationBounds(0, 0, 1000, 1000));
         Check(Widgets.ScrollStarts[0] == 300, "New detail context preserves catalogue scroll position");
-        pinned.Draw(new Rect(0, 0, 500, 200)); Check(pinned.FailureCode == null, "Short-height fixed headers degrade without negative or failing layout");
+        pinned.Draw(new ClientPresentationBounds(0, 0, 500, 200)); Check(pinned.FailureCode == null, "Short-height fixed headers degrade without negative or failing layout");
         Reject(() => pinnedPage(3, "entry.c").WithSplitView(new ClientPresentationSplitView(3, "Browse", "Details").WithFixedHeaders(1, 1, 2)), "Pinned layout requires scrollable secondary content");
         pinned.Dispose();
         var emptyCard = service.Open(new Module(), "empty-card");
         emptyCard.Publish(new ClientPresentationPage("empty-card", "", 1, new[] { new ClientPresentationSection("empty", "", "") }), null, () => true);
-        GUI.SurfaceCalls = 0; emptyCard.Draw(new Rect(0, 0, 600, 400));
+        GUI.SurfaceCalls = 0; emptyCard.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         Check(GUI.SurfaceCalls == 0, "Empty sections do not produce blank surface cards"); emptyCard.Dispose();
         var menuModel = new ClientPresentationActionMenu("tools", "More", new[] { binding.Id });
         var menuSection = new ClientPresentationSection("menu", "", "", new[] { binding }).WithWrappedActions().WithPlainLayout().WithActionMenus(new[] { menuModel });
@@ -319,7 +326,7 @@ internal static partial class Program
         Reject(() => menuSection.WithActionMenus(new[] { new ClientPresentationActionMenu("foreign", "More", new[] { "foreign" }) }), "Menu cannot point to foreign action binding");
         var groupView = service.Open(new Module(), "grouped");
         groupView.Publish(new ClientPresentationPage("grouped", "", 1, new[] { menuSection }), new ActionSet { Actions = new[] { command } }, () => current);
-        Event.current.type = EventType.MouseDown; Widgets.ClickLabel = "More"; groupView.Draw(new Rect(0, 0, 600, 400));
+        Event.current.type = EventType.MouseDown; Widgets.ClickLabel = "More"; groupView.Draw(new ClientPresentationBounds(0, 0, 600, 400));
         var groupedMenu = Find.WindowStack.Last as FloatMenu;
         Check(groupedMenu != null && groupedMenu.Options.Count == 1, "Grouped menu opens populated native FloatMenu with selected owned actions");
         int menuCalls = command.Calls; current = false; groupedMenu.Options[0].Action();
@@ -343,7 +350,7 @@ internal static partial class Program
         Check(tinyForm.InputRect.width >= 0 && tinyForm.ActionRect.height >= 0, "Short narrow form retains normalized geometry");
         var longSend = new LongCommand(); var longDock = service.Open(new Module(), "long-dock");
         longDock.Publish(new ClientPresentationPage("long-dock", "", 1, null, new ClientPresentationComposer(new ClientPresentationTextField("draft", "", ""), new ClientPresentationAction("long-submit", longSend))), new ActionSet { Actions = new[] { longSend } }, () => true);
-        Widgets.FieldValue = null; Event.current.type = EventType.Repaint; longDock.Draw(new Rect(0,0,600,240));
+        Widgets.FieldValue = null; Event.current.type = EventType.Repaint; longDock.Draw(new ClientPresentationBounds(0,0,600,240));
         Check(Widgets.LastFieldRect.width > 300, "Long composer action moves below draft instead of consuming its input width");
         Check(longDock.MeasureComposerHeight(600) > 64, "Owner docking query reserves the same responsive composer height as Host drawing"); longDock.Dispose();
         var singlePage = new ClientPresentationPage("single-header", "Single title", 1, new[] {
@@ -355,10 +362,10 @@ internal static partial class Program
         Reject(() => singlePage.WithSplitView(new ClientPresentationSplitView(1, "A", "B")), "Single and split fixed header declarations cannot conflict");
         var singleView=service.Open(new Module(), "single-header");singleView.Publish(singlePage,null,()=>true);
         Event.current.type=EventType.Repaint;Widgets.Labels.Clear();Widgets.ScrollStarts.Clear();Widgets.NextScrollY=200;
-        singleView.Draw(new Rect(0,0,600,700));
+        singleView.Draw(new ClientPresentationBounds(0,0,600,700));
         int titleCount=0;foreach(var label in Widgets.Labels) if(label.Text=="Single title") titleCount++;
         Check(Widgets.ScrollStarts.Count==1 && titleCount<=1, "Single fixed header leaves only body scrolling and does not duplicate title per pane");
-        Widgets.ScrollStarts.Clear();singleView.Draw(new Rect(0,0,600,700));
+        Widgets.ScrollStarts.Clear();singleView.Draw(new ClientPresentationBounds(0,0,600,700));
         Check(Widgets.ScrollStarts.Count==1 && Widgets.ScrollStarts[0]==200, "Single body retains its own scroll beneath fixed controls");singleView.Dispose();
         var rawRange=new ClientPresentationTextField("range", "Parameter", "unfinished");
         var ranged=rawRange.WithSlider(new ClientPresentationSlider(0,1,.5f));
@@ -366,12 +373,12 @@ internal static partial class Program
         Reject(()=>new ClientPresentationSlider(0,1,float.NaN),"Slider rejects nonfinite value");Reject(()=>new ClientPresentationSlider(1,0,.5f),"Slider rejects inverted bounds");
         Reject(()=>ClientPresentationTextField.Integer("integer-range","","0").WithSlider(new ClientPresentationSlider(0,1,0)),"Integer fields do not silently become approximate floats");
         Reject(()=>new ClientPresentationComposer(ranged,binding),"Single-line composer rejects unsupported slider layout");
-        var swatch=new ClientPresentationSwatch("sample","sample",new Color(.4f,.5f,.6f,.5f));
+        var swatch=new ClientPresentationSwatch("sample","sample",new ClientRgba(.4f,.5f,.6f,.5f));
         var chipSection=new ClientPresentationSection("chips","","").WithSwatches(new[]{swatch}).WithPlainLayout();
         Check(chipSection.Swatches.Count==1,"Public swatches survive section composition");Reject(()=>chipSection.WithSwatches(new[]{swatch,swatch}),"Duplicate swatches rejected");
-        Reject(()=>new ClientPresentationSwatch("bad","",new Color(float.NaN,0,0)),"Swatches reject invalid RGBA");
+        Reject(()=>new ClientPresentationSwatch("bad","",new ClientRgba(float.NaN,0,0)),"Swatches reject invalid RGBA");
         var rangeView=service.Open(new Module(),"range-demo");rangeView.Publish(new ClientPresentationPage("range-demo","",1,new[]{new ClientPresentationSection("field","","",fields:new[]{ranged}),chipSection}),null,()=>true);
-        Widgets.FieldValue=null;Widgets.SliderValue=.75f;Event.current.type=EventType.MouseDown;rangeView.Draw(new Rect(0,0,400,500));
+        Widgets.FieldValue=null;Widgets.SliderValue=.75f;Event.current.type=EventType.MouseDown;rangeView.Draw(new ClientPresentationBounds(0,0,400,500));
         Check(rangeView.TryDequeueInput(out var rangeInput)&&rangeInput.Id=="range"&&rangeInput.Kind==ClientPresentationInputKind.TextChanged&&rangeInput.Value=="0.75","Slider emits same raw text intent without committing business state");
         Check(Widgets.LastSliderRect.y>=Widgets.LastFieldRect.yMax,"Responsive slider stays below text input");rangeView.Dispose();
         Console.WriteLine("PASS: "+checks+" presentation contract/lifecycle/renderer checks (stub GUI, not game acceptance)");

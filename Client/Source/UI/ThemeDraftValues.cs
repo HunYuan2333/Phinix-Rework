@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using PhinixClient.Framework;
-using UnityEngine;
 
 namespace PhinixClient
 {
@@ -20,7 +19,7 @@ namespace PhinixClient
             input.Invalid=!valid;if(!valid)return;
             draft.InheritedKeys.Remove(key);
             if(isFloat){draft.Colors.Remove(key);draft.Floats[key]=values[0];}
-            else {draft.Floats.Remove(key);draft.Colors[key]=new Color(values[0],values[1],values[2],values[3]);}
+            else {draft.Floats.Remove(key);draft.Colors[key]=new ClientRgba(values[0],values[1],values[2],values[3]);}
         }
         internal static void Clear(ClientThemeDraft draft,IDictionary<string,ThemeDraftInput> inputs,string key,bool inherit)
         {draft.Colors.Remove(key);draft.Floats.Remove(key);draft.InheritedKeys.Remove(key);if(inherit)draft.InheritedKeys.Add(key);inputs.Remove(key);}

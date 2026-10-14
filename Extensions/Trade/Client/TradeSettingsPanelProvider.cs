@@ -29,7 +29,7 @@ namespace Phinix.TradeExtension.Client
             using (TradeTheme.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                UnityEngine.GUI.color = TradeTheme.Current.PrimaryText;
+                UnityEngine.GUI.color = TradeTheme.Current.PrimaryText.ToUnityColor();
                 DrawSettingsContents(listing, settings);
             }
         }

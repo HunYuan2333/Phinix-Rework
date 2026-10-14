@@ -152,13 +152,6 @@ namespace PhinixClient.Framework
         long DroppedCount { get; }
     }
 
-    public interface IClientWindowService
-    {
-        void Open(Window window);
-
-        void OpenSettingsWindow();
-    }
-
     public interface IClientSettingsWindowService
     {
         void OpenSettingsWindow();
@@ -172,11 +165,6 @@ namespace PhinixClient.Framework
     public interface IClientLegacySettingsMigrator
     {
         bool TryMigrateLegacySettings(IClientSettingsContext settings, IReadOnlyDictionary<string, string> legacyValues);
-    }
-
-    public interface ITradeRequestApi
-    {
-        void CreateTrade(string uuid);
     }
 
     /// <summary>

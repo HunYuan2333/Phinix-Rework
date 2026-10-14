@@ -116,6 +116,7 @@
     <Phinix_trade_browseNext>下一页</Phinix_trade_browseNext>
     <Phinix_trade_browsePage>第 {0} / {1} 页</Phinix_trade_browsePage>
   <Phinix_trade_editorTitle>交易报价</Phinix_trade_editorTitle>
+  <Phinix_trade_editorQuantity>数量</Phinix_trade_editorQuantity>
   <Phinix_trade_editorAvailable>可加入报价的物品</Phinix_trade_editorAvailable>
   <Phinix_trade_editorWaiting>正在等待结果，请勿重复提交。</Phinix_trade_editorWaiting>
   <Phinix_trade_editorOfferSubmitted>报价已提交，等待确认。</Phinix_trade_editorOfferSubmitted>

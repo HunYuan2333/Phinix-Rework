@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using UnityEngine;
 using PhinixClient.Framework;
 using Utils.Framework;
 using System.Runtime.CompilerServices;
@@ -24,7 +23,7 @@ namespace PhinixClient
         private Dictionary<string, ClientThemeFloat> floatDefinitions = new Dictionary<string, ClientThemeFloat>(StringComparer.Ordinal);
         private Dictionary<string, ThemeDefinition> themes = new Dictionary<string, ThemeDefinition>(StringComparer.Ordinal);
         private readonly Dictionary<string, ClientThemeDraft> profiles = new Dictionary<string, ClientThemeDraft>(StringComparer.Ordinal);
-        private ClientThemeSnapshot effective = new ClientThemeSnapshot(0, new Dictionary<string, Color>(), new Dictionary<string, float>());
+        private ClientThemeSnapshot effective = new ClientThemeSnapshot(0, new Dictionary<string, ClientRgba>(), new Dictionary<string, float>());
         private readonly HashSet<Type> moduleTypes = new HashSet<Type>();
         private readonly Dictionary<IPhinixExtensionModule, string> activeModules = new Dictionary<IPhinixExtensionModule, string>(ModuleIdentity.Instance);
         private readonly Dictionary<IPhinixExtensionModule, Registration> registrations = new Dictionary<IPhinixExtensionModule, Registration>(ModuleIdentity.Instance);
@@ -42,40 +41,40 @@ namespace PhinixClient
             using (var defaults = new Registration(this, "builtin.host", null, null, "Phinix_theme_owner_host"))
             {
                 // Host definitions have process lifetime, unlike plugin registration leases.
-                defaults.RegisterColor("ui.text.primary", new Color(1f,.95f,.88f), label: "Phinix_theme_label_ui_text_primary", group: "Phinix_theme_group_text", description: "Phinix_theme_desc_ui_text_primary");
-                defaults.RegisterColor("ui.text.secondary", new Color(.55f,.52f,.48f,.8f), label: "Phinix_theme_label_ui_text_secondary", group: "Phinix_theme_group_text", description: "Phinix_theme_desc_ui_text_secondary");
-                defaults.RegisterColor("ui.background", new Color(.08f,.08f,.06f,0f), label: "Phinix_theme_label_ui_background", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_background");
-                defaults.RegisterColor("ui.surface", new Color(1f,1f,1f,.04f), label: "Phinix_theme_label_ui_surface", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_surface");
-                defaults.RegisterColor("ui.separator", new Color(1f,1f,1f,.06f), label: "Phinix_theme_label_ui_separator", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_separator");
-                defaults.RegisterColor("ui.hover", new Color(1f,1f,1f,.08f), label: "Phinix_theme_label_ui_hover", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_hover");
-                defaults.RegisterColor("ui.pending", new Color(1f,1f,1f,.6f), label: "Phinix_theme_label_ui_pending", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_pending");
-                defaults.RegisterColor("ui.error", new Color(.85f,.3f,.25f), label: "Phinix_theme_label_ui_error", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_error");
-                defaults.RegisterColor("ui.success", new Color(.3f,.65f,.35f), label: "Phinix_theme_label_ui_success", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_success");
-                defaults.RegisterColor("ui.warning", new Color(.9f,.72f,.25f), label: "Phinix_theme_label_ui_warning", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_warning");
-                defaults.RegisterColor("ui.accent", new Color(.32f,.66f,.95f), label: "Phinix_theme_label_ui_accent", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_accent");
-                defaults.RegisterColor("ui.button.background", new Color(.223529f,.207843f,.176471f,1f), label: "Phinix_theme_label_ui_button_background", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_button_background");
-                defaults.RegisterColor("ui.button.hover", new Color(.286275f,.266667f,.227451f,1f), label: "Phinix_theme_label_ui_button_hover", fallbackKey: "ui.hover", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_button_hover");
-                defaults.RegisterColor("ui.button.pressed", new Color(.32f,.3f,.24f,1f), label: "Phinix_theme_label_ui_button_pressed", fallbackKey: "ui.accent", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_button_pressed");
-                defaults.RegisterColor("ui.control.disabled", new Color(.12f,.12f,.12f,.65f), label: "Phinix_theme_label_ui_control_disabled", fallbackKey: "ui.surface", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_control_disabled");
-                defaults.RegisterColor("ui.input.background", Color.white, label: "Phinix_theme_label_ui_input_background", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_input_background");
-                defaults.RegisterColor("ui.input.focus", new Color(.32f,.66f,.95f), label: "Phinix_theme_label_ui_input_focus", fallbackKey: "ui.accent", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_input_focus");
+                defaults.RegisterColor("ui.text.primary", new ClientRgba(1f,.95f,.88f), label: "Phinix_theme_label_ui_text_primary", group: "Phinix_theme_group_text", description: "Phinix_theme_desc_ui_text_primary");
+                defaults.RegisterColor("ui.text.secondary", new ClientRgba(.55f,.52f,.48f,.8f), label: "Phinix_theme_label_ui_text_secondary", group: "Phinix_theme_group_text", description: "Phinix_theme_desc_ui_text_secondary");
+                defaults.RegisterColor("ui.background", new ClientRgba(.08f,.08f,.06f,0f), label: "Phinix_theme_label_ui_background", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_background");
+                defaults.RegisterColor("ui.surface", new ClientRgba(1f,1f,1f,.04f), label: "Phinix_theme_label_ui_surface", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_surface");
+                defaults.RegisterColor("ui.separator", new ClientRgba(1f,1f,1f,.06f), label: "Phinix_theme_label_ui_separator", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_separator");
+                defaults.RegisterColor("ui.hover", new ClientRgba(1f,1f,1f,.08f), label: "Phinix_theme_label_ui_hover", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_hover");
+                defaults.RegisterColor("ui.pending", new ClientRgba(1f,1f,1f,.6f), label: "Phinix_theme_label_ui_pending", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_pending");
+                defaults.RegisterColor("ui.error", new ClientRgba(.85f,.3f,.25f), label: "Phinix_theme_label_ui_error", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_error");
+                defaults.RegisterColor("ui.success", new ClientRgba(.3f,.65f,.35f), label: "Phinix_theme_label_ui_success", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_success");
+                defaults.RegisterColor("ui.warning", new ClientRgba(.9f,.72f,.25f), label: "Phinix_theme_label_ui_warning", group: "Phinix_theme_group_status", description: "Phinix_theme_desc_ui_warning");
+                defaults.RegisterColor("ui.accent", new ClientRgba(.32f,.66f,.95f), label: "Phinix_theme_label_ui_accent", group: "Phinix_theme_group_surface", description: "Phinix_theme_desc_ui_accent");
+                defaults.RegisterColor("ui.button.background", new ClientRgba(.223529f,.207843f,.176471f,1f), label: "Phinix_theme_label_ui_button_background", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_button_background");
+                defaults.RegisterColor("ui.button.hover", new ClientRgba(.286275f,.266667f,.227451f,1f), label: "Phinix_theme_label_ui_button_hover", fallbackKey: "ui.hover", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_button_hover");
+                defaults.RegisterColor("ui.button.pressed", new ClientRgba(.32f,.3f,.24f,1f), label: "Phinix_theme_label_ui_button_pressed", fallbackKey: "ui.accent", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_button_pressed");
+                defaults.RegisterColor("ui.control.disabled", new ClientRgba(.12f,.12f,.12f,.65f), label: "Phinix_theme_label_ui_control_disabled", fallbackKey: "ui.surface", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_control_disabled");
+                defaults.RegisterColor("ui.input.background", new ClientRgba(1,1,1), label: "Phinix_theme_label_ui_input_background", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_input_background");
+                defaults.RegisterColor("ui.input.focus", new ClientRgba(.32f,.66f,.95f), label: "Phinix_theme_label_ui_input_focus", fallbackKey: "ui.accent", group: "Phinix_theme_group_controls", description: "Phinix_theme_desc_ui_input_focus");
                 // No baseline XML values: old/custom palettes inherit their existing roles.
-                defaults.RegisterColor("ui.action.primary", new Color(.32f,.66f,.95f), fallbackKey: "ui.accent", label: "Phinix_theme_label_ui_action_primary", group: "Phinix_theme_group_controls");
-                defaults.RegisterColor("ui.navigation.selected", new Color(1f,1f,1f,.08f), fallbackKey: "ui.hover", label: "Phinix_theme_label_ui_navigation_selected", group: "Phinix_theme_group_controls");
-                defaults.RegisterColor("ui.badge.maintained", new Color(.38f, .82f, .66f), label: "Phinix_theme_label_badge_maintained", group: "Phinix_theme_group_controls");
-                defaults.RegisterColor("ui.badge.development", new Color(.95f, .68f, .36f), label: "Phinix_theme_label_badge_development", group: "Phinix_theme_group_controls");
-                defaults.RegisterColor("ui.badge.external", new Color(.65f, .7f, .95f), label: "Phinix_theme_label_badge_external", group: "Phinix_theme_group_controls");
-                defaults.RegisterColor("ui.badge.managed", new Color(.38f, .72f, .95f), label: "Phinix_theme_label_badge_managed", group: "Phinix_theme_group_controls");
-                defaults.RegisterColor("ext.statusActive", new Color(.3f,.8f,.3f), label: "Phinix_theme_label_ext_statusActive", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusActive");
-                defaults.RegisterColor("ext.statusFailed", new Color(1f,0f,0f), label: "Phinix_theme_label_ext_statusFailed", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusFailed");
-                defaults.RegisterColor("ext.statusDisabled", new Color(.45f,.45f,.45f), label: "Phinix_theme_label_ext_statusDisabled", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusDisabled");
-                defaults.RegisterColor("ext.statusDependencyDisabled", new Color(.95f,.75f,.25f), label: "Phinix_theme_label_ext_statusDependencyDisabled", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusDependencyDisabled");
-                defaults.RegisterColor("ext.statusRegistered", new Color(.8f,.8f,.3f), label: "Phinix_theme_label_ext_statusRegistered", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusRegistered");
-                defaults.RegisterColor("ext.statusDefault", new Color(.5f,.5f,.5f), label: "Phinix_theme_label_ext_statusDefault", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusDefault");
-                defaults.RegisterColor("ext.logDiagnostic", new Color(.5f,.5f,.5f), label: "Phinix_theme_label_ext_logDiagnostic", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_logDiagnostic");
-                defaults.RegisterColor("ext.logWarning", new Color(1f,0f,0f), label: "Phinix_theme_label_ext_logWarning", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_logWarning");
-                defaults.RegisterColor("ext.headerText", new Color(.5f,.5f,.5f), label: "Phinix_theme_label_ext_headerText", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_headerText");
-                defaults.RegisterColor("ext.summaryText", new Color(1f,1f,1f), label: "Phinix_theme_label_ext_summaryText", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_summaryText");
+                defaults.RegisterColor("ui.action.primary", new ClientRgba(.32f,.66f,.95f), fallbackKey: "ui.accent", label: "Phinix_theme_label_ui_action_primary", group: "Phinix_theme_group_controls");
+                defaults.RegisterColor("ui.navigation.selected", new ClientRgba(1f,1f,1f,.08f), fallbackKey: "ui.hover", label: "Phinix_theme_label_ui_navigation_selected", group: "Phinix_theme_group_controls");
+                defaults.RegisterColor("ui.badge.maintained", new ClientRgba(.38f, .82f, .66f), label: "Phinix_theme_label_badge_maintained", group: "Phinix_theme_group_controls");
+                defaults.RegisterColor("ui.badge.development", new ClientRgba(.95f, .68f, .36f), label: "Phinix_theme_label_badge_development", group: "Phinix_theme_group_controls");
+                defaults.RegisterColor("ui.badge.external", new ClientRgba(.65f, .7f, .95f), label: "Phinix_theme_label_badge_external", group: "Phinix_theme_group_controls");
+                defaults.RegisterColor("ui.badge.managed", new ClientRgba(.38f, .72f, .95f), label: "Phinix_theme_label_badge_managed", group: "Phinix_theme_group_controls");
+                defaults.RegisterColor("ext.statusActive", new ClientRgba(.3f,.8f,.3f), label: "Phinix_theme_label_ext_statusActive", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusActive");
+                defaults.RegisterColor("ext.statusFailed", new ClientRgba(1f,0f,0f), label: "Phinix_theme_label_ext_statusFailed", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusFailed");
+                defaults.RegisterColor("ext.statusDisabled", new ClientRgba(.45f,.45f,.45f), label: "Phinix_theme_label_ext_statusDisabled", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusDisabled");
+                defaults.RegisterColor("ext.statusDependencyDisabled", new ClientRgba(.95f,.75f,.25f), label: "Phinix_theme_label_ext_statusDependencyDisabled", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusDependencyDisabled");
+                defaults.RegisterColor("ext.statusRegistered", new ClientRgba(.8f,.8f,.3f), label: "Phinix_theme_label_ext_statusRegistered", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusRegistered");
+                defaults.RegisterColor("ext.statusDefault", new ClientRgba(.5f,.5f,.5f), label: "Phinix_theme_label_ext_statusDefault", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_statusDefault");
+                defaults.RegisterColor("ext.logDiagnostic", new ClientRgba(.5f,.5f,.5f), label: "Phinix_theme_label_ext_logDiagnostic", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_logDiagnostic");
+                defaults.RegisterColor("ext.logWarning", new ClientRgba(1f,0f,0f), label: "Phinix_theme_label_ext_logWarning", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_logWarning");
+                defaults.RegisterColor("ext.headerText", new ClientRgba(.5f,.5f,.5f), label: "Phinix_theme_label_ext_headerText", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_headerText");
+                defaults.RegisterColor("ext.summaryText", new ClientRgba(1f,1f,1f), label: "Phinix_theme_label_ext_summaryText", group: "Phinix_theme_group_extension", description: "Phinix_theme_desc_ext_summaryText");
 
                 defaults.Commit();
                 defaults.Keep = true;
@@ -85,24 +84,24 @@ namespace PhinixClient
         public long Version => effective.Version;
         public ClientThemeSnapshot Capture() => effective;
         public event Action Changed;
-        public Color PrimaryText => GetColor("ui.text.primary");
-        public Color SecondaryText => GetColor("ui.text.secondary");
-        public Color Background => GetColor("ui.background");
-        public Color Surface => GetColor("ui.surface");
-        public Color Separator => GetColor("ui.separator");
-        public Color HoverHighlight => GetColor("ui.hover");
-        public Color Pending => GetColor("ui.pending");
-        public Color Error => GetColor("ui.error");
-        public Color Success => GetColor("ui.success");
-        public Color Warning => GetColor("ui.warning");
+        public ClientRgba PrimaryText => GetColor("ui.text.primary");
+        public ClientRgba SecondaryText => GetColor("ui.text.secondary");
+        public ClientRgba Background => GetColor("ui.background");
+        public ClientRgba Surface => GetColor("ui.surface");
+        public ClientRgba Separator => GetColor("ui.separator");
+        public ClientRgba HoverHighlight => GetColor("ui.hover");
+        public ClientRgba Pending => GetColor("ui.pending");
+        public ClientRgba Error => GetColor("ui.error");
+        public ClientRgba Success => GetColor("ui.success");
+        public ClientRgba Warning => GetColor("ui.warning");
         public string SelectedThemeId => selected;
         public IReadOnlyList<ClientThemeInfo> Themes => catalog;
         public IReadOnlyList<ClientThemeColor> Colors => editable;
         public IReadOnlyList<ClientThemeFloat> Parameters => parameters;
         public IReadOnlyList<string> Diagnostics => diagnostics;
-        public Color GetColor(string key)
-        { if (!TryGetColor(key, out Color value)) throw new KeyNotFoundException("Unregistered theme color: " + key); return value; }
-        public bool TryGetColor(string key, out Color value) => effective.TryGetColor(key, out value);
+        public ClientRgba GetColor(string key)
+        { if (!TryGetColor(key, out ClientRgba value)) throw new KeyNotFoundException("Unregistered theme color: " + key); return value; }
+        public bool TryGetColor(string key, out ClientRgba value) => effective.TryGetColor(key, out value);
         public float GetFloat(string key, float defaultValue = 0f) => effective.GetFloat(key, defaultValue);
         internal void SetModuleTypes(IEnumerable<Type> types)
         { requireMainThread(); foreach (var type in types) moduleTypes.Add(type); }
@@ -158,7 +157,7 @@ namespace PhinixClient
                 try
                 {
                     var value = source.Document==null ? ThemeInputAdapter.Read(source.Path,source.Id,source.Source)
-                        : ThemeInputAdapter.Read(XDocument.Parse(Encoding.UTF8.GetString(source.Document)),source.Id,source.Source,source.Name);
+                        : ThemeInputAdapter.Read(ThemeInputAdapter.ReadXml(source.Document),source.Id,source.Source,source.Name);
                     if(source.Document!=null) value.Info=new ClientThemeInfo(source.Id,source.Name,source.Author,source.Source);
                     if (source.Id == "builtin.default") next[source.Id] = value;
                     else if (!next.ContainsKey(source.Id)) next.Add(source.Id, value);
@@ -199,7 +198,7 @@ namespace PhinixClient
             {
                 var definition = entries[key];
                 bool inherited = active != null && edits != null && edits.InheritedKeys.Contains(key);
-                Color value = definition.DefaultColor;
+                ClientRgba value = definition.DefaultColor;
                 ClientThemeValueSource source = ClientThemeValueSource.Default;
                 bool found = false;
                 if (active != null && !inherited && edits != null && edits.Colors.TryGetValue(key, out value)) { source = ClientThemeValueSource.UserOverride; found = true; }
@@ -219,10 +218,10 @@ namespace PhinixClient
             }
             throw new InvalidOperationException("Theme fallback cycle.");
         }
-        private Dictionary<string, Color> ResolveColors(IDictionary<string, ClientThemeColor> entries,
+        private Dictionary<string, ClientRgba> ResolveColors(IDictionary<string, ClientThemeColor> entries,
             string themeId, ClientThemeDraft edits)
         {
-            var colors = new Dictionary<string, Color>(StringComparer.Ordinal);
+            var colors = new Dictionary<string, ClientRgba>(StringComparer.Ordinal);
             foreach (string key in entries.Keys) colors.Add(key, ResolveColor(entries, themeId, edits, key).Value);
             return colors;
         }
@@ -238,7 +237,7 @@ namespace PhinixClient
             else if (!inherited && active != null && active.Floats.TryGetValue(key, out value)) source = ClientThemeValueSource.Theme;
             else if (!inherited && !(active != null && active.InheritedKeys.Contains(key)) && baseline != null && baseline.Floats.TryGetValue(key, out value)) source = ClientThemeValueSource.BuiltInTheme;
             else value = definition.DefaultValue;
-            float bounded = Mathf.Clamp(value, definition.Minimum, definition.Maximum);
+            float bounded = Math.Max(definition.Minimum, Math.Min(definition.Maximum, value));
             return new ClientThemeFloatPreview(bounded, source, bounded != value);
         }
         private static void ValidateDefinitions(IDictionary<string, ClientThemeColor> entries)
@@ -284,7 +283,7 @@ namespace PhinixClient
             profiles.TryGetValue(themeId, out var profile);
             return new ClientThemeDraft(themeId, profile?.Colors, profile?.Floats, profile?.InheritedKeys);
         }
-        public Color Preview(ClientThemeDraft draft, string key) => PreviewColor(draft, key).Value;
+        public ClientRgba Preview(ClientThemeDraft draft, string key) => PreviewColor(draft, key).Value;
         public ClientThemeColorPreview PreviewColor(ClientThemeDraft draft, string key)
         {
             if (draft == null) throw new ArgumentNullException(nameof(draft));
@@ -437,7 +436,7 @@ namespace PhinixClient
                 if (label != null && label.Length > 256 || group != null && group.Length > 160 || description != null && description.Length > 2048)
                     throw new ArgumentException("Theme metadata limit.");
             }
-            public void RegisterColor(string key, Color value, string label = null, string fallbackKey = null, string group = null, string description = null)
+            public void RegisterColor(string key, ClientRgba value, string label = null, string fallbackKey = null, string group = null, string description = null)
             {
                 Stage(key); Metadata(label, group, description); ThemeInputAdapter.Validate(value);
                 colors.Add(key, new ClientThemeColor(owner, key, label, value, fallbackKey, group, description, ownerLabel));

@@ -149,7 +149,7 @@ namespace Phinix.ChatExtension.Client
                         new[] { new ClientPresentationSection("message", "", preview, bindings) }), actions, current);
                 }
                 catch { actions.Dispose(); throw; }
-                Options = session.CreateActionMenuOptions();
+                Options = ClientPresentationMenus.ToGameOptions(session.CreateActionMenuItems());
                 if (Options.Count == 0) throw new InvalidOperationException("ChatMessageActionsMissing");
                 contributions = nextPoints; language = nextLanguage; result = nextResult; publishedPage = nextPage;
             }

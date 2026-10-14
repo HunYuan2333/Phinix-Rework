@@ -104,3 +104,19 @@ Trade offer 本地资源绑定发起 Game 与 activation；失效后不写当前
 ## 2026-10-12 B25 库存恢复核对边界
 
 ITradeInventoryRecoveryApi 是 Trade 普通只读 API，读取既有 Inventory reservation journal，未改变保存格式。它不是自动恢复/物理托管档案/结果权威；不 Resolve/Restore/Materialize/退款。公共恢复 context 不继承同 ID 活跃 Trade 的官方操作，数量为 codec units，game/lifetime/cache 与来源事件配对。Host 保持中立，使用原公共 list/typed point；完整恢复与编辑门槛见 roadmap §16.33。
+
+## 2026-10-13 RimWorld 1.7 迁移合同门槛
+
+用户已授权按 Roadmap 逐步迁移，优先新 API、保留专门的 1.6 引擎 adapter，不新增旧客户端组合分支。Trade request 类型归属、Inventory 游戏 helper 程序集、presentation Draw 参数与 Swatch 值类型的变更属于 ABI 破坏性迁移，按 API 3.0 联合闭合。当前正式产品/API 2.0、正式插件范围与固定 Host pin 仍是历史发行基线，尚未更新；不得把中间 DLL 单独部署到这些包。旧接口保留/Obsolete 的一般规则不要求本迁移再增旧客户端 UI 桥。
+
+Bounds/RGBA 仅数值契约首切片；整个 Abstractions 仍有引擎依赖，主题/图像/自绘/窗口/输入和两版 renderer 尚未闭合。Host 继续使用同一公共 renderer/theme/action/confirmation，业务/Thing/Pawn/codec/账本权威不因引擎迁移改变。当前游戏安装变化时按 DLL 指纹核验独立缓存，禁止把 1.6 目录或旧日志当作当前 1.7 验收。实施范围与测试状态见 docs/branch-local/dev/RimWorld-1.7-Migration-Roadmap-2026-10-13.md 及各切片记录。
+
+
+## 2026-10-14 主题中立色值与绘制边界
+
+当前迁移源码的主题 registration/reader/catalog/snapshot/draft/preview 使用 ClientRgba；绘制端显式经 Game bridge 转换，仍使用同一主题服务。整个 Abstractions 物理拆分、Region/窗口/输入与新版后端未闭合，不能据此部署或宣称游戏通过。注册、返回/out 与泛型容器签名属于 API 3.0 联合变更；正式身份/包范围/pin 未切换。主题包 byte source 与文件共用受限 XML stream reader，修复已在本地白盒确认的导出 BOM 重载失败，保存和包格式未改。
+
+
+## 2026-10-14 中立呈现程序集首切片
+
+迁移源码的普通 presentation/theme/image/action 合同现属 ClientPresentation.Contracts；原 namespace/owner/renderer 不变，旧 Abstractions 经项目引用消费它。Game bridge、widgets、原生 shell 和 UnknownItem 仍有引擎依赖，未搬存档类型。类型跨程序集是 API 3.0 联合 ABI 变更，正式身份/范围/pin 未闭合。两插件反射绑定按真实类型归属同步，不依赖“所有 SDK 类型在同一 DLL”的假设；真实联合 DLL 白盒不等于游戏加载或原生 UI 验收。完整 restore/锁图、两版加载布局与 backend 后续实施，记录见 R17-23-Presentation-Assembly 文档。

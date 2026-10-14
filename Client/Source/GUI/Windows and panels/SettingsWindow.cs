@@ -90,8 +90,8 @@ namespace PhinixClient
             using (HostThemeDrawing.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background);
-                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                ClientWidgets.Fill(inRect, HostThemeDrawing.Current.Background.ToUnityColor());
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText.ToUnityColor();
                 DrawContents(inRect);
             }
         }

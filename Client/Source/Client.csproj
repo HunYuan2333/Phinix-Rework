@@ -145,6 +145,8 @@
     <Compile Include="Framework\ManagedExtensionManagerView.cs" />
     <Compile Include="Framework\ManagedExtensionDiagnosticSummary.cs" />
     <Compile Include="Framework\ClientEnvironmentService.cs" />
+    <Compile Include="Framework\ClientGameAssemblyLayout.cs" />
+    <Compile Include="Framework\ClientRuntimeAssemblyFacts.cs" />
     <Compile Include="Framework\ClientFrameworkUserDirectoryAdapter.cs" />
     <Compile Include="Framework\ClientMainThreadDispatcher.cs" />
     <Compile Include="Framework\ClientExtensionPointService.cs" />
@@ -234,6 +236,7 @@
     <ProjectReference Include="..\Composition\Phinix.ClientComposition.csproj">
       <Name>Phinix.ClientComposition</Name>
     </ProjectReference>
+    <ProjectReference Include="../PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="..\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
@@ -295,6 +298,9 @@
     <Copy SourceFiles="$(TargetDir)\UserManagement.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\08-UserManagement.dll" />
     <Copy SourceFiles="$(TargetDir)\UserManagement.Client.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\09-UserManagement.Client.dll" />
     <Copy SourceFiles="$(TargetDir)\ClientExtensionAbstractions.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\10-ClientExtensionAbstractions.dll" />
+    <!-- Verse loads alphabetically and calls GetTypes immediately. The neutral
+         interfaces must be loaded before SDK classes implementing them. -->
+    <Copy SourceFiles="$(TargetDir)\ClientPresentation.Contracts.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\Common\Assemblies\09-ClientPresentation.Contracts.dll" />
     <Copy SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\$(GameVersion)\Assemblies\13-PhinixClient.dll" />
     <Copy Condition="'$(GameVersion)' == 'Any'" SourceFiles="$(TargetDir)\PhinixClient.dll" DestinationFiles="$(SolutionDir)\Output\phinix-rework\1.6\Assemblies\13-PhinixClient.dll" />
 
@@ -342,5 +348,10 @@
       <AbstractionsSource Include="$(SolutionDir)\Client\ClientExtensionAbstractions\**\*.csproj" />
     </ItemGroup>
     <Copy SourceFiles="@(AbstractionsSource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\Abstractions\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <PresentationContractSource Include="$(SolutionDir)\Client\PresentationContracts\**\*.cs" />
+      <PresentationContractSource Include="$(SolutionDir)\Client\PresentationContracts\**\*.csproj" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PresentationContractSource)" DestinationFolder="$(SolutionDir)\Output\phinix-rework\PresentationContracts\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 </Project>

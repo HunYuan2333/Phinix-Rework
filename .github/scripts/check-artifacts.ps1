@@ -18,10 +18,12 @@ if ($IncludeClient) {
         "$client/LoadFolders.xml",
         "$client/1.6/Assemblies/13-PhinixClient.dll",
         "$client/Common/Assemblies/10-ClientExtensionAbstractions.dll",
+        "$client/Common/Assemblies/09-ClientPresentation.Contracts.dll",
         "$client/Common/Extensions/08-ChatExtension.dll",
         "$client/Common/Extensions/09-TradeExtension.dll",
         "$client/Common/Extensions/10-LegacyAdapter.Client.dll",
         "$client/Common/Extensions/10-InventoryExtension.dll",
+        "$client/Common/Extensions/InventoryExtension.GameAdapter.dll",
         "$client/Common/Extensions/11-ChatExtension.Client.dll",
         "$client/Common/Extensions/11-InventoryExtension.Client.dll",
         "$client/Common/Extensions/12-TradeExtension.Client.dll",
@@ -50,6 +52,13 @@ if ($IncludeClient) {
     $stateSource = 'Extensions/PluginStore/Client/bin/Release/net472/Stateless.dll'
     if ((Get-FileHash $stateSource -Algorithm SHA256).Hash -ne (Get-FileHash $stateCopies[0].FullName -Algorithm SHA256).Hash) {
         throw 'Packaged Stateless asset differs from Store build'
+    }
+    $deliveryCopies = @(Get-ChildItem $client -Recurse -File -Filter "*InventoryExtension.GameAdapter.dll")
+    if ($deliveryCopies.Count -ne 1) { throw 'Expected one Inventory game adapter runtime asset' }
+    $deliverySource = 'Extensions/Inventory/GameAdapter/bin/Release/net472/InventoryExtension.GameAdapter.dll'
+    if (!(Test-Path $deliverySource -PathType Leaf)) { throw 'Missing Inventory game adapter build asset' }
+    if ((Get-FileHash $deliverySource -Algorithm SHA256).Hash -ne (Get-FileHash $deliveryCopies[0].FullName -Algorithm SHA256).Hash) {
+        throw 'Packaged Inventory game adapter differs from build'
     }
     # Optional business plugins must never reappear in a main distribution.
     $retiredFiles = Get-ChildItem $client -Recurse -File | Where-Object {

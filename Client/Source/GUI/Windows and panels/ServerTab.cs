@@ -299,8 +299,8 @@ namespace PhinixClient
             {
                 Text.Font = GameFont.Small; Text.Anchor = TextAnchor.UpperLeft; Text.WordWrap = true;
                 // Margin=0 exposes the full window to this draw group. Content padding is explicit.
-                ClientWidgets.RoundedSurface(rect, HostThemeDrawing.Current.Background, 16);
-                ClientWidgets.RoundedBorder(rect, HostThemeDrawing.Current.Separator, 16, 2);
+                ClientWidgets.RoundedSurface(rect, HostThemeDrawing.Current.Background.ToUnityColor(), 16);
+                ClientWidgets.RoundedBorder(rect, HostThemeDrawing.Current.Separator.ToUnityColor(), 16, 2);
                 rect = rect.ContractedBy(12);
                 var settingsSize = SettingsButtonSize(rect.width);
                 float navHeight = Mathf.Min(Mathf.Max(ClientWidgets.ControlHeight, settingsSize.y), rect.height);
@@ -341,7 +341,7 @@ namespace PhinixClient
                 {
                     float width = collapsed ? Mathf.Min(content.width, Mathf.Max(280f, sidePreferred)) : sideWidth;
                     var panel = new Rect(content.xMax - width, content.y, width, content.height);
-                    ClientWidgets.RoundedSurface(panel, HostThemeDrawing.Current.Surface);
+                    ClientWidgets.RoundedSurface(panel, HostThemeDrawing.Current.Surface.ToUnityColor());
                     float headerHeight = sidebars.Count > 1 ? Mathf.Min(32, panel.height) : 0;
                     if (headerHeight > 0) Navigation(new Rect(panel.x, panel.y, panel.width, headerHeight), sidebars, selectedSidebar, id => { selectedSidebar = id; UnityEngine.GUI.FocusControl(null); });
                     DrawProvider(sidebars.Find(e => e.Id == selectedSidebar), new Rect(panel.x, panel.y + headerHeight, panel.width, Mathf.Max(0, panel.height - headerHeight)), (api, area) => api.Draw(area));

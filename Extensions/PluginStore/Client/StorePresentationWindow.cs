@@ -51,7 +51,7 @@ namespace Phinix.PluginStore
         }
         public override void PostClose()
         { var old=presentation;presentation=null;try {old?.Dispose();}finally {base.PostClose();} }
-        public override void DoWindowContents(Rect rect) {if(Available) presentation?.Draw(rect);}
+        public override void DoWindowContents(Rect rect) {if(Available) presentation?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height));}
         protected static string T(string key) => ("Phinix_store2_"+key).Translate();
         protected static string Safe(string text) => (text??"").Replace("<","‹").Replace(">","›");
         protected void Publish(string title,string state,IEnumerable<ClientActionDefinition> definitions,

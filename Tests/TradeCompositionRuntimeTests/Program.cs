@@ -25,6 +25,7 @@ internal static partial class Program
             string dll=args.Length>1?args[1]:Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"TradeExtension.Client.dll");
             Type type=Assembly.LoadFrom(Path.GetFullPath(dll)).GetType("Phinix.TradeExtension.Client.BuiltInTradeClientExtension",true);
             Assert(Path.GetFullPath(type.Assembly.Location)==Path.GetFullPath(dll),"Probe must load the requested actual DLL.");
+            CheckTradeRequestBoundary();
             CheckOfferGameScope(type);
             CheckQuotePreview(type);
             CheckInventoryRecovery(type);

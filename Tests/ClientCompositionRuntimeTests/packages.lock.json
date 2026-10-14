@@ -87,6 +87,7 @@
         "type": "Project",
         "dependencies": {
           "ClientExtensionAbstractions": "[1.0.0, )",
+          "ClientPresentation.Contracts": "[1.0.0, )",
           "Google.Protobuf": "[3.34.1, )",
           "UserManagement": "[1.0.0, )",
           "Utils": "[1.0.0, )"
@@ -95,7 +96,14 @@
       "clientextensionabstractions": {
         "type": "Project",
         "dependencies": {
+          "ClientPresentation.Contracts": "[1.0.0, )",
           "UserManagement": "[1.0.0, )",
+          "Utils": "[1.0.0, )"
+        }
+      },
+      "clientpresentation.contracts": {
+        "type": "Project",
+        "dependencies": {
           "Utils": "[1.0.0, )"
         }
       },
@@ -108,7 +116,8 @@
       "Fixture.ClientAuthorEntry": {
         "type": "Project",
         "dependencies": {
-          "ClientExtensionAbstractions": "[1.0.0, )"
+          "ClientExtensionAbstractions": "[1.0.0, )",
+          "ClientPresentation.Contracts": "[1.0.0, )"
         }
       },
       "google.protobuf": {
@@ -121,7 +130,8 @@
         "type": "Project",
         "dependencies": {
           "Autofac": "[8.4.0, 8.4.0]",
-          "ClientExtensionAbstractions": "[1.0.0, )"
+          "ClientExtensionAbstractions": "[1.0.0, )",
+          "ClientPresentation.Contracts": "[1.0.0, )"
         }
       },
       "usermanagement": {

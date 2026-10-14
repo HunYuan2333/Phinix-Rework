@@ -32,7 +32,7 @@ internal static partial class Program
                 var themePackages = new ThemePackageProbe();
                 host.AddService<IClientThemePackageService>(themePackages); host.AddService<IClientThemeWindowService>(themePackages);
                 host.AddService<IClientPresentationService>(services); host.AddService<IClientExtensionPointService>(services);
-                host.AddService<IClientWindowService>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
+                host.AddService<IClientGameWindowService>(services); host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                 host.AddService<IClientExtensionManagementWindowService>(services);
                 if(scenario!="missing-service")host.AddService<IClientLinkService>(services);
                 host.AddService<IManagedExtensionManagementService>(services); host.AddService<IManagedExtensionInstallationService>(services);
@@ -109,7 +109,7 @@ internal static partial class Program
         public void OpenThemeWindow() { throw new InvalidOperationException("Activation must not open themes."); }
     }
     private sealed class StoreHost:IClientLocalizationService,IClientEnvironmentService,IClientSettingsContext,
-        IClientMainThreadDispatcher,IClientWindowService,IClientTheme,IClientThemeRegistry,IClientExtensionManagementWindowService,IClientLinkService,
+        IClientMainThreadDispatcher,IClientGameWindowService,IClientTheme,IClientThemeRegistry,IClientExtensionManagementWindowService,IClientLinkService,
         IManagedExtensionManagementService,IManagedExtensionInstallationService,IClientPresentationService,IClientExtensionPointService,IDisposable
     {
         public IClientPresentationSession Open(IPhinixExtensionModule owner, string id) { throw new InvalidOperationException("Activation must not open a presentation view."); }
@@ -158,10 +158,10 @@ internal static partial class Program
         public long Version => 0;
         public event Action Changed { add { } remove { } }
         public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
-        ClientThemeSnapshot IClientTheme.Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
-        public Color PrimaryText=>default(Color);public Color SecondaryText=>default(Color);public Color Background=>default(Color);public Color Surface=>default(Color);public Color Separator=>default(Color);
-        public Color HoverHighlight=>default(Color);public Color Pending=>default(Color);public Color Error=>default(Color);public Color Success=>default(Color);public Color Warning=>default(Color);
-        public Color GetColor(string key)=>default(Color);public bool TryGetColor(string key,out Color value){value=default(Color);return true;}
+        ClientThemeSnapshot IClientTheme.Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, ClientRgba>(), new Dictionary<string, float>());
+        public PhinixClient.Framework.ClientRgba PrimaryText=>default(ClientRgba);public PhinixClient.Framework.ClientRgba SecondaryText=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Background=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Surface=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Separator=>default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba HoverHighlight=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Pending=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Error=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Success=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Warning=>default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba GetColor(string key)=>default(ClientRgba);public bool TryGetColor(string key,out PhinixClient.Framework.ClientRgba value){value=default(ClientRgba);return true;}
         public float GetFloat(string key,float defaultValue=0f)=>defaultValue;
         public void Dispose(){Disposed++;}
     }
@@ -175,7 +175,7 @@ internal static partial class Program
 
 internal sealed class TestThemeRegistration : PhinixClient.Framework.IClientThemeRegistration
 {
-    public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+    public void RegisterColor(string key, PhinixClient.Framework.ClientRgba value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
     public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
     public void Commit() { }
     public void Dispose() { }

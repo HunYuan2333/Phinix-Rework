@@ -101,7 +101,7 @@ namespace Phinix.PluginStore
         internal StoreReleaseNotice Notice { get; }
         private bool disposed;
         public StoreReleaseNoticeLease(IClientSettingsContext settings,IClientMainThreadDispatcher dispatcher,
-            IClientWindowService windows,PluginStoreSettingsPanel panel,StoreActivationDiagnostics diagnostics)
+            IClientGameWindowService windows,PluginStoreSettingsPanel panel,StoreActivationDiagnostics diagnostics)
         {
             this.dispatcher=dispatcher;
             Notice=new StoreReleaseNotice(()=>settings.Get(StoreReleaseNotice.SettingsKey,false),

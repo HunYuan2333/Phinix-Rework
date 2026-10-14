@@ -17,9 +17,9 @@ namespace UnityEngine
     public enum TextAnchor { UpperLeft, MiddleLeft, MiddleCenter }
     public static class Mathf { public static float Min(float a,float b)=>Math.Min(a,b); public static float Max(float a,float b)=>Math.Max(a,b); public static float Clamp01(float v)=>Clamp(v,0,1); public static float Clamp(float v,float a,float b)=>Math.Max(a,Math.Min(b,v)); }
     public static class GUI { public static Color color=Color.white,backgroundColor=Color.white,contentColor=Color.white;public static bool enabled=true; public static void SetNextControlName(string name){} public static string FocusedControl=""; public static string GetNameOfFocusedControl()=>FocusedControl; private static readonly System.Collections.Generic.Stack<Vector2> Groups = new System.Collections.Generic.Stack<Vector2>();
-        public static float GroupX, GroupY;
+        public static int GroupDepth => Groups.Count; public static float GroupX, GroupY;
         public static void BeginGroup(Rect r){Groups.Push(new Vector2(GroupX,GroupY));GroupX+=r.x;GroupY+=r.y;}
-        public static void EndGroup(){var previous=Groups.Pop();GroupX=previous.x;GroupY=previous.y;} public static void FocusControl(string name){FocusedControl=name;} public static readonly System.Collections.Generic.List<Color> SurfaceColors=new System.Collections.Generic.List<Color>(); public static int SurfaceCalls; public static Rect LastIconRect; public static void DrawTexture(Rect rect,Texture2D texture){LastIconRect=rect;} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){SurfaceCalls++;SurfaceColors.Add(c);} }
+        public static void EndGroup(){var previous=Groups.Pop();GroupX=previous.x;GroupY=previous.y;} public static void FocusControl(string name){FocusedControl=name;} public static readonly System.Collections.Generic.List<Color> SurfaceColors=new System.Collections.Generic.List<Color>(); public static int SurfaceCalls; public static bool ThrowIcon; public static int IconCalls; public static Rect LastIconRect; public static void DrawTexture(Rect rect,Texture texture){IconCalls++;LastIconRect=rect;if(ThrowIcon)throw new InvalidOperationException("GPU");} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){SurfaceCalls++;SurfaceColors.Add(c);} }
     public static class Input { public static bool GetMouseButton(int button)=>false; public static string compositionString=""; }
 }
 namespace Verse
@@ -37,13 +37,14 @@ namespace Verse
         public static readonly System.Collections.Generic.List<float> ScrollWorldY = new System.Collections.Generic.List<float>();
         public static float? NextScrollY;
         public static void BeginScrollView(UnityEngine.Rect r, ref UnityEngine.Vector2 s, UnityEngine.Rect v){ScrollStarts.Add(s.y);ScrollWorldY.Add(r.y + UnityEngine.GUI.GroupY);if(NextScrollY.HasValue){s.y=NextScrollY.Value;NextScrollY=null;}} public static void EndScrollView(){}
-        public static void DrawBoxSolid(UnityEngine.Rect r,UnityEngine.Color c){}
-        public static int FittedIcons; public static void DrawTextureFitted(UnityEngine.Rect r,UnityEngine.Texture t,float scale){FittedIcons++;}
+        public static readonly System.Collections.Generic.List<(UnityEngine.Rect Rect, UnityEngine.Color Color, int GroupDepth, bool Enabled)> FilledBoxes = new System.Collections.Generic.List<(UnityEngine.Rect, UnityEngine.Color, int, bool)>();
+        public static void DrawBoxSolid(UnityEngine.Rect r,UnityEngine.Color c){FilledBoxes.Add((r,c,UnityEngine.GUI.GroupDepth,UnityEngine.GUI.enabled));}
+        public static bool ThrowFittedIcon; public static int FittedIcons; public static void DrawTextureFitted(UnityEngine.Rect r,UnityEngine.Texture t,float scale){FittedIcons++;if(ThrowFittedIcon)throw new InvalidOperationException("GPU");}
         public static readonly System.Collections.Generic.List<(string Text, GameFont Font, UnityEngine.Rect Rect)> Labels = new System.Collections.Generic.List<(string, GameFont, UnityEngine.Rect)>(); public static int EllipsisCalls; public static UnityEngine.Rect LastFieldRect; public static string LastLabel; public static void Label(UnityEngine.Rect r,string s){LastLabel=s;Labels.Add((s,Text.Font,r));}
         public static void LabelEllipses(UnityEngine.Rect r,string s){EllipsisCalls++;}
         public static void DrawBox(UnityEngine.Rect r,int thickness=1){}
         public static bool RadioButtonLabeled(UnityEngine.Rect r,string s,bool selected)=>false;
-        public static int InvisibleClicks; public static bool ButtonInvisible(UnityEngine.Rect r){if(InvisibleClicks<=0)return false;InvisibleClicks--;return UnityEngine.GUI.enabled;}
+        public static UnityEngine.Rect LastInvisibleRect; public static int InvisibleClicks; public static bool ButtonInvisible(UnityEngine.Rect r){LastInvisibleRect=r;if(InvisibleClicks<=0)return false;InvisibleClicks--;return UnityEngine.GUI.enabled;}
         public static string TextField(UnityEngine.Rect r,string s)=>s;
         public static System.Text.RegularExpressions.Regex LastValidator; public static string TextField(UnityEngine.Rect r,string s,int maxLength,System.Text.RegularExpressions.Regex inputValidator=null){LastFieldRect=r;LastValidator=inputValidator;var value=FieldValue;FieldValue=null;if(ConsumeFieldEvent){ConsumeFieldEvent=false;UnityEngine.Event.current.Use();}return value != null && (inputValidator == null || inputValidator.IsMatch(value)) ? value : s;}
         public static float? SliderValue; public static UnityEngine.Rect LastSliderRect;
@@ -66,7 +67,7 @@ namespace Verse
         public virtual UnityEngine.Vector2 InitialSize=>new UnityEngine.Vector2(); public virtual void PreOpen(){IsOpen=true;} public virtual void WindowUpdate(){} public virtual void PostClose(){} public virtual void DoWindowContents(UnityEngine.Rect r){} public void Close(){IsOpen=false;PostClose();} }
     public static class Find { public static Stack WindowStack=new Stack(); }
     public sealed class Stack { public Window Last, currentlyDrawnWindow; public FloatMenu FloatMenu; public bool GetsInput(Window w)=>true; public void Add(Window w){Last=w;} }
-    public static class TranslateStub { public static int Calls; public static string Translate(this string s){Calls++;return s;} }
+    public static class TranslateStub { public static int Calls; public static string Translate(this string s){Calls++;return s;} public static string Translate(this string s,object argument){Calls++;return s;} }
 }
 namespace Utils.Framework { public interface IPhinixExtensionModule { string ExtensionId { get; } } }
 namespace PhinixClient

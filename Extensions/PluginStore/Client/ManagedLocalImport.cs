@@ -108,7 +108,7 @@ namespace Phinix.PluginStore
                     }
                     if(total!=length) throw Error("PayloadSizeMismatch");
                     staged.Flush(true); staged.Position=0;
-                    return ManagedExtensionZip.Read(staged,token,length);
+                    return ManagedExtensionZip.Read(staged,token,length,gameVersion:environment.RimWorldVersion);
                 }
             }
             finally { NoLocalLinks(temporary); if(File.Exists(temporary)) File.Delete(temporary); }

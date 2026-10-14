@@ -9,29 +9,29 @@ namespace Phinix.ChatExtension.Client
     internal static class ChatTheme
     {
         internal static long Version => Current?.Version ?? 0;
-        public static Color MessageText => Current?.GetColor("chat.messageText") ?? default(Color);
-        public static Color InputText => Current?.GetColor("chat.inputText") ?? default(Color);
-        public static Color MentionText => Current?.GetColor("chat.mentionText") ?? default(Color);
-        public static Color MentionSelfBg => Current?.GetColor("chat.mentionSelfBg") ?? default(Color);
-        public static Color SelfName => Current?.GetColor("chat.selfName") ?? default(Color);
-        public static Color SelfMessageBg => Current?.GetColor("chat.selfMessageBg") ?? default(Color);
-        public static Color RowHoverBg => Current?.GetColor("chat.rowHoverBg") ?? default(Color);
-        public static Color GroupIndentLine => Current?.GetColor("chat.groupIndentLine") ?? default(Color);
-        public static Color ReplyQuoteBorder => Current?.GetColor("chat.replyQuoteBorder") ?? default(Color);
-        public static Color ReplyQuoteBg => Current?.GetColor("chat.replyQuoteBg") ?? default(Color);
-        public static Color ReplyQuoteText => Current?.GetColor("chat.replyQuoteText") ?? default(Color);
-        public static Color NoticeAccent => Current?.GetColor("chat.noticeAccent") ?? default(Color);
-        public static Color NoticeBg => Current?.GetColor("chat.noticeBg") ?? default(Color);
-        public static Color NoticeBannerBg => Current?.GetColor("chat.noticeBannerBg") ?? default(Color);
-        public static Color NoticeProgress => Current?.GetColor("chat.noticeProgress") ?? default(Color);
-        public static Color InputReplyBorder => Current?.GetColor("chat.inputReplyBorder") ?? default(Color);
-        public static Color InputReplyBg => Current?.GetColor("chat.inputReplyBg") ?? default(Color);
-        public static Color BlockedBg => Current?.GetColor("chat.blockedBg") ?? default(Color);
-        public static Color BlockedName => Current?.GetColor("chat.blockedName") ?? default(Color);
-        public static Color PendingMessage => Current?.GetColor("chat.pendingMessage") ?? default(Color);
-        public static Color DeniedMessage => Current?.GetColor("chat.deniedMessage") ?? default(Color);
-        public static Color ImagePlaceholderBg => Current?.GetColor("chat.imagePlaceholderBg") ?? default(Color);
-        public static Color ImageFailedText => Current?.GetColor("chat.imageFailedText") ?? default(Color);
+        public static Color MessageText => Current?.GetColor("chat.messageText").ToUnityColor() ?? default(Color);
+        public static Color InputText => Current?.GetColor("chat.inputText").ToUnityColor() ?? default(Color);
+        public static Color MentionText => Current?.GetColor("chat.mentionText").ToUnityColor() ?? default(Color);
+        public static Color MentionSelfBg => Current?.GetColor("chat.mentionSelfBg").ToUnityColor() ?? default(Color);
+        public static Color SelfName => Current?.GetColor("chat.selfName").ToUnityColor() ?? default(Color);
+        public static Color SelfMessageBg => Current?.GetColor("chat.selfMessageBg").ToUnityColor() ?? default(Color);
+        public static Color RowHoverBg => Current?.GetColor("chat.rowHoverBg").ToUnityColor() ?? default(Color);
+        public static Color GroupIndentLine => Current?.GetColor("chat.groupIndentLine").ToUnityColor() ?? default(Color);
+        public static Color ReplyQuoteBorder => Current?.GetColor("chat.replyQuoteBorder").ToUnityColor() ?? default(Color);
+        public static Color ReplyQuoteBg => Current?.GetColor("chat.replyQuoteBg").ToUnityColor() ?? default(Color);
+        public static Color ReplyQuoteText => Current?.GetColor("chat.replyQuoteText").ToUnityColor() ?? default(Color);
+        public static Color NoticeAccent => Current?.GetColor("chat.noticeAccent").ToUnityColor() ?? default(Color);
+        public static Color NoticeBg => Current?.GetColor("chat.noticeBg").ToUnityColor() ?? default(Color);
+        public static Color NoticeBannerBg => Current?.GetColor("chat.noticeBannerBg").ToUnityColor() ?? default(Color);
+        public static Color NoticeProgress => Current?.GetColor("chat.noticeProgress").ToUnityColor() ?? default(Color);
+        public static Color InputReplyBorder => Current?.GetColor("chat.inputReplyBorder").ToUnityColor() ?? default(Color);
+        public static Color InputReplyBg => Current?.GetColor("chat.inputReplyBg").ToUnityColor() ?? default(Color);
+        public static Color BlockedBg => Current?.GetColor("chat.blockedBg").ToUnityColor() ?? default(Color);
+        public static Color BlockedName => Current?.GetColor("chat.blockedName").ToUnityColor() ?? default(Color);
+        public static Color PendingMessage => Current?.GetColor("chat.pendingMessage").ToUnityColor() ?? default(Color);
+        public static Color DeniedMessage => Current?.GetColor("chat.deniedMessage").ToUnityColor() ?? default(Color);
+        public static Color ImagePlaceholderBg => Current?.GetColor("chat.imagePlaceholderBg").ToUnityColor() ?? default(Color);
+        public static Color ImageFailedText => Current?.GetColor("chat.imageFailedText").ToUnityColor() ?? default(Color);
 
         // 用户名配色 HSV 参数——由主题 XML <param> 控制，颜色计算统一走这里
         private static float nameColorSaturation => Current?.GetFloat("chat.nameColor.saturation", .55f) ?? .55f;

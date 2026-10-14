@@ -22,6 +22,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Contracts/InventoryExtension.csproj" />
+    <ProjectReference Include="../GameAdapter/InventoryExtension.GameAdapter.csproj" />
+    <ProjectReference Include="../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
     <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
   </ItemGroup>

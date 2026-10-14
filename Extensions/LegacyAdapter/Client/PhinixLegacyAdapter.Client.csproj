@@ -115,6 +115,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>

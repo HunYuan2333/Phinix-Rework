@@ -62,7 +62,7 @@ namespace Phinix.InventoryExtension.Client
             mode = nextMode; language = nextLanguage; pointRevision = nextPoints; result = nextResult;
         }
         public float GetQuickSettingsHeight(float width) => 320;
-        public void DrawQuickSettings(Rect rect, IClientSettingsContext settings) { Refresh(); view?.Draw(rect); }
+        public void DrawQuickSettings(Rect rect, IClientSettingsContext settings) { Refresh(); view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height)); }
         public void DrawSettings(Listing_Standard listing, IClientSettingsContext settings)
         { var rect = listing.GetRect(GetQuickSettingsHeight(listing.ColumnWidth)); DrawQuickSettings(rect, settings); listing.Gap(8); }
         public void Dispose() { var old = view; view = null; old?.Dispose(); scope?.Dispose(); scope = null; point = null; }

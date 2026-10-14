@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{8EB751A0-F8F9-46C6-86EE-FFB68F927D64}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Phinix.InventoryExtension</RootNamespace>
+    <AssemblyName>InventoryExtension.GameAdapter</AssemblyName>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RimWorldDepDir)' == '' and Exists('$(MSBuildThisFileDirectory)../../../GameDlls/1.6/Assembly-CSharp.dll')">
+    <RimWorldDepDir>$(MSBuildThisFileDirectory)../../../GameDlls/1.6</RimWorldDepDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RimWorldDepDir)' == ''">
+    <RimWorldDepDir>$(MSBuildThisFileDirectory)../../../GameDlls</RimWorldDepDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Contracts/InventoryExtension.csproj" />
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorldDepDir)/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="CopyToClientExtensions" AfterTargets="Build">
+    <MakeDir Directories="$(SolutionDir)Output/phinix-rework/Common/Extensions" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll" DestinationFiles="$(SolutionDir)Output/phinix-rework/Common/Extensions/InventoryExtension.GameAdapter.dll" />
+  </Target>
+</Project>

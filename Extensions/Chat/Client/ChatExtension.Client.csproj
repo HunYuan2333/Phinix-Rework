@@ -110,6 +110,9 @@
     <Compile Include="UserList.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../Trade/Contracts/TradeExtension.csproj">
+      <Name>TradeExtension</Name>
+    </ProjectReference>
     <ProjectReference Include="../../../Dependencies/Phinix.Common/Dependencies/protobuf/csharp/src/Google.Protobuf/Google.Protobuf.csproj">
       <Project>{D5BBFA59-DB31-40F8-A8BF-7333BE984316}</Project>
       <Name>Google.Protobuf</Name>
@@ -118,6 +121,7 @@
       <Project>{7B7D7B5F-D806-4A6B-B1AB-2D6EA7B4D5F4}</Project>
       <Name>ChatExtension</Name>
     </ProjectReference>
+    <ProjectReference Include="../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>

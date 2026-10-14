@@ -77,7 +77,7 @@ namespace Phinix.InventoryExtension.Client
             catch { set.Dispose(); throw; }
             language = nextLanguage; pointRevision = nextPoints; result = nextResult;
         }
-        public override void DoWindowContents(Rect rect) { view.Draw(rect); }
+        public override void DoWindowContents(Rect rect) { view.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height)); }
         private void Select(string value) { choiceMade = true; choose?.Invoke(value); Close(); }
         public override void PostClose() { try { Dispose(); } finally { base.PostClose(); } }
         public void Dispose()

@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Autofac" Version="[8.4.0]" />
+    <ProjectReference Include="../PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="../ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
   </ItemGroup>
 </Project>

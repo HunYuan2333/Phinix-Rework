@@ -70,7 +70,7 @@ namespace Phinix.ChatExtension.Client
             using (ChatTheme.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText.ToUnityColor();
                 DrawContents(inRect);
             }
         }

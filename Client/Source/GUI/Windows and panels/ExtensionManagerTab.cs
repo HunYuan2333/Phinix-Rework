@@ -61,7 +61,7 @@ namespace PhinixClient
 
         private void DrawContents(Rect inRect)
         {
-            UnityEngine.GUI.color = theme.PrimaryText;
+            UnityEngine.GUI.color = theme.PrimaryText.ToUnityColor();
             inRect.width = Mathf.Max(0f, inRect.width);
             inRect.height = Mathf.Max(0f, inRect.height);
             if (inRect.width <= 0f || inRect.height <= 0f) return;
@@ -206,7 +206,7 @@ namespace PhinixClient
                 else
                 {
                     Widgets.DrawBoxSolid(new Rect(inner.x, inner.y + 4f, checkbox, checkbox),
-                        theme.GetColor("ui.control.disabled"));
+                        theme.GetColor("ui.control.disabled").ToUnityColor());
                 }
 
                 float textX = inner.x + checkbox + Spacing;
@@ -219,7 +219,7 @@ namespace PhinixClient
                 if (compact)
                 {
                     float stateWidth = Mathf.Min(110f, textWidth * 0.35f);
-                    UnityEngine.GUI.color = theme.GetColor("ui.accent");
+                    UnityEngine.GUI.color = theme.GetColor("ui.accent").ToUnityColor();
                     Widgets.Label(new Rect(textX, inner.y, Mathf.Max(0f, inner.xMax - textX - stateWidth), 24f), row.ExtensionId);
                     UnityEngine.GUI.color = GetStatusColor(row.RuntimeState, theme);
                     Widgets.Label(new Rect(inner.xMax - stateWidth, inner.y, stateWidth, 24f), row.StateText);
@@ -228,7 +228,7 @@ namespace PhinixClient
                         row.DisplayName + (string.IsNullOrEmpty(row.Version) ? "" : "  " + row.Version));
                     Text.Font = GameFont.Tiny;
                     Widgets.Label(new Rect(textX, inner.y + 48f, Mathf.Max(0f, inner.xMax - textX), 18f), row.Source);
-                    UnityEngine.GUI.color = (row.MissingDeclaration ? theme.Warning : theme.SecondaryText);
+                    UnityEngine.GUI.color = (row.MissingDeclaration ? theme.Warning.ToUnityColor() : theme.SecondaryText.ToUnityColor());
                     Widgets.Label(new Rect(textX, inner.y + 66f, Mathf.Max(0f, inner.xMax - textX), 18f), row.Dependencies);
                 }
                 else
@@ -239,7 +239,7 @@ namespace PhinixClient
                     float versionWidth = available * 0.12f;
                     float sourceWidth = available * 0.18f;
                     float stateWidth = Mathf.Max(0f, available - idWidth - nameWidth - versionWidth - sourceWidth);
-                    UnityEngine.GUI.color = theme.GetColor("ui.accent");
+                    UnityEngine.GUI.color = theme.GetColor("ui.accent").ToUnityColor();
                     Widgets.Label(new Rect(textX, inner.y, idWidth, 24f), row.ExtensionId);
                     UnityEngine.GUI.color = oldColor;
                     Widgets.Label(new Rect(textX + idWidth, inner.y, nameWidth, 24f), row.DisplayName);
@@ -248,7 +248,7 @@ namespace PhinixClient
                     UnityEngine.GUI.color = GetStatusColor(row.RuntimeState, theme);
                     Widgets.Label(new Rect(inner.xMax - stateWidth, inner.y, stateWidth, 24f), row.StateText);
                     Text.Font = GameFont.Tiny;
-                    UnityEngine.GUI.color = (row.MissingDeclaration ? theme.Warning : theme.SecondaryText);
+                    UnityEngine.GUI.color = (row.MissingDeclaration ? theme.Warning.ToUnityColor() : theme.SecondaryText.ToUnityColor());
                     Widgets.Label(new Rect(textX, inner.y + 27f, available, 18f), row.Dependencies);
                 }
             }
@@ -277,15 +277,15 @@ namespace PhinixClient
                     ? new Rect(rect.x, rect.y + 18f, rect.width, 18f)
                     : new Rect(summaryRect.xMax + Spacing, rect.y,
                         Mathf.Max(0f, rect.xMax - summaryRect.xMax - Spacing), 18f);
-                if (hasWarnings) UnityEngine.GUI.color = theme.GetColor("ext.logWarning");
+                if (hasWarnings) UnityEngine.GUI.color = theme.GetColor("ext.logWarning").ToUnityColor();
                 Widgets.Label(summaryRect, summary);
                 TooltipHandler.TipRegion(summaryRect, summary);
-                UnityEngine.GUI.color = theme.SecondaryText;
+                UnityEngine.GUI.color = theme.SecondaryText.ToUnityColor();
                 Widgets.Label(hintRect, restartHint);
                 TooltipHandler.TipRegion(hintRect, restartHint);
                 if (!string.IsNullOrEmpty(impact))
                 {
-                    UnityEngine.GUI.color = theme.GetColor("ext.logWarning");
+                    UnityEngine.GUI.color = theme.GetColor("ext.logWarning").ToUnityColor();
                     Rect impactRect = new Rect(rect.x, stacked ? rect.y + 38f : rect.y + 20f, rect.width, 18f);
                     Widgets.Label(impactRect, impact);
                     TooltipHandler.TipRegion(impactRect, impact);
@@ -481,11 +481,11 @@ namespace PhinixClient
         {
             switch (level)
             {
-                case LogLevel.WARNING: return theme.Warning;
+                case LogLevel.WARNING: return theme.Warning.ToUnityColor();
                 case LogLevel.ERROR:
-                case LogLevel.FATAL: return theme.Error;
-                case LogLevel.DEBUG: return theme.SecondaryText;
-                default: return theme.PrimaryText;
+                case LogLevel.FATAL: return theme.Error.ToUnityColor();
+                case LogLevel.DEBUG: return theme.SecondaryText.ToUnityColor();
+                default: return theme.PrimaryText.ToUnityColor();
             }
         }
 
@@ -508,12 +508,12 @@ namespace PhinixClient
         {
             switch (state)
             {
-                case ExtensionModuleState.Active: return theme.GetColor("ext.statusActive");
-                case ExtensionModuleState.Failed: return theme.GetColor("ext.statusFailed");
-                case ExtensionModuleState.Disabled: return theme.GetColor("ext.statusDisabled");
-                case ExtensionModuleState.DependencyDisabled: return theme.GetColor("ext.statusDependencyDisabled");
-                case ExtensionModuleState.Registered: return theme.GetColor("ext.statusRegistered");
-                default: return theme.GetColor("ext.statusDefault");
+                case ExtensionModuleState.Active: return theme.GetColor("ext.statusActive").ToUnityColor();
+                case ExtensionModuleState.Failed: return theme.GetColor("ext.statusFailed").ToUnityColor();
+                case ExtensionModuleState.Disabled: return theme.GetColor("ext.statusDisabled").ToUnityColor();
+                case ExtensionModuleState.DependencyDisabled: return theme.GetColor("ext.statusDependencyDisabled").ToUnityColor();
+                case ExtensionModuleState.Registered: return theme.GetColor("ext.statusRegistered").ToUnityColor();
+                default: return theme.GetColor("ext.statusDefault").ToUnityColor();
             }
         }
 

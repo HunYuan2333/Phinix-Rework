@@ -11,16 +11,26 @@ internal static class OfflinePreflight
 {
     internal static void Validate(string[] args)
     {
-        if(args.Length<2 || args.Length%2!=0) throw new ArgumentException("Use --validate ZIP [--host-assembly DLL ...].");
+        if(args.Length<2 || args.Length%2!=0) throw new ArgumentException("Use --validate ZIP [--host-assembly DLL ...] [--game-version 1.6|1.7].");
         var host=new List<ManagedAssemblyIdentity>();
+        string gameVersion=null;
         for(int i=2;i<args.Length;i+=2)
         {
+            if(args[i]=="--game-version")
+            {
+                if(gameVersion!=null) throw new ArgumentException("Duplicate game version.");
+                gameVersion=args[i+1]; continue;
+            }
             if(args[i]!="--host-assembly") throw new ArgumentException("Unknown preflight option: "+args[i]);
             host.Add(ManagedAssemblyIdentity.FromAssemblyName(AssemblyName.GetAssemblyName(args[i+1])));
         }
         using(var input=File.OpenRead(args[1]))
         {
-            var zip=ManagedExtensionZip.Read(input,CancellationToken.None);
+            var zip=ManagedExtensionZip.Read(input,CancellationToken.None,gameVersion:gameVersion);
+            if(gameVersion!=null && (!zip.Manifest.SupportsGame(gameVersion) || !zip.Manifest.Compatibility.RimWorldVersions.Contains(gameVersion)))
+                throw new ArgumentException("Target framework or declared game version is incompatible with the requested game adapter profile.");
+            if(host.Count!=0 && zip.Manifest.Variants.Count!=0 && gameVersion==null)
+                throw new ArgumentException("Host reference validation of a variant package requires --game-version.");
             if(host.Count!=0)
             {
                 var owned=zip.Inspected.Assemblies.Select(a=>a.Metadata.Identity).ToArray();
@@ -35,7 +45,7 @@ internal static class OfflinePreflight
                 }
             }
             Console.WriteLine(JsonSerializer.Serialize(new {packageId=zip.Manifest.PackageId,version=zip.Manifest.Version.ToString(),sha256=zip.Sha256,
-                manifestSha256=ManagedExtensionPaths.Hash(zip.CopyManifestBytes()),staticValidation="passed",hostReferencesChecked=host.Count!=0,
+                manifestSha256=ManagedExtensionPaths.Hash(zip.CopyManifestBytes()),targetFramework=zip.Manifest.TargetFramework,staticValidation="passed",hostReferencesChecked=host.Count!=0,gameVersionChecked=gameVersion,
                 modules=zip.Manifest.Modules.Select(m=>m.Id),dependencies=zip.Manifest.Dependencies.Select(d=>new {packageId=d.PackageId,versionRange=d.VersionRange.Text,optional=d.Optional}),
                 compatibility=new {rimWorldVersions=zip.Manifest.Compatibility.RimWorldVersions,phinixRange=zip.Manifest.Compatibility.PhinixRange.Text,abstractionsRange=zip.Manifest.Compatibility.AbstractionsRange.Text}}));
         }

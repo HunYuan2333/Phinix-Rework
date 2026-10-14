@@ -58,7 +58,14 @@
       "clientextensionabstractions": {
         "type": "Project",
         "dependencies": {
+          "ClientPresentation.Contracts": "[1.0.0, )",
           "UserManagement": "[1.0.0, )",
+          "Utils": "[1.0.0, )"
+        }
+      },
+      "clientpresentation.contracts": {
+        "type": "Project",
+        "dependencies": {
           "Utils": "[1.0.0, )"
         }
       },

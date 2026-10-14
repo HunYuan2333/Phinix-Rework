@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Game/Drawing/ClientGameDrawing16.cs" Link="Production/GameDrawing16.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Game/ClientPresentationMenus.cs" Link="Production/GameMenus.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Game/ClientColorValues.cs" Link="Production/ColorValues.cs" />
     <Compile Include="../../Extensions/Trade/Client/TradeQuantityDraft.cs" Link="Production/TradeQuantityDraft.cs" />
-    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientPresentationService.cs" Link="Production/Contract.cs" />
-    <Compile Include="../../Client/ClientExtensionAbstractions/UI/IClientTheme.cs" Link="Production/Theme.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/IClientPresentationImage.cs" Link="Production/Image.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Game/ClientTextureImages.cs" Link="Production/TextureImages.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/ClientPresentationValues.cs" Link="Production/Values.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/IClientPresentationService.cs" Link="Production/Contract.cs" />
+    <Compile Include="../../Client/PresentationContracts/UI/IClientTheme.cs" Link="Production/Theme.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/UI/ClientWidgets.cs" Link="Production/Widgets.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/UI/ResponsiveFormLayout.cs" Link="Production/ResponsiveForm.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/UI/VirtualListLayout.cs" Link="Production/VirtualList.cs" />
@@ -18,5 +24,8 @@
       <Compile Include="../../Extensions/Trade/Client/TradeOfferOperations.cs" Link="Production/TradeOfferOwner.cs" />
     <Compile Include="../../Extensions/Trade/Contracts/TradeInventoryRecoveryContracts.cs" Link="Production/TradeInventoryRecoveryContract.cs" />
     <Compile Include="../../Extensions/Trade/Contracts/TradeOfferOperationContracts.cs" Link="Production/TradeOfferContracts.cs" />
+    <Compile Include="../../Extensions/Trade/Client/TradeWindowPresentation.cs" Link="Production/TradeWindowPresentation.cs" />
+    <Compile Include="../../Extensions/Trade/Client/TradeOfferPresentationFactory.cs" Link="Production/TradeOfferPresentationFactory.cs" />
+    <Compile Include="../../Extensions/Trade/Contracts/TradeOfferPresentationActionContext.cs" Link="Production/TradeOfferPresentationActionContext.cs" />
   </ItemGroup>
 </Project>

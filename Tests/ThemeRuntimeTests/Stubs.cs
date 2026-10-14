@@ -16,7 +16,7 @@ namespace UnityEngine
     }
     public enum TextAnchor { UpperLeft, MiddleLeft, MiddleCenter }
     public static class Mathf { public static float Min(float a,float b)=>Math.Min(a,b); public static float Max(float a,float b)=>Math.Max(a,b); public static float Clamp01(float v)=>Clamp(v,0,1); public static float Clamp(float v,float a,float b)=>Math.Max(a,Math.Min(b,v)); }
-    public static class GUI { public static Color color=Color.white,backgroundColor=Color.white,contentColor=Color.white;public static bool enabled=true; public static void BeginGroup(Rect r){} public static void EndGroup(){} public static void SetNextControlName(string name){} public static string GetNameOfFocusedControl()=>""; public static void DrawTexture(Rect r,Texture2D t){} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){} }
+    public static class GUI { public static Color color=Color.white,backgroundColor=Color.white,contentColor=Color.white;public static bool enabled=true; public static void BeginGroup(Rect r){} public static void EndGroup(){} public static void SetNextControlName(string name){} public static string GetNameOfFocusedControl()=>""; public static void DrawTexture(Rect r,Texture t){} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){} }
     public static class Input { public static bool GetMouseButton(int button)=>false; }
 }
 namespace Verse
@@ -53,4 +53,7 @@ namespace UnityEngine
     public struct Vector4 { public float x,y,z,w; public Vector4(float x,float y,float z,float w){this.x=x;this.y=y;this.z=z;this.w=w;} public static Vector4 zero=>new Vector4(); }
 }
 
-namespace UnityEngine { public sealed class Texture2D {public static Texture2D whiteTexture=new Texture2D();} public struct Vector2 {public float x,y;public Vector2(float x,float y){this.x=x;this.y=y;}} }
+namespace UnityEngine { public class Texture {} public sealed class Texture2D : Texture {public static Texture2D whiteTexture=new Texture2D();} public struct Vector2 {public float x,y;public Vector2(float x,float y){this.x=x;this.y=y;}} }
+
+// Type marker lets source-linked reflective adapters discover this fixture's contract assembly.
+namespace PhinixClient.Framework { public interface IClientSessionContext {} }

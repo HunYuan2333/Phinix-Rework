@@ -140,7 +140,7 @@ namespace PhinixClient
         private ClientUserEventStream userEventStream;
         private ClientShellEventStream shellEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
-        private readonly IClientWindowService windowService;
+        private readonly IClientGameWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
         internal IClientSettingsContext SettingsContext => settingsContext;
         private readonly List<IClientSettingsPanelProvider> sortedSettingsPanels = new List<IClientSettingsPanelProvider>();
@@ -209,7 +209,7 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientTaskService>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
-            extensionHostContext.AddService<IClientWindowService>(windowService);
+            extensionHostContext.AddService<IClientGameWindowService>(windowService);
             extensionHostContext.AddService<IClientSettingsWindowService>((IClientSettingsWindowService)windowService);
             extensionHostContext.AddService<IClientExtensionManagementWindowService>((IClientExtensionManagementWindowService)windowService);
             extensionHostContext.AddService<IClientSoundService>(soundService);
@@ -218,7 +218,7 @@ namespace PhinixClient
                 () => Verse.Steam.SteamManager.Initialized && Steamworks.SteamUtils.IsOverlayEnabled(),
                 url => Steamworks.SteamFriends.ActivateGameOverlayToWebPage(url), Application.OpenURL,
                 message => extensionHostContext.Log?.Invoke("Client link: " + message, LogLevel.INFO)));
-            extensionHostContext.AddService<Action>(windowService.OpenSettingsWindow);
+            extensionHostContext.AddService<Action>(((IClientSettingsWindowService)windowService).OpenSettingsWindow);
             extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
             // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
             extensionHostContext.AddService<ILegacyModuleTransport>(new NetClientLegacyTransportAdapter(netClient));
@@ -391,13 +391,14 @@ namespace PhinixClient
                     var paths = new ClientEnvironmentPaths(GenFilePaths.ModsFolderPath,GenFilePaths.SaveDataFolderPath);
                     managedExtensionRuntime = new ManagedExtensionRuntime(paths.ManagedExtensions,
                         entry => Verse.Log.Message("[Phinix] " + ManagedExtensionAuditJson.Format(entry)),
-                        error => { if(Prefs.DevMode) Verse.Log.Warning("[Phinix] Managed extension internal diagnostic: " + error); });
+                        error => { if(Prefs.DevMode) Verse.Log.Warning("[Phinix] Managed extension internal diagnostic: " + error); },
+                        identity => ClientRuntimeAssemblyFacts.ResolveFrameworkReference(new AssemblyName(identity.FullName)));
                     extensionHostContext.AddService<IManagedExtensionInventoryService>(managedExtensionRuntime);
 
                     extensionHostContext.AddService<IExtensionDiscoveryPolicy>(managedExtensionRuntime);
                     var facts = new ManagedExtensionHostFacts(
                         VersionControl.CurrentMajor + "." + VersionControl.CurrentMinor,CompatibilityVersion,ClientAbstractionsCompatibility.Version,
-                        AppDomain.CurrentDomain.GetAssemblies().Where(a=>!a.IsDynamic).Select(a=>ManagedAssemblyIdentity.FromAssemblyName(a.GetName())),
+                        ClientRuntimeAssemblyFacts.AvailableReferences().Select(ManagedAssemblyIdentity.FromAssemblyName),
                         hostIds,availableIds,ModLister.AllInstalledMods.Where(m=>m!=null && m.Active).Select(m=>m.PackageIdNonUnique),
                         hostModuleTypes.Select(type=>new ManagedExtensionHostModule(type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name,type.GetCustomAttribute<PhinixExtensionAttribute>()?.DependsOn ?? Array.Empty<string>())),
                         new[] { new ManagedHostReferenceRule(typeof(Verse.Game).Assembly.GetName().Name,ManagedHostReferenceVersionPolicy.SameReleaseFamily) });
@@ -593,7 +594,7 @@ namespace PhinixClient
             using (HostThemeDrawing.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText;
+                UnityEngine.GUI.color = HostThemeDrawing.Current.PrimaryText.ToUnityColor();
                 DrawModSettingsContents(inRect);
             }
         }
@@ -822,8 +823,8 @@ namespace PhinixClient
             // refer to a generated directory and is not a source ownership declaration.
             if (string.IsNullOrEmpty(modRootDir)) yield break;
             string root = ClientEnvironmentPaths.NormalizeAbsolute(modRootDir);
-            yield return Path.Combine(root, "Common", "Assemblies");
-            foreach (string directory in ExtensionBundleDirectories.GetProbeDirectories(Path.Combine(root, "Common", "Extensions"),
+            foreach (string directory in ClientGameAssemblyLayout.GetProbeDirectories(root,
+                RimWorld.VersionControl.CurrentMajor, RimWorld.VersionControl.CurrentMinor,
                 (message, level) => Verse.Log.Warning("[Phinix] " + message))) yield return directory;
             // RimWorld loads ordinary submods and the host's versioned Assemblies.
             // Discover their already loaded module types through the ordinary registry.
@@ -934,7 +935,7 @@ namespace PhinixClient
             }
         }
 
-        private static void enqueueWindowOpen(IClientMainThreadDispatcher dispatcher, IClientWindowService windowService, Window window)
+        private static void enqueueWindowOpen(IClientMainThreadDispatcher dispatcher, IClientGameWindowService windowService, Window window)
         {
             if (window == null)
             {

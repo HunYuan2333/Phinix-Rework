@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
-using UnityEngine;
 using PhinixClient.Framework;
 
 namespace PhinixClient
@@ -13,7 +12,7 @@ namespace PhinixClient
     internal sealed class ThemeDefinition
     {
         internal ClientThemeInfo Info;
-        internal readonly Dictionary<string, Color> Colors = new Dictionary<string, Color>(StringComparer.Ordinal);
+        internal readonly Dictionary<string, ClientRgba> Colors = new Dictionary<string, ClientRgba>(StringComparer.Ordinal);
         internal readonly Dictionary<string, float> Floats = new Dictionary<string, float>(StringComparer.Ordinal);
         internal readonly HashSet<string> InheritedKeys = new HashSet<string>(StringComparer.Ordinal);
     }
@@ -36,27 +35,31 @@ namespace PhinixClient
             {"success", "ui.success"}, {"warning", "ui.warning"}
         };
         internal static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
-        internal static void Validate(Color value)
+        internal static void Validate(ClientRgba value)
         {
-            foreach (float component in new[] { value.r, value.g, value.b, value.a })
+            foreach (float component in new[] { value.Red, value.Green, value.Blue, value.Alpha })
                 if (!Finite(component) || component < 0f || component > 1f) throw new InvalidDataException("Invalid theme color.");
         }
         internal static XDocument ReadXml(string path)
+        { using (var file = File.OpenRead(path)) return ReadXmlStream(file); }
+        internal static XDocument ReadXml(byte[] document)
         {
-            using (var file = File.OpenRead(path))
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            using (var stream = new MemoryStream(document, false)) return ReadXmlStream(stream);
+        }
+        private static XDocument ReadXmlStream(Stream stream)
+        {
+            if (stream.Length < 1 || stream.Length > MaximumBytes) throw new InvalidDataException("Theme file size limit.");
+            using (var reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaximumBytes }))
             {
-                if (file.Length < 1 || file.Length > MaximumBytes) throw new InvalidDataException("Theme file size limit.");
-                using (var reader = XmlReader.Create(file, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaximumBytes }))
+                var document = XDocument.Load(reader);
+                if (document.Root == null) throw new InvalidDataException("Missing theme root.");
+                foreach (var node in document.Descendants())
                 {
-                    var document = XDocument.Load(reader);
-                    if (document.Root == null) throw new InvalidDataException("Missing theme root.");
-                    foreach (var node in document.Descendants())
-                    {
-                        int depth = 0; for (var parent = node.Parent; parent != null; parent = parent.Parent) depth++;
-                        if (depth > 8) throw new InvalidDataException("Theme XML depth limit.");
-                    }
-                    return document;
+                    int depth = 0; for (var parent = node.Parent; parent != null; parent = parent.Parent) depth++;
+                    if (depth > 8) throw new InvalidDataException("Theme XML depth limit.");
                 }
+                return document;
             }
         }
         internal static ThemeDefinition Read(string path, string identity, string source)
@@ -84,7 +87,7 @@ namespace PhinixClient
                 if (node.Name == "color")
                 {
                     if (result.Colors.ContainsKey(key)) throw new InvalidDataException("Duplicate color: " + key);
-                    Color color = new Color(Number(node, "r", version, 1f), Number(node, "g", version, 1f), Number(node, "b", version, 1f), Number(node, "a", version, 1f));
+                    ClientRgba color = new ClientRgba(Number(node, "r", version, 1f), Number(node, "g", version, 1f), Number(node, "b", version, 1f), Number(node, "a", version, 1f));
                     Validate(color); result.Colors.Add(key, color);
                 }
                 else if (node.Name == "param")
@@ -106,7 +109,7 @@ namespace PhinixClient
             if (raw == null && version == "1") return fallback;
             if (!float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) || !Finite(value))
                 throw new InvalidDataException("Invalid theme number: " + attribute);
-            return node.Name == "color" && version == "1" ? Mathf.Clamp01(value) : value;
+            return node.Name == "color" && version == "1" ? Math.Max(0f, Math.Min(1f, value)) : value;
         }
         internal static void Overlay(ThemeDefinition target, ThemeDefinition layer)
         {
@@ -129,7 +132,7 @@ namespace PhinixClient
             foreach (var key in definition.InheritedKeys) ValidateSettingKey(key);
             var root = new XElement("PhinixTheme", new XAttribute("version", definition.InheritedKeys.Count > 0 ? "3" : "2"), new XAttribute("name", definition.Info.Name), new XAttribute("author", definition.Info.Author));
             foreach (var item in definition.Colors)
-                root.Add(new XElement("color", new XAttribute("key", item.Key), Attr("r", item.Value.r), Attr("g", item.Value.g), Attr("b", item.Value.b), Attr("a", item.Value.a)));
+                root.Add(new XElement("color", new XAttribute("key", item.Key), Attr("r", item.Value.Red), Attr("g", item.Value.Green), Attr("b", item.Value.Blue), Attr("a", item.Value.Alpha)));
             foreach (var item in definition.Floats) root.Add(new XElement("param", new XAttribute("key", item.Key), Attr("value", item.Value)));
             foreach (string key in definition.InheritedKeys) root.Add(new XElement("inherit", new XAttribute("key", key)));
             return new XDocument(root);
@@ -152,7 +155,7 @@ namespace PhinixClient
                 if (profile.Colors.ContainsKey(key) || profile.Floats.ContainsKey(key) || profile.InheritedKeys.Contains(key)) throw new InvalidDataException("Duplicate theme setting.");
                 if (node.Name == "color")
                 {
-                    var color = new Color(Number(node, "r", "2", 0), Number(node, "g", "2", 0), Number(node, "b", "2", 0), Number(node, "a", "2", 0));
+                    var color = new ClientRgba(Number(node, "r", "2", 0), Number(node, "g", "2", 0), Number(node, "b", "2", 0), Number(node, "a", "2", 0));
                     Validate(color); profile.Colors.Add(key, color);
                 }
                 else if (node.Name == "param" && version == "2") profile.Floats.Add(key, Number(node, "value", "2", 0));
@@ -171,7 +174,7 @@ namespace PhinixClient
                 foreach (var item in profile.Colors)
                 {
                     ValidateSettingKey(item.Key); Validate(item.Value);
-                    root.Add(new XElement("color", new XAttribute("theme", profile.ThemeId), new XAttribute("key", item.Key), Attr("r", item.Value.r), Attr("g", item.Value.g), Attr("b", item.Value.b), Attr("a", item.Value.a)));
+                    root.Add(new XElement("color", new XAttribute("theme", profile.ThemeId), new XAttribute("key", item.Key), Attr("r", item.Value.Red), Attr("g", item.Value.Green), Attr("b", item.Value.Blue), Attr("a", item.Value.Alpha)));
                 }
                 foreach (var item in profile.Floats)
                 {

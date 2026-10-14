@@ -65,6 +65,13 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex) { Report(diagnostics, "AssemblyIdentityUnavailable", ex); }
             }
+            try
+            {
+                foreach(var name in ClientRuntimeAssemblyFacts.FrameworkReferences())
+                    if(!assemblies.Any(a=>a.Name==name.Name && a.ClrVersion==name.Version?.ToString()))
+                        assemblies.Add(new ClientLoadedAssemblySnapshot(name.Name,name.Version?.ToString(),null));
+            }
+            catch(Exception ex) { Report(diagnostics,"RuntimeFrameworkIdentityUnavailable",ex); }
             IEnumerable<ExtensionDiscoveryResult> results = getModules?.Invoke();
             if (results == null) diagnostics.Add("ExtensionDiscoveryNotReady");
             else foreach (ExtensionDiscoveryResult result in results)

@@ -16,9 +16,10 @@ internal static class Program
         {
             if(args.Length!=0 && (args[0]=="--pack-theme" || args[0]=="--validate-theme")) { ThemePackageCommand.Run(args); return 0; }
             if(args.Length!=0 && args[0]=="--export-host-profile") { HostProfileExport.Export(args); return 0; }
+            if(args.Length!=0 && args[0]=="--pack-variants") { VariantPackageCommand.Run(args); return 0; }
             if(args.Length!=0 && args[0]=="--validate") { OfflinePreflight.Validate(args); return 0; }
             var options=new Dictionary<string,string>(); var files=new Dictionary<string,byte[]>(); var declarations=new List<object>(); var modules=new List<object>();
-            var host=new List<ManagedAssemblyIdentity>(); var clientApiVersions = new List<string>(); var metadataInputs=new List<ManagedAssemblyMetadata>();
+            var host=new List<ManagedAssemblyIdentity>(); var clientApiVersions = new List<string>(); var clientApiFrameworks = new List<string>(); var metadataInputs=new List<ManagedAssemblyMetadata>();
             var resources=new List<object>(); var languagePaths=new List<string>();
             if(args.Length%2!=0) throw new ArgumentException("Expected option/value pairs.");
             for(int i=0;i<args.Length;i+=2)
@@ -27,7 +28,10 @@ internal static class Program
                 {
                     var identity = ManagedAssemblyIdentity.FromAssemblyName(AssemblyName.GetAssemblyName(args[i+1])); host.Add(identity);
                     if (identity.Name == "ClientExtensionAbstractions")
+                    {
                         clientApiVersions.Add(System.Diagnostics.FileVersionInfo.GetVersionInfo(args[i+1]).FileVersion ?? identity.Version);
+                        clientApiFrameworks.Add(ManagedExtensionMetadataReader.Read(File.ReadAllBytes(args[i+1])).TargetFramework);
+                    }
                     continue;
                 }
                 if(args[i]=="--language-file")
@@ -54,9 +58,13 @@ internal static class Program
                 }
             }
             string[] required={"--package-id","--name","--version","--output"};
-            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range","--compile-client-api","--config"}).ToArray();
-            if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output, --display-output, --abstractions-range and --config. Offline: --validate ZIP [--host-assembly DLL ...].");
+            string[] allowed=required.Concat(new[]{"--default-locale","--bundle-output","--display-output","--abstractions-range","--compile-client-api","--config","--target-framework"}).ToArray();
+            if(required.Any(k=>!options.ContainsKey(k)) || options.Keys.Any(k=>!allowed.Contains(k))) throw new ArgumentException("Use --assembly/--host-assembly/--language-file (repeatable), --package-id, --name, --version, --output, optional --default-locale, --bundle-output, --display-output, --abstractions-range, --config and --target-framework net472|net10.0. Offline: --validate ZIP [--host-assembly DLL ...].");
             var config=PackageConfiguration.Read(options);
+            string targetFramework = options.ContainsKey("--target-framework") ? options["--target-framework"] : "net472";
+            ManagedExtensionTargetFramework.MetadataName(targetFramework);
+            if(clientApiFrameworks.Any(f=>f!=ManagedExtensionTargetFramework.MetadataName(targetFramework)))
+                throw new ArgumentException("Supplied client SDK target framework differs from the package target framework.");
             if(languagePaths.Count==0 && options.ContainsKey("--default-locale")) throw new ArgumentException("Default locale needs language files.");
             if(host.Count!=0)
             {
@@ -73,9 +81,11 @@ internal static class Program
             }
             object localization=languagePaths.Count==0?null:new {defaultLocale=options.ContainsKey("--default-locale")?ExtensionLocale.Normalize(options["--default-locale"]):null,files=languagePaths};
             var jsonOptions=new JsonSerializerOptions {DefaultIgnoreCondition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull};
-            byte[] manifest=JsonSerializer.SerializeToUtf8Bytes(new {schemaVersion=1,management="phinix-dll",packageId=options["--package-id"],name=options["--name"],version=options["--version"],targetFramework="net472",
+            byte[] manifest=JsonSerializer.SerializeToUtf8Bytes(new {schemaVersion=1,management="phinix-dll",packageId=options["--package-id"],name=options["--name"],version=options["--version"],targetFramework,
                 compatibility=config.Compatibility,dependencies=config.Dependencies,externalMods=config.ExternalMods,resources,localization,assemblies=declarations,modules},jsonOptions);
             var parsed=ManagedExtensionManifestReader.Read(manifest);
+            if (parsed.Compatibility.RimWorldVersions.Any(game => !ManagedExtensionTargetFramework.SupportsGame(targetFramework, game)))
+                throw new ArgumentException("Target framework and declared game adapter profile do not match.");
             if (options.TryGetValue("--compile-client-api", out string compileApi) &&
                 (clientApiVersions.Count == 0 || clientApiVersions.Any(v => new Version(v).ToString(3) != compileApi)))
                 throw new ArgumentException("This transitional plugin must compile against client API " + compileApi + "; use the matching baseline host references.");

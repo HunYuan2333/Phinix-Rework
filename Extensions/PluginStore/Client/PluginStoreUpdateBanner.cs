@@ -28,7 +28,7 @@ namespace Phinix.PluginStore
                 string message=string.Format("Phinix_store2_updateNotice".Translate(),controller.Updates.Count);
                 float close=Mathf.Min(32,rect.width);
                 var body=new Rect(rect.x,rect.y,Mathf.Max(0,rect.width-close-4),Mathf.Min(32,rect.height));
-                ClientWidgets.Surface(body,theme); ClientWidgets.Label(body,message,theme.Warning); TooltipHandler.TipRegion(body,message);
+                ClientWidgets.Surface(body,theme); ClientWidgets.Label(body,message,theme.Warning.ToUnityColor()); TooltipHandler.TipRegion(body,message);
                 if(Widgets.ButtonInvisible(body)) open?.Invoke();
                 if(ClientWidgets.Button(new Rect(rect.xMax-close,rect.y,close,Mathf.Min(32,rect.height)),"×",theme)) dismissed=true;
             }

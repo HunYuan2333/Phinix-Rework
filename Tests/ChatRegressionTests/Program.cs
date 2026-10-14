@@ -198,19 +198,19 @@ internal static class Program
         public IReadOnlyList<ClientExtensionPointInfo> CapturePoints() => new ClientExtensionPointInfo[0];
         public IReadOnlyList<IClientApiProvider<T>> Capture<T>() where T : class => new IClientApiProvider<T>[0];
         public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
-        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
-        public Color PrimaryText => default(Color);
-        public Color SecondaryText => default(Color);
-        public Color Background => default(Color);
-        public Color Surface => default(Color);
-        public Color Separator => default(Color);
-        public Color HoverHighlight => default(Color);
-        public Color Pending => default(Color);
-        public Color Error => default(Color);
-        public Color Success => default(Color);
-        public Color Warning => default(Color);
-        public Color GetColor(string key) => default(Color);
-        public bool TryGetColor(string key, out Color color) { color = default(Color); return false; }
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, ClientRgba>(), new Dictionary<string, float>());
+        public PhinixClient.Framework.ClientRgba PrimaryText => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba SecondaryText => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Background => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Surface => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Separator => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba HoverHighlight => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Pending => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Error => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Success => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Warning => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba GetColor(string key) => default(ClientRgba);
+        public bool TryGetColor(string key, out PhinixClient.Framework.ClientRgba color) { color = default(ClientRgba); return false; }
         public float GetFloat(string key, float value = 0f) => value;
     }
 
@@ -345,7 +345,7 @@ internal static class Program
 
 internal sealed class TestThemeRegistration : PhinixClient.Framework.IClientThemeRegistration
 {
-    public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+    public void RegisterColor(string key, PhinixClient.Framework.ClientRgba value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
     public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
     public void Commit() { }
     public void Dispose() { }

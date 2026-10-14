@@ -87,8 +87,8 @@ namespace PhinixClient
         private ThemeDraftInput Buffer(Entry entry)
         {
             if(session.Inputs.TryGetValue(entry.Key,out var input)&&input.Dirty)return input;
-            var c=entry.IsFloat?Color.clear:catalog.Preview(session.Draft,entry.Key);
-            var values=entry.IsFloat?new[]{catalog.PreviewFloat(session.Draft,entry.Key).Value}:new[]{c.r,c.g,c.b,c.a};
+            var c=entry.IsFloat?default(ClientRgba):catalog.Preview(session.Draft,entry.Key);
+            var values=entry.IsFloat?new[]{catalog.PreviewFloat(session.Draft,entry.Key).Value}:new[]{c.Red,c.Green,c.Blue,c.Alpha};
             input=new ThemeDraftInput {IsFloat=entry.IsFloat,Values=values.Select(v=>v.ToString("R",CultureInfo.InvariantCulture)).ToArray()};session.Inputs[entry.Key]=input;return input;
         }
         protected override void Input(ClientPresentationInput input)
@@ -152,7 +152,7 @@ namespace PhinixClient
             var swatches=new List<ClientPresentationSwatch>();
             if(registered)
             {
-                var buffer=Buffer(picked);var c=picked.IsFloat?Color.clear:catalog.Preview(session.Draft,picked.Key);
+                var buffer=Buffer(picked);var c=picked.IsFloat?default(ClientRgba):catalog.Preview(session.Draft,picked.Key);
                 for(int i=0;i<buffer.Values.Length;i++)
                 {
                     var field=new ClientPresentationTextField("value."+i,picked.IsFloat?Name(picked.Label):new[]{"R","G","B","A"}[i],buffer.Values[i],maxLength:256,validationText:buffer.Invalid?L("Phinix_theme_invalidInput"):null);
@@ -165,7 +165,8 @@ namespace PhinixClient
                 if(picked.IsFloat&&catalog.PreviewFloat(session.Draft,key).Clamped)source+=" · "+L("Phinix_theme_parameterClamped");
                 if(!picked.IsFloat)swatches.Add(new ClientPresentationSwatch("selected",Name(picked.Label),c));
             }
-            foreach(string role in new[]{"ui.surface","ui.text.primary","ui.success","ui.warning","ui.error","ui.hover"})swatches.Add(new ClientPresentationSwatch("preview."+swatches.Count,role,catalog.Preview(session.Draft,role)));
+            foreach(string role in new[]{"ui.surface","ui.text.primary","ui.success","ui.warning","ui.error","ui.hover"})
+            { var color=catalog.Preview(session.Draft,role);swatches.Add(new ClientPresentationSwatch("preview."+swatches.Count,role,color)); }
             string status=session.Inputs.Values.Any(v=>v.Invalid)?L("Phinix_theme_unfinishedInput"):!CanApply?L("Phinix_theme_missingDraftTheme"):message.Length>0?message:string.Join("\n",catalog.Diagnostics.Take(2));
             var info=catalog.Themes.FirstOrDefault(t=>t.Id==session.Draft.ThemeId);
             Publish(L("Phinix_theme_title"),ClientThemePresentationSurface.Editor,session.Draft.ThemeId,key,CanApply,defs,bindings=>new[] {

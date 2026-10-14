@@ -43,6 +43,7 @@ class ClientPackageLayoutTests(unittest.TestCase):
                 retired.append(output / "Languages/English/Keyed" / (owner + "Extension.xml"))
             kept = [extensions / "09-TradeExtension.dll",
                     extensions / "10-InventoryExtension.dll",
+                    extensions / "InventoryExtension.GameAdapter.dll",
                     extensions / "17-PluginStore.Client.dll",
                     extensions / "OtherPlugin/16-LegacyTalentTradeExtension.Client.dll",
                     extensions / "Resources/OtherPlugin/Localization/en-US.json",

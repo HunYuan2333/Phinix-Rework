@@ -71,6 +71,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Stateless" Version="[5.20.1]" />
+    <ProjectReference Include="../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj"><Private>false</Private></ProjectReference>
     <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj"><Private>false</Private><SetTargetFramework>TargetFramework=net472</SetTargetFramework></ProjectReference>
   </ItemGroup>

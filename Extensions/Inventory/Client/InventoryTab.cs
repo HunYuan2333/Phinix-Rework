@@ -94,7 +94,7 @@ namespace Phinix.InventoryExtension.Client
             }
             Refresh();
         }
-        public void Draw(Rect rect) { if (!disposed) view?.Draw(rect); }
+        public void Draw(Rect rect) { if (!disposed) view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height)); }
         public void Dispose()
         {
             if (disposed) return; disposed = true; ViewClosed();

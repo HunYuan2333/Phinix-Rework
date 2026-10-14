@@ -84,7 +84,7 @@ namespace PhinixClient
             }
             if(dirty||DataChanged||themeVersion!=Theme.Version||pointsVersion!=Services.Points.Revision||!ReferenceEquals(language,LanguageDatabase.activeLanguage)||!ReferenceEquals(actionResult,presentation.LastActionResult))Project();
         }
-        public override void DoWindowContents(Rect rect){if(Available)presentation?.Draw(rect);}
+        public override void DoWindowContents(Rect rect){if(Available)presentation?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height));}
         public override void PostClose(){var old=presentation;presentation=null;try {old?.Dispose();}finally {base.PostClose();}}
         protected static string L(string key)=>key.Translate();
         protected static string Safe(string text)=>(text??"").Replace("<","‹").Replace(">","›");

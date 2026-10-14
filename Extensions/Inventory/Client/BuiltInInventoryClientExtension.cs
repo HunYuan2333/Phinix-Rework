@@ -38,7 +38,7 @@ namespace Phinix.InventoryExtension.Client
         private IClientSettingsContext settings;
         private IClientMainThreadDispatcher dispatcher;
         private IClientShellEventStream shellEvents;
-        private IClientWindowService windowService;
+        private IClientGameWindowService windowService;
         private bool deliveryChoiceOpen;
         private InventoryDeliveryChoiceDialog deliveryChoiceDialog;
         private volatile int mainThreadId;
@@ -64,7 +64,7 @@ namespace Phinix.InventoryExtension.Client
                 local.Borrow(context.GetRequiredService<IClientSettingsContext>());
                 local.Borrow(context.GetRequiredService<IClientMainThreadDispatcher>());
                 local.Borrow(context.GetRequiredService<IClientShellEventStream>());
-                local.Borrow(context.GetRequiredService<IClientWindowService>());
+                local.Borrow(context.GetRequiredService<IClientGameWindowService>());
                 local.Borrow(context.GetRequiredService<IClientTheme>());
                 local.Borrow(context.GetRequiredService<IClientThemeRegistry>());
                 local.Register<InventoryTheme, InventoryTheme>();
@@ -77,7 +77,7 @@ namespace Phinix.InventoryExtension.Client
             settings = composition.Resolve<IClientSettingsContext>();
             dispatcher = composition.Resolve<IClientMainThreadDispatcher>();
             shellEvents = composition.Resolve<IClientShellEventStream>();
-            windowService = composition.Resolve<IClientWindowService>();
+            windowService = composition.Resolve<IClientGameWindowService>();
             builder.RegisterApi<IInventoryApi>(this);
             builder.RegisterApi<IInventoryRegistrationApi>(this);
             builder.RegisterApi<IInventoryDepositApi>(this);

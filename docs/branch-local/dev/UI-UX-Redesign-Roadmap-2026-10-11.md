@@ -1288,3 +1288,179 @@ Host 源码已合入 main：783fcb0bb6ad56b97e8ca5875457babfe6520c25，产品 0.
 按用户授权手动触发 Index plugin-source-updates.yml，check_only=false，运行 https://github.com/HunYuan2333/Phinix-Plugin-Index/actions/runs/38336114031 。商店元数据写入使用现有串行队列和准入规则，触发不等于入库完成；后续按实际扫描/发布结果记录。工坊上传由用户进行。
 
 入库最终结果：首次手动任务 38336114031 因排队时 main 更新，被 TrustedHeadChanged 保护拒绝，未绕过。重新触发最新 main 的 38336336390 已成功，扫描 changed=false/errors=0（自动流程已入库）。下载 stable 指向 bb77c26ddd634bc301822dc0f5ba2947fda79b12 的正式 catalog.json 并核对 SHA256，确认红包 1.2.2、人才 1.2.1、Example 1.1.0 均实际存在。三个插件正式发行与商店入库闭环完成；1.7 兼容与 R44 后续业务增强仍未完成。
+
+### 16.53 1.7 评估与迁移规划交接（2026-10-13）
+
+本地准确版本已核对为 1.7.4976 rev1043，Waylith/UnityStubs/Brutal.ImGui、定制 .NET 10.0.10-waylithclr.dev 与 Harmony 3.0.0.0-rc.2。真实 DLL 白盒确认旧 GUI.DrawTexture 边框/圆角参数被忽略，公共 RoundedBorder 会覆盖内容；Input.compositionString 恒空，真实 IME 待测。原始源码的隔离编译与成员签名检查通过不代表游戏兼容；当前画面失败，三插件真实业务路径未验收。找到独立 1.6.4871 rev600 DLL 基线，原 GameDlls 的较早 1.6 基线保留，未覆盖。
+
+用户明确本轮仅评估/规划，不修改生产代码；临时描边补丁已撤回。后续优先新 API、1.6 独立 engine adapter，业务语义泄漏先收束，不恢复旧客户端组合支持。新路线见 [RimWorld 1.7 Migration Roadmap](RimWorld-1.7-Migration-Roadmap-2026-10-13.md)：固定基线→业务边界→最小公共契约→单一公共 renderer 与两个 engine adapter→输入/生命周期→消费者联合迁移与插件游戏边界→完整候选/游戏验收。任务 R17-00～82 均未实施；只完成评估与规划，不新增游戏通过、发布授权或 R44 业务增强完成声明。1.6 正式收口状态继续以 §16.52 和正式发布 JSON 为准。
+
+### 16.54 R17-10 Trade 请求契约归属（2026-10-13）
+
+用户授权逐步实施并完成设计哲学复核后，将 ITradeRequestApi 从 Host Abstractions 移入 Trade Contracts；Chat 只引用 Trade 契约，Host 仍只提供通用发现。当前 1.6 与新本地 1.7.4977 rev926 的 16 个选定项目隔离编译通过，TradeCompositionRuntimeTests 各 204 条断言通过，包括真实 Host directory/Chat lookup 的 provider 生命周期检查。游戏待测；没有修复 UI 后端、部署或发布。
+
+详细指纹、验证范围与 ABI 破坏性变更门槛见 [R17-10 实施记录](RimWorld-1.7-R17-10-Trade-Boundary-2026-10-13.md)。原 4976 日志/白盒依据保留为历史证据，不视作 4977 游戏验收。下一切片是 Inventory 投递实现归属；不改变 codec 权威、Unknown 或返还规则。
+
+### 16.55 R17-11/12 Inventory 游戏实现归属与 Trade 接入审查（2026-10-13）
+
+共享 InventoryDropDelivery 原样移出 Contracts，形成主包提供的 InventoryExtension.GameAdapter；Inventory、Trade、红包同步引用，Host 不引用业务程序集。codec/Thing/custody 权威与账本、确认、返还规则保留。游戏合同单独归入 InventoryGameContracts.cs，原合同类型身份未改。
+
+两版各 20 个选定项目编译通过；Trade 204 断言、Inventory composition 84 断言、游戏接入探针 19 断言及原 Inventory 19 组场景白盒通过。真实落舱/返还/Scribe/切档仍待游戏测试，完整构建图与联合包未完成。红包构建明确拒绝缺少新 adapter 的旧主包；未更新正式 pin、API major 或发布。
+
+[R17-11/12 记录](RimWorld-1.7-R17-11-Inventory-Game-Boundary-2026-10-13.md) 说明新 DLL 所有权、ABI 门槛、夹具限制与消费者路径。下一步 P2 公共呈现中立契约，再进入两版后端；当前不需要用户安装中间 DLL 测试。
+
+### 16.56 R17-20 公共布局参数/RGBA 首切片（2026-10-13）
+
+Session.Draw 从 Rect 改为 ClientPresentationBounds，Swatch 从 Color 改为 ClientRgba；Host 同一 renderer 在入口转换，当前 Host/内置/红包/人才/Example 同步。两版各 22 个选定项目编译与 6 套非 GUI 测试通过；现有公共 renderer 的 228 项 stub GUI 检查通过。主题 Color、borrowed image、自绘和游戏 shell 尚未迁完，游戏待测。
+
+安装目录已切回 Version.txt 1.6.4871 rev598；1.7 检查使用先前 4977 隔离缓存，重新核对 DLL 哈希匹配。迁移按 API 3.0 联合收口，尚未更新正式身份、包范围或 Host pin，不提供中间 DLL。详细消费者/引用/限制见 [R17-20 记录](RimWorld-1.7-R17-20-Presentation-Values-2026-10-13.md)。下一切片为图像寿命边界。
+
+### 16.57 R17-21 列表图像 lease 首切片（2026-10-13）
+
+公共 row 改为中立 image source/lease，当前引擎 Texture 只在共享 Game bridge 暴露；Host 同一 renderer 在可见 Repaint 短暂借用，测量/输入/viewport 外行不解析。owner/revision 失效撤销 lease，关视图不销毁资源；解析异常保留文本且不污染业务动作。Trade/Talent/Example 同步，Talent Pawn/Game/Map/PortraitsCache 权威未变。
+
+两版各 22 项编译及六套非 GUI 检查通过，renderer stub 检查增至 244；实际 GPU/RenderTexture/肖像/切档待游戏测试。三个正式插件源码 member gate 改为 WithImage，旧固定 Host 被明确拒绝，未更新正式 pin/API 身份或发布。Badge/media/composer 仍待沿同一边界整理。详见 [R17-21 列表图像记录](RimWorld-1.7-R17-21-Row-Image-Leases-2026-10-13.md)。
+
+### 16.58 R17-21 Badge/media/composer 图像入口（2026-10-14）
+
+普通呈现的四类图像入口现统一为 source/lease；Host 在可见 Repaint 借用并释放，异常只影响图像。媒体失效显示 owner 占位，不自动加载；composer 保留按钮区域与提交规则。Chat/Trade/Store/红包/人才同步，业务与资源 owner 保留权威。未做新版绘制后端或物理 Game bridge 程序集隔离。
+
+两版各 22 个选定项目编译、六套非 GUI 回归通过；实际合同 29 断言、renderer stub 264 检查通过，GPU/肖像/真实 IME/游戏验收仍待测。正式 API 身份、包范围、Host pin 未更新，不部署中间包。[图像入口记录](RimWorld-1.7-R17-21-Presentation-Image-Slots-2026-10-13.md) 给出 source 位置、失效语义、验证限制。下一切片主题 Color 与受控自绘，随后窗口/输入及两版后端。
+
+### 16.59 R17-20 主题注册默认色首切片（2026-10-14）
+
+RegisterColor 与 ClientThemeColor.DefaultColor 改为已有 ClientRgba；Host、Chat、Trade、Inventory、Store、红包、人才与 Example 同步。82 个注册默认 key/通道与原源码一致，批次/fallback/撤销/文件与业务语义保留。Reader、Draft、Preview 仍使用原 Color，主题整体尚未中立。
+
+两版各 22 项选定编译与六套非 GUI 回归通过，实际合同 32 断言；主题源码/stub 专项 66 断言含两个真实反射 adapter 的注册/热应用/释放；renderer stub 264 项通过。真实游戏与正式 DLL/包绑定待测。正式 pin/API 身份未更新，不部署中间包。详见 [主题注册记录](RimWorld-1.7-R17-20-Theme-Registration-2026-10-14.md)；下一切片 Draft/Preview/Reader，再到受控自绘与后端。
+
+### 16.60 R17-20 主题 Draft/Preview/Reader 色值（2026-10-14）
+
+IClientTheme.cs 的主题 reader/catalog/snapshot/draft/preview 全部使用 ClientRgba，Host 解析和 XML 数据路径不再依赖 Unity。现有绘制端经共享 Game bridge 显式转换，两个插件同步中立反射读取；没有第二套主题或旧 reader overload。原编辑/热应用/导出与业务规则保留。
+
+本地包往返测试确认旧 byte→string→XDocument.Parse 路径不能处理实际导出 XML 的 UTF-8 BOM，已改用与文件共享的受限 stream reader。73 项主题源码/stub 检查包含包重载、unknown/inherit、两个 adapter 的缓存与释放。两版各 22 项编译与六套非 GUI 回归、实际合同 47 断言、renderer stub 264 项通过。游戏与正式包绑定待测，未切正式身份或部署。[主题色值记录](RimWorld-1.7-R17-20-Theme-Values-2026-10-14.md) 说明证据和限制；下一切片 R17-22 受控自绘，随后窗口/输入、两版后端。
+
+### 16.61 R17-22 受控 Region 自绘（2026-10-14）
+
+Region.Draw 改为中立 context，按真实 Example 进度预览需求只提供 Bounds、Theme 和 Progress；Host 控制 Repaint、裁剪、主线程、投影/回调寿命与 GUI 状态恢复。保存 context、重入 Publish、离开主线程均拒绝过期绘制。Example 使用同一公共入口；不增加 native handle、事件或官方私有 renderer。
+
+两版各 22 个选定项目与六套回归通过，实际合同 50 断言、renderer stub 288 项通过。真实裁剪/GPU/游戏待测，正式身份/包未切换。下一切片菜单/窗口与联合程序集布局，再做两版 backend。用户要求适合测试时主动通知；R17-33 首个可运行联合候选提供准确组合、安装清单与最小测试步骤，当前不安装中间 DLL。详见 [R17-22 记录及测试通知门槛](RimWorld-1.7-R17-22-Draw-Context-2026-10-14.md)。
+
+### 16.62 R17-20 公共动作菜单（2026-10-14）
+
+Session 改为返回中立 readonly MenuItem，Host、Chat、Example 经同一 Game bridge 转原生菜单。捕获原 binding/generation，不按同 ID 查新页面；原动作集与确认流程保留。白盒发现生成菜单后的动态 disabled 未重新检查，已补 Request/Execute 的主线程与公共禁用 guard；业务校验仍归 owner，不生成业务回执。
+
+两版各 22 项选定编译与六套回归通过，实际合同 54 断言，renderer stub 308 项通过。原生菜单/焦点/确认/游戏待测，正式身份/包未切换。下一切片窗口入口分层与联合程序集布局；可运行联合候选时主动通知游戏测试，当前不安装中间 DLL。详见 [动作菜单记录](RimWorld-1.7-R17-20-Action-Menu-2026-10-14.md)。
+
+### 16.63 R17-20 窗口入口边界（2026-10-14）
+
+普通设置保留 IClientSettingsWindowService；原生 Open(Verse.Window) 移入明确的 IClientGameWindowService，Host、Trade、Inventory、Store 同步。同一 Host 服务将 owner 创建的窗口交给栈，补非空 Open 与设置构造前主线程 guard；原排队、关闭、确认和业务权威保留。尚在原程序集，不宣称完成物理解耦或两版 backend。
+
+两版各 22 项选定工程与六套非 GUI 回归通过，实际合同 57 断言；窗口源码/stub 12 检查通过，商店组合两版各 109 断言通过。真实栈/焦点/输入/游戏仍待测，正式身份/pin/包未切。下一切片 R17-23 联合程序集布局；可运行联合候选时主动通知测试，当前不装中间 DLL。详见 [窗口边界记录](RimWorld-1.7-R17-20-Window-Boundary-2026-10-14.md)。
+
+### 16.64 R17-23 中立呈现程序集首切片（2026-10-14）
+
+普通 presentation/theme/image/action 合同移入 ClientPresentation.Contracts，保持原 namespace 与同一 renderer/registry；旧抽象程序集依赖它，Game bridge/widgets/原生 shell/UnknownItem 继续留在原游戏边界。ClientButtonKind 隐含依赖迁出，两插件反射解析按真实程序集归属同步；不搬业务或改存档类型。六个迁出文件 SHA 不变。
+
+两版各 23 项选定工程与六套回归通过，实际合同 62；实际插件反射检查每版红包 32/人才 84，商店 109；renderer/主题重跑 308/73。三仓库 CI 模拟检查、当前源码 gate 和两插件 source-manifest 检查通过。新程序集暂为 SDK 默认未发布身份，正式 API/pin/包范围未切；完整 locked restore/锁图、版本加载布局和游戏仍待测。下一切片优先闭合这些工程/绑定门槛，再到游戏实现/两版 backend；可运行联合候选时主动通知测试。详见 [R17-23 记录](RimWorld-1.7-R17-23-Presentation-Assembly-2026-10-14.md)。
+
+### 16.65 R17-23 rev1248 与真实构建/版本选择（2026-10-14）
+
+安装恢复为 1.7.4977 rev1248，游戏/UnityStubs 指纹已变化，Harmony rc.2 未变；引用改存持久本地分析目录。IL 确认 IME compositionText 与候选位置已有实现，旧圆角/边框 DrawTexture 参数仍忽略。新 IGuiBackend 圆角/文本/裁剪接口可作为 adapter 依据，但原生游戏待测。
+
+新增真实工程隔离构建入口，锁图在确认 NuGet 版本/摘要不变后仅同步项目依赖；1.6 真实构建和三插件工程通过。Host 按实际游戏 major/minor 选择版本 SDK/Extensions，1.7 不回退 Common，9 项目录白盒通过；正式 LoadFolders/版本包/身份尚未切。rev1248 下23项编译、六套回归与红包32/人才84/商店109通过，完整1.7图和native adapter待实施。详见 [rev1248记录](RimWorld-1.7-R17-23-Revision1248-2026-10-14.md)。下一批新版绘制 adapter + 完整 net10/版本制品；1.6 bugfix 另待验证后整合，无游戏通过结论。
+
+### 16.66 1.6 fix 合入 1.7 迁移（2026-10-14）
+
+按用户要求从远端修复分支快进两个已有提交到 13412fe，Common 固定 be978cf；没有推送/发布或新合并提交。Chat composer 控件分配顺序与 Enter 意图修复已与中立 Bounds 保留在同一实现；本地迁移仅三处重叠文件按双方语义整合，142 路径独立备份与 stash 保留。源产品版本随 fix 为0.10.1，发布记录未改，API3.0身份/pin/范围仍待闭合。
+
+呈现stub315、真实新Common的Managed3390检查通过，1.6严格锁定真实客户端和三插件工程通过；rev1248选定1.7检查使用新重建基础设施重验。真实游戏仍待测。详见 [fix整合记录](RimWorld-1.7-Fix-Integration-13412fe-2026-10-14.md)，继续新基线的native adapter与完整net10候选，不部署中间DLL。
+
+### 16.67 完整net10源码依赖图及1.6影响（2026-10-14）
+
+26个实际源码项目在隔离net10 SDK图构建通过，包括全部基础设施/内置扩展/三个独立插件，不借旧Output基础设施；保留源码、包版本、签名，原AfterBuild/正式包targets未执行。26个DLL的TargetFrameworkAttribute为NETCoreApp10；1.6四核心真实DLL仍为NETFramework4.7.2，两个runtime产物不能放进同一Common目录。API3合同改变仍需两版Host与插件同步，1.6游戏回归不因双目标而免除。
+
+新net10基础设施下六套迁移回归与实际插件反射检查通过；runtime分析资产29个且无游戏/UnityStubs/Harmony私有DLL。正式双目标/版本包/profile、原生backend和两版游戏待测。详见 [net10源码图](RimWorld-1.7-Net10-Source-Graph-2026-10-14.md)，下一批native adapter和正式版本化构建，未提交/发布/安装中间产物。
+
+### 16.68 R17-30 原生圆角/描边绘制（2026-10-14）
+
+ClientWidgets继续是Host/所有插件共享入口，底层改分别编译的16/17 ClientGameDrawing。16保留原material调用；17直接用IGuiBackend.FillRectRounded与真实ReadOnlySpan<GuiVertex>图元接口，描边采用不覆盖中心的三角环，按GuiToScreenPoint转换、Repaint绘制。没有业务/动作/主题系统变化。数组分配、真实GPU裁剪/matrix/缩放/AA仍待测。
+
+真实新版接口+fake backend1135检查、16呈现stub315检查通过；16严格locked完整客户端/三插件、17选定23项/六套回归与完整net10源图26项目编译通过。正式API3/版本目录/联合包和游戏待测；可运行候选时主动通知，不安装中间DLL。[原生绘制记录](RimWorld-1.7-R17-30-Native-Drawing-2026-10-14.md)列明证据与限制。下一批版本化输出/包绑定及其余native能力验证。
+
+
+### 16.69 R17-71 两版隔离布局与包格式阻断（2026-10-14）
+
+生成仅本地分析的1.6/1.7 Host版本目录，实物分别31/24个DLL，21个源码程序集身份一致；1.7包内引用版本匹配，外部引用均在rev1248缓存中找到。新增实际目录验证，17项检查通过；无Common DLL、独立插件混入或游戏/Harmony引用污染。1.6既有5处库版本差异、1.7的11处运行时升级引用记录为游戏待测，不自动消除。
+
+确认现有managed工具/manifest reader/payload inspector均限定net472，单Mod分版不等于单managed ZIP支持双payload；下一批同步共同合同、运行时预检、商店/profile选择与三插件/Example打包。正式API3身份与候选尚未闭合，不部署分析目录；有可安装候选再通知游戏测试。[布局与包阻断记录](RimWorld-1.7-R17-71-Versioned-Layout-2026-10-14.md)。
+
+
+### 16.70 双框架 managed 声明与本地校验（2026-10-14）
+
+Common manifest保留net472/net10.0并校验DLL真实TFM；Host预检、商店规划与更新提示按游戏profile选择，工具校验游戏声明/实际SDK目标。真实两种TFM的Host与商店交叉检查18项、包CLI11命令/CRC/拒绝前不写制品通过。没有弱化hash、ownership或业务回执，也没有新增旧客户端分支。正式双payload单ZIP与商店发行仍待闭合。
+
+### 16.71 API3两版本地联合候选与最终单版本要求（2026-10-14）
+
+用户明确最终Mod本体及每个插件各自一个版本/一个发行包兼容1.6/1.7，后续低成本删除1.6；所有游戏差异限制于adapter及构建/profile，不复制业务/UI。API3兼容标记及两个公共SDK程序集身份已切3.0.0.0；两版Host和全部消费者联合重编，正式插件pin与发行记录未改。
+
+冻结local-api3-20261014-03一个Mod测试ZIP，含两版普通bundle消费者及语言资源；61项实物加载路径/身份/语言检查，红包32/人才84/商店109及managed3396检查通过。可以开始1.7 G1游戏测试，仍无游戏通过结论。单TFM ZIP仅为validation中间物，最终插件仍须双payload单包；商店推送暂缓。[联合候选、测试步骤与证据](RimWorld-1.7-Local-API3-Cohort-2026-10-14.md)。
+
+
+### 16.72 两版实机共同SDK加载阻断修复（2026-10-14）
+
+候选03两版都在Verse初次扫描SDK时无法加载图像接口，随后UnknownItem未进入可用类型集合。两版游戏IL确认逐文件排序/LoadFrom/立即GetTypes，编号文件中SDK早于合同；Mono负例与提前加载合同正例复现。合同输出改09号，公开消费者引用与制品检查同步；候选生成增加排序门槛。net10工程遗漏内嵌维护者资源亦修复，实际字节核验通过。
+
+重建两版Host/三插件及26项net10图，新进程在系统Mono/.NET10分别旧失败/新通过，SDK100类型/UnknownItem正常，联合61项重验。候选04已冻结，可重新测试两版；游戏待测，后续空引用不自动算已修。独立双版本商店包仍未完成，不把普通bundle测试包当成已支持双payload安装。[日志依据、修复与候选04](RimWorld-Shared-SDK-Load-Order-Fix-2026-10-14.md)。
+
+
+### 16.73 1.6用户通过反馈与1.7描边坐标修复（2026-10-14）
+
+用户反馈候选04的1.6没问题；其后1.7截图显示长线与选框偏移。实际ImGuiGuiBackend的GuiToScreenPoint与ToScreen对group offset/矩阵顺序不同，旧描边预转顶点再按屏幕坐标提交有误。17 adapter改局部顶点+screenSpace=false，经原生绘制路径处理，1138项修正白盒与26项完整图编译通过；候选05的1.6产物逐字节与04相同。
+
+固定页头/页脚产生的空状态留白与绘制异常分别待测；未改既有布局或业务。用户撤回库存吞物疑点，说明选错直接空投，本轮未修改Inventory/Trade逻辑。双版本商店包仍待接入，不混淆普通bundle测试与商店安装支持。[坐标依据、候选05与测试](RimWorld-1.7-Native-Border-Coordinates-2026-10-14.md)。
+
+### 16.74 独立双版本托管包与候选06（2026-10-14）
+
+用户确认候选05显示/布局无问题。双版单包采用schema2 variants信封；统一产品版本、身份与安装收据，完整校验/恢复/卸载两版文件，启动只选择当前游戏payload。红包/人才/Example各有单ZIP，候选06 Host无独立插件bundle，便于真实托管导入测试。两版编译、原3396/商店2225回归、3包各36项安装/游戏选择/禁用重启/卸载探针及6组实际引用绑定通过；真实业务激活、远程升级与双版故障注入待测，未发布。[实现、候选与游戏测试](RimWorld-Dual-Managed-Packages-2026-10-14.md)。
+
+### 16.75 候选06实机按需框架依赖漏报与候选07（2026-10-14）
+
+Example实机安装成功，红包/人才分别被预检误报缺System.Net.WebHeaderCollection与System.Runtime.Serialization.Xml 10.0.0.0。日志确认availableReferences为空，游戏目录真实DLL身份完全匹配；Host只捕获已加载程序集遗漏CoreCLR按需框架。新增runtime TPA框架身份采集，限制运行时目录/框架名、不加载插件；启动facts和环境快照同步。两版构建、完整26项目图、3396/2225回归及production框架collector真实包探针通过；系统Mono保持loaded-only。候选07只更新Host，三个插件ZIP不变，安装/激活游戏待复验。[日志顺序与修复证据](RimWorld-1.7-Lazy-Framework-References-2026-10-14.md)。
+
+### 16.76 全图引用审计与真正启动绑定（2026-10-14）
+
+候选07日志显示三个包静态预检通过，但红包/人才没有AssemblyLoaded/EntriesReady；最终ACTIVE只有六模块。启动actualHost再次仅接受已加载DLL且漏写拒绝日志，是第二层框架依赖缺口。Host新增严格TPA框架实体化能力，Common冻结实际绑定并Emit缺失原因，旧构造方法ABI保留；无业务/官方例外/任意文件探测。真实fixture独立进程旧拒绝/新加载并registry发现通过，3396/2225回归通过。静态覆盖1.6 36DLL/249引用和1.7 29DLL/317引用；旧LiteNetLib/Autofac框架桥接分别用Mono/CoreCLR观察，Unsafe4→6保留1.6专项回归范围，不改protobuf pins。候选09Host补齐本地双版About声明，三个插件ZIP不变；实机激活待测。[完整证据、保留风险和候选](RimWorld-Dual-Reference-Audit-2026-10-14.md)。
+
+### 16.77 红包普通原木分组与业务准入（2026-10-14）
+
+用户授权补修47/75原木仍显示单堆问题。真实Core Def及两版DLL确认CompEquippable延迟tracker使原安全规则一律拒绝；仅准确基础组件且verbs未初始化的普通资源进入原完整状态比较，UI和Capture/PreparePhysical共用规则，不删除保存状态，不放开未知/战斗状态，不改协议或Host呈现。36项修复/性能、两版编译、真实引用和双版安装37项通过；独立红包本地0.0.1包供候选09Host更新，实际122合计与跨堆发送/领取/返还待测。[证据与候选](RedPacket-Resource-Stack-Aggregation-2026-10-14.md)。
+
+16.77补充：用户要求通用聚合，不做物品特异分支。源码无WoodLog/defName名单，UI/业务共用完整状态与组件准入；增补6种定义×3种组件模式的18组合及定义/耐久分离，修复用例增至38通过。仅测试/记录更新，运行ZIP0.0.1不变。未知有状态组件和库存opaque格式的限制明确保留，不以同名/外观替代等价证明。
+
+### 16.78 游戏堆叠权威与用户授权单模板补齐（2026-10-14）
+
+用户最终指定容量+游戏堆叠规则，不按物品/品质名单强合；不同状态在游戏允许堆叠且同状态数量不足时，以合计最多状态模板补齐数量。两版IL核对CanStackWith/AllowStackWith并发现容量必须额外检查。地图UI与PreparePhysical统一，Medicine派生类/食物组件不再白名单拒绝；容量1装备即使同品质仍单独。单红包/单Scribe模板与main消息协议不改，原扣取/返还保留。42项算法、分片性能、两版编译及双版包37项通过，0.0.2独立红包供候选09Host更新；游戏与两端互通待测。[实现、远端历史与测试](RedPacket-Native-Stackability-2026-10-14.md)。
+
+
+### 16.79 交易列表与报价编辑的旧流程现代化（2026-10-14）
+
+用户指定同时改善列表与报价编辑，学习远端 c51f8a6 的布局/UX。恢复全宽交易行直接打开/取消、逐行数量及双方报价并排；通过公开 row controls/shared footer 实现，内置/第三方共用 renderer、主题、动作、确认。草稿错误跨搜索保留并阻止提交，刷新/重建清理，旧输入不串物品；错误数量不封死取消/重置，已提交取消等待真实回执且禁重复。原业务托管/协议/交付与 R44 未改。
+
+350 项呈现白盒通过（含真实报价 presenter/factory、fake game/business ports）；两版完整源码及三插件编译通过，两版 23 项消费者/六套 runtime 回归、红包32/人才84/商店109真实 SDK 呈现检查通过。冻结双版 Host 本地候选10，31/24 DLL、21源身份匹配，当前独立API3双版包可保留。已通知游戏测试；本次新布局1.6/1.7仍待实机，不沿用此前UI通过结论。没有提交、发布或玩家数据修改。[历史依据、实现、候选与验收](Trade-UX-Modernization-2026-10-14.md)。
+
+
+### 16.80 交易页信息密度布局重设计（2026-10-14）
+
+用户反馈候选10空间利用率低，要求以信息密度为主重新设计。固定上部工具栏合并对方与交易命令，删除重复页标题/卡片说明，双方报价标题直接展示确认状态；物品区占剩余60%、双空报价65%，搜索/刷新等横排。可用物品以图标、名称、数量/来源与输入同行，短名称让出空位；报价完整属性连续排版，特殊状态/异常仍保留。公开compact rows/inline toolbar两项可选提示，旧插件默认布局不变，Host无业务分支。
+
+359项呈现白盒、两版完整源码和三插件编译通过；真实两版合同各458公开声明全部保留，0移除、11新增（含候选10加法），红包32/人才84/商店109真实DLL绑定检查通过。冻结双版Host候选11，现有API3双版插件保留，无提交/发布或正式存档修改。已通知实机测试，缩放、命中、长名称和实际同屏密度仍待验收。[布局与候选11](Trade-UX-Modernization-2026-10-14.md)。
+
+
+### 16.81 提交报价靠近物品编辑（2026-10-14）
+
+按用户截图，把提交报价从顶部移到下部刷新物品右侧；顶部保留确认/撤回、重置、取消。只改动作布局分组/顺序，公共合同/renderer及业务不改。原359项呈现、两版完整客户端/三插件构建通过，冻结双版Host候选12；现有API3插件保留，按钮位置游戏待测。[候选12](Trade-UX-Modernization-2026-10-14.md)。
+
+
+### 16.82 红包紧凑布局与收到红包图标（2026-10-14）
+
+按用户截图，红包搜索/刷新与领取操作使用公共横向工具栏，两个列表使用公共紧凑行；来源/数量/状态/时间合并，保留到账核对及待处理/异常提示。收到红包优先本地Def图标，缺失沿用UnknownItem问号资源，通过同一公共WithImage呈现，不物化Thing或改领取准入。两版构建、红包34/人才84/商店109真实SDK检查、双版真实引用与37项包生命周期通过；本地红包0.0.3供Host12更新，游戏图标/密度/领取待测。业务/协议/聚合/存档不改，无发布。[实现和本地包](RedPacket-Compact-UI-2026-10-14.md)。

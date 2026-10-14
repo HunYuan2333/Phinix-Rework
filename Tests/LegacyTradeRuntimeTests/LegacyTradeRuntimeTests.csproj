@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\Extensions\Trade\Client\TradeExtension.Client.csproj" />
     <ProjectReference Include="..\..\Extensions\LegacyAdapter\Client\PhinixLegacyAdapter.Client.csproj" />
     <ProjectReference Include="..\..\Extensions\Trade\Contracts\TradeExtension.csproj" />
+    <ProjectReference Include="../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />
     <ProjectReference Include="..\..\Client\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj" />
     <ProjectReference Include="../../Dependencies/Phinix.Common/Common/UserManagement/UserManagement.csproj" />
     <ProjectReference Include="../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />

@@ -1,8 +1,9 @@
+using System;
 using Verse;
 
 namespace PhinixClient.Framework
 {
-    internal sealed class ClientWindowService : IClientWindowService, IClientSettingsWindowService, IClientExtensionManagementWindowService
+    internal sealed class ClientWindowService : IClientGameWindowService, IClientSettingsWindowService, IClientExtensionManagementWindowService
     {
         private ExtensionManagerWindow extensionManager;
         private readonly ClientExtensionManagementWindowService management;
@@ -25,6 +26,7 @@ namespace PhinixClient.Framework
                 return;
             }
 
+            RequireMainThread();
             Find.WindowStack.Add(window);
         }
 
@@ -33,9 +35,16 @@ namespace PhinixClient.Framework
             management.OpenExtensionManagerWindow();
         }
 
+        private static void RequireMainThread()
+        {
+            if (!UnityData.IsInMainThread)
+                throw new InvalidOperationException("Game windows must be opened on the main thread.");
+        }
+
         public void OpenSettingsWindow()
         {
-            Find.WindowStack.Add(new SettingsWindow());
+            RequireMainThread();
+            Open(new SettingsWindow());
         }
     }
 }

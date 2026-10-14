@@ -10,7 +10,7 @@ namespace Phinix.PluginStore
         public PluginStoreSettingsPanel() { }
         public void Dispose() { Stop(); }
 
-        private IClientWindowService windows;
+        private IClientGameWindowService windows;
         private IClientTheme theme;
         private IClientMainThreadDispatcher dispatcher;
         private object language;
@@ -22,7 +22,7 @@ namespace Phinix.PluginStore
         public float Order => 180f;
         public bool IsVisible(IClientSettingsContext settings) => createView != null;
 
-        public void Initialize(IClientTheme theme,IClientWindowService windows,IClientMainThreadDispatcher dispatcher,Func<ManagedPluginStoreView> createView)
+        public void Initialize(IClientTheme theme,IClientGameWindowService windows,IClientMainThreadDispatcher dispatcher,Func<ManagedPluginStoreView> createView)
         { this.theme=theme; this.windows=windows; this.dispatcher=dispatcher; this.createView=createView; }
 
         public void Stop()

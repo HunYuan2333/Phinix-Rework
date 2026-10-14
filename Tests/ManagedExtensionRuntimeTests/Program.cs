@@ -44,6 +44,9 @@ internal static partial class Program
     }
     private static int Main(string[] args)
     {
+        if(args.Length==3 && args[0]=="lazy-startup") return LazyStartupProbe(args[1],args[2]=="positive");
+        if(args.Length==2 && args[0]=="dual-package") return DualPackageProbe(args[1]);
+        if(args.Length==2 && args[0]=="target-framework") return TargetFrameworkProbe(args[1]);
         if(args.Length!=0 && (args[0]=="positive" || args[0]=="lease" || args[0]=="managed-intent" || args[0]=="install-startup" || args[0]=="upgrade-live" || args[0]=="upgrade-restart" || args[0]=="host-upgrade")) return StartupChild(args);
         string root = Path.Combine(Path.GetTempPath(), "phinix-managed-metadata-" + Guid.NewGuid().ToString("N"));
         string sentinel = Path.Combine(root, "executed"); Environment.SetEnvironmentVariable("PHINIX_MANAGED_METADATA_SENTINEL", sentinel);
@@ -76,6 +79,13 @@ internal static partial class Program
             Assert(metadata.Modules.Any(m => m.EntryType == "Fixture.Managed.Outer+Nested"), "Nested entry name");
             var json = Manifest(files); var manifest = ManagedExtensionManifestReader.Read(Utf8(json));
             var payload = ManagedExtensionPayloadInspector.Inspect(manifest, files, CancellationToken.None);
+            Assert(manifest.TargetFramework=="net472","Manifest retains declared target framework");
+            var net10Manifest=ManagedExtensionManifestReader.Read(Utf8(json.Replace("net472","net10.0")));
+            Assert(net10Manifest.TargetFramework=="net10.0","New target framework is retained independently of compatibility claims");
+            Failure("AssemblyTargetFrameworkMismatch",()=>ManagedExtensionPayloadInspector.Inspect(net10Manifest,files,CancellationToken.None));
+            Failure("UnsupportedTargetFramework",()=>ManagedExtensionManifestReader.Read(Utf8(json.Replace("net472","net9.0"))));
+            Assert(ManagedExtensionTargetFramework.SupportsGame("net472","1.6") && ManagedExtensionTargetFramework.SupportsGame("net10.0","1.7"),"Supported game adapter profiles");
+            Assert(!ManagedExtensionTargetFramework.SupportsGame("net10.0","1.6") && !ManagedExtensionTargetFramework.SupportsGame("net472","1.7") && !ManagedExtensionTargetFramework.SupportsGame("net10.0","1.8"),"Cross-runtime and unknown game profiles are refused");
             Assert(payload.Assemblies.Count == 2, "Multi DLL inspection");
             byte[] copy = payload.Assemblies[0].CopyBytes(); copy[0] = 0;
             Assert(payload.Assemblies[0].CopyBytes()[0] == plugin[0], "Frozen bytes never expose writable storage");

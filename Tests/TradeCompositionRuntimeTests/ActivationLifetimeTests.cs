@@ -35,7 +35,7 @@ internal static partial class Program
                 host.AddService<IClientUserEventStream>(services);
                 host.AddService<IClientUserDirectory>(services);
                 host.AddService<IClientMainThreadDispatcher>(services);
-                if (scenario != "missing-dependency") host.AddService<IClientWindowService>(services);
+                if (scenario != "missing-dependency") host.AddService<IClientGameWindowService>(services);
                 host.AddService<Action<bool>>(value => services.AcceptingUpdates++);
                 var registry = (ExtensionApiRegistry)host.ApiRegistry;
                 registry.RegisterApi<IInventoryRegistrationApi>("builtin.inventory", inventory);
@@ -183,7 +183,7 @@ internal static partial class Program
 
     private sealed class TradeHost : IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle,
         IClientSessionContext, IClientSettingsContext, IClientUserEventStream, IClientUserDirectory,
-        IClientMainThreadDispatcher, IClientWindowService, IClientTheme,IClientThemeRegistry,IClientPresentationService,IClientExtensionPointService, IDisposable
+        IClientMainThreadDispatcher, IClientGameWindowService, IClientTheme,IClientThemeRegistry,IClientPresentationService,IClientExtensionPointService, IDisposable
     {
         public IClientPresentationSession Open(IPhinixExtensionModule owner,string page)=>throw new InvalidOperationException("Native view not exercised by activation probe");
         public long Revision=>0;
@@ -239,12 +239,12 @@ internal static partial class Program
         public long Version => 0;
         public event Action Changed { add { } remove { } }
         public IClientThemeRegistration RegisterModule(IPhinixExtensionModule module, string keyNamespace = null, string ownerLabel = null) => new TestThemeRegistration();
-        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, Color>(), new Dictionary<string, float>());
-        public Color PrimaryText => default(Color); public Color SecondaryText => default(Color); public Color Background => default(Color);
-        public Color Surface => default(Color); public Color Separator => default(Color); public Color HoverHighlight => default(Color);
-        public Color Pending => default(Color); public Color Error => default(Color); public Color Success => default(Color); public Color Warning => default(Color);
-        public Color GetColor(string key) => default(Color);
-        public bool TryGetColor(string key, out Color value) { value = default(Color); return true; }
+        public ClientThemeSnapshot Capture() => new ClientThemeSnapshot(Version, new Dictionary<string, ClientRgba>(), new Dictionary<string, float>());
+        public PhinixClient.Framework.ClientRgba PrimaryText => default(ClientRgba); public PhinixClient.Framework.ClientRgba SecondaryText => default(ClientRgba); public PhinixClient.Framework.ClientRgba Background => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Surface => default(ClientRgba); public PhinixClient.Framework.ClientRgba Separator => default(ClientRgba); public PhinixClient.Framework.ClientRgba HoverHighlight => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba Pending => default(ClientRgba); public PhinixClient.Framework.ClientRgba Error => default(ClientRgba); public PhinixClient.Framework.ClientRgba Success => default(ClientRgba); public PhinixClient.Framework.ClientRgba Warning => default(ClientRgba);
+        public PhinixClient.Framework.ClientRgba GetColor(string key) => default(ClientRgba);
+        public bool TryGetColor(string key, out PhinixClient.Framework.ClientRgba value) { value = default(ClientRgba); return true; }
         public float GetFloat(string key, float defaultValue = 0f) => defaultValue;
         public void Dispose() { Disposed++; }
     }
@@ -286,7 +286,7 @@ internal static partial class Program
 
 internal sealed class TestThemeRegistration : PhinixClient.Framework.IClientThemeRegistration
 {
-    public void RegisterColor(string key, UnityEngine.Color value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
+    public void RegisterColor(string key, PhinixClient.Framework.ClientRgba value, string label = null, string fallbackKey = null, string group = null, string description = null) { }
     public void RegisterFloat(string key, float value, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null) { }
     public void Commit() { }
     public void Dispose() { }

@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Stateless" Version="[5.20.1]" />
     <Compile Remove="Fixtures/**/*.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientRuntimeAssemblyFacts.cs" Link="Production/ClientRuntimeAssemblyFacts.cs" />
     <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientLocalizationService.cs" Link="Production/IClientLocalizationService.cs" />
     <Compile Include="../../Client/Source/Framework/ClientLocalizationService.cs" Link="Production/ClientLocalizationService.cs" />
     <None Include="../../docs/branch-local/dev/plugin-store/managed-store-protocol-v3/*.json" Link="ManagedStoreProtocol/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

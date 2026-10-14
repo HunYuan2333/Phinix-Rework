@@ -25,31 +25,29 @@ namespace PhinixClient.Framework
         }
     }
 
-    public enum ClientButtonKind { Normal, Primary, Danger }
-
     public static class ClientWidgets
     {
         public static void Surface(Rect rect, IClientThemeReader theme, bool selected = false)
-        { Fill(rect, selected ? theme.HoverHighlight : theme.Surface); }
+        { Fill(rect, selected ? theme.HoverHighlight.ToUnityColor() : theme.Surface.ToUnityColor()); }
         public static void Fill(Rect rect, Color color)
         { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = Color.white; Widgets.DrawBoxSolid(rect, color); } }
         public static void Border(Rect rect, IClientThemeReader theme, int thickness = 1)
-        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = theme.Separator; Widgets.DrawBox(rect, thickness); } }
+        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = theme.Separator.ToUnityColor(); Widgets.DrawBox(rect, thickness); } }
         public static void Label(Rect rect, string text, IClientThemeReader theme, bool secondary = false)
-        { Label(rect, text, secondary ? theme.SecondaryText : theme.PrimaryText); }
+        { Label(rect, text, secondary ? theme.SecondaryText.ToUnityColor() : theme.PrimaryText.ToUnityColor()); }
         public static void Label(Rect rect, string text, Color color)
         { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = color; Widgets.Label(rect, text); } }
         public static void LabelEllipses(Rect rect, string text, IClientThemeReader theme, bool secondary = false)
-        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = secondary ? theme.SecondaryText : theme.PrimaryText; Widgets.LabelEllipses(rect, text); } }
+        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = secondary ? theme.SecondaryText.ToUnityColor() : theme.PrimaryText.ToUnityColor(); Widgets.LabelEllipses(rect, text); } }
         public static bool RadioButton(Rect rect, string text, bool selected, IClientThemeReader theme)
-        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = theme.PrimaryText; return Widgets.RadioButtonLabeled(rect, text, selected); } }
+        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = theme.PrimaryText.ToUnityColor(); return Widgets.RadioButtonLabeled(rect, text, selected); } }
         public static bool RadioOption(Rect rect, string title, string description, bool selected,
             IClientThemeReader theme, Color? selectedBackground = null)
         {
             using (new ClientGuiScope(true))
             {
-                if (selected) Fill(rect, selectedBackground ?? theme.HoverHighlight);
-                else if (Mouse.IsOver(rect)) Fill(rect, theme.HoverHighlight);
+                if (selected) Fill(rect, selectedBackground ?? theme.HoverHighlight.ToUnityColor());
+                else if (Mouse.IsOver(rect)) Fill(rect, theme.HoverHighlight.ToUnityColor());
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.UpperLeft;
                 Text.WordWrap = true;
@@ -68,9 +66,8 @@ namespace PhinixClient.Framework
         public const float Gap = 8f;
         public const float CardPadding = 12f;
         public static Color Role(IClientThemeReader theme, string key, string fallback)
-        { return theme.TryGetColor(key, out var value) ? value : theme.GetColor(fallback); }
-        // Unity's existing GUI material draws smooth, scale-aware corners in one call.
-        // White texture/material lifetime belongs to Unity; no per-control resource allocation.
+        { return theme.TryGetColor(key, out var value) ? value.ToUnityColor() : theme.GetColor(fallback).ToUnityColor(); }
+        // One shared widget entry, with a separately compiled game drawing implementation.
         public static void RoundedSurface(Rect rect, Color color, float requestedRadius = 12f)
         {
             if (rect.width <= 0 || rect.height <= 0) return;
@@ -78,8 +75,7 @@ namespace PhinixClient.Framework
             using (new ClientGuiScope(true))
             {
                 UnityEngine.GUI.color = Color.white;
-                UnityEngine.GUI.DrawTexture(rect, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, color,
-                    Vector4.zero, new Vector4(radius, radius, radius, radius));
+                ClientGameDrawing.RoundedSurface(rect, color, radius);
             }
         }
         public static void RoundedBorder(Rect rect, Color color, float radius = 12f, float thickness = 1f)
@@ -90,21 +86,20 @@ namespace PhinixClient.Framework
             using (new ClientGuiScope(true))
             {
                 UnityEngine.GUI.color = Color.white;
-                UnityEngine.GUI.DrawTexture(rect, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, color,
-                    new Vector4(thickness, thickness, thickness, thickness), new Vector4(radius, radius, radius, radius));
+                ClientGameDrawing.RoundedBorder(rect, color, radius, thickness);
             }
         }
         private static Color ButtonFill(IClientThemeReader theme, ClientButtonKind kind, bool active, bool hover)
         {
-            if (!active) return theme.GetColor("ui.control.disabled");
-            if (kind != ClientButtonKind.Primary) return theme.GetColor(hover && Input.GetMouseButton(0) ? "ui.button.pressed" : hover ? "ui.button.hover" : "ui.button.background");
+            if (!active) return theme.GetColor("ui.control.disabled").ToUnityColor();
+            if (kind != ClientButtonKind.Primary) return theme.GetColor(hover && Input.GetMouseButton(0) ? "ui.button.pressed" : hover ? "ui.button.hover" : "ui.button.background").ToUnityColor();
             var accent = Role(theme, "ui.action.primary", "ui.accent");
             // Keep the primary role during hover/press; explicit themes retain their hue and alpha.
             float delta = hover ? (Input.GetMouseButton(0) ? -.07f : .045f) : 0;
             return new Color(Mathf.Clamp01(accent.r + delta), Mathf.Clamp01(accent.g + delta), Mathf.Clamp01(accent.b + delta), accent.a);
         }
         private static Color ButtonTextColor(IClientThemeReader theme, ClientButtonKind kind, bool active, Color? textColor)
-        { return !active ? theme.SecondaryText : textColor ?? (kind == ClientButtonKind.Danger ? theme.Error : kind == ClientButtonKind.Primary ? new Color(theme.Background.r, theme.Background.g, theme.Background.b, 1) : theme.PrimaryText); }
+        { return !active ? theme.SecondaryText.ToUnityColor() : textColor ?? (kind == ClientButtonKind.Danger ? theme.Error.ToUnityColor() : kind == ClientButtonKind.Primary ? new Color(theme.Background.ToUnityColor().r, theme.Background.ToUnityColor().g, theme.Background.ToUnityColor().b, 1) : theme.PrimaryText.ToUnityColor()); }
         // Clip in a local group: native ellipsis/button helpers may reset the text anchor.
         // Full rich text stays intact; tooltips expose content that exceeds the available width.
         public static void ClippedLabel(Rect rect, string text, Color color, TextAnchor anchor, bool wrap = false)
@@ -121,7 +116,7 @@ namespace PhinixClient.Framework
         public static bool NavigationPill(Rect rect, string label, bool selected, IClientThemeReader theme)
         {
             if (rect.width <= 0 || rect.height <= 0) return false;
-            RoundedSurface(rect, selected ? Role(theme, "ui.navigation.selected", "ui.hover") : theme.GetColor("ui.button.background"));
+            RoundedSurface(rect, selected ? Role(theme, "ui.navigation.selected", "ui.hover") : theme.GetColor("ui.button.background").ToUnityColor());
             if (selected)
             {
                 RoundedBorder(rect, Role(theme, "ui.accent", "ui.input.focus"), thickness: 2);
@@ -129,14 +124,14 @@ namespace PhinixClient.Framework
             }
             else
             {
-                if (UnityEngine.GUI.enabled && Mouse.IsOver(rect)) RoundedSurface(rect, theme.GetColor("ui.button.hover"));
-                RoundedBorder(rect, theme.Separator);
+                if (UnityEngine.GUI.enabled && Mouse.IsOver(rect)) RoundedSurface(rect, theme.GetColor("ui.button.hover").ToUnityColor());
+                RoundedBorder(rect, theme.Separator.ToUnityColor());
             }
             TooltipHandler.TipRegion(rect, label);
             using (new ClientGuiScope(true))
             {
                 Text.Font = GameFont.Small;
-                ClippedLabel(new Rect(rect.x + 8, rect.y + 2, Mathf.Max(0, rect.width - 16), Mathf.Max(0, rect.height - 4)), label, selected ? Role(theme, "ui.accent", "ui.input.focus") : theme.PrimaryText, TextAnchor.MiddleCenter);
+                ClippedLabel(new Rect(rect.x + 8, rect.y + 2, Mathf.Max(0, rect.width - 16), Mathf.Max(0, rect.height - 4)), label, selected ? Role(theme, "ui.accent", "ui.input.focus") : theme.PrimaryText.ToUnityColor(), TextAnchor.MiddleCenter);
                 return UnityEngine.GUI.enabled && Widgets.ButtonInvisible(rect);
             }
         }
@@ -161,7 +156,7 @@ namespace PhinixClient.Framework
                 bool active = UnityEngine.GUI.enabled;
                 bool hover = active && Mouse.IsOver(rect);
                 RoundedSurface(rect, ButtonFill(theme, kind, active, hover), cornerRadius);
-                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, theme.Separator, cornerRadius);
+                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, theme.Separator.ToUnityColor(), cornerRadius);
                 Text.Font = GameFont.Small; Text.Anchor = TextAnchor.MiddleCenter; Text.WordWrap = false;
                 UnityEngine.GUI.color = ButtonTextColor(theme, kind, active, textColor);
                 if (dropdown) ClippedLabel(new Rect(rect.xMax - 28, rect.y + 4, 18, Mathf.Max(0, rect.height - 8)), "▾",
@@ -173,24 +168,28 @@ namespace PhinixClient.Framework
             }
         }
         // Borrowed icon and native dimensions. Full surface is interactive; text/icon are centered as a group.
-        public static bool IconButton(Rect rect, string text, Texture2D icon, Vector2 iconSize, IClientThemeReader theme,
-            ClientButtonKind kind = ClientButtonKind.Normal, bool enabled = true, bool wrap = false)
+        public static bool IconButton(Rect rect, string text, Texture icon, Vector2 iconSize, IClientThemeReader theme,
+            ClientButtonKind kind = ClientButtonKind.Normal, bool enabled = true, bool wrap = false, bool reserveIcon = false, Action<Exception> onImageError = null)
         {
-            if (icon == null) return Button(rect, text, theme, kind, enabled, wrap: wrap);
+            if (icon == null && !reserveIcon) return Button(rect, text, theme, kind, enabled, wrap: wrap);
             if (iconSize.x <= 0 || iconSize.y <= 0 || float.IsNaN(iconSize.x) || float.IsNaN(iconSize.y) || float.IsInfinity(iconSize.x) || float.IsInfinity(iconSize.y)) throw new ArgumentOutOfRangeException(nameof(iconSize));
             using (new ClientGuiScope(true))
             {
                 UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && enabled;
                 bool active = UnityEngine.GUI.enabled;
                 RoundedSurface(rect, ButtonFill(theme, kind, active, active && Mouse.IsOver(rect)));
-                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, theme.Separator);
+                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, theme.Separator.ToUnityColor());
                 Text.Anchor = TextAnchor.MiddleCenter; Text.WordWrap = false;
                 float textWidth = Mathf.Min(Text.CalcSize(text ?? "").x, Mathf.Max(0, rect.width - iconSize.x - 6 - 16));
                 float groupWidth = textWidth + 6 + iconSize.x;
                 float x = rect.x + (rect.width - groupWidth) / 2f;
                 ClippedLabel(new Rect(x, rect.y + 4, textWidth, Mathf.Max(0, rect.height - 8)), text, ButtonTextColor(theme, kind, active, null), TextAnchor.MiddleCenter, wrap);
-                UnityEngine.GUI.color = active ? Color.white : theme.SecondaryText;
-                UnityEngine.GUI.DrawTexture(new Rect(x + textWidth + 6, rect.y + (rect.height - iconSize.y) / 2f, iconSize.x, iconSize.y), icon);
+                UnityEngine.GUI.color = active ? Color.white : theme.SecondaryText.ToUnityColor();
+                if (icon != null)
+                {
+                    try { UnityEngine.GUI.DrawTexture(new Rect(x + textWidth + 6, rect.y + (rect.height - iconSize.y) / 2f, iconSize.x, iconSize.y), icon); }
+                    catch (Exception error) { if (onImageError == null) throw; onImageError(error); }
+                }
                 return Widgets.ButtonInvisible(rect) && active;
             }
         }
@@ -213,16 +212,16 @@ namespace PhinixClient.Framework
                 bool focused = controlName != null && UnityEngine.GUI.GetNameOfFocusedControl() == controlName;
                 if (framed)
                 {
-                    RoundedSurface(rect, theme.GetColor(UnityEngine.GUI.enabled ? "ui.input.background" : "ui.control.disabled"), 8);
-                    RoundedBorder(rect, focused && UnityEngine.GUI.enabled ? theme.GetColor("ui.input.focus") : theme.Separator, 8, focused && UnityEngine.GUI.enabled ? 2 : 1);
+                    RoundedSurface(rect, theme.GetColor(UnityEngine.GUI.enabled ? "ui.input.background" : "ui.control.disabled").ToUnityColor(), 8);
+                    RoundedBorder(rect, focused && UnityEngine.GUI.enabled ? theme.GetColor("ui.input.focus").ToUnityColor() : theme.Separator.ToUnityColor(), 8, focused && UnityEngine.GUI.enabled ? 2 : 1);
                 }
                 if (controlName != null) UnityEngine.GUI.SetNextControlName(controlName);
-                UnityEngine.GUI.color = UnityEngine.GUI.enabled ? textColor ?? theme.PrimaryText : theme.SecondaryText;
+                UnityEngine.GUI.color = UnityEngine.GUI.enabled ? textColor ?? theme.PrimaryText.ToUnityColor() : theme.SecondaryText.ToUnityColor();
                 UnityEngine.GUI.backgroundColor = Color.clear;
                 string result = Widgets.TextField(rect, value ?? "", maxLength, inputValidator);
                 focused = controlName != null && UnityEngine.GUI.GetNameOfFocusedControl() == controlName;
                 if (string.IsNullOrEmpty(result) && !focused && !string.IsNullOrEmpty(placeholder))
-                    ClippedLabel(rect.ContractedBy(4), placeholder, placeholderColor ?? theme.SecondaryText, TextAnchor.MiddleLeft);
+                    ClippedLabel(rect.ContractedBy(4), placeholder, placeholderColor ?? theme.SecondaryText.ToUnityColor(), TextAnchor.MiddleLeft);
                 return result;
             }
         }
@@ -231,15 +230,15 @@ namespace PhinixClient.Framework
             using (new ClientGuiScope(true))
             {
                 UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && enabled;
-                UnityEngine.GUI.color = UnityEngine.GUI.enabled ? theme.PrimaryText : theme.SecondaryText;
+                UnityEngine.GUI.color = UnityEngine.GUI.enabled ? theme.PrimaryText.ToUnityColor() : theme.SecondaryText.ToUnityColor();
                 Widgets.CheckboxLabeled(rect, label, ref value, disabled: !UnityEngine.GUI.enabled);
             }
         }
         public static void Progress(Rect rect, float fraction, IClientThemeReader theme, Color? fill = null)
         {
             fraction = float.IsNaN(fraction) || float.IsInfinity(fraction) ? 0 : Mathf.Clamp01(fraction);
-            Fill(rect, theme.Separator);
-            Fill(new Rect(rect.x, rect.y, rect.width * fraction, rect.height), fill ?? theme.GetColor("ui.accent"));
+            Fill(rect, theme.Separator.ToUnityColor());
+            Fill(new Rect(rect.x, rect.y, rect.width * fraction, rect.height), fill ?? theme.GetColor("ui.accent").ToUnityColor());
         }
         public static float Slider(Rect rect, float value, float minimum, float maximum, IClientThemeReader theme, bool enabled = true)
         {
@@ -247,7 +246,7 @@ namespace PhinixClient.Framework
             {
                 UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && enabled;
                 bool active = UnityEngine.GUI.enabled;
-                UnityEngine.GUI.color = active ? theme.GetColor("ui.accent") : theme.SecondaryText;
+                UnityEngine.GUI.color = active ? theme.GetColor("ui.accent").ToUnityColor() : theme.SecondaryText.ToUnityColor();
                 float result = Widgets.HorizontalSlider(rect, value, minimum, maximum);
                 return active ? result : value;
             }
@@ -258,8 +257,8 @@ namespace PhinixClient.Framework
             {
                 UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && enabled;
                 bool active = UnityEngine.GUI.enabled;
-                if (active && Mouse.IsOver(rect)) Fill(rect, theme.HoverHighlight);
-                Label(rect, text, active ? theme.GetColor("ui.accent") : theme.SecondaryText);
+                if (active && Mouse.IsOver(rect)) Fill(rect, theme.HoverHighlight.ToUnityColor());
+                Label(rect, text, active ? theme.GetColor("ui.accent").ToUnityColor() : theme.SecondaryText.ToUnityColor());
                 return Widgets.ButtonInvisible(rect) && active;
             }
         }
@@ -267,12 +266,12 @@ namespace PhinixClient.Framework
         {
             using (new ClientGuiScope(true))
             {
-                Fill(new Rect(rect.x, rect.y, rect.width, Mathf.Min(TabDrawer.TabHeight, rect.height)), theme.Surface);
-                UnityEngine.GUI.color = theme.PrimaryText;
+                Fill(new Rect(rect.x, rect.y, rect.width, Mathf.Min(TabDrawer.TabHeight, rect.height)), theme.Surface.ToUnityColor());
+                UnityEngine.GUI.color = theme.PrimaryText.ToUnityColor();
                 TabDrawer.DrawTabsOverflow(rect, tabs, minimumWidth, maximumWidth);
             }
         }
         public static void Separator(Rect rect, IClientThemeReader theme)
-        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = Color.white; Widgets.DrawBoxSolid(rect, theme.Separator); } }
+        { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = Color.white; Widgets.DrawBoxSolid(rect, theme.Separator.ToUnityColor()); } }
     }
 }

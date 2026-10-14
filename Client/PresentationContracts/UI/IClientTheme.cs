@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using UnityEngine;
 using Utils.Framework;
 
 namespace PhinixClient.Framework
@@ -10,18 +9,18 @@ namespace PhinixClient.Framework
     public interface IClientThemeReader
     {
         long Version { get; }
-        Color PrimaryText { get; }
-        Color SecondaryText { get; }
-        Color Background { get; }
-        Color Surface { get; }
-        Color Separator { get; }
-        Color HoverHighlight { get; }
-        Color Pending { get; }
-        Color Error { get; }
-        Color Success { get; }
-        Color Warning { get; }
-        Color GetColor(string key);
-        bool TryGetColor(string key, out Color color);
+        ClientRgba PrimaryText { get; }
+        ClientRgba SecondaryText { get; }
+        ClientRgba Background { get; }
+        ClientRgba Surface { get; }
+        ClientRgba Separator { get; }
+        ClientRgba HoverHighlight { get; }
+        ClientRgba Pending { get; }
+        ClientRgba Error { get; }
+        ClientRgba Success { get; }
+        ClientRgba Warning { get; }
+        ClientRgba GetColor(string key);
+        bool TryGetColor(string key, out ClientRgba color);
         float GetFloat(string key, float defaultValue = 0f);
     }
 
@@ -39,7 +38,7 @@ namespace PhinixClient.Framework
 
     public interface IClientThemeRegistration : IDisposable
     {
-        void RegisterColor(string key, Color defaultColor, string label = null, string fallbackKey = null, string group = null, string description = null);
+        void RegisterColor(string key, ClientRgba defaultColor, string label = null, string fallbackKey = null, string group = null, string description = null);
         void RegisterFloat(string key, float defaultValue, float minimum = 0f, float maximum = 1f, string label = null, string group = null, string description = null);
         // Validates and publishes the entire batch once; disposal revokes a committed batch.
         void Commit();
@@ -57,12 +56,12 @@ namespace PhinixClient.Framework
 
     public sealed class ClientThemeColor
     {
-        public ClientThemeColor(string owner, string key, string label, Color defaultColor, string fallbackKey = null, string group = null, string description = null, string ownerLabel = null)
+        public ClientThemeColor(string owner, string key, string label, ClientRgba defaultColor, string fallbackKey = null, string group = null, string description = null, string ownerLabel = null)
         { Owner = owner; Key = key; Label = label ?? key; DefaultColor = defaultColor; FallbackKey = fallbackKey; Group = group; Description = description; OwnerLabel = ownerLabel ?? owner; }
         public string Owner { get; }
         public string Key { get; }
         public string Label { get; }
-        public Color DefaultColor { get; }
+        public ClientRgba DefaultColor { get; }
         public string FallbackKey { get; }
         public string Group { get; }
         public string Description { get; }
@@ -88,9 +87,9 @@ namespace PhinixClient.Framework
     public enum ClientThemeValueSource { UserOverride, Theme, BuiltInTheme, Inherited, Default }
     public sealed class ClientThemeColorPreview
     {
-        public ClientThemeColorPreview(Color value, ClientThemeValueSource source, string sourceKey, ClientThemeValueSource resolvedSource)
+        public ClientThemeColorPreview(ClientRgba value, ClientThemeValueSource source, string sourceKey, ClientThemeValueSource resolvedSource)
         { Value = value; Source = source; SourceKey = sourceKey; ResolvedSource = resolvedSource; }
-        public Color Value { get; }
+        public ClientRgba Value { get; }
         public ClientThemeValueSource Source { get; }
         public string SourceKey { get; }
         public ClientThemeValueSource ResolvedSource { get; }
@@ -106,40 +105,40 @@ namespace PhinixClient.Framework
 
     public sealed class ClientThemeSnapshot : IClientThemeReader
     {
-        private readonly IReadOnlyDictionary<string, Color> colors;
+        private readonly IReadOnlyDictionary<string, ClientRgba> colors;
         private readonly IReadOnlyDictionary<string, float> floats;
-        public ClientThemeSnapshot(long version, IDictionary<string, Color> colors, IDictionary<string, float> floats)
+        public ClientThemeSnapshot(long version, IDictionary<string, ClientRgba> colors, IDictionary<string, float> floats)
         {
             Version = version;
-            this.colors = new ReadOnlyDictionary<string, Color>(new Dictionary<string, Color>(colors, StringComparer.Ordinal));
+            this.colors = new ReadOnlyDictionary<string, ClientRgba>(new Dictionary<string, ClientRgba>(colors, StringComparer.Ordinal));
             this.floats = new ReadOnlyDictionary<string, float>(new Dictionary<string, float>(floats, StringComparer.Ordinal));
         }
         public long Version { get; }
-        public Color PrimaryText => GetColor("ui.text.primary");
-        public Color SecondaryText => GetColor("ui.text.secondary");
-        public Color Background => GetColor("ui.background");
-        public Color Surface => GetColor("ui.surface");
-        public Color Separator => GetColor("ui.separator");
-        public Color HoverHighlight => GetColor("ui.hover");
-        public Color Pending => GetColor("ui.pending");
-        public Color Error => GetColor("ui.error");
-        public Color Success => GetColor("ui.success");
-        public Color Warning => GetColor("ui.warning");
-        public Color GetColor(string key)
-        { if (!TryGetColor(key, out Color value)) throw new KeyNotFoundException("Unregistered theme color: " + key); return value; }
-        public bool TryGetColor(string key, out Color value) => colors.TryGetValue(key, out value);
+        public ClientRgba PrimaryText => GetColor("ui.text.primary");
+        public ClientRgba SecondaryText => GetColor("ui.text.secondary");
+        public ClientRgba Background => GetColor("ui.background");
+        public ClientRgba Surface => GetColor("ui.surface");
+        public ClientRgba Separator => GetColor("ui.separator");
+        public ClientRgba HoverHighlight => GetColor("ui.hover");
+        public ClientRgba Pending => GetColor("ui.pending");
+        public ClientRgba Error => GetColor("ui.error");
+        public ClientRgba Success => GetColor("ui.success");
+        public ClientRgba Warning => GetColor("ui.warning");
+        public ClientRgba GetColor(string key)
+        { if (!TryGetColor(key, out ClientRgba value)) throw new KeyNotFoundException("Unregistered theme color: " + key); return value; }
+        public bool TryGetColor(string key, out ClientRgba value) => colors.TryGetValue(key, out value);
         public float GetFloat(string key, float defaultValue = 0f) => floats.TryGetValue(key, out float value) ? value : defaultValue;
     }
 
     public sealed class ClientThemeDraft
     {
-        public ClientThemeDraft(string themeId, IDictionary<string, Color> colors, IDictionary<string, float> floats = null, IEnumerable<string> inheritedKeys = null)
-        { ThemeId = themeId; Colors = new Dictionary<string, Color>(colors ?? new Dictionary<string, Color>(), StringComparer.Ordinal);
+        public ClientThemeDraft(string themeId, IDictionary<string, ClientRgba> colors, IDictionary<string, float> floats = null, IEnumerable<string> inheritedKeys = null)
+        { ThemeId = themeId; Colors = new Dictionary<string, ClientRgba>(colors ?? new Dictionary<string, ClientRgba>(), StringComparer.Ordinal);
           Floats = new Dictionary<string, float>(floats ?? new Dictionary<string, float>(), StringComparer.Ordinal);
           InheritedKeys = new HashSet<string>(inheritedKeys ?? new string[0], StringComparer.Ordinal); }
         public string ThemeId { get; }
         // Window-owned draft; applying takes a validated defensive copy.
-        public Dictionary<string, Color> Colors { get; }
+        public Dictionary<string, ClientRgba> Colors { get; }
         public Dictionary<string, float> Floats { get; }
         public HashSet<string> InheritedKeys { get; }
     }
@@ -152,7 +151,7 @@ namespace PhinixClient.Framework
         IReadOnlyList<ClientThemeFloat> Parameters { get; }
         IReadOnlyList<string> Diagnostics { get; }
         ClientThemeDraft Edit(string themeId);
-        Color Preview(ClientThemeDraft draft, string key);
+        ClientRgba Preview(ClientThemeDraft draft, string key);
         ClientThemeColorPreview PreviewColor(ClientThemeDraft draft, string key);
         ClientThemeFloatPreview PreviewFloat(ClientThemeDraft draft, string key);
         int CountUnused(ClientThemeDraft draft);

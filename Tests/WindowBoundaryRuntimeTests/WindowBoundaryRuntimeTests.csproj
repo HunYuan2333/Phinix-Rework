@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Game/IClientGameWindowService.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientExtensionManagementWindowService.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientWindowService.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientExtensionManagementWindowService.cs" />
+  </ItemGroup>
+</Project>

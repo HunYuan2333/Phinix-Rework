@@ -116,7 +116,7 @@ namespace Phinix.ChatExtension.Client
                 if (send == null) throw new InvalidOperationException("ComposerSendMissing");
                 composer.Publish(new ClientPresentationPage("chat-composer", "", ++composerRevision, null,
                     new ClientPresentationComposer(new ClientPresentationTextField("message", "", text, "Phinix_chat_composePlaceholder".Translate(), 4096),
-                        new ClientPresentationAction("builtin.chat.send", send, ClientButtonKind.Primary), sendIcon, extras)), actions, current);
+                        new ClientPresentationAction("builtin.chat.send", send, ClientButtonKind.Primary), ClientTextureImage.FromTexture(sendIcon), extras)), actions, current);
             }
             catch { actions.Dispose(); throw; }
             publishedMessage = message; publishedReply = reply; publishedLanguage = language; publishedOnline = online; publishedResult = result; publishedPoints = contributionRevision;
@@ -146,7 +146,7 @@ namespace Phinix.ChatExtension.Client
             using (ChatTheme.BeginDraw())
             using (new ClientGuiScope(true))
             {
-                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText;
+                UnityEngine.GUI.color = ChatTheme.Current.PrimaryText.ToUnityColor();
                 DrawContents(inRect);
             }
         }
@@ -166,7 +166,7 @@ namespace Phinix.ChatExtension.Client
             // IMGUI text editing is owned by a numeric control ID, not just the
             // control name. Allocate the composer before the changing feed/reply
             // controls so incoming messages cannot shift its keyboard/IME state.
-            composer?.Draw(inputAreaRect);
+            composer?.Draw(new ClientPresentationBounds(inputAreaRect.x, inputAreaRect.y, inputAreaRect.width, inputAreaRect.height));
             chatMessageList.Draw(chatRect);
             if (replyTarget != null && replyBarRect.height > 0f)
             {

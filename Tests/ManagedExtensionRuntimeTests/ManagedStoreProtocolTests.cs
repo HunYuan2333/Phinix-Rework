@@ -31,7 +31,12 @@ internal static partial class Program
             using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true))
                 foreach(var pair in files)
                 {
-                    var entry=zip.CreateEntry(pair.Key,compression); entry.ExternalAttributes=0; decorate?.Invoke(entry);
+                    var entry=zip.CreateEntry(pair.Key,compression); entry.ExternalAttributes=0;
+                    // Rebuilding the same fixture must preserve its artifact
+                    // digest even when a long regression run crosses ZIP's
+                    // two-second timestamp boundary. Match the package tool.
+                    entry.LastWriteTime=new DateTimeOffset(2026,10,5,0,0,0,TimeSpan.Zero);
+                    decorate?.Invoke(entry);
                     using(var stream=entry.Open()) stream.Write(pair.Value,0,pair.Value.Length);
                 }
             return output.ToArray();
