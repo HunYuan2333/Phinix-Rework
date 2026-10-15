@@ -349,7 +349,7 @@ namespace Phinix.ChatExtension.Client
                 string surface = notice ? "chat.noticeBg" : self ? "chat.selfMessageBg" : message.MentionedUuids?.Contains(hostContext.Uuid) == true ? "chat.mentionSelfBg" : null;
                 rows.Add(new ClientPresentationFeedRow(id, system || notice || grouped ? "" : heading,
                     system || notice || grouped ? "" : message.Timestamp.ToLocalTime().ToString("HH:mm"), body, reference, null, mediaRows, grouped, system,
-                    surface, bodyKey, notice ? "chat.noticeAccent" : grouped ? "chat.groupIndentLine" : null, "chat.rowHoverBg", "chat.replyQuoteText", "chat.replyQuoteBorder").WithMetadataLayout(minimumWidth: 64, gap: 12).WithMetadataPlacement(timestampOnRight ? ClientPresentationMetadataPlacement.Right : ClientPresentationMetadataPlacement.AfterHeading).WithLeadingSeparator(speakerChange?"chat.speakerSeparator":null));
+                    surface, bodyKey, notice ? "chat.noticeAccent" : grouped ? "chat.groupIndentLine" : null, "chat.rowHoverBg", "chat.replyQuoteText", "chat.replyQuoteBorder").WithMetadataLayout(minimumWidth: 64, gap: 12).WithMetadataPlacement(timestampOnRight ? ClientPresentationMetadataPlacement.Right : ClientPresentationMetadataPlacement.BeforeHeading).WithLeadingSeparator(speakerChange?"chat.speakerSeparator":null));
             }
             feedTheme = ChatTheme.Version; feedLanguage = LanguageDatabase.activeLanguage; feedTimestampOnRight = timestampOnRight; feedNames = names; feedFormatting = formatting; feedImages = images; feedMaxImageHeight = hostContext.MaxImageHeight;
             feedView.Publish(new ClientPresentationPage("chat-feed", "", revision, new[] {

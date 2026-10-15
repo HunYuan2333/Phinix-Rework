@@ -33,6 +33,7 @@ namespace PhinixClient
             {
                 float metadataWidth = MetadataWidth(row, width);
                 float offset = Mathf.Max(0, width - metadataWidth);
+                if (row.MetadataPlacement == ClientPresentationMetadataPlacement.BeforeHeading) offset = 0;
                 if (row.MetadataPlacement == ClientPresentationMetadataPlacement.AfterHeading)
                     using (new ClientGuiScope(true))
                     {
@@ -40,6 +41,15 @@ namespace PhinixClient
                         offset = Mathf.Min(offset, Text.CalcSize(row.Heading).x + row.MetadataGap);
                     }
                 return new Rect(x + offset, y + 6, metadataWidth, 18);
+            }
+            internal static Rect FeedHeadingRect(ClientPresentationFeedRow row, float x, float y, float width, float height, float metadataWidth)
+            {
+                float headingWidth = Mathf.Max(1, width - metadataWidth - row.MetadataGap);
+                if (row.MetadataPlacement != ClientPresentationMetadataPlacement.BeforeHeading || string.IsNullOrEmpty(row.Metadata))
+                    return new Rect(x, y, headingWidth, height);
+                // Reserve the metadata first; both the label clip and hit target start after it.
+                float offset = Mathf.Min(width, metadataWidth + row.MetadataGap);
+                return new Rect(x + offset, y, Mathf.Max(0, width - offset), height);
             }
             internal static float FeedHeadingHeight(string text, float width)
             { using (new ClientGuiScope(true)) { Text.Font = GameFont.Small; Text.WordWrap = true; return Mathf.Max(24, Text.CalcHeight(text, width)) + 4; } }
@@ -74,7 +84,7 @@ namespace PhinixClient
                         if (!string.IsNullOrEmpty(row.Heading))
                         {
                             float height = FeedHeadingHeight(row.Heading, Mathf.Max(1, width - block.MetadataWidths[i] - row.MetadataGap));
-                            var heading = new Rect(x, y, Mathf.Max(1, width - block.MetadataWidths[i] - row.MetadataGap), height);
+                            var heading = FeedHeadingRect(row, x, y, width, height, block.MetadataWidths[i]);
                             using (new ClientGuiScope(true)) { Text.Font = GameFont.Small; ClientWidgets.ClippedLabel(heading, row.Heading, palette.PrimaryText.ToUnityColor(), TextAnchor.UpperLeft, true); }
                             var metadataRect = new Rect(x + block.MetadataOffsets[i], y + 6, block.MetadataWidths[i], Mathf.Max(18, height - 6));
                             var headingHit = heading;

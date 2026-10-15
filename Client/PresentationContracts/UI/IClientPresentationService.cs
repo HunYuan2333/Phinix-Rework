@@ -269,7 +269,7 @@ namespace PhinixClient.Framework
         public string Id { get; } public string Text { get; } public ClientPresentationMediaState State { get; }
         public IClientPresentationImage Image { get; } public float AspectRatio { get; } public float MaximumHeight { get; } public string ColorKey { get; } public string SurfaceKey { get; }
     }
-    public enum ClientPresentationMetadataPlacement { Right, AfterHeading }
+    public enum ClientPresentationMetadataPlacement { Right, AfterHeading, BeforeHeading }
 
     public sealed class ClientPresentationFeedRow
     {
@@ -312,7 +312,7 @@ namespace PhinixClient.Framework
         public ClientPresentationMetadataPlacement MetadataPlacement { get; private set; }
         public ClientPresentationFeedRow WithMetadataPlacement(ClientPresentationMetadataPlacement placement)
         {
-            if (placement != ClientPresentationMetadataPlacement.Right && placement != ClientPresentationMetadataPlacement.AfterHeading) throw new ArgumentOutOfRangeException(nameof(placement));
+            if (placement != ClientPresentationMetadataPlacement.Right && placement != ClientPresentationMetadataPlacement.AfterHeading && placement != ClientPresentationMetadataPlacement.BeforeHeading) throw new ArgumentOutOfRangeException(nameof(placement));
             if (placement == MetadataPlacement) return this;
             var copy=Copy(); copy.MetadataPlacement=placement; return copy;
         }

@@ -35,6 +35,6 @@
     <Phinix_chat_imageFailed>图片加载失败，点击重试</Phinix_chat_imageFailed>
   <Phinix_chat_sendUnavailable>发送未完成，已保留输入内容。</Phinix_chat_sendUnavailable>
     <Phinix_modSettings_timestampPosition>聊天时间戳位置</Phinix_modSettings_timestampPosition>
-    <Phinix_modSettings_timestampLeft>昵称旁（左侧）</Phinix_modSettings_timestampLeft>
+    <Phinix_modSettings_timestampLeft>昵称前（左侧）</Phinix_modSettings_timestampLeft>
     <Phinix_modSettings_timestampRight>消息行右侧</Phinix_modSettings_timestampRight>
 </LanguageData>

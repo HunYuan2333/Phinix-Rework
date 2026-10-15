@@ -270,6 +270,21 @@ internal static partial class Program
         Check(narrowRect.x >= 0 && narrowRect.xMax <= 40, "Long heading metadata remains contained in narrow viewport");
         Check(ClientPresentationFeedMetrics.FeedRowHeight(rightMetadata, 600) == ClientPresentationFeedMetrics.FeedRowHeight(leftMetadata, 600),
             "Changing metadata placement preserves shared heading measurement and row offsets");
+        var beforeMetadata = longName.WithMetadataLayout(64, 12).WithMetadataPlacement(ClientPresentationMetadataPlacement.BeforeHeading);
+        foreach (float viewportWidth in new[] { 1f, 40f, 120f, 600f })
+        {
+            var timeRect = ClientPresentationFeedMetrics.FeedMetadataRect(beforeMetadata, 12, 6, viewportWidth);
+            var nameRect = ClientPresentationFeedMetrics.FeedHeadingRect(beforeMetadata, 12, 6, viewportWidth, 28, timeRect.width);
+            Check(timeRect.x == 12 && timeRect.xMax <= nameRect.x && nameRect.xMax <= 12 + viewportWidth,
+                "Before-heading timestamp retains its own area ahead of long names, including narrow viewports");
+        }
+        var unchangedRightHeading = ClientPresentationFeedMetrics.FeedHeadingRect(rightMetadata, 12, 6, 600, 28, rightRect.width);
+        Check(unchangedRightHeading.x == 12 && unchangedRightHeading.width == 600 - rightRect.width - rightMetadata.MetadataGap && rightRect.xMax == 612,
+            "Right-side timestamp and heading retain their existing geometry");
+        Check(ClientPresentationFeedMetrics.FeedRowHeight(beforeMetadata, 600) == ClientPresentationFeedMetrics.FeedRowHeight(beforeMetadata.WithMetadataPlacement(ClientPresentationMetadataPlacement.Right), 600),
+            "Moving timestamp before a long name preserves wrapping and row height");
+        Check(beforeMetadata.WithLeadingSeparator("plugin.rule").WithMetadataLayout(96, 16).MetadataPlacement == ClientPresentationMetadataPlacement.BeforeHeading,
+            "Before-heading placement survives immutable row decoration and layout updates");
         Reject(() => rightMetadata.WithMetadataPlacement((ClientPresentationMetadataPlacement)77), "Unsupported metadata placement is rejected");
         Check(rightRect.width >= 64, "Short time metadata retains readable reservation in a wide feed");
         var configuredMetadata = rightMetadata.WithMetadataLayout(96, 16).WithMetadataPlacement(ClientPresentationMetadataPlacement.AfterHeading);
@@ -293,6 +308,13 @@ internal static partial class Program
         foreach (var label in Widgets.Labels) if (label.Text == "12:34") timeRendered = label.Font == GameFont.Tiny && label.Rect.width >= 64;
         Check(timeRendered && Widgets.EllipsisCalls == ellipsisBefore,
             "Feed sends full timestamp to explicit Tiny label without native ellipsis substitution");
+        metadataSession.Publish(new ClientPresentationPage("metadata-render", "", 2, new[] {
+            new ClientPresentationSection("metadata-section", new ClientPresentationFeed("metadata-feed", new[] { beforeMetadata }, ""))
+        }), null, () => current);
+        Widgets.Labels.Clear(); metadataSession.Draw(new ClientPresentationBounds(0, 0, 600, 400));
+        Check(Widgets.Labels.Any(label => label.Text == "12:34" && label.Font == GameFont.Tiny && label.Rect.width >= 64)
+            && Widgets.Labels.Any(label => label.Text == beforeMetadata.Heading && label.Rect.width < 600 - 64),
+            "Actual renderer keeps the full timestamp and clips the long nickname to its reserved remainder");
         metadataSession.Dispose();
         var selectedBinding = binding.WithSelection();
         Check(!binding.IsSelected && selectedBinding.IsSelected && ReferenceEquals(binding.Action, selectedBinding.Action),
