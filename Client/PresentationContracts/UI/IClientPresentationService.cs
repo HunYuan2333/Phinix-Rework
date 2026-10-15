@@ -291,21 +291,30 @@ namespace PhinixClient.Framework
         // Logical GUI units; Host still constrains the reservation to the current viewport.
         public float MetadataMinimumWidth { get; private set; } = 64;
         public float MetadataGap { get; private set; } = 8;
+        // Optional paint in the existing inter-row gutter; does not affect measurement or input.
+        public string LeadingSeparatorKey { get; private set; }
+        private ClientPresentationFeedRow Copy()
+        {
+            return new ClientPresentationFeedRow(Id, Heading, Metadata, Body, Reference, ReferenceTarget, Media, Indented, Centered,
+                SurfaceKey, BodyColorKey, AccentKey, HoverKey, MetadataColorKey, ReferenceBorderKey)
+                { MetadataPlacement=MetadataPlacement, MetadataMinimumWidth=MetadataMinimumWidth, MetadataGap=MetadataGap, LeadingSeparatorKey=LeadingSeparatorKey };
+        }
+        public ClientPresentationFeedRow WithLeadingSeparator(string colorKey)
+        {
+            var copy=Copy(); copy.LeadingSeparatorKey=colorKey==null?null:ClientPresentationLimits.Id(colorKey); return copy;
+        }
         public ClientPresentationFeedRow WithMetadataLayout(float minimumWidth = 64, float gap = 8)
         {
             if (float.IsNaN(minimumWidth) || float.IsInfinity(minimumWidth) || minimumWidth < 0 || minimumWidth > 512) throw new ArgumentOutOfRangeException(nameof(minimumWidth));
             if (float.IsNaN(gap) || float.IsInfinity(gap) || gap < 0 || gap > 64) throw new ArgumentOutOfRangeException(nameof(gap));
-            return new ClientPresentationFeedRow(Id, Heading, Metadata, Body, Reference, ReferenceTarget, Media, Indented, Centered,
-                SurfaceKey, BodyColorKey, AccentKey, HoverKey, MetadataColorKey, ReferenceBorderKey)
-                { MetadataPlacement = MetadataPlacement, MetadataMinimumWidth = minimumWidth, MetadataGap = gap };
+            var copy=Copy(); copy.MetadataMinimumWidth=minimumWidth; copy.MetadataGap=gap; return copy;
         }
         public ClientPresentationMetadataPlacement MetadataPlacement { get; private set; }
         public ClientPresentationFeedRow WithMetadataPlacement(ClientPresentationMetadataPlacement placement)
         {
             if (placement != ClientPresentationMetadataPlacement.Right && placement != ClientPresentationMetadataPlacement.AfterHeading) throw new ArgumentOutOfRangeException(nameof(placement));
             if (placement == MetadataPlacement) return this;
-            return new ClientPresentationFeedRow(Id, Heading, Metadata, Body, Reference, ReferenceTarget, Media, Indented, Centered,
-                SurfaceKey, BodyColorKey, AccentKey, HoverKey, MetadataColorKey, ReferenceBorderKey) { MetadataPlacement = placement, MetadataMinimumWidth = MetadataMinimumWidth, MetadataGap = MetadataGap };
+            var copy=Copy(); copy.MetadataPlacement=placement; return copy;
         }
         public string Id { get; } public string Heading { get; } public string Metadata { get; } public string Body { get; }
         public string Reference { get; } public string ReferenceTarget { get; } public IReadOnlyList<ClientPresentationMedia> Media { get; }

@@ -8,17 +8,18 @@ namespace Phinix.PluginStore
     // Trusted configuration, never supplied by a catalog or redirect.
     internal sealed class RepositoryProfile
     {
-        internal RepositoryProfile(string sourceId, string repository, string repositoryId, string ownerId, string publicationBranch, string gatewayOrigin)
+        internal RepositoryProfile(string sourceId, string repository, string repositoryId, string ownerId, string publicationBranch, string gatewayOrigin,int catalogSchemaVersion=3)
         {
             RepositoryEndpoint.ValidateId(sourceId);
             if(!Regex.IsMatch(repository??"", @"\A[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9][A-Za-z0-9._-]{0,99}\z") || repository.EndsWith(".git",StringComparison.OrdinalIgnoreCase)) throw Error();
             foreach(var id in new[]{repositoryId,ownerId})
             { ulong n; if(!ulong.TryParse(id,System.Globalization.NumberStyles.None,System.Globalization.CultureInfo.InvariantCulture,out n) || n==0 || n.ToString(System.Globalization.CultureInfo.InvariantCulture)!=id) throw Error(); }
             if(string.IsNullOrEmpty(publicationBranch) || publicationBranch.Length>128 || !Regex.IsMatch(publicationBranch,@"\A[A-Za-z0-9][A-Za-z0-9._/-]*\z") || publicationBranch.Contains("..") || publicationBranch.Contains("//") || publicationBranch.EndsWith("/") || publicationBranch.EndsWith(".")) throw Error();
-            SourceId=sourceId; Repository=repository; RepositoryId=repositoryId; OwnerId=ownerId; PublicationBranch=publicationBranch;
+            CatalogSchemaVersion=catalogSchemaVersion; SourceId=sourceId; Repository=repository; RepositoryId=repositoryId; OwnerId=ownerId; PublicationBranch=publicationBranch;
             GatewayOrigin=new RepositoryEndpoint(gatewayOrigin,sourceId).Origin;
             IdentityKey=CatalogReader.Hash(System.Text.Encoding.UTF8.GetBytes("repository-profile-v1\n"+sourceId+"\n"+repositoryId+"\n"+ownerId+"\n"+publicationBranch));
         }
+        internal int CatalogSchemaVersion { get; }
         internal string SourceId { get; }
         internal string Repository { get; }
         internal string RepositoryId { get; }
@@ -33,6 +34,7 @@ namespace Phinix.PluginStore
                 throw new StoreValidationException("RepositoryProfileMismatch","Published catalog belongs to another approved repository identity.");
         }
         internal static RepositoryProfile Official => new RepositoryProfile("phinix.official","HunYuan2333/Phinix-Plugin-Index","1402564805","64630568","main","https://plugins.hunyuan2333.com");
+        internal static RepositoryProfile Themes => new RepositoryProfile("phinix.themes","HunYuan2333/Phinix-Plugin-Index","1402564805","64630568","themes","https://plugins.hunyuan2333.com",4);
         private static StoreValidationException Error() { return new StoreValidationException("InvalidRepositoryProfile","Configure fixed public repository IDs, branch and gateway."); }
     }
 
@@ -86,6 +88,12 @@ namespace Phinix.PluginStore
                 throw new StoreValidationException("DownloadSnapshotMismatch","Managed download identities must be canonical.");
             return Resource("snapshots/"+catalog.SnapshotId+"/packages/"+package.Id+"/"+package.Manifest.Version+"/"+package.Artifact.Sha256+"/package");
         }
+        internal Uri Package(ThemeStoreCatalog catalog,ThemeStoreRecord package)
+        {
+            if(catalog==null || catalog.SourceId!=SourceId || package==null || package.State!="active" || !System.Linq.Enumerable.Contains(catalog.Packages,package))
+                throw new StoreValidationException("DownloadSnapshotMismatch","Select a locked active theme.");
+            return Resource("snapshots/"+catalog.SnapshotId+"/packages/"+package.Id+"/"+package.Manifest.Version+"/"+package.Artifact.Sha256+"/package");
+        }
         private Uri Resource(string path) { return new Uri(Origin + "/v1/sources/" + SourceId + "/" + path); }
         internal static void ValidateId(string id)
         {
@@ -116,7 +124,7 @@ namespace Phinix.PluginStore
         internal static RepositoryStable ReadManagedStable(byte[] bytes, string source)
         { return ReadStableCore(bytes,source,ManagedStoreCatalogReader.SchemaVersion); }
 
-        private static RepositoryStable ReadStableCore(byte[] bytes, string source, int catalogSchema)
+        internal static RepositoryStable ReadStableCore(byte[] bytes, string source, int catalogSchema)
         {
             Limit(bytes);
             var f = CatalogReader.Object(CatalogReader.ReadJson(bytes), "stable", "schemaVersion", "sourceId", "snapshotId", "catalogSchemaVersion",
@@ -151,6 +159,13 @@ namespace Phinix.PluginStore
             VerifyEnvelope(stable,published,catalog);
             var result=ManagedStoreCatalogReader.Read(catalog,stable.SourceId);
             if(result.SnapshotId!=stable.SnapshotId) throw new StoreValidationException("SnapshotMismatch","Managed catalog snapshot differs from stable.");
+            return result;
+        }
+        internal static ThemeStoreCatalog VerifyTheme(RepositoryStable stable,byte[] published,byte[] catalog)
+        {
+            RequireCatalogSchema(stable,ThemeStoreCatalog.SchemaVersion);VerifyEnvelope(stable,published,catalog);
+            var result=ThemeStoreCatalog.Read(catalog,stable.SourceId);
+            if(result.SnapshotId!=stable.SnapshotId) throw new StoreValidationException("SnapshotMismatch","Theme snapshot differs from stable.");
             return result;
         }
         private static void RequireCatalogSchema(RepositoryStable stable,int expected)

@@ -25,12 +25,48 @@ namespace PhinixClient.Framework
         }
     }
 
+    // Use Verse's per-window drawing hook: paint the entire shell before its native
+    // controls and inset content. Never change the global game skin or window stack.
+    public sealed class ClientThemeWindowDrawing : IWindowDrawing
+    {
+        private readonly Func<IClientThemeReader> capture;
+        private readonly DefaultWindowDrawing native = new DefaultWindowDrawing();
+        public ClientThemeWindowDrawing(Func<IClientThemeReader> capture) { this.capture = capture; }
+        public GUIStyle EmptyStyle => native.EmptyStyle;
+        public void DoWindowBackground(Rect rect)
+        {
+            var theme = capture?.Invoke();
+            if (theme == null) { native.DoWindowBackground(rect); return; }
+            ClientWidgets.RoundedSurface(rect, theme.Background.ToUnityColor(), 16);
+            ClientWidgets.RoundedBorder(rect, theme.Separator.ToUnityColor(), 16);
+        }
+        public bool DoCloseButton(Rect rect, string text) => native.DoCloseButton(rect, text);
+        public bool DoClostButtonSmall(Rect rect) => native.DoClostButtonSmall(rect);
+        public void BeginGroup(Rect rect) => native.BeginGroup(rect);
+        public void EndGroup() => native.EndGroup();
+        public void DoGrayOut(Rect rect) => native.DoGrayOut(rect);
+    }
+
     public static class ClientWidgets
     {
         public static void Surface(Rect rect, IClientThemeReader theme, bool selected = false)
         { Fill(rect, selected ? theme.HoverHighlight.ToUnityColor() : theme.Surface.ToUnityColor()); }
         public static void Fill(Rect rect, Color color)
         { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = Color.white; Widgets.DrawBoxSolid(rect, color); } }
+        // Call in the parent coordinate space, after Widgets.EndScrollView.
+        public static void ScrollbarDecoration(Rect viewport,Vector2 scroll,Rect content,IClientThemeReader theme)
+        {
+            using(new ClientGuiScope(true))
+            {
+                var background=theme.Background.ToUnityColor();
+                var rail=OpaqueOn(Role(theme,"ui.scroll.track","ui.surface"),background);
+                var handle=OpaqueOn(Role(theme,"ui.scroll.thumb","ui.text.secondary"),rail);
+                var hover=OpaqueOn(Role(theme,"ui.scroll.hover","ui.accent"),rail);
+                ClientGameDrawing.Scrollbars(viewport,scroll,content,rail,handle,hover);
+            }
+        }
+        private static Color OpaqueOn(Color foreground,Color background)
+        { float a=foreground.a;return new Color(foreground.r*a+background.r*(1-a),foreground.g*a+background.g*(1-a),foreground.b*a+background.b*(1-a),1); }
         public static void Border(Rect rect, IClientThemeReader theme, int thickness = 1)
         { using (new ClientGuiScope(true)) { UnityEngine.GUI.color = theme.Separator.ToUnityColor(); Widgets.DrawBox(rect, thickness); } }
         public static void Label(Rect rect, string text, IClientThemeReader theme, bool secondary = false)
@@ -232,6 +268,10 @@ namespace PhinixClient.Framework
                 UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && enabled;
                 UnityEngine.GUI.color = UnityEngine.GUI.enabled ? theme.PrimaryText.ToUnityColor() : theme.SecondaryText.ToUnityColor();
                 Widgets.CheckboxLabeled(rect, label, ref value, disabled: !UnityEngine.GUI.enabled);
+                if(Event.current?.type==EventType.Repaint && rect.width>=24)
+                    RoundedBorder(new Rect(rect.xMax-24,rect.y+(rect.height-24)/2,24,24),
+                        UnityEngine.GUI.enabled&&value?theme.GetColor("ui.accent").ToUnityColor():theme.Separator.ToUnityColor(),4,
+                        UnityEngine.GUI.enabled&&value?2:1);
             }
         }
         public static void Progress(Rect rect, float fraction, IClientThemeReader theme, Color? fill = null)
@@ -248,6 +288,12 @@ namespace PhinixClient.Framework
                 bool active = UnityEngine.GUI.enabled;
                 UnityEngine.GUI.color = active ? theme.GetColor("ui.accent").ToUnityColor() : theme.SecondaryText.ToUnityColor();
                 float result = Widgets.HorizontalSlider(rect, value, minimum, maximum);
+                if(Event.current?.type==EventType.Repaint && rect.width>=12 && maximum>minimum)
+                {
+                    float position=Mathf.Clamp01((result-minimum)/(maximum-minimum));
+                    RoundedBorder(new Rect(rect.x+position*(rect.width-12),rect.y,12,12),
+                        active?theme.GetColor("ui.accent").ToUnityColor():theme.SecondaryText.ToUnityColor(),3,1);
+                }
                 return active ? result : value;
             }
         }

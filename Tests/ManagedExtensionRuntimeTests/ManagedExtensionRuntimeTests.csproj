@@ -29,6 +29,8 @@
     <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/PluginStore/CatalogReader.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PayloadValidator.cs" Link="Production/PluginStore/PayloadValidator.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/PluginStore/RepositoryMetadata.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ThemeStoreController.cs" Link="Production/PluginStore/ThemeStoreController.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ThemeStoreCatalog.cs" Link="Production/PluginStore/ThemeStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/PluginStore/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePlanner.cs" Link="Production/PluginStore/ManagedStorePlanner.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreOperation.cs" Link="Production/PluginStore/ManagedStoreOperation.cs" />

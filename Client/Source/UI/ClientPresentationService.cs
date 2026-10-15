@@ -649,6 +649,7 @@ namespace PhinixClient
                                 }
                             }
                             finally { if (scrolling) Widgets.EndScrollView(); }
+                            if(scrolling) ClientWidgets.ScrollbarDecoration(viewport,scroll,new Rect(0,0,measuredWidth,contentHeight),palette);
                             if (beforeScroll != scroll.y) feedFollowing = Math.Abs(scroll.y - maxScroll) < 1;
                             string feedbackText = !fresh ? L("stale") : FailureCode != null ? L("failed") : inputs.Count != 0 ? L("inputPending") : "";
                             if (showFeedback) ClientWidgets.LabelEllipses(new Rect(0, rect.height - 28, rect.width, 28), feedbackText, palette, true);
@@ -945,7 +946,8 @@ namespace PhinixClient
                     var row = list.Rows[i];
                     var rect = new Rect(block.Rect.x, block.Rect.y + block.RowOffsets[i], block.Rect.width, block.RowOffsets[i + 1] - block.RowOffsets[i]);
                     bool selected = list.SelectedId == row.Id;
-                    if (selected || !list.IsReadOnly && Mouse.IsOver(rect)) ClientWidgets.RoundedSurface(rect, OptionalColor(palette, list.HoverColorKey, palette.HoverHighlight.ToUnityColor()));
+                    if (selected || !list.IsReadOnly && Mouse.IsOver(rect)) ClientWidgets.RoundedSurface(rect, OptionalColor(palette, list.HoverColorKey,
+                        selected?ClientWidgets.Role(palette,"ui.navigation.selected","ui.hover"):palette.HoverHighlight.ToUnityColor()));
                     if (selected) ClientWidgets.RoundedSurface(new Rect(rect.x, rect.y + 6, 3, Mathf.Max(0, rect.height - 12)), OptionalColor(palette, list.SelectionColorKey, palette.GetColor("ui.accent").ToUnityColor()), 1);
                     var layout = RowText(row, rect.width, list.CompactRows);
                     float inset = layout.Inset, controls = layout.Controls; bool alongside = layout.Alongside;
@@ -1116,6 +1118,7 @@ namespace PhinixClient
                 private readonly string frozenText;
                 private bool closed;
                 internal ConfirmationWindow(Session session, ClientPresentationAction binding, long ticket)
+                    : base(new ClientThemeWindowDrawing(() => { session.UpdatePalette(); return session.palette; }))
                 {
                     this.session = session; this.binding = binding; this.ticket = ticket;
                     frozenText = binding.Confirmation.Title + "\n\n" + binding.Confirmation.Text;
@@ -1156,6 +1159,7 @@ namespace PhinixClient
                             Widgets.BeginScrollView(body, ref bodyScroll, new Rect(0, 0, width, height));
                             try { ClientWidgets.Label(new Rect(0, 0, width, height), text, session.palette); }
                             finally { Widgets.EndScrollView(); }
+                            ClientWidgets.ScrollbarDecoration(body,bodyScroll,new Rect(0,0,width,height),session.palette);
                             bool fresh = session.Current(ticket);
                             Widgets.BeginScrollView(new Rect(rect.x, rect.yMax - footerHeight, rect.width, footerHeight), ref buttonScroll, new Rect(0, 0, width, buttonContentHeight));
                             try
@@ -1164,6 +1168,7 @@ namespace PhinixClient
                                 cancel = ClientWidgets.Button(new Rect(0, acceptSize.y + 6, width, cancelSize.y), descriptor.CancelLabel, session.palette, wrap: true);
                             }
                             finally { Widgets.EndScrollView(); }
+                            ClientWidgets.ScrollbarDecoration(new Rect(rect.x,rect.yMax-footerHeight,rect.width,footerHeight),buttonScroll,new Rect(0,0,width,buttonContentHeight),session.palette);
                         }
                     }
                     catch (Exception error) { session.Fail("ConfirmationFailed", error); Close(); return; }

@@ -62,6 +62,7 @@ internal static partial class Program
             LocalizationRegression(files);
             ManagedStoreProtocolRegression(files);
             ManagedStoreExperienceRegression(files);
+            ThemeRepositoryRegression();
             StoreMaintainerRegression(files);
             StoreReleaseNoticeRegression();
             byte[] plugin = files.Values.First();

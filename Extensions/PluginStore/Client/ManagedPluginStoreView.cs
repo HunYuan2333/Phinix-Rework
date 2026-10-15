@@ -6,6 +6,7 @@ using PhinixClient;
 using PhinixClient.Framework;
 using UnityEngine;
 using Utils.Framework.ManagedExtensions;
+using Utils.Framework.Themes;
 using Verse;
 
 namespace Phinix.PluginStore
@@ -13,6 +14,11 @@ namespace Phinix.PluginStore
     internal sealed partial class ManagedPluginStoreView
     {
         private readonly ManagedStoreController controller;
+        private readonly ThemeStoreController themeRepository=new ThemeStoreController();
+        private long observedThemeRevision=-1;
+        private ThemeStoreRecord pendingTheme;
+        private string pendingThemeSelection;
+        private ThemeStoreCatalog cachedThemeCatalog;
         private readonly IClientEnvironmentService environment;
         private readonly IClientSettingsContext settings;
         private readonly IClientExtensionManagementWindowService management;
@@ -21,6 +27,7 @@ namespace Phinix.PluginStore
         private long observedControlRevision=-1, renderedControlRevision=-1;
         private readonly IClientLocalizer localizer;
         private readonly IClientTheme themeSource;
+        internal IClientTheme WindowTheme => themeSource;
         private readonly IClientLinkService links;
         private readonly StoreMaintainerRegistry maintainers;
         private readonly StoreBadgeIcons badgeIcons;
@@ -29,7 +36,9 @@ namespace Phinix.PluginStore
         private bool localImportActive;
         private readonly HashSet<string> updateIds = new HashSet<string>(StringComparer.Ordinal);
         private ManagedExtensionManagementPackage selectedLocal;
-        private int filter;
+        private int filter, kindFilter;
+        private int cachedKindFilter=-1;
+        private IReadOnlyList<InstalledThemePackage> cachedThemes;
         private int cachedFilter = -1;
         private string progressCaption="", progressBytes="", resultCaption="";
         private readonly List<DetailSection> sections = new List<DetailSection>();
@@ -54,7 +63,7 @@ namespace Phinix.PluginStore
         private readonly IClientThemeWindowService themeWindows;
         internal void Stop()
         {
-            ClosePresentation(); stopped=true; installIntent=null;
+            ClosePresentation(); stopped=true; installIntent=null;themeRepository.Dispose();
             if(themeWindow?.IsOpen==true) themeWindow.Close();themeWindow=null;
             var closing=localWindow; localWindow=null;
             if(closing != null && closing.IsOpen) closing.Close();
@@ -66,7 +75,7 @@ namespace Phinix.PluginStore
             this.themes=themes;this.themeWindows=themeWindows;
             this.controller=controller; this.environment=environment; this.settings=settings; this.management=management; this.localizer=localizer; this.themeSource=theme;
             this.links=links; this.badgeIcons=badgeIcons; this.maintainers=maintainers; this.controls=controls;
-            accessMethod=settings.Get("plugin-store.officialAccessMethod","github")=="cloudflare"?RepositoryAccessMethod.Cloudflare:RepositoryAccessMethod.GitHub;
+            accessMethod=settings.Get("plugin-store.officialAccessMethod","cloudflare")=="cloudflare"?RepositoryAccessMethod.Cloudflare:RepositoryAccessMethod.GitHub;
         }
         private static string T(string key) { return ("Phinix_store2_"+key).Translate(); }
         private static string Clean(string value) { return (value??"").Replace("<","‹").Replace(">","›"); }
@@ -74,6 +83,15 @@ namespace Phinix.PluginStore
         private ManagedStoreSnapshot AdvanceOwner()
         {
                 var snapshot=controller.Snapshot;
+                if(observedThemeRevision!=themeRepository.Revision)
+                {
+                    observedThemeRevision=themeRepository.Revision;cached=null;presentationDirty=true;
+                    if(themeRepository.Error!=null) Log.Warning("[Phinix.PluginStore] Theme repository: "+themeRepository.Error);
+                    string expected;var package=themeRepository.TakeReady(out expected);
+                    if(package!=null && pendingTheme!=null && EntryIdentity(selected)==pendingThemeSelection && selected?.RemoteTheme==pendingTheme)
+                        Act(()=>themes.Install(package,expected));
+                    if(!themeRepository.Busy) {pendingTheme=null;pendingThemeSelection=null;}
+                }
                 if(localImportActive && !Prefs.DevMode)
                 { controller.Cancel(); controller.DiscardLocal(snapshot); localImportActive=false; snapshot=controller.Snapshot; }
                 if(snapshot.LocalPackage!=null && observedLocalRevision!=snapshot.Revision)
@@ -105,12 +123,12 @@ namespace Phinix.PluginStore
         private void ToolbarAction(int action)
         {
             if(controller.Snapshot.Busy && action!=3) return;
-            if(action==0) Refresh(false);
+            if(action==0) Act(()=> { themes?.Refresh(); Refresh(false); });
             else if(action==2) Act(()=>management.OpenExtensionManagerWindow());
             else if(action==3)
             {
                 if(stopped || themes==null || themeWindows==null || themeWindow?.IsOpen==true) return;
-                Act(()=> {themeWindow=new LocalThemePackagesWindow(presentationOwner,renderer,points,actionPoint,themes,themeWindows,()=>!stopped);Find.WindowStack.Add(themeWindow);});
+                Act(()=> {themeWindow=new LocalThemePackagesWindow(presentationOwner,renderer,points,actionPoint,themes,themeWindows,()=>!stopped,themeSource);Find.WindowStack.Add(themeWindow);});
             }
             else if(action==4)
             {
@@ -121,7 +139,7 @@ namespace Phinix.PluginStore
                     if(stopped || !Prefs.DevMode) return;
                     installIntent=null; localImportActive=true;
                     controller.PrepareLocal(path,environment.Capture(),Prefs.DevMode);
-                }));
+                }),theme:themeSource);
                 Find.WindowStack.Add(localWindow);
             }
             else Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> {
@@ -132,17 +150,24 @@ namespace Phinix.PluginStore
             => controlState!=null?controlState.Inventory:snapshot.Inventory;
         private void Rebuild(ManagedStoreSnapshot snapshot)
         {
-            if(renderedInventoryKnown==InventoryKnown && renderedControlRevision==(controlState?.Revision??-1) && cached==snapshot && cachedSearch==search && cachedFilter==filter && ReferenceEquals(language,LanguageDatabase.activeLanguage) && locale==localizer.Locale) return;
+            if(renderedInventoryKnown==InventoryKnown && renderedControlRevision==(controlState?.Revision??-1) && cached==snapshot && cachedSearch==search && cachedFilter==filter && cachedKindFilter==kindFilter && ReferenceEquals(cachedThemes,themes?.Packages) && ReferenceEquals(language,LanguageDatabase.activeLanguage) && locale==localizer.Locale) return;
             bool changed=cached?.Catalog!=snapshot.Catalog;
             bool controlsChanged=renderedControlRevision!=(controlState?.Revision??-1); renderedControlRevision=controlState?.Revision??-1;
-            bool contentChanged=renderedInventoryKnown!=InventoryKnown || controlsChanged || cached==null || changed || cached.Inventory!=snapshot.Inventory || cached.Repository!=snapshot.Repository || cachedSearch!=search || cachedFilter!=filter || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || locale!=localizer.Locale;
+            bool contentChanged=renderedInventoryKnown!=InventoryKnown || controlsChanged || cached==null || changed || cached.Inventory!=snapshot.Inventory || cached.Repository!=snapshot.Repository || cachedSearch!=search || cachedFilter!=filter || cachedKindFilter!=kindFilter || !ReferenceEquals(cachedThemes,themes?.Packages) || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || locale!=localizer.Locale;
             renderedInventoryKnown=InventoryKnown;
-            cached=snapshot; cachedSearch=search; cachedFilter=filter; language=LanguageDatabase.activeLanguage; locale=localizer.Locale;
+            cached=snapshot; cachedSearch=search; cachedFilter=filter; cachedKindFilter=kindFilter; cachedThemes=themes?.Packages; language=LanguageDatabase.activeLanguage; locale=localizer.Locale;
             if(contentChanged)
             {
                 updateIds.Clear(); foreach(var p in controller.Updates) updateIds.Add(p.Id);
-                var listing=ManagedStoreListing.BuildEntries(snapshot.Catalog,SharedInventory(snapshot),snapshot.Repository?.Endpoint,search,locale);
-                rows=listing.Where(g=>filter==0 || filter==1 && g.Preferred.Installed!=null || filter==2 && !g.Preferred.IsInstalledOnly && updateIds.Contains(g.Preferred.Id)).ToArray();
+                cachedThemeCatalog=themeRepository.Catalog;
+                foreach(var remote in cachedThemeCatalog?.Packages??Enumerable.Empty<ThemeStoreRecord>())
+                {
+                    var installed=themes?.Packages.SingleOrDefault(t=>t.Manifest.PackageId==remote.Id);
+                    if(installed?.Origin!=null && installed.Origin.SourceId==cachedThemeCatalog.SourceId && installed.Origin.RepositoryIdentitySha256==RepositoryProfile.Themes.IdentityKey &&
+                        remote.State=="active" && remote.Manifest.Version.CompareTo(installed.Manifest.Version)>0) updateIds.Add("theme:"+remote.Id);
+                }
+                var listing=ManagedStoreListing.BuildEntries(snapshot.Catalog,SharedInventory(snapshot),snapshot.Repository?.Endpoint,search,locale,cachedThemes,cachedThemeCatalog);
+                rows=ManagedStoreListing.Filter(listing,kindFilter,filter,updateIds);
                 var previous=selected;
                 selected=ManagedStoreListing.RestoreEntry(rows,previous);
                 if(previous!=null && (selected==null || selected.CatalogRecord!=previous.CatalogRecord)) installIntent=null;
@@ -172,6 +197,15 @@ namespace Phinix.PluginStore
         {
             sections.Clear();
             if(selected==null) return T("choose");
+            if(selected.IsTheme)
+            {
+                var package=selected.InstalledTheme;var manifest=selected.RemoteTheme?.Manifest??package.Manifest;
+                sections.Add(new DetailSection {Title=T("themeVariants"),Body=string.Join("\n",manifest.Themes.Select(t=>Clean(t.Name)))});
+                if(selected.RemoteTheme!=null) sections.Add(new DetailSection {Title=T("about"),Body=Clean(selected.RemoteTheme.Summary)});
+                sections.Add(new DetailSection {Title=T("installationSource"),Body=Clean(package?.SourceId??themeRepository.Catalog?.SourceId)+"\nSHA-256: "+(selected.RemoteTheme?.Artifact.Sha256??package.ArtifactSha256)});
+                if(package!=null) sections.Add(new DetailSection {Title=T("installedVersion"),Body=package.Manifest.Version.ToString()});
+                return T("themeBadge")+" · Phinix "+Clean(manifest.PhinixRange.Text);
+            }
             sections.Add(new DetailSection { Title=T("about"), Body=Clean(selected.DisplaySummary(locale)) });
             if(!selected.IsWorkshop) sections.Add(new DetailSection { Title=T("changelog"), Body=Clean(selected.DisplayChangelog(locale)??T("noChangelog")) });
             var b=new StringBuilder();
@@ -249,15 +283,17 @@ namespace Phinix.PluginStore
         {
             if(controller.Snapshot.Busy || accessMethod==method) return;
             installIntent=null;
+            if(themeRepository.Busy) return;
             accessMethod=method; Refresh(false);
         }
         private void Refresh(bool offline)
         {
             Act(()=> {
                 var entry=SelectedEndpoint();
-                installIntent=null;
+                installIntent=null;pendingTheme=null;pendingThemeSelection=null;
                 settings.Set("plugin-store.officialAccessMethod",entry.AccessMethod==RepositoryAccessMethod.GitHub?"github":"cloudflare");
                 controller.Refresh(entry,environment.Capture(),offline);
+                if(!offline && themes!=null && !themeRepository.Busy) themeRepository.Refresh(accessMethod);
             });
         }
         private void OpenWorkshop()

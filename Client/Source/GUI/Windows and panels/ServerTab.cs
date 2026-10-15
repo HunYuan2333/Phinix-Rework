@@ -42,7 +42,8 @@ namespace PhinixClient
 
         public ServerTab()
         {
-            doWindowBackground = true;
+            // The shell paints its own rounded background; a native rectangle leaks at the corners.
+            doWindowBackground = false;
             closeOnAccept = false; closeOnCancel = false; resizeable = true; draggable = true;
             RefreshProviders();
         }
@@ -388,6 +389,7 @@ namespace PhinixClient
                 }
             }
             finally { Widgets.EndScrollView(); }
+            ClientWidgets.ScrollbarDecoration(viewport,bannerScroll,new Rect(0,0,width,total),HostThemeDrawing.Current);
             return heightAvailable + 40;
         }
         private void OpenUtilities()

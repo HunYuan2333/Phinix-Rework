@@ -57,7 +57,7 @@ ET.SubElement(items, 'Compile', Include=str(repo / 'tools/compatibility/Assembly
 ET.ElementTree(project).write(audit / 'Audit.csproj', encoding='unicode')
 (audit / 'NuGet.Config').write_text('<configuration><packageSources><clear /></packageSources></configuration>')
 run(['dotnet', 'build', audit / 'Audit.csproj', '-c', 'Release', '-v:q'])
-run(['python3', repo / 'tools/compatibility/stage-versioned-host.py', '--host16', out / 'build16/Phinix-Rework/Output/phinix-rework', '--graph17', out / 'build17', '--game16', a.game16.resolve(), '--game17', a.game17.resolve(), '--audit', audit / 'bin/Release/net10.0/Audit.dll', '--output', out / 'staged'])
+run(['python3', repo / 'tools/compatibility/stage-versioned-host.py', '--host16', out / 'build16/Phinix-Rework/Output/phinix-rework', '--graph17', out / 'build17', '--game16', a.game16.resolve(), '--game17', a.game17.resolve(), '--harmony17', a.harmony17.resolve(), '--audit', audit / 'bin/Release/net10.0/Audit.dll', '--output', out / 'staged'])
 host = out / 'staged/phinix-rework-analysis'
 about = ET.parse(host / 'About/About.xml')
 root = about.getroot()

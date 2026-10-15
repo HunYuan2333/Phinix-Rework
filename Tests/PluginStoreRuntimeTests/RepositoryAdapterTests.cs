@@ -11,11 +11,29 @@ using System.Threading.Tasks;
 using Phinix.PluginStore;
 using PhinixClient.Framework;
 using Utils.Framework.ManagedExtensions;
+using Utils.Framework.Themes;
 
 internal static partial class Program
 {
     private static async Task RepositoryAdapters()
     {
+        var themes=new AdapterFixture(true);
+        var themeProfile=new RepositoryProfile(Source,"test-owner/registry","123","45","codex/test","https://cache.example.test",4);
+        var themeDirect=new RepositoryEndpoint(themeProfile,RepositoryAccessMethod.GitHub);var themeCf=new RepositoryEndpoint(themeProfile,RepositoryAccessMethod.Cloudflare);
+        using(var direct=new GitHubRepositoryAccess(themes.Handler()))
+        using(var accelerated=new CloudflareRepositoryAccess(new RepositoryTransport(themes.Handler())))
+        using(var binary=new RepositoryTransport(themes.Handler()))
+        {
+            var a=await direct.ReadMetadata(themeDirect,null,CancellationToken.None,true);
+            var b=await accelerated.ReadMetadata(themeCf,null,CancellationToken.None,true);
+            var pointer=RepositoryMetadata.ReadStableCore(a.Stable.Body,Source,4);
+            var catalog=RepositoryMetadata.VerifyTheme(pointer,a.Published,a.Catalog);
+            Assert(a.Catalog.SequenceEqual(b.Catalog),"Theme GitHub and CF adapters return identical proven catalog bytes");
+            var item=catalog.Packages.Single();
+            var one=await direct.DownloadTheme(themeDirect,catalog,item,CancellationToken.None);
+            var two=await binary.DownloadTheme(themeCf,catalog,item,CancellationToken.None);
+            Assert(item.Verify(one,CancellationToken.None).Sha256==item.Verify(two,CancellationToken.None).Sha256,"Theme GitHub and CF transfer bytes pass the same actual ZIP/XML validator");
+        }
         string root=Path.Combine(Path.GetTempPath(),"phinix-adapters-"+Guid.NewGuid().ToString("N"));
         var fixture=new AdapterFixture();
         var profile=new RepositoryProfile(Source,"test-owner/registry","123","45","codex/test","https://cache.example.test");
@@ -132,7 +150,7 @@ internal static partial class Program
         internal readonly byte[] Dll,Zip,Catalog,Published,Stable;
         internal string Fault;
         internal readonly List<string> Requests=new List<string>();
-        internal AdapterFixture()
+        internal AdapterFixture(bool theme=false)
         {
             Dll=File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,"AdapterFixtures","Fixture.Plugin.dll"));
             byte[] manifest=Serialize(ManagedManifest(Dll));
@@ -146,8 +164,17 @@ internal static partial class Program
             Catalog=Serialize(new {schemaVersion=3,sourceId=Source,snapshotId=Revision,packages=new[]{new {
                 id="test.managed",author="Test Author",license="MIT",localization=new {translations=new Dictionary<string,object>{{"en-US",new {name="Managed test",summary="Test"}}}},tags=new[]{"test"},state="active",channel="github-release",management="phinix-dll",manifest=ManagedManifest(Dll),
                 artifact=new {repository="test-owner/registry",repositoryId="123",ownerId="45",sourceCommit=Revision,tag="v1.0.0",releaseId="202",assetId="203",assetName="test.zip",payloadKind="managed-dll-zip",sha256=Digest(Zip),manifestSha256=Digest(manifest),sizeBytes=Zip.Length}}}});
-            Published=Serialize(new {schemaVersion=1,sourceId=Source,snapshotId=Revision,catalogSchemaVersion=3,catalogSha256=Digest(Catalog),catalogSizeBytes=Catalog.Length,repository="test-owner/registry",repositoryId="123",ownerId="45",releaseId="200",assetId="201",assetName="catalog.json"});
-            Stable=Serialize(new {schemaVersion=1,sourceId=Source,snapshotId=Revision,catalogSchemaVersion=3,catalogSha256=Digest(Catalog),catalogSizeBytes=Catalog.Length,publishedSha256=Digest(Published),publishedSizeBytes=Published.Length});
+            if(theme)
+            {
+                var package=ThemePackageBuilder.Build("test.theme","Theme fixture","Test author","1.0.0",">=0.10.3 <1.0.0",new[]{new ThemePackageInput("main","Main",EncodingBytes("<PhinixTheme version='2'><color key='ui.text.primary' r='1' g='1' b='1' a='1'/></PhinixTheme>"))});
+                Zip=package.CopyArchive();
+                var declared=System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(package.CopyFile("manifest.json"));
+                Catalog=Serialize(new {schemaVersion=4,sourceId=Source,snapshotId=Revision,packages=new[]{new {
+                    id="test.theme",license="MIT",summary="Data-only fixture",state="active",channel="github-release",management="phinix-theme",manifest=declared,
+                    artifact=new {repository="test-owner/registry",repositoryId="123",ownerId="45",sourceCommit=Revision,tag="v1.0.0",releaseId="202",assetId="203",assetName="test.zip",payloadKind="theme-zip",sha256=Digest(Zip),manifestSha256=package.ManifestSha256,sizeBytes=Zip.Length}}}});
+            }
+            Published=Serialize(new {schemaVersion=1,sourceId=Source,snapshotId=Revision,catalogSchemaVersion=theme?4:3,catalogSha256=Digest(Catalog),catalogSizeBytes=Catalog.Length,repository="test-owner/registry",repositoryId="123",ownerId="45",releaseId="200",assetId="201",assetName="catalog.json"});
+            Stable=Serialize(new {schemaVersion=1,sourceId=Source,snapshotId=Revision,catalogSchemaVersion=theme?4:3,catalogSha256=Digest(Catalog),catalogSizeBytes=Catalog.Length,publishedSha256=Digest(Published),publishedSizeBytes=Published.Length});
         }
         internal HttpMessageHandler Handler() { return new AdapterHandler(this); }
         private sealed class AdapterHandler : HttpMessageHandler

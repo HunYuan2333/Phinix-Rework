@@ -34,11 +34,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for option in ['host16', 'graph17', 'game16', 'game17', 'audit', 'output']:
         parser.add_argument('--' + option, type=Path, required=True)
+    parser.add_argument('--harmony17',type=Path,help='The external Harmony DLL used by the isolated 1.7 graph.')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     output = args.output.resolve()
     inputs = [getattr(args, key).resolve() for key in
               ['host16', 'graph17', 'game16', 'game17', 'audit']]
+    if args.harmony17:
+        inputs.append(args.harmony17.resolve())
+        fingerprints=json.loads((args.graph17/'reference-fingerprints.json').read_text())
+        if fingerprints.get(str(args.harmony17.resolve()))!=digest(args.harmony17):
+            parser.error('Harmony must match the exact reference used by the 1.7 graph.')
     if output.is_relative_to(repo) or any(
             output.is_relative_to(path) or path.is_relative_to(output) for path in inputs):
         parser.error('Output must be isolated from repository and inputs.')
@@ -175,10 +181,11 @@ def main():
     (output / 'reference-closure.json').write_text(json.dumps(closure, indent=2))
     external17 = [entry for entry in closure if entry['game'] == '1.7' and entry['scope'] == 'external']
     external_names = {entry['reference']['name'] for entry in external17}
-    missing = sorted(name for name in external_names if not (args.game17 / (name + '.dll')).is_file())
+    external_paths={name:(args.harmony17 if name=='0Harmony' and args.harmony17 else args.game17/(name+'.dll')) for name in external_names}
+    missing = sorted(name for name,path in external_paths.items() if not path.is_file())
     if missing:
         raise ValueError('1.7 game/runtime reference unavailable: ' + str(missing))
-    external_rows = metadata([args.game17 / (name + '.dll') for name in sorted(external_names)], args.audit)
+    external_rows = metadata([external_paths[name] for name in sorted(external_names)], args.audit)
     lookup = {identity_name(row): row for row in external_rows}
     differences = [dict(entry, actual=lookup[entry['reference']['name']]['identity'])
                    for entry in external17 if identity_version(lookup[entry['reference']['name']]) !=
@@ -188,10 +195,9 @@ def main():
     (output / 'layout-fingerprints.json').write_text(json.dumps(copied, indent=2))
     (output / 'STATUS.txt').write_text(
         'Analysis layout only; not installed, published or game-tested.\n'
-        'Public API/CLR identities remain transitional. Managed net10 packages are blocked\n'
-        'by the current net472-only manifest/payload contract. External references were\n'
-        'located in the cached game; version differences are recorded, not waived.\n'
-        'Game loader selection and custom game runtime remain pending.\n')
+        'Both game target frameworks and source identities were inspected. External\n'
+        'game/runtime and explicit Harmony references were located; version differences\n'
+        'are recorded, not waived. This does not establish game runtime acceptance.\n')
     print('Versioned Host layout:', len(by16), 'DLLs for 1.6;', len(selected17),
           'DLLs for 1.7;', len(host_names), 'source identities matched. Output:', output)
 

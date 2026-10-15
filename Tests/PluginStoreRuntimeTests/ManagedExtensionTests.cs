@@ -52,7 +52,8 @@ internal static partial class Program
             Assert(manifest.PackageId == "test.managed" && manifest.Assemblies.Count == 1 && manifest.Modules.Count == 1 &&
                 manifest.Assemblies[0].FullName == "Fixture.Plugin, Version=1.2.3.4, Culture=neutral, PublicKeyToken=null", "Managed manifest preserves package, module and full assembly identity separately.");
             ExpectReadOnly(() => ((IList<ManagedExtensionModule>)manifest.Modules).Clear());
-            ManagedFailure("UnsupportedSchema", () => ManagedExtensionManifestReader.Read(Serialize(With(document, "schemaVersion", 2))));
+            ManagedFailure("InvalidVariants", () => ManagedExtensionManifestReader.Read(Serialize(With(document, "schemaVersion", 2))));
+            ManagedFailure("UnsupportedSchema", () => ManagedExtensionManifestReader.Read(Serialize(With(document, "schemaVersion", 3))));
             ManagedFailure("UnsupportedManagement", () => ManagedExtensionManifestReader.Read(Serialize(With(document, "management", "rimworld-mod"))));
             ManagedFailure("UnknownField", () => ManagedExtensionManifestReader.Read(Serialize(With(document, "rimWorldPackageId", "test.fake"))));
             ManagedFailure("MissingField", () => { var d = With(document, "name", "test"); d.Remove("modules"); ManagedExtensionManifestReader.Read(Serialize(d)); });

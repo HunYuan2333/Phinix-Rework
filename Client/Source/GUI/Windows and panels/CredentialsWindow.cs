@@ -41,7 +41,7 @@ namespace PhinixClient
         public AuthTypes AuthType;
         public ClientAuthenticator.ReturnCredentialsDelegate CredentialsCallback;
 
-        public CredentialsWindow()
+        public CredentialsWindow() : base(new ClientThemeWindowDrawing(() => HostThemeDrawing.Current))
         {
             doCloseX = true;
             doCloseButton = false;

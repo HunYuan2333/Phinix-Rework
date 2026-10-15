@@ -169,4 +169,12 @@
   <Phinix_theme_desc_ui_input_background>对输入框原有背景进行染色。</Phinix_theme_desc_ui_input_background>
   <Phinix_theme_label_ui_input_focus>输入框焦点边框</Phinix_theme_label_ui_input_focus>
   <Phinix_theme_desc_ui_input_focus>正在接收输入的文本框边框。</Phinix_theme_desc_ui_input_focus>
+  <Phinix_theme_label_chat_speakerSeparator>发言人分隔线</Phinix_theme_label_chat_speakerSeparator>
+  <Phinix_theme_desc_chat_speakerSeparator>不同发言人之间的细分隔线，不改变消息间距。</Phinix_theme_desc_chat_speakerSeparator>
+  <Phinix_theme_label_ui_scroll_track>滚动槽</Phinix_theme_label_ui_scroll_track>
+  <Phinix_theme_desc_ui_scroll_track>滚动槽 (1.7)</Phinix_theme_desc_ui_scroll_track>
+  <Phinix_theme_label_ui_scroll_thumb>滚动滑块</Phinix_theme_label_ui_scroll_thumb>
+  <Phinix_theme_desc_ui_scroll_thumb>滚动滑块 (1.7)</Phinix_theme_desc_ui_scroll_thumb>
+  <Phinix_theme_label_ui_scroll_hover>滚动滑块悬停</Phinix_theme_label_ui_scroll_hover>
+  <Phinix_theme_desc_ui_scroll_hover>滚动滑块悬停 (1.7)</Phinix_theme_desc_ui_scroll_hover>
 </LanguageData>

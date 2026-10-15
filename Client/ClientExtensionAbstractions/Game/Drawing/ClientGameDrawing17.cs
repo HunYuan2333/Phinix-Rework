@@ -9,6 +9,25 @@ namespace PhinixClient.Framework
     {
         private static IGuiBackend PaintingBackend()
         { return Event.current != null && Event.current.type == EventType.Repaint ? GuiBackend.Current : null; }
+        // Paint only after the native scroll group ends. Native controls retain IDs,
+        // wheel routing, dragging and clipping; no global skin/backend mutation.
+        internal static void Scrollbars(Rect viewport,Vector2 scroll,Rect content,Color track,Color thumb,Color hover)
+        {
+            var backend=PaintingBackend();
+            if(backend==null || viewport.width<=0 || viewport.height<=0) return;
+            for(int axis=0;axis<2;axis++)
+            {
+                bool vertical=axis==0;
+                float visible=vertical?viewport.height:viewport.width,total=vertical?content.height:content.width;
+                if(total<=visible || float.IsNaN(total) || float.IsInfinity(total)) continue;
+                float length=Mathf.Min(visible,Mathf.Max(20,visible*visible/total));
+                float offset=Mathf.Clamp(vertical?scroll.y:scroll.x,0,total-visible)/(total-visible)*(visible-length);
+                var rail=vertical?new Rect(viewport.xMax-16,viewport.y,16,visible):new Rect(viewport.x,viewport.yMax-16,visible,16);
+                var handle=vertical?new Rect(rail.x+2,rail.y+offset,12,length):new Rect(rail.x+offset,rail.y+2,length,12);
+                backend.FillRect(rail,track);
+                backend.FillRectRounded(handle,rail.Contains(Event.current.mousePosition)?hover:thumb,6);
+            }
+        }
         internal static void RoundedSurface(Rect rect, Color color, float radius)
         {
             var backend = PaintingBackend();

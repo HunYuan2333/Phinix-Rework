@@ -63,6 +63,8 @@ namespace PhinixClient
                     if (feed.Id == highlightedFeed && row.Id == highlightedRow && Time.realtimeSinceStartup < highlightUntil)
                         ClientWidgets.RoundedBorder(rect, palette.GetColor("ui.accent").ToUnityColor());
                     if (Mouse.IsOver(rect)) ClientWidgets.RoundedSurface(rect, OptionalColor(palette, row.HoverKey, palette.HoverHighlight.ToUnityColor()));
+                    if(row.LeadingSeparatorKey!=null)
+                        ClientWidgets.Fill(new Rect(rect.x+12,rect.y-3,Mathf.Max(0,rect.width-24),1),OptionalColor(palette,row.LeadingSeparatorKey,palette.Separator.ToUnityColor()));
                     if (row.AccentKey != null) ClientWidgets.RoundedSurface(new Rect(rect.x, rect.y + 8, 3, Mathf.Max(0, rect.height - 16)), OptionalColor(palette, row.AccentKey, palette.Separator.ToUnityColor()), 1);
                     float x = rect.x + 12 + (row.Indented ? 16 : 0), y = rect.y + 6;
                     float width = Mathf.Max(1, rect.xMax - 12 - x);

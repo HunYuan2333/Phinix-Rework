@@ -16,6 +16,7 @@ namespace Phinix.ChatExtension.Client
         public static Color SelfName => Current?.GetColor("chat.selfName").ToUnityColor() ?? default(Color);
         public static Color SelfMessageBg => Current?.GetColor("chat.selfMessageBg").ToUnityColor() ?? default(Color);
         public static Color RowHoverBg => Current?.GetColor("chat.rowHoverBg").ToUnityColor() ?? default(Color);
+        public static Color SpeakerSeparator => Current?.GetColor("chat.speakerSeparator").ToUnityColor() ?? default(Color);
         public static Color GroupIndentLine => Current?.GetColor("chat.groupIndentLine").ToUnityColor() ?? default(Color);
         public static Color ReplyQuoteBorder => Current?.GetColor("chat.replyQuoteBorder").ToUnityColor() ?? default(Color);
         public static Color ReplyQuoteBg => Current?.GetColor("chat.replyQuoteBg").ToUnityColor() ?? default(Color);

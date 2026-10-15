@@ -26,7 +26,8 @@ namespace Phinix.PluginStore
         private bool dirty = true;
         protected StorePresentationWindow(IPhinixExtensionModule owner, IClientPresentationService renderer,
             IClientExtensionPointService points, IClientActionPoint<PluginStorePresentationActionContext> point,
-            Func<bool> alive, PluginStorePresentationSurface surface)
+            Func<bool> alive, PluginStorePresentationSurface surface, IClientTheme theme = null)
+            : base(new ClientThemeWindowDrawing(() => theme?.Capture()))
         {
             this.owner=owner;this.renderer=renderer;this.points=points;this.point=point;this.alive=alive;this.surface=surface;
             doCloseX=true;closeOnAccept=false;absorbInputAroundWindow=true;draggable=true;resizeable=true;

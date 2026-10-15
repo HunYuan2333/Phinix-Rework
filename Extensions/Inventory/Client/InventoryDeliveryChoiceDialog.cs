@@ -23,7 +23,8 @@ namespace Phinix.InventoryExtension.Client
         private ClientActionExecutionResult result;
         public override Vector2 InitialSize => new Vector2(Mathf.Min(620, UiScreenSafeArea.Current.width), Mathf.Min(500, UiScreenSafeArea.Current.height));
         public InventoryDeliveryChoiceDialog(IPhinixExtensionModule owner, IClientPresentationService renderer,
-            IClientExtensionPointService points, Action<string> choose, Action dismiss)
+            IClientExtensionPointService points, Action<string> choose, Action dismiss, IClientTheme theme = null)
+            : base(new ClientThemeWindowDrawing(() => theme?.Capture()))
         {
             this.choose = choose; this.dismiss = dismiss; this.points = points;
             doCloseX = true; closeOnAccept = false; closeOnCancel = true; closeOnClickedOutside = false;

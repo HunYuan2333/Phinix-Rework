@@ -80,7 +80,7 @@
   <Phinix_store2_existingPackage>Installed and enabled</Phinix_store2_existingPackage>
   <Phinix_store2_workshop>Workshop mod</Phinix_store2_workshop>
   <Phinix_store2_refreshFirst>Refresh the store to load its catalog.</Phinix_store2_refreshFirst>
-  <Phinix_store2_empty>No matching plugins.</Phinix_store2_empty>
+  <Phinix_store2_empty>No matching packages.</Phinix_store2_empty>
   <Phinix_store2_openWorkshop>Open Workshop page</Phinix_store2_openWorkshop>
   <Phinix_store2_checkDownload>Download and verify (no installation)</Phinix_store2_checkDownload>
   <Phinix_store2_install>Install plugin</Phinix_store2_install>
@@ -139,7 +139,7 @@
   <Phinix_store2_failedFriendly>The operation could not be completed. Open error details for help.</Phinix_store2_failedFriendly>
   <Phinix_store2_errorDetails>Error details</Phinix_store2_errorDetails>
   <Phinix_store2_networkFriendly>Cannot reach the repository. Switch GitHub / CF access and retry.</Phinix_store2_networkFriendly>
-  <Phinix_store2_rateLimitedFriendly>Too many requests. Wait a moment, then refresh again.</Phinix_store2_rateLimitedFriendly>
+  <Phinix_store2_rateLimitedFriendly>The current access route is rate-limited. For GitHub direct, anonymous API access is shared by public IP (60 requests/hour). Switch to CF acceleration or wait for the reset time; repeated refreshes will not restore quota.</Phinix_store2_rateLimitedFriendly>
   <Phinix_store2_compatibilityFriendly>This plugin or the local environment needs a compatibility check. See error details.</Phinix_store2_compatibilityFriendly>
   <Phinix_store2_catalogEmpty>No plugins are listed yet. Refresh later.</Phinix_store2_catalogEmpty>
   <Phinix_store2_managementDetails>Why is this unavailable?</Phinix_store2_managementDetails>
@@ -158,8 +158,8 @@
   <Phinix_store2_downgradeUnavailable>Installing an older version over this package is unavailable.</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>Enable this package before updating; packages awaiting removal cannot be updated.</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub and CF show the same catalog. Switch access if the connection is slow.</Phinix_store2_accessExplanation>
-  <Phinix_store2_githubAccessGuidance>If you cannot reach GitHub, for example from mainland China, click "GitHub direct" above and select "CF acceleration" to try again.</Phinix_store2_githubAccessGuidance>
-  <Phinix_store2_filter0>All plugins</Phinix_store2_filter0>
+  <Phinix_store2_githubAccessGuidance>GitHub direct uses anonymous API access shared by public IP (60 requests/hour). If unavailable or rate-limited, select CF acceleration from the connection menu. Your explicit choice is preserved.</Phinix_store2_githubAccessGuidance>
+  <Phinix_store2_filter0>All</Phinix_store2_filter0>
   <Phinix_store2_filter1>Installed</Phinix_store2_filter1>
   <Phinix_store2_filter2>Updates</Phinix_store2_filter2>
   <Phinix_store2_about>About this plugin</Phinix_store2_about>
@@ -169,7 +169,7 @@
   <Phinix_store2_restartHint>Changes take effect after restarting the game.</Phinix_store2_restartHint>
   <Phinix_store2_workshopFooter>Subscribe and manage this mod in Steam Workshop.</Phinix_store2_workshopFooter>
   <Phinix_store2_updateBadge>Update available</Phinix_store2_updateBadge>
-  <Phinix_store2_resultCount>{0} plugins</Phinix_store2_resultCount>
+  <Phinix_store2_resultCount>{0} packages</Phinix_store2_resultCount>
   <Phinix_store2_stateSaved>Changes saved. Restart the game to apply them.</Phinix_store2_stateSaved>
   <Phinix_store2_optional>optional</Phinix_store2_optional>
   <Phinix_store2_installation>Local installation</Phinix_store2_installation>
@@ -249,11 +249,20 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_themeInstall>Install local theme package</Phinix_store2_themeInstall>
   <Phinix_store2_themeUpdate>Update local theme package</Phinix_store2_themeUpdate>
   <Phinix_store2_themeInstalled>Theme package saved. Choose it in the theme selector; no restart is required.</Phinix_store2_themeInstalled>
-  <Phinix_store2_browsePane>Plugins</Phinix_store2_browsePane>
+  <Phinix_store2_browsePane>Packages</Phinix_store2_browsePane>
   <Phinix_store2_detailPane>Details and actions</Phinix_store2_detailPane>
   <Phinix_store2_connection>Connection</Phinix_store2_connection>
   <Phinix_store2_moreTools>More</Phinix_store2_moreTools>
   <Phinix_store2_localPath>ZIP file or folder path</Phinix_store2_localPath>
   <Phinix_store2_localFolder>Folder</Phinix_store2_localFolder>
   <Phinix_store2_localDirectoryEmpty>No matching local packages. Choose a folder or paste a ZIP path.</Phinix_store2_localDirectoryEmpty>
+  <Phinix_store2_kind0>All types</Phinix_store2_kind0>
+  <Phinix_store2_kind1>Plugins</Phinix_store2_kind1>
+  <Phinix_store2_kind2>Themes</Phinix_store2_kind2>
+  <Phinix_store2_themeBadge>Theme package</Phinix_store2_themeBadge>
+  <Phinix_store2_themeVariants>Included themes</Phinix_store2_themeVariants>
+  <Phinix_store2_themeInstallNotice>Installs the theme package without applying it. Select a theme after installation.</Phinix_store2_themeInstallNotice>
+  <Phinix_store2_themeRequiresHost>Update the main Phinix Rework mod before installing this theme.</Phinix_store2_themeRequiresHost>
+  <Phinix_store2_themeSourceConflict>This theme was imported from another source. Remove it before installing the catalog package.</Phinix_store2_themeSourceConflict>
+  <Phinix_store2_themeFeedUnavailable>The theme catalog is unavailable. Plugins and installed themes remain available.</Phinix_store2_themeFeedUnavailable>
 </LanguageData>

@@ -19,8 +19,8 @@ namespace Phinix.PluginStore
         private HashSet<string> folders=new HashSet<string>(StringComparer.Ordinal);
         internal LocalPackageFileWindow(IPhinixExtensionModule owner,IClientPresentationService renderer,
             IClientExtensionPointService points,IClientActionPoint<PluginStorePresentationActionContext> point,
-            Func<bool> alive,Action<string> selected,bool developerOnly=true)
-            : base(owner,renderer,points,point,alive,PluginStorePresentationSurface.LocalFile)
+            Func<bool> alive,Action<string> selected,bool developerOnly=true,IClientTheme theme=null)
+            : base(owner,renderer,points,point,alive,PluginStorePresentationSurface.LocalFile,theme)
         {this.selected=selected;this.developerOnly=developerOnly;forcePause=true;}
         protected override bool Available => base.Available && (!developerOnly || Prefs.DevMode);
         public override Vector2 InitialSize => new Vector2(Mathf.Min(700,UiScreenSafeArea.Current.width),Mathf.Min(460,UiScreenSafeArea.Current.height));

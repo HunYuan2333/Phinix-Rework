@@ -17,6 +17,10 @@ internal static partial class Program
             session.Publish(new ClientPresentationPage("colors","",2,new[]{new ClientPresentationSection("items","","",list:list.WithReadOnly())}),null,()=>true);
             GUI.SurfaceColors.Clear();session.Draw(new ClientPresentationBounds(0,0,600,300));
             Check(!GUI.SurfaceColors.Any(c=>c.r==.123f||c.r==.456f),"Readonly list does not display an interactive selection despite custom colors");
+            var normal=new ClientPresentationList("items",new[]{new ClientPresentationRow("one","One")},"","one");
+            session.Publish(new ClientPresentationPage("colors","",3,new[]{new ClientPresentationSection("items","","",list:normal)}),null,()=>true);
+            GUI.SurfaceColors.Clear();session.Draw(new ClientPresentationBounds(0,0,600,300));
+            Check(GUI.SurfaceColors.Any(c=>c.r==.321f),"Default selected list uses the navigation role instead of ordinary hover color");
             Event.current.type=EventType.Layout;
         }
     }

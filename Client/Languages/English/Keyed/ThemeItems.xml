@@ -169,4 +169,12 @@
   <Phinix_theme_desc_ui_input_background>Tint applied to the existing input field background.</Phinix_theme_desc_ui_input_background>
   <Phinix_theme_label_ui_input_focus>Input focus border</Phinix_theme_label_ui_input_focus>
   <Phinix_theme_desc_ui_input_focus>Border of the text field currently receiving input.</Phinix_theme_desc_ui_input_focus>
+  <Phinix_theme_label_chat_speakerSeparator>Speaker separator</Phinix_theme_label_chat_speakerSeparator>
+  <Phinix_theme_desc_chat_speakerSeparator>Thin rule between different speakers; preserves message spacing.</Phinix_theme_desc_chat_speakerSeparator>
+  <Phinix_theme_label_ui_scroll_track>Scroll track</Phinix_theme_label_ui_scroll_track>
+  <Phinix_theme_desc_ui_scroll_track>Scroll track (1.7)</Phinix_theme_desc_ui_scroll_track>
+  <Phinix_theme_label_ui_scroll_thumb>Scroll handle</Phinix_theme_label_ui_scroll_thumb>
+  <Phinix_theme_desc_ui_scroll_thumb>Scroll handle (1.7)</Phinix_theme_desc_ui_scroll_thumb>
+  <Phinix_theme_label_ui_scroll_hover>Scroll handle hover</Phinix_theme_label_ui_scroll_hover>
+  <Phinix_theme_desc_ui_scroll_hover>Scroll handle hover (1.7)</Phinix_theme_desc_ui_scroll_hover>
 </LanguageData>

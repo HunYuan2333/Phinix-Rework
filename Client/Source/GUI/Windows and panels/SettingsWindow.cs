@@ -54,7 +54,7 @@ namespace PhinixClient
             }
         }
 
-        public SettingsWindow()
+        public SettingsWindow() : base(new ClientThemeWindowDrawing(() => HostThemeDrawing.Current))
         {
             doCloseX = true;
             doCloseButton = false;
@@ -127,6 +127,7 @@ namespace PhinixClient
                 DrawQuickSettings(contentWidth, ref y);
             }
             finally { Widgets.EndScrollView(); }
+            ClientWidgets.ScrollbarDecoration(inRect,scrollPosition,viewRect,HostThemeDrawing.Current);
         }
 
         private void RefreshQuickSettingsPanels()
@@ -350,7 +351,7 @@ namespace PhinixClient
     // Same complete settings contents and close-time save boundary as the existing mod settings surface.
     internal sealed class FullClientSettingsWindow : Window
     {
-        public FullClientSettingsWindow() { doCloseX = true; closeOnAccept = false; draggable = true; resizeable = true; }
+        public FullClientSettingsWindow() : base(new ClientThemeWindowDrawing(() => HostThemeDrawing.Current)) { doCloseX = true; closeOnAccept = false; draggable = true; resizeable = true; }
         public override Vector2 InitialSize => new Vector2(Mathf.Min(700, UiScreenSafeArea.Current.width), Mathf.Min(620, UiScreenSafeArea.Current.height));
         public override void WindowUpdate() { base.WindowUpdate(); windowRect = UiScreenSafeArea.ClampWindow(windowRect, new Vector2(320, 240)); }
         public override void DoWindowContents(Rect rect) { Client.Instance.DoSettingsWindowContents(rect); }

@@ -9,8 +9,10 @@
     <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/CatalogReader.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PayloadValidator.cs" Link="Production/PayloadValidator.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ThemeStoreCatalog.cs" Link="Production/ThemeStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/ManagedStorePayloadValidator.cs" />
     <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/*.cs" Link="Production/ManagedExtensions/%(Filename)%(Extension)" />
+      <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/Themes/*.cs" Link="Production/Themes/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

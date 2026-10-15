@@ -94,6 +94,32 @@ namespace Phinix.PluginStore
                 { diagnostics.Event("repository.failed", stage, "RepositoryUnavailable", LastRequestId); throw new StoreValidationException("RepositoryUnavailable", "Cannot reach the configured repository.", ex) { RequestId = LastRequestId }; }
             }
         }
+        internal async Task<byte[]> DownloadTheme(RepositoryEndpoint endpoint,ThemeStoreCatalog catalog,ThemeStoreRecord package,CancellationToken token)
+        {
+            var uri=endpoint.Package(catalog,package);
+            using(var request=new HttpRequestMessage(HttpMethod.Get,uri))
+            {
+                request.Headers.Accept.ParseAdd("application/octet-stream");
+                request.Headers.CacheControl=new CacheControlHeaderValue {NoCache=true};
+                using(var response=await client.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,token).ConfigureAwait(false))
+                {
+                    if(response.RequestMessage?.RequestUri!=uri) throw new StoreValidationException("UnexpectedEndpoint","Unexpected theme endpoint.");
+                    if(response.StatusCode!=HttpStatusCode.OK) throw await ReadFailure(response,(int)response.StatusCode,token).ConfigureAwait(false);
+                    var h=response.Content?.Headers;
+                    if(h==null || h.ContentType?.MediaType!="application/octet-stream" || h.ContentEncoding.Count!=0 || h.ContentRange!=null || h.ContentLength!=package.Artifact.SizeBytes)
+                        throw new StoreValidationException("InvalidResponseType","Theme must be a complete bounded binary response.");
+                    using(var input=await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                    using(var output=new MemoryStream())
+                    {
+                        var buffer=new byte[8192];int read;
+                        while((read=await input.ReadAsync(buffer,0,(int)Math.Min(buffer.Length,package.Artifact.SizeBytes+1-output.Length),token).ConfigureAwait(false))>0)
+                        { if(output.Length+read>package.Artifact.SizeBytes) throw new StoreValidationException("PayloadSizeMismatch","Theme transfer exceeded its locked length.");output.Write(buffer,0,read); }
+                        if(output.Length!=package.Artifact.SizeBytes) throw new StoreValidationException("PayloadSizeMismatch","Incomplete theme transfer.");
+                        return output.ToArray();
+                    }
+                }
+            }
+        }
         private async Task<StoreValidationException> ReadFailure(HttpResponseMessage response, int status, CancellationToken token)
         {
             string code = status == 429 ? "RepositoryRateLimited" : status >= 500 ? "RepositoryUnavailable" : "RepositoryHttpError";

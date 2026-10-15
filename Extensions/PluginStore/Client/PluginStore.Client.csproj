@@ -22,6 +22,8 @@
     <Compile Include="PackageModels.cs" />
     <Compile Include="CatalogReader.cs" />
     <Compile Include="ManagedStoreCatalog.cs" />
+    <Compile Include="ThemeStoreCatalog.cs" />
+    <Compile Include="ThemeStoreController.cs" />
     <Compile Include="ManagedStorePlanner.cs" />
     <Compile Include="ManagedStoreController.cs" />
     <Compile Include="ManagedLocalImport.cs" />

@@ -11,6 +11,7 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/Themes/*.cs" Link="Production/Themes/%(Filename)%(Extension)" />
     <!-- Link the actual client transport and validators; no game/host implementation. -->
     <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PackageVersion.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PackageModels.cs" />
@@ -20,6 +21,7 @@
     <Compile Include="../../Extensions/PluginStore/Client/StoreEnvironmentAdapter.cs" Link="Production/StoreEnvironmentAdapter.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/DependencyPlanner.cs" Link="Production/DependencyPlanner.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/RepositoryMetadata.cs" Link="Production/RepositoryMetadata.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/ThemeStoreCatalog.cs" Link="Production/ThemeStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreCatalog.cs" Link="Production/ManagedStoreCatalog.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs" Link="Production/ManagedStorePayloadValidator.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/ManagedStoreInstallationInput.cs" Link="Production/ManagedStoreInstallationInput.cs" />

@@ -80,7 +80,7 @@
   <Phinix_store2_existingPackage>已安装且已启用</Phinix_store2_existingPackage>
   <Phinix_store2_workshop>创意工坊 Mod</Phinix_store2_workshop>
   <Phinix_store2_refreshFirst>点击“刷新商店”获取插件目录。</Phinix_store2_refreshFirst>
-  <Phinix_store2_empty>没有匹配的插件。</Phinix_store2_empty>
+  <Phinix_store2_empty>没有匹配的包。</Phinix_store2_empty>
   <Phinix_store2_openWorkshop>打开创意工坊页面</Phinix_store2_openWorkshop>
   <Phinix_store2_checkDownload>下载并校验（暂不安装）</Phinix_store2_checkDownload>
   <Phinix_store2_install>安装插件</Phinix_store2_install>
@@ -139,7 +139,7 @@
   <Phinix_store2_failedFriendly>操作未完成，请打开错误详情查看原因。</Phinix_store2_failedFriendly>
   <Phinix_store2_errorDetails>错误详情</Phinix_store2_errorDetails>
   <Phinix_store2_networkFriendly>暂时无法连接商店，请切换 GitHub / CF 访问方式后重试。</Phinix_store2_networkFriendly>
-  <Phinix_store2_rateLimitedFriendly>请求较多，请稍候再刷新。</Phinix_store2_rateLimitedFriendly>
+  <Phinix_store2_rateLimitedFriendly>当前访问线路已限流。GitHub 直连匿名 API 按出口 IP 共享每小时 60 次额度；可切换 CF 加速或等待额度重置，连续刷新不会恢复额度。</Phinix_store2_rateLimitedFriendly>
   <Phinix_store2_compatibilityFriendly>插件或本地环境存在兼容性问题，请查看错误详情。</Phinix_store2_compatibilityFriendly>
   <Phinix_store2_catalogEmpty>商店暂未上架插件，可稍后刷新。</Phinix_store2_catalogEmpty>
   <Phinix_store2_managementDetails>为什么不可操作？</Phinix_store2_managementDetails>
@@ -158,8 +158,8 @@
   <Phinix_store2_downgradeUnavailable>暂不支持直接覆盖安装旧版本。</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>更新前请先启用此插件；待卸载的插件不能更新。</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub 与 CF 提供同一目录，连接较慢时可切换访问方式。</Phinix_store2_accessExplanation>
-  <Phinix_store2_githubAccessGuidance>中国大陆用户若无法连接 GitHub，可点击上方“GitHub 直连”按钮，选择“CF 加速”后重试。</Phinix_store2_githubAccessGuidance>
-  <Phinix_store2_filter0>全部插件</Phinix_store2_filter0>
+  <Phinix_store2_githubAccessGuidance>GitHub 直连使用匿名 API，按出口 IP 共享每小时 60 次额度。无法连接或限流时，请在连接方式菜单选择“CF 加速”。你主动选择的线路会保留。</Phinix_store2_githubAccessGuidance>
+  <Phinix_store2_filter0>全部状态</Phinix_store2_filter0>
   <Phinix_store2_filter1>已安装</Phinix_store2_filter1>
   <Phinix_store2_filter2>可更新</Phinix_store2_filter2>
   <Phinix_store2_about>插件简介</Phinix_store2_about>
@@ -169,7 +169,7 @@
   <Phinix_store2_restartHint>安装、更新和启停在重启游戏后生效。</Phinix_store2_restartHint>
   <Phinix_store2_workshopFooter>请在创意工坊订阅和管理此模组。</Phinix_store2_workshopFooter>
   <Phinix_store2_updateBadge>有可用更新</Phinix_store2_updateBadge>
-  <Phinix_store2_resultCount>{0} 个插件</Phinix_store2_resultCount>
+  <Phinix_store2_resultCount>{0} 个包</Phinix_store2_resultCount>
   <Phinix_store2_stateSaved>设置已保存，重启游戏后生效。</Phinix_store2_stateSaved>
   <Phinix_store2_optional>可选</Phinix_store2_optional>
   <Phinix_store2_installation>本地安装</Phinix_store2_installation>
@@ -249,11 +249,20 @@
   <Phinix_store2_themeInstall>安装本地主题包</Phinix_store2_themeInstall>
   <Phinix_store2_themeUpdate>更新本地主题包</Phinix_store2_themeUpdate>
   <Phinix_store2_themeInstalled>主题包已保存。请在主题选择器选择；无需重启。</Phinix_store2_themeInstalled>
-  <Phinix_store2_browsePane>插件</Phinix_store2_browsePane>
+  <Phinix_store2_browsePane>内容列表</Phinix_store2_browsePane>
   <Phinix_store2_detailPane>详情与操作</Phinix_store2_detailPane>
   <Phinix_store2_connection>连接方式</Phinix_store2_connection>
   <Phinix_store2_moreTools>更多</Phinix_store2_moreTools>
   <Phinix_store2_localPath>ZIP 文件或文件夹路径</Phinix_store2_localPath>
   <Phinix_store2_localFolder>文件夹</Phinix_store2_localFolder>
   <Phinix_store2_localDirectoryEmpty>没有可显示的本地包。选择文件夹或粘贴 ZIP 路径。</Phinix_store2_localDirectoryEmpty>
+  <Phinix_store2_kind0>全部类型</Phinix_store2_kind0>
+  <Phinix_store2_kind1>插件</Phinix_store2_kind1>
+  <Phinix_store2_kind2>主题</Phinix_store2_kind2>
+  <Phinix_store2_themeBadge>主题包</Phinix_store2_themeBadge>
+  <Phinix_store2_themeVariants>包含的主题</Phinix_store2_themeVariants>
+  <Phinix_store2_themeInstallNotice>安装主题包后不会自动应用，请安装后选择配色。</Phinix_store2_themeInstallNotice>
+  <Phinix_store2_themeRequiresHost>请先更新 Phinix Rework 主模组，再安装此主题。</Phinix_store2_themeRequiresHost>
+  <Phinix_store2_themeSourceConflict>此主题来自其他来源。请先卸载，再安装商店版本。</Phinix_store2_themeSourceConflict>
+  <Phinix_store2_themeFeedUnavailable>主题目录暂时不可用，仍可使用插件目录和已安装主题。</Phinix_store2_themeFeedUnavailable>
 </LanguageData>

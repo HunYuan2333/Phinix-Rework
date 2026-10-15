@@ -33,6 +33,17 @@ internal static class Program
             foreach(var type in new[]{EventType.Layout,EventType.KeyDown,EventType.MouseDown}){Event.current.type=type;ClientGameDrawing.RoundedSurface(rect,color,12);ClientGameDrawing.RoundedBorder(rect,color,12,1);}Check(calls==backend.Fills+backend.MeshCalls,"Input and measurement never paint.");
             Event.current.type=EventType.Repaint;GuiBackend.Current=null;ClientGameDrawing.RoundedSurface(rect,color,12);Check(calls==backend.Fills+backend.MeshCalls,"Missing backend preserves startup no-op.");GuiBackend.Current=backend;
             ClientGameDrawing.RoundedBorder(new Rect(0,0,10,10),color,5,5);Check(backend.Fills==2,"Collapsed inner region correctly uses a full rounded fill.");
+            var track=new Color(.1f,.2f,.3f,1);var handle=new Color(.6f,.7f,.8f,1);var hover=new Color(.2f,.4f,.9f,1);
+            int before=backend.Fills;backend.Rails.Clear();
+            ClientGameDrawing.Scrollbars(new Rect(10,20,100,200),new Vector2(0,400),new Rect(0,0,80,1000),track,handle,hover);
+            Check(backend.Rails.Count==1 && backend.Rails[0].Item1.x==94 && backend.Rails[0].Item1.width==16,"Decoration remains inside the native 16-unit rail");
+            Check(backend.Fills==before+1 && backend.LastRounded.y==100 && backend.LastRounded.height==40 && backend.FillColor.b==.8f,"Native thumb position and size preserved at half scroll range");
+            before=backend.Fills;backend.Rails.Clear();Event.current.type=EventType.Layout;
+            ClientGameDrawing.Scrollbars(new Rect(0,0,100,100),Vector2.zero,new Rect(0,0,100,1000),track,handle,hover);
+            Check(backend.Fills==before && backend.Rails.Count==0,"Scrollbar decoration does not paint during measurement");
+            Event.current.type=EventType.Repaint;
+            ClientGameDrawing.Scrollbars(new Rect(0,0,100,100),Vector2.zero,new Rect(0,0,100,100),track,handle,hover);
+            Check(backend.Fills==before && backend.Rails.Count==0,"Non-scrolling regions receive no synthetic scrollbar");
             backend.Fail=true;bool failed=false;try{ClientGameDrawing.RoundedSurface(rect,color,12);}catch(InvalidOperationException){failed=true;}Check(failed,"Backend failure propagates to the existing renderer error boundary.");
             Console.WriteLine("Actual 1.7 drawing API: "+checks+" checks passed; fake backend, no GPU/game acceptance.");
         }
@@ -40,9 +51,10 @@ internal static class Program
     }
     private sealed class Backend : IGuiBackend
     {
+        internal List<(Rect,Color)> Rails=new List<(Rect,Color)>();internal Rect LastRounded;
         internal int Fills,MeshCalls,Mode,GuiConversions;internal float Radius;internal Color FillColor;internal GuiVertex[] Mesh,RenderedMesh;internal Texture Texture;internal bool ScreenSpace,Fail;
         public bool MouseOutsideHitClip=>false;public int GroupCount=>0;public bool InlineControlsObscured=>false;
-        public void FillRectRounded(Rect rect,Color color,float rounding){if(Fail)throw new InvalidOperationException("draw failure");Fills++;Radius=rounding;FillColor=color;}
+        public void FillRectRounded(Rect rect,Color color,float rounding){if(Fail)throw new InvalidOperationException("draw failure");Fills++;LastRounded=rect;Radius=rounding;FillColor=color;}
         public void DrawPrimitives(int mode,ReadOnlySpan<GuiVertex> vertices,Texture texture,bool screenSpace){MeshCalls++;Mode=mode;Mesh=vertices.ToArray();RenderedMesh=vertices.ToArray();for(int i=0;i<RenderedMesh.Length;i++)if(!screenSpace)RenderedMesh[i].position=ToScreen(RenderedMesh[i].position);Texture=texture;ScreenSpace=screenSpace;}
         // Model the two distinct transform orders confirmed in real rev1248 IL.
         internal Vector2 ToScreen(Vector2 p)=>new Vector2((p.x+100)*2,(p.y+200)*1.5f);
@@ -56,7 +68,7 @@ internal static class Program
         public void DrawText(Rect rect,string text,int fontIndex,float fontSize,FontStyle fontStyle,TextAnchor anchor,bool wordWrap,Color color,Rect clipRect){}
         public void DrawTexture(Rect rect,Texture image,ScaleMode scaleMode,Color color){}public void DrawTextureWithTexCoords(Rect rect,Texture image,Rect texCoords,Color color){}
         public void DrawTextureWithMaterial(Rect rect,Texture image,Rect texCoords,Color color,Material material,Waylith.Rendering.Material passMaterial){}
-        public void FillRect(Rect rect,Color color){}public void DrawTextureQuad(Vector2 p0,Vector2 p1,Vector2 p2,Vector2 p3,Texture image,Color color){}
+        public void FillRect(Rect rect,Color color){Rails.Add((rect,color));}public void DrawTextureQuad(Vector2 p0,Vector2 p1,Vector2 p2,Vector2 p3,Texture image,Color color){}
         public void SetMatrix(Matrix4x4 matrix){}public void PushGroup(Rect rect){}public void PushScrollView(Rect clipRect,Vector2 contentOffset){}public void PopGroup(){}
         public void GetGroup(int index,out Rect rect,out Vector2 contentOrigin){rect=default;contentOrigin=default;}
         public void BeginWindowContent(Rect windowRect){}public void EndWindowContent(){}public void PushClipRect(Rect rect){}public void PopClipRect(){}

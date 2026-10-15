@@ -7,6 +7,7 @@ using PhinixClient.Framework;
 using UnityEngine;
 using Utils.Framework;
 using Utils.Framework.ManagedExtensions;
+using Utils.Framework.Themes;
 using Verse;
 
 namespace Phinix.PluginStore
@@ -24,7 +25,8 @@ namespace Phinix.PluginStore
         private long presentationRevision, publishedPoints = -1, publishedControls = -1;
         private ManagedStoreSnapshot publishedSnapshot;
         private string publishedQuery, publishedSelection, publishedError;
-        private int publishedFilter = -1;
+        private int publishedFilter = -1, publishedKindFilter=-1;
+        private IReadOnlyList<InstalledThemePackage> publishedThemes;
         private object publishedLanguage;
         private bool publishedDevMode;
         private ManagedStorePlan pendingPlan;
@@ -58,17 +60,17 @@ namespace Phinix.PluginStore
             if (pendingLocalConfirmation != null && (snapshot != pendingLocalConfirmation || !localImportActive || !Prefs.DevMode)) pendingLocalConfirmation = null;
             string selection = EntryIdentity(selected); long controlRevision = controlState?.Revision ?? -1;
             long pointRevision = points.Revision; var nextLanguage = LanguageDatabase.activeLanguage; bool dev = Prefs.DevMode;
-            string feedback = error ?? linkNotice;
+            string feedback = error ?? linkNotice ?? (themeRepository.Error==null?null:T("themeFeedUnavailable"));
             var nextResult = presentation.LastActionResult;
             if (!presentationDirty && ReferenceEquals(nextResult, publishedResult) && publishedSnapshot == snapshot && publishedQuery == search && publishedSelection == selection && publishedError == feedback &&
-                publishedFilter == filter && publishedControls == controlRevision && publishedPoints == pointRevision && ReferenceEquals(publishedLanguage, nextLanguage) && publishedDevMode == dev) return;
+                publishedFilter == filter && publishedKindFilter==kindFilter && ReferenceEquals(publishedThemes,themes?.Packages) && publishedControls == controlRevision && publishedPoints == pointRevision && ReferenceEquals(publishedLanguage, nextLanguage) && publishedDevMode == dev) return;
             long revision = ++presentationRevision; var picked = selected; var framePlan = pendingPlan;
             Func<bool> current = () => !stopped && presentation != null && !presentation.IsClosed && !presentationDirty && presentationRevision == revision && pendingPlan == framePlan && ReferenceEquals(presentation.LastActionResult, nextResult) &&
-                controller.Snapshot == snapshot && EntryIdentity(selected) == selection && search == publishedQuery && filter == publishedFilter &&
+                controller.Snapshot == snapshot && themeRepository.Revision==observedThemeRevision && EntryIdentity(selected) == selection && search == publishedQuery && filter == publishedFilter && kindFilter==publishedKindFilter && ReferenceEquals(publishedThemes,themes?.Packages) &&
                 (controls?.Capture().Revision ?? -1) == controlRevision && points.Revision == pointRevision && ReferenceEquals(LanguageDatabase.activeLanguage, nextLanguage) && Prefs.DevMode == dev;
             confirmations.Clear();
             var definitions = BuildPresentationActions(snapshot, picked);
-            var actions = actionPoint.Collect(new PluginStorePresentationActionContext(pageId, snapshot.Revision, selection, snapshot.State.ToString(), picked?.Id, picked?.Version, snapshot.Busy || controlState?.Busy == true, InventoryKnown, definitions), current);
+            var actions = actionPoint.Collect(new PluginStorePresentationActionContext(pageId, snapshot.Revision, selection, snapshot.State.ToString(), picked?.Id, picked?.Version, snapshot.Busy || controlState?.Busy == true || themeRepository.Installing, InventoryKnown, definitions), current);
             try
             {
                 var toolbar = new List<ClientPresentationAction>(); var utilities = new List<ClientPresentationAction>(); var operations = new List<ClientPresentationAction>();
@@ -76,13 +78,13 @@ namespace Phinix.PluginStore
                 {
                     confirmations.TryGetValue(action.Id, out var confirmation);
                     var binding = new ClientPresentationAction(action.OwnerId + "." + action.Id, action, kind: action.OwnerId != presentationOwner.ExtensionId ? ClientButtonKind.Normal :
-                        action.Id == "package-uninstall" ? ClientButtonKind.Danger :
-                        action.Id == "package-install" || action.Id == "package-update" || action.Id == "package-confirm-plan" || action.Id == "local-confirm" ? ClientButtonKind.Primary : ClientButtonKind.Normal,
+                        action.Id == "package-uninstall" || action.Id == "package-theme-uninstall" ? ClientButtonKind.Danger :
+                        action.Id == "package-theme-install" || action.Id == "package-install" || action.Id == "package-update" || action.Id == "package-confirm-plan" || action.Id == "local-confirm" ? ClientButtonKind.Primary : ClientButtonKind.Normal,
                         confirmation: action.OwnerId == presentationOwner.ExtensionId ? confirmation : null);
                     if (action.OwnerId == presentationOwner.ExtensionId)
-                        binding = binding.WithSelection(action.Id == "filter." + filter || action.Id == "access-github" && accessMethod == RepositoryAccessMethod.GitHub || action.Id == "access-cloudflare" && accessMethod == RepositoryAccessMethod.Cloudflare);
+                        binding = binding.WithSelection(action.Id == "filter." + filter || action.Id=="kind."+kindFilter || action.Id == "access-github" && accessMethod == RepositoryAccessMethod.GitHub || action.Id == "access-cloudflare" && accessMethod == RepositoryAccessMethod.Cloudflare);
                     if (action.OwnerId == presentationOwner.ExtensionId && action.Id.StartsWith("package-", StringComparison.Ordinal)) operations.Add(binding);
-                    else if (action.OwnerId == presentationOwner.ExtensionId && (action.Id.StartsWith("filter.", StringComparison.Ordinal))) toolbar.Add(binding);
+                    else if (action.OwnerId == presentationOwner.ExtensionId && (action.Id.StartsWith("filter.", StringComparison.Ordinal) || action.Id.StartsWith("kind.", StringComparison.Ordinal))) toolbar.Add(binding);
                     else utilities.Add(binding);
                 }
                 var routeIds = utilities.Where(b => b.Action.OwnerId == presentationOwner.ExtensionId && (b.Action.Id == "access-github" || b.Action.Id == "access-cloudflare")).Select(b => b.Id).ToArray();
@@ -92,10 +94,12 @@ namespace Phinix.PluginStore
                 if (moreIds.Length > 0) menus.Add(new ClientPresentationActionMenu("more", T("moreTools"), moreIds));
                 var sections = new List<ClientPresentationSection>();
                 string state = error == null ? linkNotice ?? status : localFailure != null ? T(localFailure.MessageKey) : error;
+                if(themeRepository.Error!=null) state += "\n"+T("themeFeedUnavailable")+"\n"+
+                    T(StoreFailureInfo.FromCode(themeRepository.Error).MessageKey);
                 if (snapshot.Progress != null) state += "\n" + progressCaption + "\n" + progressBytes;
                 string localReview = pendingLocalConfirmation == null ? "" : LocalImportSummary(pendingLocalConfirmation);
                 sections.Add(new ClientPresentationSection("store-tools", pendingLocalConfirmation == null ? "" : T("localConfirmation"), localReview, utilities,
-                    new ClientPresentationStatus(Bounded(state), error != null || snapshot.State == ManagedStoreState.Failed ? ClientPresentationTone.Error : !InventoryKnown || snapshot.Repository?.Offline == true || snapshot.Repository?.Stale == true ? ClientPresentationTone.Warning : snapshot.Busy ? ClientPresentationTone.Pending : ClientPresentationTone.Neutral)).WithWrappedActions().WithActionMenus(menus));
+                    new ClientPresentationStatus(Bounded(state), error != null || snapshot.State == ManagedStoreState.Failed || themeRepository.Error!=null ? ClientPresentationTone.Error : !InventoryKnown || snapshot.Repository?.Offline == true || snapshot.Repository?.Stale == true ? ClientPresentationTone.Warning : snapshot.Busy ? ClientPresentationTone.Pending : ClientPresentationTone.Neutral)).WithWrappedActions().WithActionMenus(menus));
                 sections.Add(new ClientPresentationSection("browse-tools", "", "", toolbar,
                     fields: new[] { new ClientPresentationTextField("search", T("search"), search, T("searchShort"), 128, snapshot.Busy || controlState?.Busy == true ? T("state_" + snapshot.State) : null) }).WithWrappedActions());
                 presentationRows.Clear(); var list = new List<ClientPresentationRow>();
@@ -104,6 +108,8 @@ namespace Phinix.PluginStore
                     var row = group.Preferred; string id = ListIdentity(row); presentationRows[id] = row;
                     string route = T(row.IsLocalDevelopment ? "localBadge" : row.IsWorkshop ? "workshop" : "managedBadge");
                     var local = row.Installed; string facts = row.Version + " · " + Clean(row.Author);
+                    if(row.IsTheme) facts += "\n"+T("themeBadge");
+                    if(row.InstalledTheme!=null) facts+="\n"+T("installedVersion")+" "+row.InstalledTheme.Manifest.Version;
                     if (local != null) facts += "\n" + T("installedVersion") + " " + Clean(local.Package.Version) + " · " + T("desired_" + local.Package.DesiredState);
                     list.Add(new ClientPresentationRow(id, Bounded(Clean(row.DisplayName(locale))), Bounded(facts), snapshot.Busy || controlState?.Busy == true ? T("state_" + snapshot.State) : null).WithBadges(BuildBadges(row, snapshot)));
                 }
@@ -128,7 +134,7 @@ namespace Phinix.PluginStore
                     for (int i = 0; i < this.sections.Count; i++) sections.Add(new ClientPresentationSection("detail." + i, this.sections[i].Title, this.sections[i].Body));
                 }
                 if (pendingPlan != null) sections.Add(new ClientPresentationSection("plan", T("dependencyConfirmation"), PlanSummary(pendingPlan)));
-                publishedQuery = search; publishedFilter = filter;
+                publishedQuery = search; publishedFilter = filter; publishedKindFilter=kindFilter; publishedThemes=themes?.Packages;
                 presentationDirty = false;
                 presentation.Publish(new ClientPresentationPage(pageId, "", revision, sections.Select(s => s.WithPlainLayout())).WithSplitView(new ClientPresentationSplitView(primarySections, T("browsePane"), T("detailPane"), .5f).WithFixedHeaders(1, 1, 1, picked == null ? "none" : ListIdentity(picked)).WithAlignedHeaders()), actions, current);
             }
@@ -139,6 +145,11 @@ namespace Phinix.PluginStore
         private static string LocalImportSummary(ManagedStoreSnapshot prepared) => Clean(prepared.LocalPackage.Manifest.PackageId) + "\n" + prepared.LocalPackage.Manifest.Version + "\nSHA-256: " + prepared.LocalPackage.Sha256;
         private IEnumerable<ClientPresentationBadge> BuildBadges(ManagedStoreEntry entry, ManagedStoreSnapshot snapshot)
         {
+            if(entry.IsTheme)
+            {
+                yield return new ClientPresentationBadge("theme",T("themeBadge")).WithColor("ui.badge.managed");
+                yield break;
+            }
             if (maintainers.IsOfficial(entry.CatalogRecord, snapshot.Catalog, snapshot.Repository?.Endpoint))
                 yield return new ClientPresentationBadge("official", T("officialBadge"), ClientTextureImage.FromTexture(badgeIcons?.Get(StoreBadgeKind.Official))).WithColor("ui.badge.maintained");
             StoreBadgeKind kind = entry.IsLocalDevelopment ? StoreBadgeKind.Local : entry.IsWorkshop ? StoreBadgeKind.Workshop : StoreBadgeKind.Managed;
@@ -148,7 +159,7 @@ namespace Phinix.PluginStore
         private IEnumerable<ClientActionDefinition> BuildPresentationActions(ManagedStoreSnapshot snapshot, ManagedStoreEntry picked)
         {
             var result = new List<ClientActionDefinition>();
-            bool operationBusy = snapshot.Busy || controlState?.Busy == true;
+            bool operationBusy = snapshot.Busy || controlState?.Busy == true || themeRepository.Installing;
             // Preserve the old modal review's exclusion of competing install/management operations.
             bool reviewingLocal = pendingLocalConfirmation == snapshot && snapshot.LocalPackage != null;
             bool busy = operationBusy || reviewingLocal;
@@ -159,6 +170,7 @@ namespace Phinix.PluginStore
             add("management", T("management"), () => ToolbarAction(2), !busy);
             add("themes", T("localThemes"), () => ToolbarAction(3), true);
             if (Prefs.DevMode) add("local-import", T("localImport"), () => ToolbarAction(4), !busy);
+            for(int i=0;i<3;i++) {int captured=i;add("kind."+i,T("kind"+i),()=> {kindFilter=captured;cached=null;},!busy && kindFilter!=i);}
             for (int i = 0; i < 3; i++) { int captured = i; add("filter." + i, T("filter" + i), () => { filter = captured; cached = null; }, !busy && filter != i); }
             if (snapshot.Busy) add("cancel", T("cancel"), () => { installIntent = null; pendingPlan = null; controller.Cancel(); }, true);
             if (error != null || snapshot.State == ManagedStoreState.Failed) add("diagnostics", T("copySummary"), () => GUIUtility.systemCopyBuffer = ErrorDetails(snapshot), true);
@@ -173,6 +185,31 @@ namespace Phinix.PluginStore
                 add("local-discard", T("cancel"), () => { localImportActive = false; controller.DiscardLocal(prepared); pendingLocalConfirmation = null; }, !operationBusy);
             }
             if (picked == null) return result;
+            if(picked.IsTheme)
+            {
+                var package=picked.InstalledTheme;var remote=picked.RemoteTheme;
+                bool available=!busy && !themeRepository.Busy && themes!=null && themes.Diagnostics.Count==0;
+                if(remote!=null && (package==null || remote.Manifest.Version.CompareTo(package.Manifest.Version)>0))
+                {
+                    string label=T(package==null?"install":"update");
+                    bool compatible=remote.Manifest.PhinixRange.Contains(ManagedExtensionVersion.Parse(environment.Capture().PhinixCompatibilityVersion));
+                    bool themeOwned=package==null || package.Origin!=null && package.Origin.SourceId==RepositoryProfile.Themes.SourceId && package.Origin.RepositoryIdentitySha256==RepositoryProfile.Themes.IdentityKey;
+                    add("package-theme-install",label,()=>Act(()=> {
+                        pendingTheme=remote;pendingThemeSelection=EntryIdentity(picked);
+                        themeRepository.Download(accessMethod,cachedThemeCatalog,remote,package?.ArtifactSha256,environment.Capture().PhinixCompatibilityVersion);
+                    }),available && compatible && themeOwned && themeRepository.Error==null && remote.State=="active");
+                    confirmations["package-theme-install"]=new ClientPresentationConfirmation(label,Clean(remote.Manifest.Name)+" "+remote.Manifest.Version+"\nSHA-256: "+remote.Artifact.Sha256+"\n"+T("themeInstallNotice"),label,T("cancel"));
+                    if(!compatible) result.Add(new ClientActionDefinition("theme-incompatible",T("themeRequiresHost"),()=>{},T("themeRequiresHost")));
+                    if(!themeOwned) result.Add(new ClientActionDefinition("theme-source-conflict",T("themeSourceConflict"),()=>{},T("themeSourceConflict")));
+                }
+                if(package!=null)
+                {
+                    add("package-theme-select",T("themeSelector"),()=>Act(themeWindows.OpenThemeWindow),available && themeWindows!=null);
+                    add("package-theme-uninstall",T("uninstall"),()=>Act(()=> {themes.Uninstall(package.Manifest.PackageId,package.ArtifactSha256);cached=null;}),available);
+                    confirmations["package-theme-uninstall"]=new ClientPresentationConfirmation(T("uninstall"),T("themeRemoveConfirm")+"\n"+Clean(package.Manifest.Name),T("uninstall"),T("cancel"));
+                }
+                return result;
+            }
             var local = selectedLocal; var state = local == null || controlState == null ? null : new ClientExtensionPackageState(local, controlState);
             bool owned = local != null && InventoryKnown;
             bool undo = local?.Package.DesiredState == ManagedExtensionDesiredState.PendingRemoval;

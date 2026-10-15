@@ -30,7 +30,7 @@ namespace Phinix.PluginStore
             if(endpoint.AccessMethod!=RepositoryAccessMethod.Cloudflare) throw new StoreValidationException("AccessMethodMismatch","Use the adapter selected by the repository profile.");
             var response=await transport.Get(endpoint.Stable,RepositoryMetadata.MaxMetadataBytes,etag,token,fresh).ConfigureAwait(false);
             if(response.NotModified) return new ManagedMetadataRead(response);
-            var stable=RepositoryMetadata.ReadManagedStable(response.Body,endpoint.SourceId);
+            var stable=RepositoryMetadata.ReadStableCore(response.Body,endpoint.SourceId,endpoint.Profile?.CatalogSchemaVersion??3);
             var published=await transport.Get(endpoint.Published(stable),stable.PublishedSizeBytes,null,token,fresh).ConfigureAwait(false);
             if(published.NotModified) throw Error();
             RepositoryMetadata.VerifyPublished(stable,published.Body); endpoint.Profile?.VerifyPublished(published.Body);

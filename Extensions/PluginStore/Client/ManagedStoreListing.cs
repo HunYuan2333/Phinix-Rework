@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Utils.Framework.ManagedExtensions;
+using Utils.Framework.Themes;
 
 namespace Phinix.PluginStore
 {
@@ -11,31 +12,40 @@ namespace Phinix.PluginStore
     {
         internal ManagedStoreEntry(string key,ManagedStoreRecord catalog,ManagedExtensionManagementPackage installed)
         { Key=key; CatalogRecord=catalog; Installed=installed; }
+        internal ManagedStoreEntry(InstalledThemePackage theme)
+        { InstalledTheme=theme; Key="theme:"+theme.SourceId+":"+theme.Manifest.PackageId; }
+        internal ManagedStoreEntry(ThemeStoreRecord remote,InstalledThemePackage installed)
+        { RemoteTheme=remote;InstalledTheme=installed;Key="theme:phinix.themes:"+remote.Id; }
+        internal ThemeStoreRecord RemoteTheme { get; }
         internal string Key { get; }
         internal ManagedStoreRecord CatalogRecord { get; }
         internal ManagedExtensionManagementPackage Installed { get; }
-        internal bool IsInstalledOnly => CatalogRecord==null;
+        internal InstalledThemePackage InstalledTheme { get; }
+        internal bool IsTheme => InstalledTheme!=null || RemoteTheme!=null;
+        internal bool IsInstalled => Installed!=null || InstalledTheme!=null;
+        internal bool IsInstalledOnly => CatalogRecord==null && RemoteTheme==null;
         internal bool IsLocalDevelopment => Installed?.Package.IsLocalDevelopment==true;
         internal bool IsWorkshop => CatalogRecord?.IsWorkshop==true;
-        internal string Id => CatalogRecord?.Id??Installed?.Package.PackageId??Installed?.Package.RecordKey;
-        internal string Author => CatalogRecord?.Author??Installed?.Package.SourceId;
-        internal string License => CatalogRecord?.License;
-        internal string State => CatalogRecord?.State??"installed";
+        internal string Id => RemoteTheme?.Id??InstalledTheme?.Manifest.PackageId??CatalogRecord?.Id??Installed?.Package.PackageId??Installed?.Package.RecordKey;
+        internal string Author => RemoteTheme?.Manifest.Author??InstalledTheme?.Manifest.Author??CatalogRecord?.Author??Installed?.Package.SourceId;
+        internal string License => RemoteTheme?.License??CatalogRecord?.License;
+        internal string State => RemoteTheme?.State??CatalogRecord?.State??"installed";
         internal ManagedExtensionManifest Manifest => CatalogRecord?.Manifest??Installed?.Package.Manifest;
-        internal string Version => Manifest?.Version.ToString()??Installed?.Package.Version??"?";
+        internal string Version => RemoteTheme?.Manifest.Version.ToString()??InstalledTheme?.Manifest.Version.ToString()??Manifest?.Version.ToString()??Installed?.Package.Version??"?";
         internal IEnumerable<string> RimWorldVersions => CatalogRecord?.RimWorldVersions??(IEnumerable<string>)Manifest?.Compatibility.RimWorldVersions??Enumerable.Empty<string>();
         internal IEnumerable<string> Tags => CatalogRecord?.Tags??(IEnumerable<string>)Enumerable.Empty<string>();
-        internal string DisplayName(string locale) => CatalogRecord?.DisplayName(locale)??Manifest?.Name??Id??"?";
-        internal string DisplaySummary(string locale) => CatalogRecord?.DisplaySummary(locale)??Id;
+        internal string DisplayName(string locale) => RemoteTheme?.Manifest.Name??InstalledTheme?.Manifest.Name??CatalogRecord?.DisplayName(locale)??Manifest?.Name??Id??"?";
+        internal string DisplaySummary(string locale) => RemoteTheme?.Summary??CatalogRecord?.DisplaySummary(locale)??Id;
         internal string DisplayChangelog(string locale) => CatalogRecord?.DisplayChangelog(locale);
     }
     internal sealed class ManagedStoreEntryGroup
     {
         internal ManagedStoreEntryGroup(IEnumerable<ManagedStoreEntry> entries)
         {
-            Versions=StoreCollections.Freeze(entries.OrderByDescending(p=>p.Manifest?.Version));
+            Versions=StoreCollections.Freeze(entries.OrderByDescending(p=>VersionKey(p.Version)));
             Preferred=Versions.FirstOrDefault(p=>p.State=="active")??Versions.First();
         }
+        private static ManagedExtensionVersion VersionKey(string text) { try {return ManagedExtensionVersion.Parse(text);}catch {return ManagedExtensionVersion.Parse("0.0.0");} }
         internal ReadOnlyCollection<ManagedStoreEntry> Versions { get; }
         internal ManagedStoreEntry Preferred { get; }
     }
@@ -52,8 +62,15 @@ namespace Phinix.PluginStore
 
     internal static class ManagedStoreListing
     {
+        // Independent axes: 0=all, 1=plugins/installed, 2=themes/updates.
+        internal static ManagedStoreEntryGroup[] Filter(IEnumerable<ManagedStoreEntryGroup> entries,int kind,int state,ISet<string> updates)
+        {
+            if(kind<0 || kind>2 || state<0 || state>2) throw new ArgumentOutOfRangeException();
+            return entries.Where(g=>(kind==0 || (kind==2)==g.Preferred.IsTheme) &&
+                (state==0 || state==1 && g.Preferred.IsInstalled || state==2 && !g.Preferred.IsInstalledOnly && updates.Contains(g.Preferred.IsTheme?"theme:"+g.Preferred.Id:g.Preferred.Id))).ToArray();
+        }
         internal static ManagedStoreEntryGroup[] BuildEntries(ManagedStoreCatalogSnapshot catalog,
-            ManagedExtensionManagementSnapshot inventory,RepositoryEndpoint endpoint,string search,string locale)
+            ManagedExtensionManagementSnapshot inventory,RepositoryEndpoint endpoint,string search,string locale,IEnumerable<InstalledThemePackage> themes=null,ThemeStoreCatalog themeCatalog=null)
         {
             var entries=new List<ManagedStoreEntry>();
             var represented=new HashSet<string>(StringComparer.Ordinal);
@@ -69,6 +86,11 @@ namespace Phinix.PluginStore
             foreach(var installed in inventory?.Packages??Enumerable.Empty<ManagedExtensionManagementPackage>())
                 if(!represented.Contains(installed.Package.RecordKey))
                     entries.Add(new ManagedStoreEntry("installed:"+(installed.Package.RecordKey??"unknown-"+unknown++),null,installed));
+            var themeInventory=(themes??Enumerable.Empty<InstalledThemePackage>()).ToArray();
+            foreach(var remote in themeCatalog?.Packages??Enumerable.Empty<ThemeStoreRecord>())
+                entries.Add(new ManagedStoreEntry(remote,themeInventory.SingleOrDefault(t=>t.Manifest.PackageId==remote.Id)));
+            foreach(var theme in themeInventory)
+                if(themeCatalog==null || !themeCatalog.Packages.Any(p=>p.Id==theme.Manifest.PackageId)) entries.Add(new ManagedStoreEntry(theme));
             return entries.GroupBy(e=>e.Key,StringComparer.Ordinal).Select(g=>new ManagedStoreEntryGroup(g))
                 .Where(g=>string.IsNullOrEmpty(search) || g.Versions.Any(e=>
                     (e.DisplayName(locale)+" "+e.Id+" "+e.Author+" "+e.DisplaySummary(locale)+" "+string.Join(" ",e.Tags)+
@@ -80,7 +102,8 @@ namespace Phinix.PluginStore
             if(previous==null) return null;
             var entries=groups.SelectMany(g=>g.Versions).ToArray();
             var exact=entries.FirstOrDefault(e=>e.Key==previous.Key &&
-                (e.IsInstalledOnly && previous.IsInstalledOnly || e.CatalogRecord!=null && previous.CatalogRecord!=null &&
+                (e.IsTheme && previous.IsTheme && e.Version==previous.Version ||
+                 e.IsInstalledOnly && previous.IsInstalledOnly || e.CatalogRecord!=null && previous.CatalogRecord!=null &&
                  e.IsWorkshop==previous.IsWorkshop && (e.IsWorkshop || e.Version==previous.Version)));
             if(exact!=null || previous.Installed?.Package.RecordKey==null) return exact;
             // A catalog can disappear/return without changing the owned installation.

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Threading;
 using Phinix.PluginStore;
+using Utils.Framework.Themes;
 
 internal static partial class Program
 {
@@ -55,5 +58,37 @@ internal static partial class Program
         var previousProfile=new RepositoryProfile(profile.SourceId,profile.Repository,profile.RepositoryId,profile.OwnerId,profile.PublicationBranch,"https://plugins-staging.hunyuan2333.com");
         Assert(profile.GatewayOrigin=="https://plugins.hunyuan2333.com" && profile.IdentityKey==previousProfile.IdentityKey,"Formal gateway migration preserves previously installed ownership");
         Assert(new RepositoryEndpoint(profile,RepositoryAccessMethod.Cloudflare).AccessKey!=new RepositoryEndpoint(previousProfile,RepositoryAccessMethod.Cloudflare).AccessKey,"Domain migration cannot reuse the old endpoint HTTP validator");
+        string themeRoot=Path.Combine(Path.GetTempPath(),"store-theme-filter-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var themePackage=ThemePackageBuilder.Build(root.Id,"Filter sample","Theme author","1.0.0",">=0.10.1 <1.0.0",new[] {
+                new ThemePackageInput("dark","Dark",Utf8("<PhinixTheme version='2'><color key='ui.text.primary' r='1' g='1' b='1' a='1'/></PhinixTheme>")),
+                new ThemePackageInput("light","Light",Utf8("<PhinixTheme version='2'><color key='ui.text.primary' r='0' g='0' b='0' a='1'/></PhinixTheme>"))});
+            string removedIntent=null;
+            using(var store=new ManagedThemePackageStore(themeRoot,completedIntent=>removedIntent=completedIntent))
+            {
+                store.Install(themePackage,null,"0.10.1",_=>{},CancellationToken.None);
+                var installed=store.Refresh(CancellationToken.None).Packages;
+                var entries=ManagedStoreListing.BuildEntries(catalog,null,null,"","en",installed);
+                var updates=new HashSet<string>{root.Id};
+                Assert(entries.Length==2,"A theme with two palettes occupies one row, separate from the same-ID plugin");
+                Assert(ManagedStoreListing.Filter(entries,1,0,updates).Single().Preferred.IsTheme==false,"Plugin type filter excludes themes");
+                var themes=ManagedStoreListing.Filter(entries,2,1,updates);
+                Assert(themes.Length==1 && themes[0].Preferred.InstalledTheme.Manifest.Themes.Count==2,"Type and installed state compose for themes");
+                Assert(ManagedStoreListing.Filter(entries,2,2,updates).Length==0,"A same-ID DLL update never marks a local theme as updateable");
+                Assert(ManagedStoreListing.Filter(entries,0,2,updates).Length==1,"Available updates retain the online DLL row");
+                Assert(ManagedStoreListing.BuildEntries(null,null,null,"Theme author","en",installed).Length==1,"Local themes remain searchable without an online catalog");
+                Assert(ManagedStoreListing.BuildEntries(null,null,null,"missing","en",installed).Length==0,"Search excludes unrelated local themes");
+                Assert(ManagedStoreListing.RestoreEntry(ManagedStoreListing.Filter(entries,1,0,updates),themes[0].Preferred)==null,"Filtering out a theme clears its selection and stale operations");
+                store.Remove(themePackage.Manifest.PackageId,themePackage.Sha256,"",CancellationToken.None);
+                Assert(removedIntent=="","Removing an inactive theme accepts its canonical empty recovery intent");
+                Assert(ManagedStoreListing.BuildEntries(null,null,null,"","en",store.Refresh(CancellationToken.None).Packages).Length==0,"Removal refresh drops the local theme row");
+                store.Install(themePackage,null,"0.10.1",_=>{},CancellationToken.None);
+                string activeIntent="package/"+themePackage.Manifest.PackageId+"/dark\nmissing";
+                store.Remove(themePackage.Manifest.PackageId,themePackage.Sha256,activeIntent,CancellationToken.None);
+                Assert(removedIntent==activeIntent,"Selected-theme removal preserves the full original recovery intent");
+            }
+        }
+        finally {if(Directory.Exists(themeRoot)) Directory.Delete(themeRoot,true);}
     }
 }

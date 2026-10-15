@@ -13,6 +13,12 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        if(args.Length==2 && (args[0]=="--themes-github" || args[0]=="--themes-cf"))
+        {
+            try {ThemeLiveCheck.Check(args).GetAwaiter().GetResult();return 0;}
+            catch(StoreValidationException error) {Console.Error.WriteLine("Rejected: "+error.Code);return 1;}
+            catch(Exception error) {Console.Error.WriteLine(error);return 1;}
+        }
         if (args.Length>=5 && args[0]=="--local-identities") return LocalIdentityCheck.Check(args);
         if (args.Length == 4 && (args[3] == "--managed" || args[3] == "--managed-github" || args[3] == "--managed-cf" ||
             args[3] == "--official-github" || args[3] == "--official-cf" || args[3]=="--official-catalog-github" || args[3]=="--official-catalog-cf"))

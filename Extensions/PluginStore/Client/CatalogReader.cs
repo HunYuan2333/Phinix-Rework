@@ -284,7 +284,7 @@ namespace Phinix.PluginStore
             return new PackageCompatibility(versions, phinix, abstractions);
         }
 
-        internal static GitHubArtifact ReadArtifact(XElement node, PackageVersion version, bool managed = false)
+        internal static GitHubArtifact ReadArtifact(XElement node, PackageVersion version, bool managed = false, bool theme = false)
         {
             Dictionary<string, XElement> f = Object(node, "artifact", "repository", "repositoryId", "ownerId", "sourceCommit",
                 "tag", "releaseId", "assetId", "assetName", "payloadKind", "sha256", "manifestSha256", "sizeBytes");
@@ -294,7 +294,7 @@ namespace Phinix.PluginStore
             string tag = Text(Required(f, "tag"), "tag", 40);
             if (tag != version.ToString() && tag != "v" + version)
                 throw Error("InvalidTag", "Tag must match the package version, optionally prefixed with v.");
-            string payload = managed ? Choice(Required(f, "payloadKind"), "payloadKind", "managed-dll-zip") :
+            string payload = theme ? Choice(Required(f, "payloadKind"), "payloadKind", "theme-zip") : managed ? Choice(Required(f, "payloadKind"), "payloadKind", "managed-dll-zip") :
                 Choice(Required(f, "payloadKind"), "payloadKind", "rimworld-mod-zip", "dll-with-manifest");
             return new GitHubArtifact(repository, PositiveId(Required(f, "repositoryId"), "repositoryId"),
                 PositiveId(Required(f, "ownerId"), "ownerId"), Hex(Required(f, "sourceCommit"), "sourceCommit", 40), tag,

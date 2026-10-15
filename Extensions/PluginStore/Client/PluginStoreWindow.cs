@@ -12,6 +12,7 @@ namespace Phinix.PluginStore
         private readonly ManagedPluginStoreView managedView;
 
         internal PluginStoreWindow(ManagedPluginStoreView view)
+            : base(new ClientThemeWindowDrawing(() => view.WindowTheme.Capture()))
         { managedView=view; doCloseX=true; doCloseButton=false; draggable=true; resizeable=true; }
 
 

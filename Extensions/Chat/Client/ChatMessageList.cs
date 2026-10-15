@@ -115,6 +115,7 @@ namespace Phinix.ChatExtension.Client
             public bool IsSelf;
             public bool IsSystem;
             public bool IsGrouped;
+            public bool StartsSpeaker;
             public string TimestampText;
             public string TimestampDisplay;
             public string SenderDisplayName;
@@ -295,11 +296,14 @@ namespace Phinix.ChatExtension.Client
                 feedTimestampOnRight == timestampOnRight && feedNames == names && feedFormatting == formatting && feedImages == images && feedMaxImageHeight == hostContext.MaxImageHeight) return;
             long revision = ++feedRevision, dataVersion = Interlocked.Read(ref feedDataVersion);
             var rows = new List<ClientPresentationFeedRow>(); feedMessages.Clear();
+            string previousSpeaker=null;
             string lastSender = null; DateTime lastTime = DateTime.MinValue;
             foreach (var message in filteredMessages)
             {
                 bool system = message.SenderUuid == FrameworkProtocol.SystemSenderUuid, notice = message.IsNotice;
                 bool confirmed = message.Status == UIChatMessageStatus.Confirmed, self = message.SenderUuid == hostContext.Uuid;
+                bool speakerChange=!system && !notice && previousSpeaker!=null && previousSpeaker!=message.SenderUuid;
+                if(!system && !notice) previousSpeaker=message.SenderUuid;
                 bool grouped = !system && !notice && message.SenderUuid == lastSender && (message.Timestamp - lastTime).TotalSeconds < GROUP_TIME_THRESHOLD_SECONDS;
                 if (!grouped) { lastSender = message.SenderUuid; lastTime = message.Timestamp; }
                 string id = FeedId(message); if (feedMessages.ContainsKey(id)) id += ".duplicate." + rows.Count;
@@ -345,7 +349,7 @@ namespace Phinix.ChatExtension.Client
                 string surface = notice ? "chat.noticeBg" : self ? "chat.selfMessageBg" : message.MentionedUuids?.Contains(hostContext.Uuid) == true ? "chat.mentionSelfBg" : null;
                 rows.Add(new ClientPresentationFeedRow(id, system || notice || grouped ? "" : heading,
                     system || notice || grouped ? "" : message.Timestamp.ToLocalTime().ToString("HH:mm"), body, reference, null, mediaRows, grouped, system,
-                    surface, bodyKey, notice ? "chat.noticeAccent" : grouped ? "chat.groupIndentLine" : null, "chat.rowHoverBg", "chat.replyQuoteText", "chat.replyQuoteBorder").WithMetadataLayout(minimumWidth: 64, gap: 12).WithMetadataPlacement(timestampOnRight ? ClientPresentationMetadataPlacement.Right : ClientPresentationMetadataPlacement.AfterHeading));
+                    surface, bodyKey, notice ? "chat.noticeAccent" : grouped ? "chat.groupIndentLine" : null, "chat.rowHoverBg", "chat.replyQuoteText", "chat.replyQuoteBorder").WithMetadataLayout(minimumWidth: 64, gap: 12).WithMetadataPlacement(timestampOnRight ? ClientPresentationMetadataPlacement.Right : ClientPresentationMetadataPlacement.AfterHeading).WithLeadingSeparator(speakerChange?"chat.speakerSeparator":null));
             }
             feedTheme = ChatTheme.Version; feedLanguage = LanguageDatabase.activeLanguage; feedTimestampOnRight = timestampOnRight; feedNames = names; feedFormatting = formatting; feedImages = images; feedMaxImageHeight = hostContext.MaxImageHeight;
             feedView.Publish(new ClientPresentationPage("chat-feed", "", revision, new[] {
@@ -545,6 +549,7 @@ namespace Phinix.ChatExtension.Client
             bool showChat = hostContext.ShowChatFormatting;
             float contentWidth = inRect.width - SCROLLBAR_WIDTH;
 
+            string previousSpeakerUuid=null;
             string lastSenderUuid = null;
             DateTime lastTimestamp = DateTime.MinValue;
 
@@ -555,6 +560,8 @@ namespace Phinix.ChatExtension.Client
                 bool isSystem = chatMessage.SenderUuid == FrameworkProtocol.SystemSenderUuid;
                 bool isNotice = chatMessage.IsNotice;
 
+                bool startsSpeaker=!isSystem && !isNotice && previousSpeakerUuid!=null && previousSpeakerUuid!=chatMessage.SenderUuid;
+                if(!isSystem && !isNotice) previousSpeakerUuid=chatMessage.SenderUuid;
                 bool isGrouped = !isSystem && !isNotice
                     && chatMessage.SenderUuid == lastSenderUuid
                     && (chatMessage.Timestamp - lastTimestamp).TotalSeconds < GROUP_TIME_THRESHOLD_SECONDS;
@@ -704,6 +711,7 @@ namespace Phinix.ChatExtension.Client
                     IsSelf = isSelf,
                     IsSystem = isSystem,
                     IsGrouped = isGrouped,
+                    StartsSpeaker=startsSpeaker,
                     TimestampText = timestampText,
                     TimestampDisplay = timestampText.Colorize(ChatTheme.ReplyQuoteText),
                     SenderDisplayName = displayName,
@@ -872,6 +880,7 @@ namespace Phinix.ChatExtension.Client
                 Widgets.DrawBoxSolid(inRect, ChatTheme.MentionSelfBg);
             }
 
+            if(cached.StartsSpeaker) Widgets.DrawBoxSolid(new Rect(inRect.x,inRect.y,inRect.width,1),ChatTheme.SpeakerSeparator);
             if (cached.IsGrouped)
             {
                 Rect indentLine = new Rect(inRect.x + 6f, inRect.y, 2f, inRect.height);

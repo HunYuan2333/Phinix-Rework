@@ -1,6 +1,7 @@
 using System;
 namespace UnityEngine
 {
+    public sealed class GUIStyle { }
     public struct Color
     {
         public float r,g,b,a;
@@ -19,7 +20,7 @@ namespace UnityEngine
     public static class GUI { public static Color color=Color.white,backgroundColor=Color.white,contentColor=Color.white;public static bool enabled=true; public static void SetNextControlName(string name){} public static string FocusedControl=""; public static string GetNameOfFocusedControl()=>FocusedControl; private static readonly System.Collections.Generic.Stack<Vector2> Groups = new System.Collections.Generic.Stack<Vector2>();
         public static int GroupDepth => Groups.Count; public static float GroupX, GroupY;
         public static void BeginGroup(Rect r){Groups.Push(new Vector2(GroupX,GroupY));GroupX+=r.x;GroupY+=r.y;}
-        public static void EndGroup(){var previous=Groups.Pop();GroupX=previous.x;GroupY=previous.y;} public static void FocusControl(string name){FocusedControl=name;} public static readonly System.Collections.Generic.List<Color> SurfaceColors=new System.Collections.Generic.List<Color>(); public static int SurfaceCalls; public static bool ThrowIcon; public static int IconCalls; public static Rect LastIconRect; public static void DrawTexture(Rect rect,Texture texture){IconCalls++;LastIconRect=rect;if(ThrowIcon)throw new InvalidOperationException("GPU");} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){SurfaceCalls++;SurfaceColors.Add(c);} }
+        public static void EndGroup(){var previous=Groups.Pop();GroupX=previous.x;GroupY=previous.y;} public static void FocusControl(string name){FocusedControl=name;} public static readonly System.Collections.Generic.List<Color> SurfaceColors=new System.Collections.Generic.List<Color>(); public static readonly System.Collections.Generic.List<Rect> SurfaceRects=new System.Collections.Generic.List<Rect>(); public static int SurfaceCalls; public static bool ThrowIcon; public static int IconCalls; public static Rect LastIconRect; public static void DrawTexture(Rect rect,Texture texture){IconCalls++;LastIconRect=rect;if(ThrowIcon)throw new InvalidOperationException("GPU");} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){SurfaceCalls++;SurfaceColors.Add(c);SurfaceRects.Add(r);} }
     public static class Input { public static bool GetMouseButton(int button)=>false; public static string compositionString=""; }
 }
 namespace Verse
@@ -63,7 +64,22 @@ namespace UnityEngine
 }
 namespace Verse
 {
-    public class Window { public bool doCloseX,closeOnAccept,absorbInputAroundWindow,draggable,resizeable,forcePause; public bool IsOpen; public UnityEngine.Rect windowRect;
+    public interface IWindowDrawing {
+        UnityEngine.GUIStyle EmptyStyle {get;} void DoWindowBackground(UnityEngine.Rect r); bool DoCloseButton(UnityEngine.Rect r,string text);
+        bool DoClostButtonSmall(UnityEngine.Rect r); void BeginGroup(UnityEngine.Rect r); void EndGroup(); void DoGrayOut(UnityEngine.Rect r);
+    }
+    public class DefaultWindowDrawing : IWindowDrawing {
+        public static int Backgrounds,SmallClose,LargeClose,GrayOut;
+        public UnityEngine.GUIStyle EmptyStyle=>new UnityEngine.GUIStyle();
+        public void DoWindowBackground(UnityEngine.Rect r){Backgrounds++;}
+        public bool DoCloseButton(UnityEngine.Rect r,string text){LargeClose++;return true;}
+        public bool DoClostButtonSmall(UnityEngine.Rect r){SmallClose++;return true;}
+        public void BeginGroup(UnityEngine.Rect r){UnityEngine.GUI.BeginGroup(r);}
+        public void EndGroup(){UnityEngine.GUI.EndGroup();}
+        public void DoGrayOut(UnityEngine.Rect r){GrayOut++;}
+    }
+    public class Window { public readonly IWindowDrawing Drawing; public Window(IWindowDrawing drawing=null){Drawing=drawing;}
+ public bool doCloseX,closeOnAccept,absorbInputAroundWindow,draggable,resizeable,forcePause; public bool IsOpen; public UnityEngine.Rect windowRect;
         public virtual UnityEngine.Vector2 InitialSize=>new UnityEngine.Vector2(); public virtual void PreOpen(){IsOpen=true;} public virtual void WindowUpdate(){} public virtual void PostClose(){} public virtual void DoWindowContents(UnityEngine.Rect r){} public void Close(){IsOpen=false;PostClose();} }
     public static class Find { public static Stack WindowStack=new Stack(); }
     public sealed class Stack { public Window Last, currentlyDrawnWindow; public FloatMenu FloatMenu; public bool GetsInput(Window w)=>true; public void Add(Window w){Last=w;} }

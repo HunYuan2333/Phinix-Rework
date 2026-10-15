@@ -18,6 +18,7 @@ namespace Phinix.PluginStore
         private readonly IClientExtensionPointService points;
         private readonly IClientActionPoint<PluginStorePresentationActionContext> point;
         private readonly IClientThemePackageService packages;
+        private readonly IClientTheme theme;
         private readonly IClientThemeWindowService selector;
         private ThemePackage candidate;
         private string expected,message="",selection;
@@ -26,11 +27,11 @@ namespace Phinix.PluginStore
         private InstalledThemePackage[] rows=Array.Empty<InstalledThemePackage>();
         internal LocalThemePackagesWindow(IPhinixExtensionModule owner,IClientPresentationService renderer,
             IClientExtensionPointService points,IClientActionPoint<PluginStorePresentationActionContext> point,
-            IClientThemePackageService packages,IClientThemeWindowService selector,Func<bool> alive)
-            :base(owner,renderer,points,point,alive,PluginStorePresentationSurface.LocalThemes)
+            IClientThemePackageService packages,IClientThemeWindowService selector,Func<bool> alive,IClientTheme theme=null)
+            :base(owner,renderer,points,point,alive,PluginStorePresentationSurface.LocalThemes,theme)
         {
             this.owner=owner;this.renderer=renderer;this.points=points;this.point=point;
-            this.packages=packages;this.selector=selector;Refresh();
+            this.theme=theme;this.packages=packages;this.selector=selector;Refresh();
         }
         public override Vector2 InitialSize => new Vector2(Mathf.Min(760,UiScreenSafeArea.Current.width),Mathf.Min(610,UiScreenSafeArea.Current.height));
         public override void PostClose()
@@ -48,7 +49,7 @@ namespace Phinix.PluginStore
                 candidate=null;expected=null;Refresh();candidate=packages.Inspect(path);
                 expected=rows.SingleOrDefault(p=>p.Manifest.PackageId==candidate.Manifest.PackageId)?.ArtifactSha256;
                 message=T("themeCandidate")+"\n"+Safe(candidate.Manifest.Name)+" · "+Safe(candidate.Manifest.Author)+" · "+candidate.Manifest.Version+"\n"+Safe(candidate.Manifest.PackageId)+"\n"+T("themeLocalSource");messageTone=ClientPresentationTone.Neutral;
-            }),developerOnly:false);
+            }),developerOnly:false,theme:theme);
             Find.WindowStack.Add(browser);Invalidate();
         }
         protected override void RebuildPresentation()

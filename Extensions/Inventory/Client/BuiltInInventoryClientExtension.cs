@@ -172,7 +172,7 @@ namespace Phinix.InventoryExtension.Client
                 deliveryChoiceDialog = new InventoryDeliveryChoiceDialog(
                     this, host.GetRequiredService<IClientPresentationService>(), host.GetRequiredService<IClientExtensionPointService>(),
                     SetDeliveryPreference,
-                    () => { deliveryChoiceOpen = false; deliveryChoiceDialog = null; });
+                    () => { deliveryChoiceOpen = false; deliveryChoiceDialog = null; }, host.GetRequiredService<IClientTheme>());
                 windowService.Open(deliveryChoiceDialog);
             }
             catch

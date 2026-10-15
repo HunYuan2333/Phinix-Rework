@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using PhinixClient;
 using PhinixClient.Framework;
 using UnityEngine;
@@ -36,12 +37,13 @@ internal static partial class Program
         public void Change(){version++;Changed?.Invoke();}
         public PhinixClient.Framework.ClientRgba PrimaryText=>new ClientRgba(1,1,1);public PhinixClient.Framework.ClientRgba SecondaryText=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Background=>default(ClientRgba);public PhinixClient.Framework.ClientRgba Surface=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Separator=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba HoverHighlight=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Pending=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Error=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Success=>new ClientRgba(.5f,.5f,.5f);public PhinixClient.Framework.ClientRgba Warning=>new ClientRgba(.5f,.5f,.5f);
         public PhinixClient.Framework.ClientRgba GetColor(string k)=>new ClientRgba(1,1,1);public bool TryGetColor(string k,out PhinixClient.Framework.ClientRgba c){c=new ClientRgba(1,1,1);return true;}public float GetFloat(string k,float d=0)=>d;
-        public ClientThemeSnapshot Capture(){var colors=new Dictionary<string,ClientRgba>();foreach(var k in new[]{"ui.text.primary","ui.text.secondary","ui.background","ui.surface","ui.separator","ui.hover","ui.pending","ui.error","ui.success","ui.warning","ui.accent","ui.button.background","ui.button.hover","ui.button.pressed","ui.control.disabled","ui.input.background","ui.input.focus"})colors[k]=new ClientRgba(1,1,1);colors["plugin.hover"]=new ClientRgba(.123f,.234f,.345f);colors["plugin.selected"]=new ClientRgba(.456f,.567f,.678f);return new ClientThemeSnapshot(version,colors,new Dictionary<string,float>());}
+        public ClientThemeSnapshot Capture(){var colors=new Dictionary<string,ClientRgba>();foreach(var k in new[]{"ui.text.primary","ui.text.secondary","ui.background","ui.surface","ui.separator","ui.hover","ui.pending","ui.error","ui.success","ui.warning","ui.accent","ui.button.background","ui.button.hover","ui.button.pressed","ui.control.disabled","ui.input.background","ui.input.focus"})colors[k]=new ClientRgba(1,1,1);colors["ui.navigation.selected"]=new ClientRgba(.321f,.432f,.543f);colors["plugin.rule"]=new ClientRgba(.317f,.159f,.265f);colors["plugin.hover"]=new ClientRgba(.123f,.234f,.345f);colors["plugin.selected"]=new ClientRgba(.456f,.567f,.678f);return new ClientThemeSnapshot(version,colors,new Dictionary<string,float>());}
     }
     private static ClientPresentationPage Page(long revision,ClientPresentationAction binding=null,ClientPresentationRegion region=null)
     {return new ClientPresentationPage("page","title",revision,new[]{new ClientPresentationSection("section","","",binding==null?null:new[]{binding},fields:new[]{new ClientPresentationTextField("filter","Filter","")},region:region)});}
     public static void Main()
     {
+        CheckWindowThemeDrawing();
         CheckLocalFileAdapter();
         CheckListThemeRoles();
         CheckTradeQuantityDraft();
@@ -245,6 +247,17 @@ internal static partial class Program
             new ClientPresentationSection("body","Body",""), new ClientPresentationSection("dock","","",new[]{closeBinding}), new ClientPresentationSection("secondary","Other","")
         }).WithSplitView(new ClientPresentationSplitView(2,"Left","Right").WithFixedFooters(1,0)),new ActionSet {Actions=new[]{closeFooter}},()=>true);
         Widgets.ClickLabel="close-footer";footerSession.Draw(new ClientPresentationBounds(0,0,1200,900));Check(footerSession.IsClosed,"An action can close its view during fixed-footer Draw without dereferencing the disposed page");
+        var plainRuleRow=new ClientPresentationFeedRow("rule-row","Name","time","Body");
+        var ruledRow=plainRuleRow.WithLeadingSeparator("plugin.rule").WithMetadataLayout(96,12).WithMetadataPlacement(ClientPresentationMetadataPlacement.AfterHeading);
+        Check(plainRuleRow.LeadingSeparatorKey==null && ruledRow.LeadingSeparatorKey=="plugin.rule","Feed decorations are opt-in immutable values preserved across metadata copies");
+        Check(ClientPresentationFeedMetrics.FeedRowHeight(plainRuleRow,600)==ClientPresentationFeedMetrics.FeedRowHeight(ruledRow.WithMetadataLayout(),600),"Feed separator does not add height or change message layout");
+        Reject(()=>plainRuleRow.WithLeadingSeparator("bad key"),"Feed decoration rejects invalid theme keys");
+        using(var ruleSession=feedService.Open(new Module(),"rule-render"))
+        {
+            ruleSession.Publish(new ClientPresentationPage("rule-render","",1,new[]{new ClientPresentationSection("rules",new ClientPresentationFeed("rules",new[]{ruledRow},""))}),null,()=>true);
+            Widgets.FilledBoxes.Clear();Event.current.type=EventType.Repaint;ruleSession.Draw(new ClientPresentationBounds(0,0,600,300));
+            Check(Widgets.FilledBoxes.Any(b=>b.Item1.height==1 && b.Item2.r==.317f),"Actual feed renderer paints the owner separator in the existing gutter");
+        }
         var rightMetadata = new ClientPresentationFeedRow("metadata", "Name", "12:34", "Body");
         var leftMetadata = rightMetadata.WithMetadataPlacement(ClientPresentationMetadataPlacement.AfterHeading);
         Check(rightMetadata.MetadataPlacement == ClientPresentationMetadataPlacement.Right && leftMetadata.MetadataPlacement == ClientPresentationMetadataPlacement.AfterHeading,

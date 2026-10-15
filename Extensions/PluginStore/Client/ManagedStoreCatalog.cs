@@ -122,7 +122,7 @@ namespace Phinix.PluginStore
             return actual;
         }
 
-        private static byte[] JsonBytes(XElement node, bool sort)
+        internal static byte[] JsonBytes(XElement node, bool sort)
         {
             var root=Copy(node,sort); root.Name="root";
             using(var output=new MemoryStream())

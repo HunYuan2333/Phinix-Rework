@@ -58,6 +58,7 @@ namespace PhinixClient
         private ClientActionExecutionResult actionResult;
         private bool dirty=true;
         protected ThemePresentationWindow(ThemePresentationServices services,IClientTheme theme)
+            : base(new ClientThemeWindowDrawing(() => theme.Capture()))
         {Services=services;Theme=theme;doCloseX=true;closeOnAccept=false;absorbInputAroundWindow=true;draggable=true;resizeable=true;}
         protected virtual bool Available => Services.Active;
         protected void Invalidate(){dirty=true;}

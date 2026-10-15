@@ -55,6 +55,7 @@ namespace Phinix.TradeExtension.Client
         private readonly object pendingAcceptedLock = new object();
         private bool? pendingAccepted;
         public TradeWindow(ClientTradeSnapshot trade, ITradeUiHostContext hostContext)
+            : base(new ClientThemeWindowDrawing(() => (hostContext as ClientTradeUiHostContext)?.OfferPresentation?.Theme.Capture()))
         {
             this.trade = trade;
             this.hostContext = hostContext;

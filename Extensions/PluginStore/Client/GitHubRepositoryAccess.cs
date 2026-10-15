@@ -43,7 +43,7 @@ namespace Phinix.PluginStore
                 string commit=Hex(target.Element("sha"),"commit",40);
                 var stableResponse=await operation.File(profile.Repository,commit,"stable.json",etag).ConfigureAwait(false);
                 if(stableResponse.NotModified) return new ManagedMetadataRead(stableResponse);
-                var stable=RepositoryMetadata.ReadManagedStable(stableResponse.Body,endpoint.SourceId);
+                var stable=RepositoryMetadata.ReadStableCore(stableResponse.Body,endpoint.SourceId,profile.CatalogSchemaVersion);
                 var descriptor=await operation.File(profile.Repository,commit,"published/"+stable.SnapshotId+".json",null).ConfigureAwait(false);
                 Require(!descriptor.NotModified,"UnexpectedNotModified");
                 RepositoryMetadata.VerifyPublished(stable,descriptor.Body); profile.VerifyPublished(descriptor.Body);
@@ -55,7 +55,8 @@ namespace Phinix.PluginStore
                 {
                     var catalog=await operation.Body(response,stable.CatalogSizeBytes).ConfigureAwait(false);
                     // Shared browser still revalidates every chain, including cached continuity.
-                    RepositoryMetadata.VerifyManaged(stable,descriptor.Body,catalog);
+                    if(profile.CatalogSchemaVersion==4) RepositoryMetadata.VerifyTheme(stable,descriptor.Body,catalog);
+                    else RepositoryMetadata.VerifyManaged(stable,descriptor.Body,catalog);
                     return new ManagedMetadataRead(stableResponse,descriptor.Body,catalog);
                 }
             }
@@ -82,6 +83,18 @@ namespace Phinix.PluginStore
                 { diagnostics.Event("package.failed","GitHubPackage","PackageUnavailable",managed:package,snapshot:catalog.SnapshotId,catalogHash:catalog.Sha256);throw new StoreValidationException("PackageUnavailable","GitHub transfer or held-file storage failed.",ex); }
                 catch(StoreValidationException ex)
                 { diagnostics.Event("package.failed","GitHubPackage",ex.Code,managed:package,snapshot:catalog.SnapshotId,catalogHash:catalog.Sha256); throw; }
+            }
+        }
+        internal async Task<byte[]> DownloadTheme(RepositoryEndpoint endpoint,ThemeStoreCatalog catalog,ThemeStoreRecord package,CancellationToken token)
+        {
+            RequireProfile(endpoint);endpoint.Package(catalog,package);
+            using(var operation=new OriginOperation(client,diagnostics,token,120000,true))
+            {
+                var a=package.Artifact;
+                var asset=new AssetIdentity(a.Repository,a.RepositoryId,a.OwnerId,a.ReleaseId,a.AssetId,a.AssetName,a.SizeBytes,a.Sha256);
+                await operation.Asset(asset,a.Tag,a.SourceCommit).ConfigureAwait(false);
+                using(var response=await operation.Binary(asset).ConfigureAwait(false))
+                    return await operation.Body(response,checked((int)a.SizeBytes)).ConfigureAwait(false);
             }
         }
         private static void RequireProfile(RepositoryEndpoint endpoint)

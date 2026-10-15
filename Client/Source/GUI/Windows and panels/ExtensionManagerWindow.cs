@@ -9,7 +9,7 @@ namespace PhinixClient
     {
         private readonly ExtensionManagerTab content = new ExtensionManagerTab();
 
-        public ExtensionManagerWindow()
+        public ExtensionManagerWindow() : base(new ClientThemeWindowDrawing(() => HostThemeDrawing.Current))
         {
             doCloseX = true;
             draggable = true;
