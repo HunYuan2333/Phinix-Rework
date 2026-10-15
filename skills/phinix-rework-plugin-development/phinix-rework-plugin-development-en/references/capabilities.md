@@ -1,41 +1,41 @@
-# Choose public capabilities by feature
+# Selecting public capabilities
 
-Read only the section relevant to the feature being implemented. Locate the full manuals/source through [basis.md](basis.md). This is a navigation and semantics guide, not a complete API catalog.
+This reference explains composition; see [api-cheat-sheet.md](api-cheat-sheet.md) for precise call shapes.
 
-## UI, settings, and localization
+## Presentation and controlled drawing
 
-`PhinixClient.IMainTabProvider`: `TabLabel`, `TabOrder`, `Draw(Rect)`; publish through builder.RegisterApi. Add `IResponsiveMainTabProvider.LayoutHints` for responsive layout. Settings use `PhinixClient.Framework.IClientSettingsPanelProvider`: SectionId, Order, IsVisible, DrawSettings; verify signatures against the target interface. For sidebars, badges, banners, or Enter handling, inspect `IServerSidebarProvider`, `IBadgeProvider`, `INoticeBannerProvider`, and `IUiAcceptKeyHandler` respectively.
+Create a session with `IClientPresentationService.Open(module, pageId)`. Consume TryDequeueInput, update plugin state, then Publish changed projections and actions. Draw uses current bounds. Do not rebuild action sets on every IMGUI Repaint. Publish advances input revisions; updates or closure can invalidate earlier input, which is not current business authorization.
 
-Use public `UiScreenSafeArea.ClampWindow`, `ResponsiveFormLayout`, `ResponsiveSplitLayout`, `ResponsiveToolbarLayout`, and `VirtualListLayout`. Normalize is internal and cannot be called. Toolbar computes geometry; callers draw controls and build the overflow menu. Draw must not create many Things or retain old world caches. Restore shared font, alignment, wrapping, GUI.color/GUI.enabled, and similar state in finally. Verify narrow windows, scrolling, language switching, and settings retention.
+The public renderer owns layout, theming, actions and confirmations. A controlled region implements `IClientPresentationRegion.Measure(float, IClientThemeReader)` and `Draw(IClientPresentationDrawContext)`, wrapped by `ClientPresentationRegion(id, content)`. Borrow the draw context only for the current draw, using neutral Bounds, Theme and Progress. It is not a backdoor to native events, arbitrary GUI, input or actions.
 
-Package-scoped `Resources/Localization/*.json` is declared by the packaging tool. Follow the target Example's key structure and `--language-file`. Obtain the localizer via `IClientLocalizationService.ForModule(this)` and clean it up according to [ownership](composition.md).
+For native Window/IMainTabProvider implementations, use public ClientWidgets and ClientGuiScope to restore GUI state. Clamp native windows through `UiScreenSafeArea.ClampWindow(Rect, Vector2)` or its explicit-safeRect overload, not every child control. Custom native scroll areas can use ScrollbarDecoration after EndScrollView; do not redecorate regions already handled by the public renderer. Evaluate shared renderer capabilities before adding new presentation; no official-only renderer.
 
-## Message, command, and item pipelines
+## Actions and confirmations
 
-Common `Utils.Framework.IClientMessageHandler` handles outgoing text/incoming messages; register with `IExtensionBuilder.AddClientMessageHandler`. Items use AddClientItemHandler/`IClientIncomingItemHandler` and AddClientOutgoingItemHandler/`IClientOutgoingItemHandler`. Incoming `IClientCommandHandler` and outgoing `IClientOutgoingCommandHandler` are orthogonal. Use AddClientCommandHandler for incoming commands. The current host selects IClientOutgoingCommandHandler from discoveredExtensions.Extensions, so the discovered module must implement outgoing handling, as Trade does. There is no AddClientOutgoingCommandHandler; registering a service/API alone does not guarantee pipeline participation. Check discovery logic in the target version.
+Use `IClientExtensionPointService.ForModule(module)` to define or contribute typed actions. ClientPresentationAction references a contributed action and can include `ClientPresentationConfirmation(title, text, acceptLabel, cancelLabel)` for unified Host confirmation.
 
-Public outgoing entry points:
+ClientActionExecutionResult.Completed reports local action execution, not server or peer acknowledgement. Buttons, confirmation dialogs and view closure do not own plugin transactions, escrow or ledgers.
 
-- `IFrameworkClientTransport.TryHandleOutgoingMessage(string)`;
-- `IFrameworkClientTransport.TryHandleOutgoingItem(FrameworkItemPayload)`;
-- `IFrameworkClientCommandTransport.TryHandleOutgoingCommand(FrameworkPacket)`.
+## Themes and localization
 
-Handled/true is not authoritative domain confirmation. Verify actual results, send-failure propagation, and correlated acknowledgements. Do not directly use `SendFrameworkPacket` or raw Legacy transport to bypass Priority, interception, replacement, and fallback. Special legacy inbound handling belongs to the Legacy adapter, not ordinary business-plugin templates. Inspect public interfaces for compatibility mode and remote capabilities separately; do not invent a server-address field on `IClientSessionContext`. Read server code/pinned Common contracts only when adding a protocol that requires it.
+Read semantic IClientTheme values; convert with ToUnityColor() only at native drawing boundaries. Register custom tokens through IClientThemeRegistry.RegisterModule, RegisterColor/RegisterFloat and Commit; Dispose the registration at shutdown. Use a unique namespace and shared fallbacks rather than a second theme system.
 
-## Inventory
+IClientLocalizationService.ForModule(module) returns a module localizer. Use Text/Format, handle LanguageChanged and release the handle. Do not freeze translations during Compose. See [theme-package.md](theme-package.md) for data-only packages; retain Host editing, live apply and export capabilities.
 
-Contracts are in client `Extensions/Inventory/Contracts/InventoryContracts.cs`; documentation is `docs/Inventory.md`. Module dependency `builtin.inventory` and managed packageId dependencies belong to different identity layers. Declare them according to actual manifests/module attributes; do not arbitrarily place module IDs in package dependencies. After API resolution, check extension activation and `GetStatus()/GetCapabilities()`. Successful TryResolveApi does not prove writability.
+## Messages, commands and items
 
-| Purpose | Public API/calls |
+Register message handlers through IClientMessageHandler and builder.AddClientMessageHandler; send with IFrameworkClientTransport.TryHandleOutgoingMessage. Commands use discovered IClientOutgoingCommandHandler implementations and IFrameworkClientCommandTransport.TryHandleOutgoingCommand. Items use TryHandleOutgoingItem. Do not bypass framework pipelines through raw transports.
+
+true/Handled indicates handling or routing, not guaranteed enqueueing, persistence or business confirmation. Interpret the actual handler result.
+
+## Inventory boundaries
+
+Declarations are in `Extensions/Inventory/Contracts/InventoryContracts.cs`:
+
+| Need | Entry and constraint |
 | --- | --- |
-| Read status | `IInventoryReadApi.GetSnapshot/GetStatus/GetCapabilities`; pair subscription/unsubscription for InventoryChanged/AvailabilityChanged |
-| Register codecs/source presentation | `IInventoryRegistrationApi.RegisterCodecScoped/RegisterSourcePresenter`; retain/dispose handles |
-| Atomic deposit | `IInventoryDepositApi.CheckDeposit/TryDeposit(InventoryDeposit)` |
-| Extract/schedule | `IInventoryExtractionApi.TryExtract/SetDailySchedule/RemoveDailySchedule` |
-| Outgoing business custody | `IInventoryReservationApi.GetAvailableSnapshot/TryReserve/MaterializeReservation/ResolveReservation`; preview with `CreatePreview` |
+| Read inventory | IInventoryReadApi.GetSnapshot/GetStatus/GetCapabilities; InventoryChanged and AvailabilityChanged events |
+| Deposit | IInventoryDepositApi.CheckDeposit/TryDeposit; stable DepositId supports idempotency, so retries retain the ID |
+| Reservation and delivery | IInventoryReservationApi.TryReserve, MaterializeReservation and ResolveReservation; authoritative business acknowledgements decide commit/release, while unknown results remain reconcilable |
 
-Retrying the same stable DepositId/content returns AlreadyCommitted; the same ID with changed ownership content is Conflict. Release producer custody only after Committed/AlreadyCommitted; CheckDeposit does not commit. New games must be saved first. Reject writes through public capability checks for old snapshot/journal conflicts and other protected states; never bypass read-only protection.
-
-Outgoing reservations are atomic and use persisted stable operation IDs. Commit only on matching authoritative success, restore only on proven rejection, and retain unknown outcomes locked for reconciliation. Materialize temporary copies as a whole batch, destroy them after conversion, and never spawn them or treat them as new ownership. Missing codec/Def/mod, corrupt payload, or impossible lossless restoration rejects the whole batch while retaining data; do not recreate blank Things. Handle indivisible state as whole entries, not payload rewriting based on display groups. `IInventoryItemPresentationCodec` v5 is presentation-only; its absence falls back to separate rows, without persistence/protocol changes.
-
-Business references: RedPacket relay publication acceptance/history matching is not a Trade-server ack; HTTP queueing is not acceptance. Automatic reconciliation of interrupted history after disconnect/save changes/restart is not implemented, so no automatic refund/replay. TalentTrade uses its independent Pawn path, has no Inventory dependency, and cannot automatically recover unsettled in-memory purchases after a crash. See [basis.md](basis.md) for exact versions and confirmed game acceptance. Legacy entry points and limitations are not recommended new designs.
+Translate and deliver items as an entire batch or fail the entire batch. Missing Defs, codecs or dependencies preserve the original payload and report rejection. Do not filter invalid items, create blank Things or transfer offer/Pawn business ownership to Host.

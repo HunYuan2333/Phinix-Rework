@@ -1,79 +1,79 @@
-# Lightweight engineering for simple managed DLLs
+# Engineering organization for simple managed DLLs
 
-Read after choosing the managed route when organizing initial code, adding a second feature, or untangling responsibilities. For small edits, use only the relevant section. This reference ships with the Phinix skill; simple DLLs do not require downloading, installing, or activating a RimWorld engineering skill.
+Read after selecting the managed plugin route, when first organizing code, adding a second feature, or refactoring mixed responsibilities. When making only minor modifications, read the relevant subsection. This reference is bundled with the Phinix development skill; simple managed DLLs do not require downloading, installing, or enabling RimWorld Mod engineering skills.
 
-## Define the current slice in a few sentences
+## Define the slice in a few sentences
 
-Before implementing, identify the player-visible result, affected state/dependencies, and how to verify completion. Beginners can explain what clicking does, where data is saved, and what appears on failure. Technical users can name interfaces, owners, and invariants. Three sentences suffice for a counter tab; no separate design report is required.
+Before touching code, clearly identify the player-visible outcome, states/dependencies involved, and criteria for completion. Novices can state: "what happens on click, where data is stored, and what appears on failure"; technical users list interfaces, state owners, and invariants. Three sentences suffice for a counter Tab; do not draft heavy architecture proposals.
 
-A slice covers the complete path from user action to result. First make the smallest tab/settings/localization path work, add relevant failure handling and verification, then package and sideload. Messaging/item slices include missing dependencies, rejection, and unknown outcomes from the start. Do not extract a shared framework before completing the feature.
+A vertical slice covers the entire path from user input to result: first verify a minimal Tab/setting/localization, then add error handling and validation, and finally package and sideload. Slices involving messaging or items must account for missing dependencies, rejections, and unknown states from the start rather than leaving recovery for later. Do not extract shared frameworks before completing the feature.
 
-## Start with one project; split by actual responsibility
+## Start with one project and split by responsibility
 
-Default to one plugin project and assembly. Current Example already contains Extension, State, Tab, and SettingsPanel responsibilities in one source file; retaining that layout is acceptable. If separate files help, keep Example's `example/` directory. This is a suggested layout, not mandatory files:
+The default approach is one project, one assembly. The current Example entry file contains Extension, State, Tab and SettingsPanel, with presentation, themes, actions and service examples in separate files. Small plugins need not copy every split. When splitting files, you can follow Example's `example/` directory layout (these are suggestions, not mandatory files):
 
 ```text
 example/
   MyPlugin.csproj
-  PluginExtension.cs              # Compose, activation, shutdown, registration
+  PluginExtension.cs              # Compose, activation, shutdown, and registration
   PluginState.cs                  # Feature state and operation rules
-  PluginTab.cs                    # State presentation and user input
+  PluginTab.cs                    # View state, receive user actions
   PluginSettingsPanel.cs          # Only when settings UI is needed
   package-config.json
   Resources/Localization/
 pack.py
 ```
 
-Keeping the existing project filename is also valid. If renaming it, check pack.py project lookup too. Current Example has `EnableDefaultCompileItems=false` and explicit Compile Include entries. Update those after adding/moving source files, or files may exist without entering the DLL. Project/directory names are organizational; rename independent identities together according to [local-loop.md](local-loop.md).
+Retaining existing project filenames is fine; if renamed, check `pack.py` project resolution. The current Example specifies `EnableDefaultCompileItems=false` and explicit Compile Include items; when creating or moving source files, sync the project compilation list, otherwise files will exist on disk without being compiled into the DLL. Project and folder names are merely organizational; identity must be updated according to [local-loop.md](local-loop.md).
 
-| Actual pressure | Suitable organization |
+| Real Change | Appropriate Organization |
 | --- | --- |
-| One tab and a few settings | One project and a few classes or one file; no layered solution |
-| Several independent features | Feature groups such as Notifications/ and History/, each with state/operations/UI and one common composition entry |
-| Network/files/inventory boundaries | Narrow adapters within the owning feature; translate results without deciding domain success |
-| Other plugins really need the API | Extract stable public Contracts; a separate assembly depends on consumers/versioning needs, not appearance |
-| Extensive native lifecycle, Defs/assets, or deep Harmony | Return to [routes.md](routes.md), evaluate the mod route, then combine the external engineering skill |
+| One Tab and simple settings | One project, small classes or single file; no layered solution |
+| Multiple independent features | Group by feature (e.g. Notifications/, History/); keep state, actions, and UI together, sharing one composition entry |
+| External boundaries (network/file/inventory) | Add narrow adapters inside the feature folder; translate external results without deciding domain success |
+| Other plugins need to consume APIs | Extract stable public Contracts; whether to split into a separate assembly depends on consumers and versioning |
+| Heavy native lifecycles, Defs/assets, or deep Harmony | Return to [routes.md](routes.md) to evaluate the Mod route, selecting additional engineering references if needed |
 
-Organize by the feature that causes change, not a pile of Utils/Helpers/Managers. Do not split solely to shorten files or add an interface for every class. Reference public contracts for required dependencies. Add your own abstraction only for multiple implementations, volatile boundaries, or useful test seams. Neutral DI can register a concrete State directly; it does not require IState.
+Organize by "what makes this code change", not dumping everything into generic Utils/Helpers/Managers. Do not split classes solely to shorten files or create an interface for every class. Explicitly reference public contracts for required dependencies; only introduce custom interfaces for multiple implementations, volatile boundaries, or test seams. Neutral DI can directly register concrete State classes without inventing an `IState`.
 
 ## Responsibilities and dependency direction
 
-- **Extension is the composition entry**: connect to the host, create scopes, register providers, and arrange Start/Stop. Keep UI, messaging business rules, and item algorithms out of Compose.
-- **State/operation classes own rules**: explicit valid states and transitions, not scattered booleans or implicit call order. Use enum/state machines when multiple stages justify them; counters do not need them.
-- **Tabs/settings panels are views**: read state, call operations, show rejection/waiting. Do not modify another feature's collections, create authoritative confirmation, or repeatedly persist inside Draw.
-- **Adapters connect public services**: translate host/inventory/transport/storage shapes without weakening whole-batch delivery, acknowledgement, or recovery.
+- **Extension is the Composition Entry**: Connects host, builds scope, registers providers, coordinates Start/Stop; do not write UI, messaging logic, or inventory algorithms inside `Compose`.
+- **State/Operation Classes Own Rules**: Maintain explicit valid states and transition conditions, rather than guessing across scattered booleans or call order. Use enums/state machines when multi-phase state is needed; simple counters do not need them.
+- **Tab/Settings Panels are Views**: Read state, trigger actions, display rejections/waiting states; do not mutate collections of other features directly, and do not trigger authoritative confirmations or repeated persistence in Draw.
+- **Adapters Connect Public Services**: Convert external shapes of host, inventory, and transport; never weaken all-or-nothing delivery, confirmation, or recovery invariants.
 
-A simple feature does not require a separate Domain layer. When pure algorithms/state transitions emerge, extract ordinary C# from Verse/GUI adapters for useful independent verification. Do not duplicate existing host mechanisms just for abstraction. Cross-plugin cooperation uses the provider's public Contracts, not a new host business broker.
+Simple features do not need an artificial Domain layer. When pure algorithms or state transitions arise, extract plain C# from Verse/GUI adapters so valuable rules can be verified in isolation; do not duplicate existing host mechanisms for the sake of abstraction. Inter-plugin collaboration occurs via exported public Contracts without intermediate host brokers.
 
-Inject the same State into tab/settings providers, as Example does; avoid separate mutable counters that “usually update together.” Decide persistence, mutation ownership, and effective phase before naming classes.
+Inject the same State into both UI and settings panels, following Example's pattern; do not maintain two separate counters hoping they stay synchronized. Clarify persistence, mutators, and validity before choosing class names.
 
-## Every state has a source, scope, and invalidation rule
+## State sources, scope and invalidation
 
-| State | Decision for a simple DLL |
+| State Category | Decision for Simple DLLs |
 | --- | --- |
-| Persistent settings | Unique host settings prefix; read counters from settings instead of a second authoritative value in State |
-| Module runtime state | Plugin scope owns it; Shutdown tolerates incomplete initialization and repetition |
-| Connection/save state | Acquire for the current context, distinct from module lifetime; no old game objects after disconnect/save changes |
-| Temporary UI state | Selection, scroll, filters; define retention across opening/save changes, without item custody |
-| Expensive derived views/caches | Rebuildable from authority; invalidate on data/filter/language/world changes. Read small datasets directly rather than preemptively caching |
-| External operation result | Match stable operation IDs; retain dispatched unknown outcomes for reconciliation, without UI/timeout predicting success |
+| Persistent settings | Use host settings with unique key prefix; e.g. read count from settings so State does not hold a second authoritative counter |
+| Module running state | Owned by plugin scope; Shutdown must support partial initialization and repeated invocation |
+| Connection/Savegame state | Acquired from current context, not tied to module lifetime; switching saves or disconnecting leaves no stale game objects |
+| UI transient state | Selected items, scroll positions, filter inputs; define whether preserved across reopen/save switch, never hold item escrow |
+| Expensive derived views/cache | Rebuilt from authoritative sources; invalidate on data, filter, language, or world changes; read small datasets directly without premature caching |
+| External action results | Matched to stable operation IDs; in-flight actions with unknown results remain pending for reconciliation; never predict success via UI or timeout |
 
-See [composition.md](composition.md) for events, caches, and background-work cleanup. Background I/O/pure calculation must not block the game thread. Add cancellation, timeouts, and bounded queues when tasks are needed, then recheck context inside dispatcher actions. IMGUI may enter Draw repeatedly in one frame. Keep expensive I/O, global scans, and registration outside drawing; simple local actions need no thread just to appear asynchronous. Optimize measured hot spots, not by banning LINQ or every allocation.
+For cleanup rules regarding events, caches, and background tasks, see [composition.md](composition.md). Background I/O and data computation must not block the game thread; when background tasks are necessary, specify cancellation, timeouts, and bounded queues, re-checking context inside dispatcher callbacks. IMGUI can invoke Draw multiple times per frame; expensive I/O, global scans, and registrations must never reside in draw loops. Simple local actions do not need separate threads for "asynchrony". Optimize based on measured hot paths, not dogmatic bans on LINQ or allocations.
 
 ## Minimal checks and delivery
 
-Check risk-relevant properties; do not simulate all Verse for simple wrappers:
+Verify against the nature of the risk without mocking Verse for simple wrappers:
 
-- Simple tab: compilation/manifest/reference preflight, then sideload the exact ZIP and restart; check text, retained settings, repeated lifecycle, and obsolete callbacks.
-- Deterministic rules: test boundaries, invalid transitions, and duplicate operations rather than repeating implementation steps. Text/layout-only changes use actual UI checks.
-- External operations: cover missing dependencies, rejection, cancellation, expired context, and unknown outcomes. Item features retain [verification.md](verification.md) acknowledgement/recovery standards.
+- Simple Tab: Verify compilation, manifest, and references; sideload from the exact ZIP, restart, and inspect text, setting persistence, repeated start/stop, and obsolete callback invalidation.
+- Deterministic rules: Test boundary values, invalid transitions, and duplicate actions, not just reproducing implementation steps. Use real UI inspection when only copy/layout is involved.
+- External actions: Cover missing dependencies, explicit rejections, cancellations, stale contexts, and unknown results; item features must observe confirmation and recovery standards in [verification.md](verification.md).
 
-Use pack.py/tool explicit payload selection. Build into bin/ or an independent output directory, not over installed DLLs. Verify final ZIP manifest/identity/resources/digest, excluding test/stale DLLs and compilation references. Test the exact ZIP to be delivered. After moving files, check Compile Include and pack lookup; do not clean the whole workspace to eliminate output confusion.
+Use explicit payload selection in `pack.py`/tools. Keep build outputs in `bin/` or separate output directories, never overwriting installed DLLs directly. Verify manifest, identity, resources, and hashes of the final ZIP, excluding test/stale DLLs and build references; test the exact ZIP destined for delivery. When moving files, double-check Compile Include and pack paths rather than wiping entire workspaces to clear confusion.
 
-Log activation, important transitions, and actionable failures with stable module/operation IDs, without per-frame noise or credentials/full payloads. Repeated-error limits have explicit connection/save/module scopes so an earlier failure cannot suppress later diagnostics permanently. Prefer existing logging and “Copy summary”; no new diagnostics platform is required.
+Log activations, key state transitions, and actionable failures with stable module/operation identifiers, without flooding frames or logging credentials/full payloads. Duplicate error rate-limiting should have clear scopes (connection/save/module) to prevent suppressing future diagnostics; favor existing logs and "Copy Summary" before adding diagnostic platforms.
 
-User delivery can be short: completed behavior, exact package/target host, actual verification, unverified items, and next step. Add decisions only when compatibility/data risks justify them; do not require architecture reports, scaffolds, or extra tools for every simple DLL.
+Delivery instructions to users can be succinct: completed behavior, exact package and target host version, verified items, unverified items, and next steps. Add decision records only when introducing genuine compatibility or data risks, without imposing architectural documents, scaffolding, or extra tools on every simple DLL.
 
-## Adaptation evidence
+## Upstream design references
 
-Adapted from fixed external commit `7b766c43f8cd5462cb8ab0b44d7421c3a1fd608e`: [engineering philosophy](https://github.com/HunYuan2333/rimworld-mod-engineering-skills/blob/7b766c43f8cd5462cb8ab0b44d7421c3a1fd608e/rimworld-mod-engineering-cn/references/engineering-philosophy.md), [verification and artifact organization](https://github.com/HunYuan2333/rimworld-mod-engineering-skills/blob/7b766c43f8cd5462cb8ab0b44d7421c3a1fd608e/rimworld-mod-engineering-cn/references/testing-release.md), and performance/UI/observability references. Guidance was rewritten for simple Phinix DLLs and checked against current Example project/DI layout. It does not import About/LoadFolders, XML Def engineering, global Def rewriting, Harmony scoring, or large-mod compatibility matrices. External source is design evidence, not a runtime dependency.
+Derived from [Engineering Philosophy](https://github.com/HunYuan2333/rimworld-mod-engineering-skills/blob/7b766c43f8cd5462cb8ab0b44d7421c3a1fd608e/rimworld-mod-engineering-cn/references/engineering-philosophy.md), [Testing & Artifacts](https://github.com/HunYuan2333/rimworld-mod-engineering-skills/blob/7b766c43f8cd5462cb8ab0b44d7421c3a1fd608e/rimworld-mod-engineering-cn/references/testing-release.md), and performance/UI references at pinned commit `7b766c43f8cd5462cb8ab0b44d7421c3a1fd608e`, adapted to Phinix managed DLL workflows and verified against the current Example project/DI layout. This reference introduces no About/LoadFolders, XML Def engineering, global Def rewrites, Harmony rankings, or large-scale Mod matrices. External repositories serve as design rationale only; this reference has no runtime dependencies.

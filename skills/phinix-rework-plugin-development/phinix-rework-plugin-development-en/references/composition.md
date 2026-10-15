@@ -1,34 +1,34 @@
-# Neutral DI, lifecycle, and resource ownership
+# Composition, lifecycles and ownership
 
-Read while implementing modules or services. See [basis.md](basis.md) for signature evidence. Check target-version `IClientComposition.cs`, `FrameworkTypes.cs`, and the modern Example before implementation; do not recommend legacy entry points to new authors.
+Read when implementing module entry points or managing resources. See [api-cheat-sheet.md](api-cheat-sheet.md) for declarations and assembly locations.
 
-## Minimal composition
+## Composition entry point
 
-Public entry: `PhinixClient.Framework.ClientExtensionModule`, with `ExtensionId` and `Compose(Utils.Framework.IExtensionBuilder)`. For activation/shutdown, implement `Utils.Framework.IActivatablePhinixExtensionModule` with `Activate(ExtensionHostContext)` and `Shutdown(ExtensionHostContext)`. The `PhinixExtension` attribute ID matches ExtensionId.
+Current client entries derive from `ClientExtensionModule`, overriding `ExtensionId` and `Compose(IExtensionBuilder builder)`. Match `ExtensionId` to `[PhinixExtension("id")]`. For activation and cleanup, implement `IActivatablePhinixExtensionModule.Activate(ExtensionHostContext)` and `Shutdown(ExtensionHostContext)`. Common still defines the shared Register contract, but a Register-only entry does not satisfy current client discovery rules.
 
-In Compose, obtain `IClientCompositionFactory` through `builder.HostContext.GetRequiredService<IClientCompositionFactory>()` and create a scope. `CreateScope(Action<IClientCompositionBuilder>)` exposes `Borrow<T>(instance)` and `Register<TService,TImplementation>()`. Resolve with `scope.Resolve<T>()` at the composition boundary, then publish UI/contracts through `builder.RegisterApi<T>(instance)`. Business/UI classes use constructor injection, not scattered Resolve calls; do not reference Autofac or concrete host implementations.
+Keep constructors passive. In Compose, obtain `IClientCompositionFactory` from `builder.HostContext` and create a private scope with `CreateScope(local => ...)`: Borrow host services, Register private implementations, Resolve instances and publish endpoints with `builder.RegisterApi<T>(instance)`. Do not reference Autofac or the host container implementation.
 
-The verified Example borrows `IClientSettingsContext`, `IClientMainThreadDispatcher`, and the logging delegate; registers one `ExampleState`; and injects that state into both tab and settings providers. Constructors only retain dependencies. Dispose the created scope on composition failure. Activate obtains `IClientLocalizationService.ForModule(this)` and starts the state. Shutdown clears retained fields before disposing its owned scope. Cleanup tolerates incomplete activation and repeated calls; complex cleanup must not mask the original error with a cleanup exception.
+On Compose failure, clean up acquired resources before rethrowing. Shutdown tolerates partial initialization and repeated calls. See the [minimal template](../templates/minimal-plugin/ExampleMinimalExtension.cs).
 
-## Ownership
+## Cleanup ownership
 
 | Object | Owner and cleanup |
 | --- | --- |
-| HostContext services, cross-plugin APIs, DI Borrow values | Host/provider-owned; consumers do not Dispose |
-| Plugin-created DI scope and disposable registered instances | Plugin-owned; synchronous scope disposal, no async-only ownership resources |
-| `IClientLocalizer` returned by `ForModule(this)` | Owned by the plugin's scoped object; unsubscribe LanguageChanged, then Dispose; do not dispose the host localization service |
-| IDisposable returned by inventory scoped codec/source registration | Registrant retains/disposes the handle at shutdown, not the inventory API |
-| Plugin subscriptions, threads, timers, streams, cancellation sources | Pair exit/release; stop new callbacks before releasing dependencies |
+| Borrowed host settings, theme, API directory and similar services | Host-owned; plugins do not Dispose them. Borrow transfers no ownership |
+| Private composition scope | Plugin-owned; Dispose during Shutdown |
+| Instances registered in that private scope | Resource-owning instances provide synchronous IDisposable cleanup. Resource-free State classes need no IDisposable; async-only disposal is unsuitable |
+| Module localizer, action scope and task scope from ForModule | Caller-owned; Dispose according to their contracts without double disposal |
+| Theme registration from RegisterModule | Caller-owned; Commit publishes, Dispose withdraws |
+| Event subscriptions | Subscribers unsubscribe symmetrically; do not wait for game exit |
+| Presentation session and action set | Caller disposes session. Publish transfers action-set ownership only on success; caller cleans up after failure |
 
-## Four lifecycles
+A task scope submits synchronous main-thread actions. Closing it can cancel queued work, but cannot abort a running callback or undo business effects. It does not automatically cancel all background tasks.
 
-- Module: discovery → Compose → Activate → Shutdown. Shutdown may follow partial Compose/Activate failure.
-- Connection: Disconnected and similar events are not module Shutdown. End connection work/subscriptions while retaining unknown-outcome records.
-- Save: switching saves/returning to menu does not rebuild every module. Release old world references and reacquire capabilities/recovery state for the current save.
-- Operation: independent stable ID, context, and commit state; closing a window must not discard custody of items.
+## Four separate lifecycles
 
-Example `Stop()` increments generation, unsubscribes localization, and disposes the localizer. Queued callbacks and confirmation dialogs capture generation, then require Active and matching generation before changing settings. World/network features must also verify current world/save/account/session/connection; one generation counter does not automatically cover all these dimensions.
+- Module: discovery, Compose, Activate and Shutdown. Failed initialization can also require cleanup.
+- Connection: disconnect is not module shutdown. Clear connection-local state while retaining sent operations with unknown results.
+- Savegame: release old Thing/Pawn/Map references on return to menu or save changes. Delayed callbacks recheck the current world and generation.
+- Business operation: advance through stable operation IDs and authoritative acknowledgements. Closing a view does not cancel business or return items automatically.
 
-`IClientMainThreadDispatcher.Enqueue(Action)` only queues work. Game objects, inventory operations, and GUI require main-thread actions that recheck context and handle exceptions at execution. Expired callbacks perform no side effects after shutdown. Settings `Get<T>/Set<T>` is not automatically isolated; prefix keys and SectionId uniquely by package/module.
-
-Legacy `IPhinixExtensionModule.Register` is a transitional compatibility entry. Removal at host 1.0/abstractions 2.0 remains subject to migration gates. The Example workspace has migrated; RedPacket/TalentTrade retain legacy entry points, which are not templates for new plugins.
+Acquire cross-plugin services through the current provider's `TryGet(out api)` rather than retaining expired instances. Callback completion, task completion and business confirmation are distinct; see [verification.md](verification.md).

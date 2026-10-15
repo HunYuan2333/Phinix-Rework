@@ -1,41 +1,41 @@
-# 按功能选择公开能力
+# 按功能选择公共能力
 
-仅实现对应功能时读相应小节。完整手册和源码通过 [basis.md](basis.md) 定位；以下是导航与关键语义，不是全量 API。
+这里只说明组合方式；准确调用形状见 [api-cheat-sheet.md](api-cheat-sheet.md)。
 
-## UI / 设置 / 翻译
+## 呈现与受控自绘
 
-`PhinixClient.IMainTabProvider`：`TabLabel`、`TabOrder`、`Draw(Rect)`；通过 builder.RegisterApi 发布。响应布局另实现 `IResponsiveMainTabProvider.LayoutHints`。设置用 `PhinixClient.Framework.IClientSettingsPanelProvider`：SectionId、Order、IsVisible、DrawSettings，签名按目标接口核对。需侧栏/徽标/横幅/Enter 时分别查 `IServerSidebarProvider`、`IBadgeProvider`、`INoticeBannerProvider`、`IUiAcceptKeyHandler`。
+通过 `IClientPresentationService.Open(module, pageId)` 创建 session。先消费 `TryDequeueInput(out input)`、更新插件状态，再按变化 Publish 页面投影与动作；Draw 使用当前 bounds。不必在每次 IMGUI Repaint 重建 action set。Publish 会更新输入修订号，关闭或更新后旧输入可能失效；不能把旧输入当成当前业务授权。
 
-布局使用公开 `UiScreenSafeArea.ClampWindow`、`ResponsiveFormLayout`、`ResponsiveSplitLayout`、`ResponsiveToolbarLayout`、`VirtualListLayout`；Normalize 是内部成员，不能调用。Toolbar 计算几何，调用方负责绘制与溢出菜单。Draw 不创建大量 Thing，不留旧世界缓存；finally 恢复字体、对齐、换行、GUI.color/GUI.enabled 等共享状态。验收窄窗口、滚动、语言切换与设置保留。
+公共 renderer 管理布局、主题、动作与确认。受控自绘实现 `IClientPresentationRegion.Measure(float, IClientThemeReader)` 和 `Draw(IClientPresentationDrawContext)`，通过 `ClientPresentationRegion(id, content)` 放入页面。draw context 只在当前绘制内借用，使用中立 Bounds、Theme 和 Progress；它不是原生事件、任意 GUI、输入或动作的后门。
 
-包作用域 `Resources/Localization/*.json` 随工具生成清单；沿用目标 Example 的键结构与 `--language-file`。从 `IClientLocalizationService.ForModule(this)` 取 localizer，按 [所有权](composition.md) 清理。
+需要原生 Window/IMainTabProvider 时，使用公共 ClientWidgets 和 `ClientGuiScope` 恢复 GUI 状态。原生窗口按 `UiScreenSafeArea.ClampWindow(Rect, Vector2)` 或显式 safeRect 重算范围；不要对每个子控件调用。原生自绘滚动区可在 EndScrollView 后使用 ScrollbarDecoration，公共 renderer 已处理的区域无需重复装饰。新增呈现能力先评估公共 renderer，不为官方插件增加专用 renderer。
 
-## 消息 / 命令 / 物品管线
+## 动作与确认
 
-Common `Utils.Framework.IClientMessageHandler` 实现出入站文本/消息处理；用 `IExtensionBuilder.AddClientMessageHandler` 注册。物品对应 AddClientItemHandler/`IClientIncomingItemHandler` 和 AddClientOutgoingItemHandler/`IClientOutgoingItemHandler`。入站命令 `IClientCommandHandler`，出站命令 `IClientOutgoingCommandHandler` 正交，入站用 AddClientCommandHandler。当前宿主从 discoveredExtensions.Extensions 筛选 IClientOutgoingCommandHandler，因此出站 handler 由被发现模块实现（如 Trade）；没有 AddClientOutgoingCommandHandler，单独注册服务/API 不保证进入该管线。按目标版本核对发现逻辑。
+通过 `IClientExtensionPointService.ForModule(module)` 定义或贡献 typed actions。`ClientPresentationAction` 关联贡献动作，可附 `ClientPresentationConfirmation(title, text, acceptLabel, cancelLabel)`，由 Host 提供统一确认。
 
-宿主公开出站入口：
+`ClientActionExecutionResult.Completed` 表示本地动作执行完成，不代表服务器或对端确认。按钮、确认框和关闭视图都不接管插件的事务、托管或账本。
 
-- `IFrameworkClientTransport.TryHandleOutgoingMessage(string)`；
-- `IFrameworkClientTransport.TryHandleOutgoingItem(FrameworkItemPayload)`；
-- `IFrameworkClientCommandTransport.TryHandleOutgoingCommand(FrameworkPacket)`。
+## 主题与本地化
 
-返回 handled/true 不等于领域权威确认；核对实际处理结果、发送失败传播与请求回执。不要直接 `SendFrameworkPacket` 或 raw Legacy transport 绕过 Priority、拦截、替换和回退管线。原版适配的特殊接收入口属于 Legacy adapter，不是普通业务插件模板。连接兼容模式与远端能力分别查公开接口，不给 `IClientSessionContext` 编造服务器地址字段。新增服务端协议时才读服务端源码与固定 Common 契约。
+读取 `IClientTheme` 的语义值，原生绘制才通过 `ToUnityColor()` 转为 Unity Color。自定义键经 `IClientThemeRegistry.RegisterModule` 取得句柄，RegisterColor/RegisterFloat 后 Commit；关闭模块时 Dispose。使用唯一命名空间和通用 fallback，不建立第二套主题系统。
 
-## 库存
+`IClientLocalizationService.ForModule(module)` 返回模块 localizer；使用 Text/Format，响应 LanguageChanged，并释放句柄。不要在 Compose 永久冻结翻译。纯数据主题包见 [theme-package.md](theme-package.md)，编辑、热应用和导出沿用 Host 公共能力。
 
-契约位于客户端 `Extensions/Inventory/Contracts/InventoryContracts.cs`，文档 `docs/Inventory.md`。模块依赖 `builtin.inventory` 与托管 packageId 依赖是不同标识层次，按实际 manifest、模块特性声明；不要把模块 ID 随意填入包依赖。获取 API 后还检查扩展激活与 `GetStatus()/GetCapabilities()`，不因 TryResolveApi 成功就认定可写。
+## 消息、命令和物品
 
-| 目的 | 公开 API / 调用 |
+消息通过 `IClientMessageHandler` 与 `builder.AddClientMessageHandler` 注册；发送走 `IFrameworkClientTransport.TryHandleOutgoingMessage`。命令使用发现到的 `IClientOutgoingCommandHandler` 与 `IFrameworkClientCommandTransport.TryHandleOutgoingCommand`；物品走 TryHandleOutgoingItem。不绕过框架 pipeline 操作原始传输。
+
+true/Handled 仅表示已处理或路由，不保证入队、持久化或业务确认；按实际 handler 的结果继续判断。
+
+## 库存边界
+
+公开声明位于 `Extensions/Inventory/Contracts/InventoryContracts.cs`：
+
+| 需求 | 入口与约束 |
 | --- | --- |
-| 读状态 | `IInventoryReadApi.GetSnapshot/GetStatus/GetCapabilities`；订阅 InventoryChanged/AvailabilityChanged 成对取消 |
-| codec/来源展示注册 | `IInventoryRegistrationApi.RegisterCodecScoped/RegisterSourcePresenter`，保存并释放返回句柄 |
-| 整批入库 | `IInventoryDepositApi.CheckDeposit/TryDeposit(InventoryDeposit)` |
-| 出库、定时计划 | `IInventoryExtractionApi.TryExtract/SetDailySchedule/RemoveDailySchedule` |
-| 出站业务托管 | `IInventoryReservationApi.GetAvailableSnapshot/TryReserve/MaterializeReservation/ResolveReservation`；预览 `CreatePreview` |
+| 读取库存 | IInventoryReadApi.GetSnapshot/GetStatus/GetCapabilities；监听 InventoryChanged、AvailabilityChanged |
+| 存入 | IInventoryDepositApi.CheckDeposit/TryDeposit；稳定 DepositId 支持幂等，不能给重试换 ID |
+| 预留与交付 | IInventoryReservationApi.TryReserve、MaterializeReservation、ResolveReservation；由业务权威回执决定 commit/release，未知状态保留核对 |
 
-稳定 DepositId 与原始内容相同重试返回 AlreadyCommitted；同 ID 不同所有权内容是 Conflict。仅 Committed/AlreadyCommitted 后生产者释放自己的托管；CheckDeposit 不提交。新游戏须先保存，遇到旧快照/日志冲突等状态要按公开能力拒绝写入，不能绕过只读保护。
-
-出站预留整批原子化、持久化稳定操作 ID：匹配成功回执才提交，证明拒绝才恢复，派发后结果未知继续锁定并核对。物化临时副本必须整批成功、转换后销毁，不落地；不把它们当作新的所有权。缺 codec/Def/Mod、payload 损坏或 state 无法无损恢复时整批拒绝并保留数据，不能重造白板 Thing。不可分状态条目以整条目处理，不以显示分组重写 payload。`IInventoryItemPresentationCodec` v5 仅展示能力，缺失时退回独立行，不升级持久化或协议。
-
-真实业务参考：红包的中继发布接受/历史匹配确认不是 Trade-server ack；HTTP 排队不等于接受。其断线/切档/重启未决历史自动核对尚未实现，不自动退还或重发。人才贸易独立 Pawn 路径，无 Inventory 依赖，内存态未结算购买不能自动崩溃恢复。具体版本与已确认游戏验收见 [basis.md](basis.md)，传统入口与局限不作为新方案推荐。
+物品转换与交付整批成功或整批失败。缺 Def、codec 或依赖时保留原始载荷并报告拒绝，不过滤坏项、不制造空白 Thing，也不由 Host 接管插件的报价或人物业务。

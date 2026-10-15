@@ -90,3 +90,40 @@
 保持原有基础功能游戏验收、Common/gitlink 交付与 CI pin 更新待办。维护者通知 secret 配置与端到端接入验收另行安排，第三方作者不承担该配置。本轮没有安装 skill、改业务/manifest/workflow/系统、提交/推送、dispatch、准入或发布；只读现有运行不算新增验收执行。
 
 最终检查结果：两套 quick_validate 通过；24 个 Markdown、66 个相对引用、24 个固定 SHA 源码路径、4 个 JSON 与 6 个 shell 围栏均通过。两套逐文件链接目标、完整提交/文件哈希、CLI 选项及可执行示例一致。没有新脚本；只改 10 个已有 skill 文件，检查基线其余 1079 个原有文件内容一致，各仓 HEAD/分支/status 未变（包括 Common 与四个交付克隆）。原有未跟踪文件均保留。
+
+## 2026-10-15 源码复核与模板实测
+
+本节替换此前同日期草稿中的验证声明。旧稿写错了 Compose、TabOrder、若干接口、CLI 输出和生成 XML 路径；其 dotnet test 结果及断言数量缺少可核对的执行证据，不保留为通过记录。上方 2026-10-09 内容仅为历史记录，未在本轮重跑或扩展验收范围。
+
+### 源码检查
+
+核对本地公共契约、实际 Example、双版本 helper、包工具与主题解析器，修正速查表、模板及引用位置。工作区产品/兼容版本为 0.10.4，API3；工作区修改与已提交/已发布状态分开。DLL 批准更新和主题维护者审核发布分开描述。本轮未查询最新远端状态，也未运行完整 Host 测试套件。
+
+### 编译通过
+
+- 最小模板的 net472 工程通过；net10.0 工程按当前 adapter 方式替换游戏引用后通过。两次均为 0 warning、0 error。
+- 编译引用取自已交付的 `Phinix-Rework-0.10.4-theme-store-fix-dual.zip`，SHA256 为 `911886a03ff902fadac89c2e8f9720c64ca24775021d1bbd8f1695f289fd957d`。分别使用 1.6 游戏引用与本地 1.7 Assembly-CSharp/UnityStubs/Waylith/Compat；不是将同一 DLL 复制两份。
+- 当前 ManagedPackageTool 的 C# 源码在隔离 net10 工程中编译，通过已交付 1.7 Utils/Protobuf 引用执行。不是本轮从源码重编整个 Host/Common，也未改 vendored pins。
+
+模板命令形状为 `dotnet build Minimal.csproj -c Release`，显式传入 GameReferences、PhinixUtilsAssemblyPath、PhinixAbstractionsAssemblyPath、PhinixPresentationAssemblyPath。net10 测试工程在临时目录生成；模板原工程仍为 net472，由正式 helper 负责双版本转换。
+
+### 白盒通过
+
+实际执行 14 次 CLI 检查，均符合预期；不是 14 个游戏场景或完整运行时套件：
+
+| 检查 | 次数与结果 |
+| --- | --- |
+| 中英文主题模板 --pack-theme 与 --validate-theme | 4 次，退出 0；JSON 为 static-data-only、installed=false，ZIP 含 manifest.json、Themes/main.xml |
+| primaryText 旧别名负例 | 1 次，预期退出 1，包含 NonCanonicalThemeKey |
+| 两版插件程序集元数据 | 2 次，分别确认 .NETFramework v4.7.2 与 .NETCoreApp v10.0 |
+| 两版单变体打包及引用预检 | 4 次；显式提供所需引用，staticValidation=passed、hostReferencesChecked=true |
+| --pack-variants | 1 次，合并为单一 schema2 ZIP |
+| 双版本 ZIP 的 --validate --game-version | 2 次，分别为 1.6、1.7；此步未传 Host 引用，不能单独证明引用闭包 |
+
+两份 skill 的 quick_validate.py 均通过；30 份 Markdown 的相对链接、围栏、10 段 shell 语法、模板 JSON/XML/项目文件均通过检查。5 个可执行模板文件在两种语言目录逐字节一致；编译使用的 C# 与最终模板一致。该静态检查不验证远端链接可达性。
+
+### 游戏待测与变更范围
+
+本轮没有游戏执行证据。模板的真实安装、重启激活、设置持久化、主题热应用/卸载和跨存档清理仍待测；不沿用别的包的游戏验收证明这些模板通过。
+
+只修改本地两份 skill 文档和模板，构建/检查产物在临时目录。不安装 skill，不修改业务、工作流、正式包或存档，不提交、推送或发布。

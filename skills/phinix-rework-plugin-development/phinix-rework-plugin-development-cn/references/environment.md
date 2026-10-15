@@ -1,42 +1,32 @@
-# 环境与版本定位
+# 环境、版本与构建引用
 
-进入构建、能力不明、缺工具或准备发布时读。先参考 [依据与状态](basis.md) 确认本 skill 的能力前提。
+按当前任务准备工具；主题包不需要完整游戏环境。版本快照见 [basis.md](basis.md)，它不能代替现场核查。
 
-## 定位目标
+## 区分版本
 
-请用户提供或从现有上下文查明宿主安装版本、RimWorld 版本、公开 DLL 的程序集版本/来源与摘要、插件源码/工具版本。“abstractions 1.9”只能证明 DI 契约版本，不能单凭它判断侧载 UI 或工具也已发行。查看目标版本 Quickstart、工具参数与实际公开接口。旧宿主没有 Compose/侧载时停止该闭环：提供升级到已确认支持版本或取得维护者已验证固定开发快照的路线；用户必须保留旧宿主时，单独核对该版本传统入口/测试方式，不假称新功能存在。
-
-有源码仓时先读各仓及父目录适用 AGENTS，再只读检查：
-
-```sh
-git branch --show-current
-git rev-parse HEAD
-git status --short --untracked-files=all
-git diff --stat
-git diff --cached --stat
-git ls-files --stage Dependencies/Phinix.Common
-git -C Dependencies/Phinix.Common rev-parse HEAD
-git -C Dependencies/Phinix.Common status --short --untracked-files=all
-git -C Dependencies/Phinix.Common ls-files --stage Dependencies/protobuf
-```
-
-按需读取具体 diff/未跟踪源码；优先客户端实际引用的 Common 子模块，不假设同级 Common 相同。进一步核对 protobuf 实际 HEAD/状态。不要 reset、覆盖切分支或清理未跟踪文件。仓库外的发行 DLL 与源码 HEAD 可能不同，分开记录。需要远端现状时用只读查询验证；失败就报告未知，不把 origin/main 称作最新远端。
-
-已具备 Git/网络且在安全的独立源码目录获取固定宿主时，按核实后的完整提交 checkout，再用 `git submodule update --init --recursive` 获取该提交 gitlink（包括 protobuf），不用浮动分支追踪。现有脏工作区不执行覆盖切换。无 Git/网络只能复用已验证的固定源码快照或已有引用；普通源码 ZIP 未必含子模块，必须核验来源、提交和完整性。
-
-## 阶段检查
-
-| 阶段 | 现在需要 | 缺失时的实际路线 |
+| 版本 | 声明 | 用途 |
 | --- | --- | --- |
-| 理解需求 | 已有文档/源码 | 无网络仍可设计，未知能力先列出 |
-| 编译插件 | 对应 .NET SDK/MSBuild；公开宿主 DLL；游戏/Unity、net472 mscorlib 编译引用；用 Harmony 才需对应引用 | 优先复用合法已安装/已构建宿主。缺 DLL 则停在编译前，指导从用户自己的游戏安装/合法引用准备 |
-| 使用 Example pack.py | Python 3 与上列环境 | 验证 `python3 --version` 或 Windows `py -3 --version`；无 Python 可独立 `dotnet build` 后直接调用 ManagedPackageTool，不虚构 pack 参数 |
-| 获取固定源码 | Git；首次获取需要网络 | 验证 `git --version`；无 Git 可使用已验证且含固定子模块的维护者快照，不能从缺契约的 ZIP 猜 API |
-| 工具/预检 | 当前工具需要 .NET 10；插件目标 net472 | 验证 `dotnet --list-sdks`/`--list-runtimes`，或复用可信已构建工具；不能把工具框架改成游戏插件目标 |
-| 正式发布 | Git、gh 登录与 GitHub/所用来源端点 | 此时才查 `gh --version`、`gh auth status` 及可达性。没有 gh 可用获授权的浏览器发布；无需因此阻塞本地开发 |
+| 产品/文件版本 | `Client/Source/Properties/AssemblyInfo.cs` | 给用户识别构建，不单独决定包兼容性 |
+| Host 能力版本 | `Client.CompatibilityVersion` | 与 manifest 的 phinixRange 比较 |
+| 客户端 API | `ClientAbstractionsCompatibility.Version` | 与 abstractionsRange 比较，当前 API3 |
+| CLR AssemblyVersion | 各 csproj / AssemblyInfo | 程序集绑定身份，不能用全局替换跟随产品号 |
+| 插件/主题包版本 | 实际 ZIP manifest 和 Release | 不用 csproj 初始值代替 CI override 后的最终版本 |
 
-获取指导用 [Python 官方下载](https://www.python.org/downloads/)、[Git 官方安装](https://git-scm.com/downloads)、[.NET 官方下载](https://dotnet.microsoft.com/download)、[gh 安装与认证](https://cli.github.com/manual/)。先指导用户选择系统对应安装方式及以上验证命令；未授权不安装软件、修改系统或登录。Windows 用 PowerShell 的参数数组/单行命令或反引号续行，不能直接执行 POSIX 反斜杠续行；路径含空格要作为一个参数传递。命令示例中的路径是待替换参数，不是维护者固定目录。
+本地工作区和引用 DLL 可能不同。先核对 HEAD、status、Common gitlink 及子模块 status，再读取实际 DLL 身份/TFM/能力常量与最终 manifest。工作区修改不会自动进入远端 main；远端发行也不保证玩家已下载更新。
 
-首次 .NET 依赖恢复可能联网；离线仅在所需缓存、SDK 和固定引用齐全时成立。protobuf vendored SDK pin 不修改，按对应官方开发文档采用命令进程级 SDK 路径替代。没有额外 Phinix NuGet SDK 或离线下载器。
+保留现有修改；固定所选 Common 提交，不执行 update --remote。若 vendored protobuf 的 SDK 固定阻止评估，在本次命令进程设置 `MSBuildSDKsPath` 到已安装 SDK 的 Sdks 目录，不修改 pins/global.json。
 
-维护者三个插件 main 云端引用私有编译仓与 `BUILD_REFERENCES_TOKEN`。第三方自行提供合法编译引用与安全获取方式，不要求访问该私仓或索取该 token；不读取/打印/收集凭据。游戏、Unity、宿主、Harmony DLL 仅参与编译，不进入插件 ZIP 或公开引用资产。
+## 按阶段准备
+
+| 任务 | 所需输入 |
+| --- | --- |
+| 主题打包/验证 | .NET 10 SDK/运行时、源码或已构建 ManagedPackageTool、配置/XML，无游戏 DLL |
+| 模板单版编译 | 对应 Host 公共引用、对应游戏引用、net472 targeting pack 或 .NET 10 SDK |
+| 维护脚本双版打包 | Python（版本按脚本实际语法）、.NET 10 SDK、两版游戏引用、匹配 Harmony、固定 Host/Common |
+| GitHub 发布 | 用户授权及相应仓库权限；本地开发不要求 gh 或远端凭据 |
+
+先用 `dotnet --list-sdks` / `--list-runtimes` 查实际安装。net472 编译可在具备合法引用/targeting pack 的环境执行，不意味着在 .NET Framework 运行 1.7 DLL。游戏引用与私有编译资产只用于构建，不打包或公开上传。
+
+`ClientPresentation.Contracts` 存放中立呈现/主题/动作契约；`ClientExtensionAbstractions` 仍提供游戏桥、布局和原生控件。它们物理分开，不假设所有 API 类型都在同一 DLL。插件不依赖内部 `Client.csproj` / PhinixClient 实现。
+
+命令示例使用 POSIX shell；PowerShell 使用单行或数组参数，不直接粘贴反斜杠续行。缺少必要引用时报告缺失目标，继续可离线进行的编辑或验证，不下载不明 DLL 冒充引用。

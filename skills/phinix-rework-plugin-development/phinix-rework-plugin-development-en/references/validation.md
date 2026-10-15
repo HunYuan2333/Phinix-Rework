@@ -90,3 +90,40 @@ Additional manual walkthroughs, not execution:
 Foundation game acceptance, Common/gitlink delivery, and CI-pin updates remain pending. Maintainer secret configuration/end-to-end notification acceptance are separate follow-ups, not third-party author prerequisites. No skill installation, business/manifest/workflow/system edits, commits/pushes, dispatch, admission, or publication occurred; reading existing runs is not a newly executed acceptance test.
 
 Final checks: both quick_validate runs passed; 24 Markdown files, 66 relative links, 24 fixed-SHA source paths, four JSON blocks, and six shell fences passed. Per-file link targets, full commit/file hashes, CLI flags, and executable examples match across languages. No scripts were added. Only ten existing skill files changed; the other 1079 baseline files are unchanged, as are repository HEADs/branches/status, including Common and all four delivery clones. Existing untracked files were preserved.
+
+## 2026-10-15 source review and template execution
+
+This section replaces the earlier same-date draft claims. That draft misstated Compose, TabOrder, several interfaces, CLI output and the generated XML path. Its dotnet test results and assertion counts lack verifiable execution evidence and are not retained as passes. The 2026-10-09 sections above are historical records, neither rerun nor expanded by this review.
+
+### Source checked
+
+Inspected local public contracts, actual Example, dual-runtime helper, package tool and theme parser, correcting quick references, templates and source locations. Working product/compatibility version is 0.10.4 with API3; working changes are distinct from committed/published state. DLL approved updates and maintainer-reviewed theme publication are described separately. No latest-remote query or full Host test-suite run occurred here.
+
+### Build passed
+
+- The minimal net472 project passed. A net10.0 project with game references adapted through the current adapter approach also passed. Each build reported zero warnings and errors.
+- Public references came from delivered `Phinix-Rework-0.10.4-theme-store-fix-dual.zip`, SHA256 `911886a03ff902fadac89c2e8f9720c64ca24775021d1bbd8f1695f289fd957d`. Builds used separate 1.6 game references and local 1.7 Assembly-CSharp/UnityStubs/Waylith/Compat rather than copying one DLL twice.
+- Current ManagedPackageTool C# source compiled in an isolated net10 project and ran against delivered 1.7 Utils/Protobuf references. This was not a full Host/Common rebuild, and vendored pins were unchanged.
+
+The template command shape was `dotnet build Minimal.csproj -c Release`, with explicit GameReferences, PhinixUtilsAssemblyPath, PhinixAbstractionsAssemblyPath and PhinixPresentationAssemblyPath. The net10 check project was generated in temporary storage; the original template remains net472 and the maintained helper handles dual-runtime conversion.
+
+### Whitebox passed
+
+Fourteen actual CLI checks produced expected results. These are not fourteen game scenarios or a full runtime suite:
+
+| Check | Count and result |
+| --- | --- |
+| Both language theme templates: --pack-theme and --validate-theme | 4 calls, exit 0; static-data-only and installed=false JSON, manifest.json and Themes/main.xml in ZIP |
+| Legacy primaryText negative case | 1 call, expected exit 1 with NonCanonicalThemeKey |
+| Both plugin assembly metadata | 2 calls confirming .NETFramework v4.7.2 and .NETCoreApp v10.0 |
+| Both single-variant packs and reference preflights | 4 calls with required references supplied, staticValidation=passed and hostReferencesChecked=true |
+| --pack-variants | 1 call producing one schema2 ZIP |
+| Dual ZIP --validate --game-version | 2 calls for 1.6 and 1.7; no Host references supplied at this step, so it alone does not establish reference closure |
+
+Both quick_validate.py runs passed. Relative links, fences, ten shell blocks, and template JSON/XML/project files passed checks across thirty Markdown files. Five executable template files match byte-for-byte between language folders, and compiled C# matches the final template. These checks do not establish remote-link reachability.
+
+### Game pending and scope
+
+No game execution evidence was generated. Real installation, restart activation, settings persistence, theme live apply/removal and save-change cleanup remain pending. Acceptance of other packages is not proof for these templates.
+
+Changes cover only the two local skills' documentation and templates. Build/check outputs stayed in temporary storage. No skill installation, business/workflow/package/save modifications, commits, pushes or publication occurred.

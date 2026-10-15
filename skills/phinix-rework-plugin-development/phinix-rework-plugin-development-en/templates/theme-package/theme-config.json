@@ -1,0 +1,14 @@
+{
+  "packageId": "author.theme.emerald",
+  "name": "Sample Emerald Theme",
+  "author": "Theme Author",
+  "version": "1.0.0",
+  "phinixRange": ">=0.10.4 <1.0.0",
+  "themes": [
+    {
+      "id": "main",
+      "name": "Sample Emerald",
+      "file": "Themes/sample.xml"
+    }
+  ]
+}

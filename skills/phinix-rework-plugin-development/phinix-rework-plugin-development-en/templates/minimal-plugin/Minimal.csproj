@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>Author.Minimal.Plugin</AssemblyName>
+    <PluginPackageId>author.minimal.plugin</PluginPackageId>
+    <PluginDisplayName>Minimal Plugin</PluginDisplayName>
+    <Version>0.0.1</Version>
+    <AssemblyVersion>0.0.1.0</AssemblyVersion>
+    <PhinixRoot Condition="'$(PhinixRoot)' == ''">$(MSBuildThisFileDirectory)../../Phinix-Rework</PhinixRoot>
+    <PhinixCommonRoot Condition="'$(PhinixCommonRoot)' == ''">$(PhinixRoot)/Dependencies/Phinix.Common</PhinixCommonRoot>
+    <GameReferences Condition="'$(GameReferences)' == '' and Exists('$(PhinixRoot)/GameDlls/1.6')">$(PhinixRoot)/GameDlls/1.6</GameReferences>
+    <GameReferences Condition="'$(GameReferences)' == ''">$(PhinixRoot)/GameDlls</GameReferences>
+    <PhinixUtilsAssemblyPath Condition="'$(PhinixUtilsAssemblyPath)' == ''">$(PhinixCommonRoot)/Common/Utils/bin/Release/net472/Utils.dll</PhinixUtilsAssemblyPath>
+    <PhinixPresentationAssemblyPath Condition="'$(PhinixPresentationAssemblyPath)' == ''">$(PhinixRoot)/Client/PresentationContracts/bin/Release/net472/ClientPresentation.Contracts.dll</PhinixPresentationAssemblyPath>
+    <PhinixAbstractionsAssemblyPath Condition="'$(PhinixAbstractionsAssemblyPath)' == ''">$(PhinixRoot)/Client/ClientExtensionAbstractions/bin/Release/ClientExtensionAbstractions.dll</PhinixAbstractionsAssemblyPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ExampleMinimalExtension.cs" />
+    <Reference Include="ClientPresentation.Contracts"><HintPath>$(PhinixPresentationAssemblyPath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="ClientExtensionAbstractions"><HintPath>$(PhinixAbstractionsAssemblyPath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="Utils"><HintPath>$(PhinixUtilsAssemblyPath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameReferences)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameReferences)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(GameReferences)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameReferences)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="ValidatePublicReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(PhinixUtilsAssemblyPath)') or !Exists('$(PhinixAbstractionsAssemblyPath)') or !Exists('$(PhinixPresentationAssemblyPath)')" Text="Prepare built public host assemblies, or set PhinixUtilsAssemblyPath and PhinixAbstractionsAssemblyPath/PhinixPresentationAssemblyPath. Plugin builds do not build the host." />
+  </Target>
+</Project>

@@ -1,54 +1,29 @@
-# Formal delivery and Index
+# Local distribution, Releases and Index
 
-Read after local verification when preparing user delivery. For cloud workflows see [actions.md](actions.md); version evidence is in [basis.md](basis.md).
+Follow the user's chosen route. Project creation or local packaging does not authorize uploads, pushes, releases, Index writes or deployment. Do not ask again when the session already provides the relevant authorization.
 
-## Git and authorization
+## Distribution choices
 
-Recommend main/dev for new projects: develop on dev; main is the formal release entry after maintainer delivery confirmation. Inspect existing branches, parallel changes, and workflows instead of rewriting history. Pin host commits and Common/protobuf gitlinks. Prepare reviewable ZIPs, digests, validation records, release notes, and candidate metadata before using existing authorization to push, create Releases, or submit Issues/PRs. Without authorization stop at concrete artifacts. Do not use main as a temporary compilation trigger.
+- Local/friend distribution: deliver the exact ZIP, digest, target Host/API/game versions and tested/pending scope. Local DLL installation requires developer mode and restart; theme import requires neither and supports hot application.
+- Manual Release: locally build/verify, then publish a public non-draft/non-prerelease version and matching source Tag. Author repositories need no Actions workflow.
+- Automated Release: useful with existing CI or frequent iteration; see [actions.md](actions.md). Whether main pushes publish depends on that repository's actual workflow.
 
-## Two routes
+## DLL plugins
 
-| Route | Sequence and boundaries |
-| --- | --- |
-| Managed DLL | Canonical ZIP/preflight and game verification → formal non-draft/non-prerelease GitHub Release → Index candidate/admission review → update policies/source updates → controlled Index publication → store visibility |
-| RimWorld mod | Complete mod game verification → Steam Workshop publication → Workshop entry/admission/Index publication; game/Steam owns files, no complete mod ZIP store installation |
+Use Index's current submission/review flow to establish a candidate and source policy. A label alone does not complete approval. Policies pin package ID, repository/owner, asset naming and update scope. `plugin-source-updates.yml` currently schedules `17 * * * *`; this is an hourly schedule, not guaranteed punctual execution or admission within one hour.
 
-Versioned Index materials: README.zh-CN.md, ControlledPublication.zh-CN.md, SourceUpdates.zh-CN.md, `examples/managed-submission.json`, `examples/workshop-submission.json`, and actual Issue forms/workflows. Acquire the target Index version; do not infer current policies from older workspaces. Check that templates exist and follow their actual schemas.
+Both manually and automatically produced Releases can be discovered under an approved policy. Public status, Tag/commit, asset digests, compatibility, dependencies and policy scope remain checked. `UpdateScopeChanged` can block updates outside approval. A green scan may mean changed=false or contain individual-source errors. Verify admission records, controlled publication, stable/published/catalog and client installation separately.
 
-DLL candidates include public source identity, formal Release/tag/commit, asset ID/name/size/SHA-256, manifest identical to the ZIP, and multilingual descriptions/changelogs. Exclude game/Unity/host/Harmony DLLs, credentials, and personal paths. Static checks prove neither DLL safety nor automatic source-to-bytes correspondence. Workshop candidates bind fixed Workshop/mod identities and metadata; admission is metadata-only, without DLL ZIP/PE validation or DLL update policies.
+Package schema1/schema2 and catalog schema3 are different layers. Maintained plugins currently ship dual-runtime packages; do not falsely state that other candidate forms supported by the parser are impossible. Never overwrite public versions/assets or use --clobber to hide digest conflicts.
 
-New plugins require an application and maintainer/admin review with `plugin-approved`; authors must not grant themselves approval. Trusted workflows generate exact candidate evidence PRs, admit candidates, then revalidate assets/provenance/dependency closure, publish immutable catalogs, and atomically update stable. A Release does not mean admission, automatic Index membership, or immediate visibility.
+## Theme packages
 
-## Approved source updates
+Themes use the separate `phinix.themes` schema4 feed; the package remains schema1. Current admission is maintainer review of `themes/packages/*.json` followed by `theme-publish.yml`, not DLL automatic source scanning. Verify any public author's source, fixed Release/asset, license, manifest/XML and hashes. There is no official-organization restriction.
 
-Only DLL packages with approved update-policy can update automatically; this is not a fixed three-plugin list. Policies may constrain stable three-part versions, same-major, asset prefixes, author/repository/assembly/module/dependency/external-mod identities, and descendant tags. Out-of-policy identities/major versions, missing assets, byte changes, failed validation, or previous publication still pending stop the flow for manual review/policy approval.
+Index retains author provenance and hosts `theme-<ZIP SHA256>.zip` copies in the same snapshot Release. CF serves/caches approved copies; GitHub direct uses original assets. Both must return identical bytes. Authors do not provide Index write tokens, CF credentials or per-organization download tokens. Gateway cache/deployment is separate operations work, not part of ordinary theme authoring.
 
-The newly deployed configuration was checked on 2026-10-09: `plugin-source-updates.yml` schedules hourly scans (currently `17 * * * *`), traverses approved policies, and admits eligible updates in batches; no three-plugin list is hard-coded. Before execution verify target-version workflow/source_updates.py ordering, limits, and inputs. Manual `check_only=true` only discovers/validates; false enters admission. Post-release notifications call that entry without granting approval. New plugins still need candidate/manual admission; version/source/contract-policy violations pause updates.
+## Online acceptance
 
-Hourly scans remain fallback coverage, but GitHub schedules may be delayed or dropped, with no punctual hourly guarantee. Optional immediate notifications accelerate discovery; neither route guarantees every intermediate Release is admitted or immediate listing. See [actions.md](actions.md) for parameters, optional maintainer credentials, and waiting. Third parties without them retain ordinary admission and scheduled updates.
+Check Release assets, real Index records/current snapshot, both download routes and client list clicking/details/confirmation/installation. Installation is not theme application. Successful CLI download does not establish usable UI installation. For exhausted anonymous GitHub quota, diagnose response headers and wait for reset or let the user select CF. Do not repeatedly refresh or embed server credentials in clients.
 
-On failures, read the matching run and `Update blocked: <packageId>` issue/application feedback. Never overwrite older versions; metadata corrections do not permit replacing approved bytes. Renew expired policy/label evidence through the actual new event/run process; never bypass review, edit locks, or directly change stable. When Index evidence requires a first attempt, source-update failure needs a new run rather than rerunning the old attempt. This differs from plugin-main same-commit retries.
-
-Catalog updates only notify players: confirmed download and restart load new code; installed DLLs are not silently changed. Troubleshoot GitHub/CF caching through formal stable and immutable evidence. Report network failure honestly. When awaiting review/publication, identify the stage and next responsible action rather than claiming listing.
-
-## Assess each success layer
-
-Check in order: plugin build passed → formal Release public → notification received → scan completed → candidate admitted → controlled catalog published → version visible in store. Notification is an optional acceleration layer; third parties can wait for scheduled scans and need not complete notification integration.
-
-| Signal | Further evidence required |
-| --- | --- |
-| release job/build success | Non-draft/non-prerelease Release, target commit, exact ZIP/digest |
-| notify-index job success | Missing-secret warning versus actual returned scan run ID; matching workflow/main/event |
-| Scan success | That run's actual `updates.scan_complete` changed/errors and source-updates artifact `updates/report.json`; do not mistake fixture runId=123 output for the real scan |
-| changed=false | No eligible new version can be normal; it does not establish the newly released package is visible. Inspect errors/policies/existing catalog |
-| One source rejected while others succeed | Diagnose its packageId/reason; overall green does not prove every source updated |
-| changed=true / propose success | Candidate/batch evidence, exact admission commit/approval records, then controlled publication |
-| Controlled publication success | Formal stable snapshotId, catalog digest/size, target package version, then client source refresh/store display |
-
-## Index metadata concurrency and recovery
-
-Four writers, `plugin-admission.yml`, `plugin-label-admission.yml`, `plugin-source-updates.yml`, and `plugin-publish.yml`, share `index-metadata` with `queue: max` and `cancel-in-progress: false`. Pending work is retained under a bounded queue, currently up to 100 waiting tasks per group; excess triggers are not guaranteed. It is not unlimited/lossless. The older cancel-in-progress:false-only configuration still replaces pending work and should not be recommended. [Concurrency rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), [queue limits](https://docs.github.com/en/actions/reference/limits).
-
-While queued, admission/catalog publication can advance main. Scans first compare current main with their original GITHUB_SHA; stale snapshots fail with `TrustedHeadChanged`. Preserve all source/evidence/commit/immutable-publication checks. Never rewrite GITHUB_SHA, force-push, delete locks/receipts, or bypass validation. A fresh event on current main creates a new snapshot; rerunning the old event does not refresh it.
-
-Authorized manual recovery starts by inspecting failure/current state, then dispatching a fresh current-main `plugin-source-updates.yml` scan (check_only=false for admission), not rerunning an old attempt. If admission completed but publication did not, inspect evidence/validation, then use current-main `plugin-publish.yml`: check_only=true first, and only after passing checks and authorization use check_only=false. Do not alter old assets/locks or bypass policy rejection as if it were a queue fault. See [basis.md](basis.md) for verified status/concurrency evidence.
+Source: Index `themes/README.md`, `scripts/theme_publication.py` / `theme_release.py`, `scripts/source_updates.py` and related workflows; Host `ThemeStoreController.cs` / `ManagedStorePresentation.cs`. Evidence locations: [basis.md](basis.md).

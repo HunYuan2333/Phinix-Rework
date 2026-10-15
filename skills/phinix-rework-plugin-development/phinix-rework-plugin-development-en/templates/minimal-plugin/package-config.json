@@ -1,0 +1,11 @@
+{
+  "compatibility": {
+    "rimWorldVersions": [
+      "1.6"
+    ],
+    "phinixRange": ">=0.10.1 <1.0.0",
+    "abstractionsRange": ">=3.0.0 <4.0.0"
+  },
+  "dependencies": [],
+  "externalMods": []
+}

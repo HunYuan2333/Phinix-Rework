@@ -1,21 +1,33 @@
-# Verification, recovery, and compatibility
+# Verification, diagnosis and recovery
 
-Read for acceptance, troubleshooting, upgrades, or stateful features. Do not repeat acceptance already recorded for the exact scope; new hosts, paths, or expanded scope need relevant evidence.
+## Separate evidence
 
-Distinguish evidence: compilation checks syntax/reference resolution; automated tests check covered behavior; ZIP/CLR preflight checks static structure/supplied references; cloud builds check a pinned source/reference workflow; game acceptance checks actual UI/loading/runtime scenarios. No layer replaces another. Source fixes do not prove the store shipped a fixed package.
+| Status | What it establishes | What it does not replace |
+| --- | --- | --- |
+| Source checked | Declarations, call paths, configuration and boundaries match inspected source | Compilation or binding |
+| Build passed | Specified inputs/runtime produce DLLs with exit 0 | Installation, activation or business compatibility |
+| Whitebox passed | Explicit assertions, CLI checks and boundary cases pass | Real game rendering and multi-Mod environments |
+| Game passed | A specific game build executed named scenarios | Untested versions or paths |
 
-## Game checks: mark pending if not executed
+Pending marks an evidence gap, not a higher verification level. Record actual commands, inputs and results. Execute console test programs as programs; an empty successful dotnet test does not establish assertion counts. Clean logs cover only executed paths. Date historical records and retain their scope instead of presenting them as reruns.
 
-Simple tab: install an independent identity, check mode toggles/narrow-window entry, confirm ID/version/digest, discovery/activation after restart, settings/localization, actual new digest after revision, management synchronization, disabled state after canceling uninstall, and understandable next-start/current-state differences.
+## Find the earliest meaningful error
 
-Stateful/network features: at least five save/menu cycles, disconnect/reconnect and exit, without duplicate subscriptions or old world objects. Expired main-thread/dialog callbacks have no effect. Missing dependencies/read-only states reject explicitly. Verify matched/duplicate/stale acknowledgements, definitely-unsent requests, explicit rejection, unknown outcome after dispatch, missing codec/Def and whole-batch failure, idempotent retries, and save/journal conflicts. Use independent test saves/copies and recoverable data; do not “repair” by deleting persistence.
+Record exact game build, loaded Host/API/plugin versions, source and digest. Start with the earliest LoaderException or rejection before analyzing cascading errors. Request only needed diagnostics and do not commit raw player logs.
 
-Installation recovery: interruption before commit retains the old package; after commit completes the new package according to the target host's transaction decision. Mode withdrawal cancels uncommitted intent, not committed work. Repeated confirmation does not execute twice. Corrupt ZIPs, missing dependencies, and assembly/module conflicts produce accurate reasons without half-installation. Arrange process-interruption experiments in explicitly authorized test environments.
+| Error/symptom | Diagnosis |
+| --- | --- |
+| CandidateHostIncompatible | CompatibilityVersion, game variant and manifest ranges; CLR AssemblyVersion is not product version |
+| PackageNotFound | Package ID, version, runtime routing, theme/DLL feed and published assets; not automatically rate limiting |
+| RepositoryRateLimited | HTTP status, body, rate-limit headers, authentication and URL. Some current client 403 mappings are broad; the name alone does not prove exhausted quota |
+| UpdateScopeChanged | Approved Index policy versus new package scope; retain old publication and review policy rather than bypass approval |
+| UnknownField | Actual client/manifest schema, rejected field and selected variant; do not infer a platform-specific cause from the name |
+| Installed version newer than loaded version | Current process still uses an old binding; check restart and startup summary |
 
-## Recovery constraints
+## State and item recovery
 
-Separate authoritative item acknowledgements, ordinary snapshots, and optimistic UI previews. Persist unknown outcomes and reconcile with the corresponding service; never infer refunds from timeout, queue acceptance, or empty history. Missing codecs/mods do not silently filter items; rejected whole-batch delivery retains raw payloads. Inventory journal/old-snapshot protection uses current public interfaces and player confirmation; no automatic reward replay or manual record edits.
+Use stable operation IDs, explicit states and authoritative acknowledgements. Callback/task completion is not business confirmation. Closing views does not cancel transactions or return items. Preserve sent operations with unknown results; timeout alone does not justify another payment or return.
 
-Legacy limitations belong in adapters without lowering domain confirmation standards. For ordinary Trade, old servers lacking durable ack permit recovery only within the current process. Interrupted relay-history reconciliation is unimplemented for RedPacket; unsettled in-memory TalentTrade transactions cannot automatically recover after a crash. Verify target-version documentation/implementation rather than generalizing historical limits or unshipped fixes.
+Keep item/Pawn conversion, reservation and delivery atomic as a batch. Missing Defs, codecs, dependencies or a valid map produce rejection rather than silent item loss. Save changes, disconnects, duplicate and out-of-order acknowledgements follow the actual business owner's rules. Host stays neutral and does not own ledgers, offers or Pawn authority.
 
-Troubleshoot first with “Copy summary”: package/host/abstractions versions, provenance, installed/current digests, discovery/activation, dependencies, and reason codes. Read specific errors next. If more evidence is needed, request only relevant snippets stripped of credentials, paths, player, and save content. Record missing host capabilities or source/documentation discrepancies with accurate interfaces/follow-up work; do not incidentally change host business code.
+Start with small deterministic rules, package and binding checks, then relevant game flows. Do not simulate the entire game for wording changes or skip delivery/recovery tests merely because compilation passed.

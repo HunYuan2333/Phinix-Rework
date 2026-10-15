@@ -1,76 +1,52 @@
-# Local development loop: the primary route
+# Local development and verification
 
-Read for compilation, packaging, preflight, sideloading, diagnostics, and development revisions. This loop requires [environment.md](environment.md) to confirm modern DI, current tools, and sideload support. Identify versions first for unknown/older release hosts.
+Default route for independent DLL plugins. Data-only themes need no C# project; use [theme-package.md](theme-package.md).
 
-For new projects, choose a minimal layout through [lightweight engineering](engineering.md). Reorganize existing projects only when responsibilities/state are mixed; do not start with a broad refactor.
+## Create a minimal project
 
-## 1. Give an Example-derived plugin its own identity
-
-Copy a verified fixed modern Example snapshot into an independent directory, preserving the original repository's changes. Check `.csproj` AssemblyName, PluginPackageId, PluginDisplayName, version, source namespace, PhinixExtension attribute/ExtensionId, settings prefixes/SectionId, localization, and dependencies together. Do not rename only the ZIP or edit generated manifests. Current Example explicitly lists compile inputs: update Compile Include when splitting files, and pack.py project lookup when renaming the project; new source files are not necessarily compiled automatically. Prefer a development ID distinct from formal packages. When preparing formal identities, revisit resources and persistence migration; changing package names alone cannot conceal compatibility problems.
-
-## 2. Configure compatibility and dependencies
-
-Current Example `pack.py` reads `example/package-config.json` and passes `--config` to the tool. It has no general `--config` CLI option of its own. Other plugin pack.py interfaces differ; read their script/help first. Current configuration example: ranges illustrate this iteration's capabilities and must be verified/narrowed for the actual target.
-
-```json
-{
-  "compatibility": {
-    "rimWorldVersions": ["1.6"],
-    "phinixRange": ">=0.9.7 <1.0.0",
-    "abstractionsRange": ">=1.9.0 <2.0.0"
-  },
-  "dependencies": [],
-  "externalMods": []
-}
-```
-
-Package dependency: `{"packageId":"author.provider","versionRange":">=1.0.0 <2.0.0","optional":false}`; external mod: `{"packageId":"author.mod"}`. The same manifest parser rejects unknown/duplicate fields, invalid ranges, and other bad inputs. Explain degradation for optional dependencies; reject activation when required capabilities are missing rather than silently delivering partial success.
-
-## 3. Independent build, canonical ZIP, offline preflight
-
-Prepare host `Common/Assemblies` public DLLs once, or built Utils/ClientExtensionAbstractions from a pinned client. Game references remain compilation-only. Current Example targets net472/C# 7.3; the tool targets net10.0. These are POSIX examples: substitute actual absolute paths. On Windows adapt argument passing as described in environment.
+1. Prepare SDKs, both game-reference sets and matching Host/API3 public DLLs using [environment.md](environment.md).
+2. Copy the entire [minimal-plugin](../templates/minimal-plugin/Minimal.csproj) directory into an independent plugin root's example/ folder. Rename package ID, module ID, assembly, namespace and settings prefix. Keep test identity separate from production packages.
+3. This is a net472 native-tab sample. Set PhinixRoot or the three Phinix*AssemblyPath properties for public references, and GameReferences for 1.6 DLLs. Do not reference Client.csproj or distribute Host/game DLLs.
+4. Manage ownership through [composition.md](composition.md). Consult the actual Example project for full neutral pages, actions and localization; the minimal template does not cover every public capability.
 
 ```sh
-python3 pack.py --phinix-root "/path/to/Phinix-Rework" \
-  --host-assemblies "/path/to/host/Common/Assemblies" \
-  --game-references "/path/to/RimWorld/Managed" \
-  --packager "/path/to/ManagedPackageTool.dll" \
-  --output "/path/to/build-1.zip"
+dotnet build example/Minimal.csproj -c Release   -p:PhinixRoot="/absolute/path/to/Phinix-Rework"   -p:GameReferences="/absolute/path/to/rw16-references"   -o "/absolute/path/to/scratch/minimal16"
 ```
 
-pack.py builds only this plugin, packages it, and preflights automatically; it recognizes numerically prefixed host DLLs. Without `--host-assemblies`, it uses built client public DLLs; existing tools are reused. To prepare the source tool in a pinned client root, run `dotnet build Extensions/PluginStore/Tools/ManagedPackageTool/ManagedPackageTool.csproj -c Release -m:1`, with complete pinned submodules and no game references required. If game references lack mscorlib, Example can use a unique local net472 reference cache or explicit `--framework-references`; missing caches do not imply success.
+Use a new temporary output directory rather than installed DLLs. Template package-config.json declares only the net472 build's 1.6 support. Listing a second game version does not turn one DLL into a dual-runtime package.
 
-Without Python, run `dotnet build -c Release -m:1` for the independent plugin project, supplying actual legal files through `-p:GameReferences=...`, `-p:PhinixUtilsAssemblyPath=...`, and `-p:PhinixAbstractionsAssemblyPath=...`, then invoke the tool:
+## Build a dual-runtime package
+
+Use the actual Host helper command in [dual-runtime.md](dual-runtime.md). It locates a project in example/ or Client/, generates an isolated net10 project, builds both variants and packages one ZIP. The template does not include pack.py; use a wrapper only when it exists and its arguments have been checked.
+
+The current helper does not read template package-config.json. It emits default compatibility ranges and empty dependencies. Additional assemblies, module dependencies, external Mods or higher minimum Host versions require explicit custom packaging configuration and reference-closure checks. Do not omit declarations. This configuration covers compatibility and dependencies; package identity, input DLLs and output paths still come from CLI arguments.
+
+## Offline preflight
+
+Run both commands on the final ZIP, replacing placeholder paths. See dual-runtime.md for building the net10 Tool.
 
 ```sh
-dotnet "/path/to/ManagedPackageTool.dll" \
-  --assembly "/path/to/My.Plugin.dll" --package-id author.plugin \
-  --name "My Plugin" --version 1.0.0 --config "/path/to/package-config.json" \
-  --language-file "/path/to/en-US.json" --language-file "/path/to/zh-CN.json" \
-  --output "/path/to/build-1.zip"
-dotnet "/path/to/ManagedPackageTool.dll" --validate "/path/to/build-1.zip"
+dotnet /absolute/path/to/ManagedPackageTool.dll   --validate /absolute/path/to/plugin.zip --game-version 1.6
+
+dotnet /absolute/path/to/ManagedPackageTool.dll   --validate /absolute/path/to/plugin.zip --game-version 1.7
 ```
 
-`--assembly`, `--language-file`, and `--host-assembly` are repeatable; adjust languages to actual resources. Preflight performs no network, installation, or DLL execution. Supply repeated `--host-assembly` inputs for all actual CLR references: host, game/Unity, framework, and required dependencies, to verify identities/conflicts. Reference files do not enter the ZIP. Without host inputs, report static validation only; even with them, this does not prove game loading, actual support for the version range, or enabled dependencies.
+Both exits must be 0 with staticValidation=passed in JSON. Without --host-assembly, hostReferencesChecked is false and does not prove reference closure. For closure checks, supply complete lawful game and public Host dependencies for the selected variant, following the helper's actual preflight arguments. Do not mix runtime DLLs.
 
-## 4. Developer sideload and diagnostics
+## Game sideloading
 
-Enable RimWorld developer mode → Phinix Store “dev: Install local plugin ZIP” (overflow menu in narrow windows) → absolute ZIP path or explicitly chosen directory to browse → verify package ID/version/SHA-256 → confirm → restart. Browse only the explicit directory, not the whole filesystem. Import freezes validated bytes in host temporary storage; confirmation/execution recheck mode. Canceling uncommitted intent releases temporary input; withdrawing mode does not roll back committed transactions.
+Open Phinix extension management in the matching game, enable developer mode, install the local ZIP and restart. Restart follows current Host binding/activation policy, not a claim that CLR cannot load assemblies dynamically. Inspect installed version/digest, loaded version, module state and behavior. Installation success does not imply activation success.
 
-After restart, verify local source, module discovery/activation, dependencies/reason codes, current-session versus installed digests, and current versus next-start states in extension management. Use “Copy summary” for troubleshooting, not a full log containing private data. If installed digest changes while current digest is old, restart first; do not claim new code is running.
+Test 1.6 and 1.7 separately: repeated enable/disable, persisted settings, save exit/change, view closure and stale callbacks. Appearance changes also need visual inspection. Data-only themes need neither developer mode nor restart; installation still requires selection and apply.
 
-## 5. Iterate and manage
+## Failure diagnosis
 
-| Situation | Behavior and next step |
+| Symptom | First check |
 | --- | --- |
-| Same local ID/version, different ZIP digest | Development revision; old package must be enabled/trusted; build to a new path, import, then restart |
-| Duplicate digest | Reject repeat import; check that a new build was actually created |
-| Version downgrade | Reject; do not bypass by editing receipts |
-| Same ID from a formal source | Reject replacement; use a distinct development ID, or uninstall normally and restart to finish removal before switching sources |
-| Developer mode disabled | Installed local packages remain manageable; new confirmation/execution is rejected; no hot replacement |
-| Enable/disable/uninstall | Store and extension management synchronize next-start intent; current loaded DLLs remain unchanged |
-| Cancel uninstall | Retain disabled state and module selections; do not automatically restore previous enabled state |
+| CandidateHostIncompatible | Current CompatibilityVersion, game version and package ranges; do not change constants just to bypass checks |
+| ProtectedAssembly | Host/game/protected dependencies accidentally included in ZIP; package only declared private dependencies |
+| VariantContractMismatch | Matching module/assembly identities, full assembly names and dependencies across variants |
+| ReflectionTypeLoadException | LoaderExceptions, actual reference closure and runtime, not just the outer exception |
+| Installed without a tab | Discovery/activation state, entry contract, assembly binding and restart |
 
-Local sourceKind is `local-development`; schema 2 local receipts do not impersonate Index approval, while formal schema 1 receipts remain readable. This is separate from public Index catalog versions or protocol retirement. Before downgrading to a schema-1-only host, normally uninstall local packages on the newer host and restart to complete removal. Do not carry unfinished transactions across incompatible versions or manually delete journals/receipts. Business data follows existing retention rules; enabled consumers' dependencies must not be broken.
-
-Complete game acceptance in [verification.md](verification.md) before formal publication. Local sideloading does not automatically create a formal catalog package.
+Handle same-version changed digests, downgrades and source conflicts through actual installation rules. Do not edit receipts or replace installed files directly. Preserve settings/exports before switching production and development sources through normal uninstall/restart flows.
