@@ -22,6 +22,8 @@ if (plugin/'publication.json').is_file():
  metadata=json.loads((plugin/'publication.json').read_text());id=metadata['packageId'];name=metadata['name'];assembly_names=[metadata['contractAssembly'],metadata['clientAssembly']]
 else:
  id=props['PluginPackageId'];name=props['PluginDisplayName'];assembly_names=[props['AssemblyName']]
+minimum_host = metadata.get('minimumHostVersion', '0.10.1') if (plugin/'publication.json').is_file() else '0.10.1'
+if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', minimum_host):p.error('Invalid minimumHostVersion.')
 env=os.environ.copy();installed=[re.fullmatch(r'(10\.[^ ]+) \[(.*)\]',line) for line in subprocess.check_output(['dotnet','--list-sdks'],text=True).splitlines()];installed=[v for v in installed if v]
 if not installed:p.error('A .NET10 SDK is required.')
 env['MSBuildSDKsPath']=str(Path(installed[-1].group(2))/installed[-1].group(1)/'Sdks')
@@ -59,7 +61,7 @@ for game,tfm in [('1.6','net472'),('1.7','net10.0')]:
  for n in sorted(needed):
   if n not in providers or not providers[n].is_file():raise ValueError('Missing '+game+' provider: '+n)
   refs+=['--host-assembly',str(providers[n])]
- config=work/(game+'-config.json');config.write_text(json.dumps({'compatibility':{'rimWorldVersions':[game],'phinixRange':'>=0.10.1 <1.0.0','abstractionsRange':'>=3.0.0 <4.0.0'},'dependencies':[],'externalMods':[]}))
+ config=work/(game+'-config.json');config.write_text(json.dumps({'compatibility':{'rimWorldVersions':[game],'phinixRange':'>='+minimum_host+' <1.0.0','abstractionsRange':'>=3.0.0 <4.0.0'},'dependencies':[],'externalMods':[]}))
  target=work/(game+'.zip');cmd=['dotnet',tool,'--package-id',id,'--name',name,'--version',a.version,'--output',target,'--config',config,'--target-framework',tfm,'--compile-client-api','3.0.0']
  for path in dlls:cmd+=['--assembly',path]
  resources=plugin/'Client/Resources' if (plugin/'Client/Resources').exists() else plugin/'example/Resources/Localization'

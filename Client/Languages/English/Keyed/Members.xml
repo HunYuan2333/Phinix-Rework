@@ -13,4 +13,8 @@
 <Phinix_chat_actions_retryImage>Retry image</Phinix_chat_actions_retryImage>
 <Phinix_chat_actions_imageFailure>Image failed to load. Click to view retry actions.</Phinix_chat_actions_imageFailure>
 <Phinix_chat_actions_imageUnavailable>Image could not be decoded. Click to view original-image actions.</Phinix_chat_actions_imageUnavailable>
+  <Phinix_members_showBlocked>Show blocked</Phinix_members_showBlocked>
+  <Phinix_members_hideBlocked>Hide blocked</Phinix_members_hideBlocked>
+  <Phinix_members_memberActions>More actions</Phinix_members_memberActions>
+  <Phinix_members_startTrade>Start trade</Phinix_members_startTrade>
 </LanguageData>

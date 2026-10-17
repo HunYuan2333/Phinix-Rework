@@ -76,7 +76,10 @@ namespace PhinixClient
         {
             base.WindowUpdate();windowRect=UiScreenSafeArea.ClampWindow(windowRect,new Vector2(320,380));
             if(!Available){Close();return;}if(presentation==null||presentation.IsClosed)return;
-            while(presentation.TryDequeueInput(out var input))
+            // Read the rendered revision completely before edits invalidate its context.
+            var pendingInputs = new List<ClientPresentationInput>();
+            while (presentation.TryDequeueInput(out var queued)) pendingInputs.Add(queued);
+            foreach (var input in pendingInputs)
             {
                 Input(input);
                 // A selection may close its window and dispose the session immediately.

@@ -51,7 +51,7 @@
     <Phinix_error_tradeCreationFailedTitle>Trade creation failed</Phinix_error_tradeCreationFailedTitle>
     <Phinix_error_tradeCreationFailedMessage>Could not start a trade: {0} ({1})</Phinix_error_tradeCreationFailedMessage>
     <Phinix_error_tradeUpdateFailedTitle>Trade update failed</Phinix_error_tradeUpdateFailedTitle>
-    <Phinix_error_tradeUpdateFailedMessage>Could not update your trade with {0}: {1} ({2})\nYour items have been shipped back to you.</Phinix_error_tradeUpdateFailedMessage>
+    <Phinix_error_tradeUpdateFailedMessage>Could not update your trade with {0}: {1} ({2})\nThis update was not accepted. This notice does not confirm an item return; check your trade and inventory status.</Phinix_error_tradeUpdateFailedMessage>
     <Phinix_trade_listSearch>Search party or trade ID</Phinix_trade_listSearch>
     <Phinix_trade_listDetails>Trade details</Phinix_trade_listDetails>
     <Phinix_trade_listSelectTrade>Select a trade to view its current offer state.</Phinix_trade_listSelectTrade>

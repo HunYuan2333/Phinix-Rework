@@ -85,4 +85,38 @@
   <Phinix_inventory_batchRunning>正在逐堆交付。可关闭页面，或停止剩余提取。</Phinix_inventory_batchRunning>
   <Phinix_inventory_batchCompleted>本批提取已完成。</Phinix_inventory_batchCompleted>
   <Phinix_inventory_batchStop>停止剩余提取</Phinix_inventory_batchStop>
+  <Phinix_inventory_searchPlaceholder>搜索物品或来源</Phinix_inventory_searchPlaceholder>
+  <Phinix_inventory_searchNoMatches>没有匹配的物品。</Phinix_inventory_searchNoMatches>
+  <Phinix_inventory_searchSelectionHidden>当前编辑的物品不在搜索结果中。</Phinix_inventory_searchSelectionHidden>
+  <Phinix_inventory_searchGroupCleared>搜索已更改，已取消分组选择；批量提取时请重新选择分组。</Phinix_inventory_searchGroupCleared>
+  <Phinix_inventory_page>第 {0} / {1} 页</Phinix_inventory_page>
+  <Phinix_inventory_previousPage>上一页</Phinix_inventory_previousPage>
+  <Phinix_inventory_nextPage>下一页</Phinix_inventory_nextPage>
+  <Phinix_inventory_inlineQuantity>提取数量</Phinix_inventory_inlineQuantity>
+  <Phinix_inventory_inlineWholeUnits>提取份数（每份 {0} 件）</Phinix_inventory_inlineWholeUnits>
+  <Phinix_inventory_inlineSelected>当前查看</Phinix_inventory_inlineSelected>
+  <Phinix_inventory_inlineReview>本次交付需要核对。请先确认已到账数量，再修改剩余数量后提取。</Phinix_inventory_inlineReview>
+  <Phinix_inventory_inlineQuantityInvalid>请输入 1～{0} 的数量。</Phinix_inventory_inlineQuantityInvalid>
+  <Phinix_inventory_inlinePartial>已确认提取 {0} / {1} 件，数量框已保留尚未提取的部分。{2}</Phinix_inventory_inlinePartial>
+  <Phinix_inventory_inlineFailed>提取已停止</Phinix_inventory_inlineFailed>
+  <Phinix_inventory_inlineSucceeded>提取成功</Phinix_inventory_inlineSucceeded>
+  <Phinix_inventory_inlineUnitChanged>物品提取单位已变化，请核对每份件数并重新填写数量。</Phinix_inventory_inlineUnitChanged>
+  <Phinix_inventory_inlineUncertainPartial>已确认提取 {0} / {1} 件，其余交付状态需要核对，不会自动重试。{2}</Phinix_inventory_inlineUncertainPartial>
+  <Phinix_inventory_inlineUnavailable>当前没有可提取的余额。</Phinix_inventory_inlineUnavailable>
+  <Phinix_inventory_managePlans>每日计划（{0}）</Phinix_inventory_managePlans>
+  <Phinix_inventory_plansTitle>每日提取计划</Phinix_inventory_plansTitle>
+  <Phinix_inventory_plansCount>共 {0} 个计划</Phinix_inventory_plansCount>
+  <Phinix_inventory_plansEmpty>还没有每日计划，点击库存中的物品名称即可创建。</Phinix_inventory_plansEmpty>
+  <Phinix_inventory_plansEdit>编辑</Phinix_inventory_plansEdit>
+  <Phinix_inventory_plansBack>全部计划</Phinix_inventory_plansBack>
+  <Phinix_inventory_plansDetails>来源详情</Phinix_inventory_plansDetails>
+  <Phinix_inventory_plansHideDetails>收起详情</Phinix_inventory_plansHideDetails>
+  <Phinix_inventory_plansRemoveConfirm>移除此每日计划？已提取的物品不会受影响。</Phinix_inventory_plansRemoveConfirm>
+  <Phinix_inventory_plansBlocked>库存正在核对或批量提取，暂不能修改计划。</Phinix_inventory_plansBlocked>
+  <Phinix_inventory_planMissingItem>这条库存记录已不存在。</Phinix_inventory_planMissingItem>
+  <Phinix_inventory_planRemaining>本次尚需提取 {0} 件</Phinix_inventory_planRemaining>
+  <Phinix_inventory_planCodecMissing>此物品的处理插件未就绪。请启用来源插件并重启游戏。</Phinix_inventory_planCodecMissing>
+  <Phinix_inventory_planCodecVersion>来源插件无法读取此库存记录的版本，请使用兼容的插件版本。</Phinix_inventory_planCodecVersion>
+  <Phinix_inventory_planItemUnreadable>来源插件无法读取此物品数据。请保留存档，并附游戏日志反馈此错误。</Phinix_inventory_planItemUnreadable>
+  <Phinix_inventory_planSaveFailed>计划未能保存。请保留当前窗口，并检查库存状态。</Phinix_inventory_planSaveFailed>
 </LanguageData>

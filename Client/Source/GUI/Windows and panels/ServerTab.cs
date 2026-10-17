@@ -25,6 +25,11 @@ namespace PhinixClient
         private object navigationLanguage;
         private float utilityMeasuredWidth = -1; private string utilityCaption; private Vector2 utilitySize;
         private Vector2 bannerScroll;
+        private long identityThemeVersion = -1;
+        private string identityRaw, identityPrefix, identityMarkup;
+        private int sidebarDragControl;
+        private readonly SidebarResizeCursor sidebarCursor = new SidebarResizeCursor();
+        private float sidebarDragOffset;
         private int refreshFrames;
         private object refreshLanguage;
         private IUiAcceptKeyHandler activeAcceptKeyHandler;
@@ -147,6 +152,7 @@ namespace PhinixClient
         public override void WindowUpdate()
         {
             base.WindowUpdate();
+            if (!Find.WindowStack.GetsInput(this) || !Application.isFocused) { ReleaseSidebarDrag(); sidebarCursor.Release(); }
             ClampWindowToScreenSafeArea();
             if (++refreshFrames >= 30 || !ReferenceEquals(refreshLanguage, LanguageDatabase.activeLanguage))
             { refreshFrames = 0; refreshLanguage = LanguageDatabase.activeLanguage; RefreshProviders(); }
@@ -162,6 +168,8 @@ namespace PhinixClient
 
         public override void PreClose()
         {
+            ReleaseSidebarDrag();
+            sidebarCursor.Release();
             foreach (var entry in tabs) CloseView(entry);
             foreach (var entry in sidebars) CloseView(entry);
             foreach (var entry in banners) CloseView(entry);
@@ -261,14 +269,15 @@ namespace PhinixClient
             using (new ClientGuiScope(true)) { Text.Font = GameFont.Small; Text.WordWrap = false; natural = Mathf.Max(80, Text.CalcSize(label).x + 24); }
             navigationWidths[label] = natural; return natural;
         }
-        private void Navigation<T>(Rect rect, List<Entry<T>> entries, string selected, Action<string> select) where T : class
+        private void Navigation<T>(Rect rect, List<Entry<T>> entries, string selected, Action<string> select, bool fill = false) where T : class
         {
             if (entries.Count == 0 || rect.width <= 0) return;
             if (!ReferenceEquals(navigationLanguage, LanguageDatabase.activeLanguage)) { navigationWidths.Clear(); navigationLanguage = LanguageDatabase.activeLanguage; }
             if (navigationWidths.Count >= 256) navigationWidths.Clear();
             // Balance short captions as before; long captions retain their measured width.
             // Overflow is based on readable widths, never on compressed text.
-            float preferred = Mathf.Clamp((rect.width - 4 * (entries.Count - 1)) / entries.Count, 80, 140);
+            float share = (rect.width - 4 * (entries.Count - 1)) / entries.Count;
+            float preferred = fill ? Mathf.Max(80, share) : Mathf.Clamp(share, 80, 140);
             float total = -4;
             foreach (var entry in entries) total += Mathf.Max(preferred, NavigationWidth(entry.Label)) + 4;
             bool overflow = total > rect.width;
@@ -313,7 +322,6 @@ namespace PhinixClient
                 float sideWidth = 0f, sidePreferred = 270f, sideMinimum = 120f;
                 if (sidebar != null && sidebar.Current)
                 {
-                    sideWidth = Mathf.Min(270f, rect.width * .38f);
                     if (!sidebar.Failed) try
                     {
                         float preferred = sidebar.Api.PreferredWidth;
@@ -322,11 +330,14 @@ namespace PhinixClient
                         float minimum = responsive?.MinimumWidth ?? 120f;
                         if (float.IsNaN(minimum) || float.IsInfinity(minimum) || minimum < 0) throw new ArgumentException("SidebarMinimumInvalid");
                         sideMinimum = minimum; sidePreferred = Mathf.Max(preferred, minimum);
-                        sideWidth = Mathf.Min(Mathf.Max(120f, sidePreferred), rect.width * .38f);
                     }
                     catch (Exception error) { sidebar.Failed = true; Report(sidebar.Id, error); }
                 }
-                bool collapsed = sideWidth > 0 && (content.width - sideWidth - 8 < 480 || sideWidth < sideMinimum);
+                bool collapsed = sidebar != null && !SidebarSplitLayout.TryWidth(content.width, sidePreferred, sideMinimum, Instance.Settings.ServerSidebarRatio, out sideWidth);
+                int splitControl = GUIUtility.GetControlID(FocusType.Passive);
+                if (sidebar != null && !collapsed)
+                    sideWidth = DrawSidebarDivider(content, sideWidth, sideMinimum, splitControl);
+                else { ReleaseSidebarDrag(); sidebarCursor.Release(); }
                 if (!collapsed) drawerOpen = false;
                 float drawerWidth = collapsed ? 36f : 0f;
                 var utility = new Rect(rect.xMax - utilityWidth, rect.y, utilityWidth, navHeight);
@@ -342,10 +353,21 @@ namespace PhinixClient
                 {
                     float width = collapsed ? Mathf.Min(content.width, Mathf.Max(280f, sidePreferred)) : sideWidth;
                     var panel = new Rect(content.xMax - width, content.y, width, content.height);
-                    ClientWidgets.RoundedSurface(panel, HostThemeDrawing.Current.Surface.ToUnityColor());
+                    // The shell frames navigation; providers own their themed content cards.
+                    ClientWidgets.RoundedSurface(panel, HostThemeDrawing.Current.Background.ToUnityColor());
+                    ClientWidgets.RoundedBorder(panel, HostThemeDrawing.Current.Separator.ToUnityColor());
+                    float inset = Mathf.Min(6, Mathf.Min(panel.width, panel.height) / 2);
+                    panel = panel.ContractedBy(inset);
+                    float selfHeight = Mathf.Min(ClientWidgets.ControlHeight + 8, panel.height);
+                    DrawSelfIdentity(new Rect(panel.x, panel.y, panel.width, selfHeight));
+                    float selfSpace = Mathf.Min(panel.height, selfHeight + 4);
+                    panel = new Rect(panel.x, panel.y + selfSpace, panel.width, Mathf.Max(0, panel.height - selfSpace));
                     float headerHeight = sidebars.Count > 1 ? Mathf.Min(32, panel.height) : 0;
-                    if (headerHeight > 0) Navigation(new Rect(panel.x, panel.y, panel.width, headerHeight), sidebars, selectedSidebar, id => { selectedSidebar = id; UnityEngine.GUI.FocusControl(null); });
-                    DrawProvider(sidebars.Find(e => e.Id == selectedSidebar), new Rect(panel.x, panel.y + headerHeight, panel.width, Mathf.Max(0, panel.height - headerHeight)), (api, area) => api.Draw(area));
+                    if (headerHeight > 0) Navigation(new Rect(panel.x, panel.y, panel.width, headerHeight), sidebars, selectedSidebar, id => { selectedSidebar = id; UnityEngine.GUI.FocusControl(null); }, fill: true);
+                    float contentTop = Mathf.Min(panel.height, headerHeight + 8);
+                    if (panel.height > headerHeight + 4)
+                        ClientWidgets.Fill(new Rect(panel.x + 4, panel.y + headerHeight + 4, Mathf.Max(0, panel.width - 8), 1), HostThemeDrawing.Current.Separator.ToUnityColor());
+                    DrawProvider(sidebars.Find(e => e.Id == selectedSidebar), new Rect(panel.x, panel.y + contentTop, panel.width, Mathf.Max(0, panel.height - contentTop)), (api, area) => api.Draw(area));
                 }
                 activeAcceptKeyHandler = tab != null && tab.Current && !tab.Failed && !(collapsed && drawerOpen) ? tab.Api as IUiAcceptKeyHandler : null;
                 if (activeAcceptKeyHandler == null && sidebar != null && sidebar.Current && !sidebar.Failed && (!collapsed || drawerOpen)) activeAcceptKeyHandler = sidebar.Api as IUiAcceptKeyHandler;
@@ -392,9 +414,80 @@ namespace PhinixClient
             ClientWidgets.ScrollbarDecoration(viewport,bannerScroll,new Rect(0,0,width,total),HostThemeDrawing.Current);
             return heightAvailable + 40;
         }
+        private void ReleaseSidebarDrag()
+        {
+            if (sidebarDragControl != 0 && GUIUtility.hotControl == sidebarDragControl) GUIUtility.hotControl = 0;
+            sidebarDragControl = 0;
+        }
+        private float DrawSidebarDivider(Rect content, float width, float minimum, int control)
+        {
+            var ev = Event.current;
+            float center = content.xMax - width - SidebarSplitLayout.Gap / 2;
+            var hit = new Rect(center - SidebarSplitLayout.Gap / 2, content.y, SidebarSplitLayout.Gap, content.height);
+            bool hover = hit.Contains(ev.mousePosition);
+            if (sidebarDragControl != 0 && (sidebarDragControl != control || GUIUtility.hotControl != control || !Find.WindowStack.GetsInput(this))) ReleaseSidebarDrag();
+            if (ev.type == EventType.MouseDown && ev.button == 0 && hover && GUIUtility.hotControl == 0 && Find.WindowStack.GetsInput(this))
+            {
+                sidebarDragOffset = ev.mousePosition.x - center;
+                sidebarDragControl = control; GUIUtility.hotControl = control;
+                UnityEngine.GUI.FocusControl(null); ev.Use();
+            }
+            if (sidebarDragControl == control && GUIUtility.hotControl == control)
+            {
+                if (ev.type == EventType.MouseDrag && ev.button == 0)
+                {
+                    float desired = content.xMax - ev.mousePosition.x + sidebarDragOffset - SidebarSplitLayout.Gap / 2;
+                    float ratio = SidebarSplitLayout.RatioForWidth(content.width, minimum, desired);
+                    Instance.Settings.ServerSidebarRatio = ratio;
+                    SidebarSplitLayout.TryWidth(content.width, width, minimum, ratio, out width);
+                    center = content.xMax - width - SidebarSplitLayout.Gap / 2;
+                    ev.Use();
+                }
+                else if (ev.rawType == EventType.MouseUp && ev.button == 0) { ReleaseSidebarDrag(); ev.Use(); }
+            }
+            bool active = (hover || sidebarDragControl == control) && Find.WindowStack.GetsInput(this) && Application.isFocused;
+            sidebarCursor.Update(active);
+            var theme = HostThemeDrawing.Current;
+            if (active) ClientWidgets.RoundedSurface(new Rect(center - SidebarSplitLayout.Gap / 2, content.y, SidebarSplitLayout.Gap, content.height), theme.HoverHighlight.ToUnityColor(), 3);
+            float gripWidth = active ? 4 : 2, gripHeight = active ? 64 : 48;
+            var grip = new Rect(center - gripWidth / 2, content.y + Mathf.Max(0, (content.height - gripHeight) / 2), gripWidth, Mathf.Min(gripHeight, content.height));
+            ClientWidgets.RoundedSurface(grip, active ? ClientWidgets.Role(theme, "ui.accent", "ui.input.focus") : theme.Separator.ToUnityColor(), 1);
+            TooltipHandler.TipRegion(hit, L("resizeSidebar"));
+            return width;
+        }
+
+        private void DrawSelfIdentity(Rect rect)
+        {
+            if (rect.width <= 0 || rect.height <= 0) return;
+            var theme = HostThemeDrawing.Current;
+            ClientWidgets.RoundedSurface(rect, theme.Surface.ToUnityColor(), 8);
+            ClientWidgets.RoundedBorder(rect, theme.Separator.ToUnityColor(), 8);
+            ClientWidgets.Fill(new Rect(rect.x + 4, rect.y + 8, 2, Mathf.Max(0, rect.height - 16)), ClientWidgets.Role(theme, "ui.accent", "ui.input.focus"));
+            var facts = Instance.CaptureNicknameFacts();
+            var size = ClientWidgets.MeasureButton("Phinix_nickname_edit".Translate(), Mathf.Max(1, rect.width * .4f), minimumWidth: 56);
+            float buttonWidth = size.x;
+            var name = new Rect(rect.x + 12, rect.y, Mathf.Max(0, rect.width - buttonWidth - 24), rect.height);
+            using (new ClientGuiScope(true))
+            {
+                Text.Font = GameFont.Small; Text.WordWrap = false;
+                string prefix = "Phinix_nickname_self".Translate();
+                if (identityMarkup == null || identityRaw != facts.DisplayName || identityPrefix != prefix || identityThemeVersion != theme.Version)
+                {
+                    identityRaw = facts.DisplayName; identityPrefix = prefix; identityThemeVersion = theme.Version;
+                    identityMarkup = NicknameDisplayMarkup.Identity(prefix, facts.DisplayName, theme.PrimaryText, theme.GetColor("ui.accent"));
+                }
+                // White is a neutral GUI tint: explicit nested name colors must not be multiplied by the theme text color.
+                ClientWidgets.ClippedLabel(name, identityMarkup, Color.white, TextAnchor.MiddleLeft);
+                TooltipHandler.TipRegion(name, (facts.Online ? "Phinix_nickname_online" : "Phinix_nickname_offline").Translate() + "\n" + Utils.TextHelper.StripRichText(facts.DisplayName));
+            }
+            if (ClientWidgets.Button(new Rect(rect.xMax - buttonWidth - 4, rect.y + Mathf.Min(4, rect.height / 2), buttonWidth, Mathf.Max(0, rect.height - 8)),
+                "Phinix_nickname_edit".Translate(), HostThemeDrawing.Current, enabled: Instance.CanEditNickname, wrap: true)) Instance.OpenNicknameEditor();
+        }
+
         private void OpenUtilities()
         {
             Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption> {
+                new FloatMenuOption("Phinix_nickname_title".Translate(), () => { if (IsOpen) Instance.OpenNicknameEditor(); }),
                 new FloatMenuOption(L("connection"), () => { if (IsOpen) Find.WindowStack.Add(new SettingsWindow()); }),
                 new FloatMenuOption(L("fullSettings"), () => { if (IsOpen) Find.WindowStack.Add(new FullClientSettingsWindow()); }),
                 new FloatMenuOption(L("themes"), () => { if (IsOpen) Instance.OpenThemeEditor(); }),

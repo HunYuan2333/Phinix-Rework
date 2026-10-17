@@ -13,6 +13,8 @@ internal static class Program
     {
         try
         {
+            DailyScheduleServicePreservesOldRecords();
+            SearchProjectionRetainsEntryDraft();
             BatchExtractionRunsOneVerifiedStackAtATime();
             BatchProjectionKeepsAvailableRecordsAndOwnership();
             ReservationLifecycleIsAtomicAndIdempotent();
@@ -23,7 +25,7 @@ internal static class Program
             ComponentTypeResolverIsStrictlyScoped();
             ResolvedComponentPreservesSnapshot();
             InventoryJournalScenarios.Run();
-            Console.WriteLine("All 19 inventory batch, reservation, grouping, component snapshot and journal runtime scenarios passed.");
+            Console.WriteLine("All 21 inventory schedule, search, batch, reservation, grouping, component snapshot and journal runtime scenarios passed.");
             return 0;
         }
         catch (Exception exception)
@@ -31,6 +33,130 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void DailyScheduleServicePreservesOldRecords()
+    {
+        const BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        var service = new BuiltInInventoryClientExtension();
+        var type = typeof(BuiltInInventoryClientExtension);
+        Action<string, object> set = (name, value) => type.GetField(name, fields).SetValue(service, value);
+        var ledger = (InventoryLedger)type.GetField("ledger", fields).GetValue(service);
+        var snapshot = State(6334); ledger.Restore(snapshot);
+        string root = Path.Combine(Path.GetTempPath(), "phinix-plan-save-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        string savePath = Path.Combine(root, "old-save.rws"); File.WriteAllText(savePath, "isolated test identity");
+        Type patch = type.Assembly.GetType("Phinix.InventoryExtension.Client.InventorySaveIdentityPatch", true);
+        var pathProperty = patch.GetProperty("CurrentPath", BindingFlags.Static | BindingFlags.Public);
+        object previousPath = pathProperty.GetValue(null);
+        Game previousGame = Current.Game;
+        LoadedLanguage previousLanguage = LanguageDatabase.activeLanguage;
+        // Supply only translation fixtures; no native Unity logging or language-file loading in this probe.
+        var language = (LoadedLanguage)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(LoadedLanguage));
+        var languageFields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        typeof(LoadedLanguage).GetField("dataIsLoaded", languageFields).SetValue(language, true);
+        typeof(LoadedLanguage).GetField("folderName", languageFields).SetValue(language, "English");
+        var workerField = typeof(LoadedLanguage).GetField("workerInt", languageFields);
+        workerField.SetValue(language, new LanguageWorker_English());
+        var replacementsField = typeof(LoadedLanguage).GetField("keyedReplacements", languageFields);
+        var replacements = (System.Collections.IDictionary)Activator.CreateInstance(replacementsField.FieldType);
+        var replacementType = replacementsField.FieldType.GetGenericArguments()[1];
+        foreach (string key in new[] { "planMissingItem", "inlineQuantityInvalid", "planInvalid", "planCodecMissing", "planCodecVersion", "planItemUnreadable", "planSaveFailed" })
+        {
+            string fullKey = "Phinix_inventory_" + key;
+            object replacement = Activator.CreateInstance(replacementType);
+            replacementType.GetField("key").SetValue(replacement, fullKey);
+            replacementType.GetField("value").SetValue(replacement, fullKey);
+            replacements.Add(fullKey, replacement);
+        }
+        replacementsField.SetValue(language, replacements);
+        var game = (Game)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Game));
+        game.components = new List<GameComponent>();
+        var component = new InventoryGameComponent(game); game.components.Add(component);
+        Type journalType = type.Assembly.GetType("Phinix.InventoryExtension.Client.InventoryJournal", true);
+        string journalPath = Path.Combine(root, "inventory.journal");
+        var journal = (IDisposable)Activator.CreateInstance(journalType, new object[] { journalPath, snapshot });
+        var codec = new ScheduleCodec();
+        try
+        {
+            Current.Game = game; LanguageDatabase.activeLanguage = language; pathProperty.SetValue(null, savePath);
+            set("mainThreadId", System.Threading.Thread.CurrentThread.ManagedThreadId);
+            set("attachedSave", component); set("attachedIdentity", savePath); set("journal", journal);
+            True(!service.SetDailySchedule("entry", 20, 50, out string missing), "missing codec rejects plan");
+            True(!string.IsNullOrEmpty(missing), "missing codec has a specific explanation");
+            service.RegisterCodec(codec);
+            codec.Throw = true;
+            True(!service.SetDailySchedule("entry", 20, 50, out string unreadable), "unreadable old payload rejects plan");
+            True(unreadable != missing, "payload failure is distinct from missing plugin");
+            codec.Throw = false; codec.Limit = 0;
+            True(!service.SetDailySchedule("entry", 20, 50, out _), "invalid stack limit rejects plan");
+            codec.Limit = 75; codec.VersionValue = 2;
+            True(!service.SetDailySchedule("entry", 20, 50, out string version), "wrong codec version rejects plan");
+            True(version != missing && version != unreadable, "version rejection is specific");
+            codec.VersionValue = 1;
+            True(!service.SetDailySchedule("entry", 6335, 50, out string quantity), "over-balance rejected");
+            True(quantity != missing && quantity != unreadable, "quantity rejection is distinct");
+            True(!service.SetDailySchedule("entry", 20, 60000, out _), "invalid tick rejected");
+            Equal(0L, ledger.Sequence, "all rejection paths leave ledger and journal untouched");
+            True(service.SetDailySchedule("entry", 20, 50, out string reason), "old record with 6334 units accepts 20 at tick 50: " + reason);
+            Equal(6334L, ledger.Snapshot()[0].Quantity, "saving a plan cannot extract or consume items");
+            Equal(20L, service.GetSchedules()[0].QuantityPerRun, "daily quantity retained");
+            Equal(50, service.GetSchedules()[0].DayTick, "tick retained");
+            Equal(1L, ledger.Sequence, "one durable schedule write");
+            journal.Dispose();
+            using (var reloaded = (IDisposable)Activator.CreateInstance(journalType, new object[] { journalPath, snapshot }))
+            {
+                True((bool)journalType.GetProperty("HasPendingRecovery").GetValue(reloaded), "saved plan exists beyond the old snapshot");
+                var recovered = (InventoryState)journalType.GetProperty("PendingState").GetValue(reloaded);
+                Equal(20L, recovered.Schedules[0].QuantityPerRun, "journal retains real committed plan");
+            }
+        }
+        finally
+        {
+            journal.Dispose(); Current.Game = previousGame; LanguageDatabase.activeLanguage = previousLanguage; pathProperty.SetValue(null, previousPath);
+            Directory.Delete(root, true);
+        }
+    }
+
+    private sealed class ScheduleCodec : IInventoryCodec
+    {
+        public string CodecId => "test.codec";
+        public int VersionValue = 1, Limit = 75;
+        public bool Throw;
+        public int Version => VersionValue;
+        public bool CanStore(InventoryItem item) => true;
+        public string GetAggregationKey(InventoryItem item) => null;
+        public int MaximumStackCount(InventoryEntry entry) { if (Throw) throw new InvalidDataException("old payload unreadable"); return Limit; }
+        public Thing Materialize(InventoryEntry entry, int count) => throw new Exception("plan saving must not materialize items");
+        public InventoryDeliveryResult DeliverVerified(Thing thing, Map map, IntVec3 dropSpot) => throw new Exception("plan saving must not deliver items");
+    }
+
+    private static void SearchProjectionRetainsEntryDraft()
+    {
+        // Exercise actual projection methods without opening a native window or initializing game services.
+        Type type = typeof(InventoryLedger).Assembly.GetType("Phinix.InventoryExtension.Client.InventoryTab", true);
+        object tab = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+        Action<string,object> set = (name,value) => type.GetField(name,BindingFlags.Instance|BindingFlags.NonPublic).SetValue(tab,value);
+        Func<string,object> get = name => type.GetField(name,BindingFlags.Instance|BindingFlags.NonPublic).GetValue(tab);
+        Action<string> search = query => type.GetMethod("ChangeSearch",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(tab,new object[]{query});
+        var entries = new[] { DisplayEntry("a","alice","event"), DisplayEntry("b","alice","event") };
+        var presentations = new[] { DisplayPresentation("same",1), DisplayPresentation("same",1) };
+        set("entries",entries);set("groups",InventoryDisplayGrouping.Build(entries,presentations,new long[]{3,7}));
+        set("expandedGroups",new HashSet<string>(StringComparer.Ordinal));set("searchLabels",new[]{"first item","second item"});set("searchText","");
+        set("selectedEntryId","b");set("extractQuantityText","7");
+        search("second");
+        var rows = (System.Collections.IList)get("visibleRows");
+        Equal(1,rows.Count,"search reaches a record hidden inside a collapsed group");
+        Equal(1,(int)rows[0].GetType().GetField("EntryIndex").GetValue(rows[0]),"result identity is the matched entry, not group head");
+        Equal("b",(string)get("selectedEntryId"),"search preserves stable selected entry identity");
+        Equal("7",(string)get("extractQuantityText"),"search does not clear the single extraction quantity draft");
+        search("first");
+        True(!(bool)type.GetMethod("EntryVisible",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(tab,new object[]{"b"}),"a hidden draft is detectable for the UI warning");
+        Equal("b",(string)get("selectedEntryId"),"hiding a result cannot redirect its editor to a different entry");
+        search("");rows=(System.Collections.IList)get("visibleRows");
+        True((bool)rows[0].GetType().GetField("IsHeader").GetValue(rows[0]),"clearing query restores the original collapsed group");
+        Equal(0,((HashSet<string>)get("expandedGroups")).Count,"search never alters expansion preferences");
+        Equal(1L,entries[0].Quantity,"display search does not mutate quantity ownership");
     }
 
     private static void BatchProjectionKeepsAvailableRecordsAndOwnership()

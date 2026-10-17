@@ -127,6 +127,9 @@ namespace Phinix.InventoryExtension
     public sealed class InventoryItemPresentation
     {
         public string Label { get; set; }
+        // Optional codec-provided Def name for a base UI icon. Never infer it from Label or GroupKey.
+        // Display only; it does not authorize decoding, materialization or extraction.
+        public string IconDefName { get; set; }
         // Stable, non-localized identity within this codec (for example def, stuff, quality).
         // Null keeps this entry separate. Do not infer equivalence from a localized label.
         public string GroupKey { get; set; }

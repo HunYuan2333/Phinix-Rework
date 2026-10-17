@@ -25,7 +25,7 @@ namespace PhinixClient
         public static Client Instance;
         public static readonly Version Version = new Version(((System.Reflection.AssemblyFileVersionAttribute)
             Attribute.GetCustomAttribute(typeof(Client).Assembly, typeof(System.Reflection.AssemblyFileVersionAttribute))).Version);
-        public const string CompatibilityVersion = "0.10.4";
+        public const string CompatibilityVersion = "0.10.5";
         public const string PackageId = "Thomotron.Phinix";
 
         public void Log(LogEventArgs e) => ILoggableHandler(null, e);
@@ -143,6 +143,8 @@ namespace PhinixClient
         private readonly IClientGameWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
         internal IClientSettingsContext SettingsContext => settingsContext;
+        private ClientNicknameWindowService nicknameWindows;
+        internal bool CanEditNickname => nicknameWindows?.Active == true;
         private readonly List<IClientSettingsPanelProvider> sortedSettingsPanels = new List<IClientSettingsPanelProvider>();
         private PhinixFrameworkClient cachedSettingsPanelFramework;
         private int cachedSettingsExtensionCount = -1;
@@ -455,6 +457,7 @@ namespace PhinixClient
                     lifetimeService, uiTheme, () => UnityData.IsInMainThread, message => Verse.Log.Warning("[Phinix] " + message));
                 extensionHostContext.AddService<IClientPresentationService>(presentationService);
                 themeWindows.ConfigurePresentation(presentationService,extensionPoints,lifetimeService);
+                nicknameWindows = new ClientNicknameWindowService(themeWindows.HostPresentation, uiTheme, CaptureNicknameFacts, SaveNickname, name => userManager.UpdateSelf(name));
                 apiDirectory=new ClientApiDirectory((ExtensionApiRegistry)extensionHostContext.ApiRegistry,()=>frameworkClient?.ExtensionResults,candidateModuleTypes,()=>UnityData.IsInMainThread);
                 extensionHostContext.AddService<IClientApiDirectory>(apiDirectory);
                 uiTheme.SetModuleTypes(candidateModuleTypes);
@@ -533,7 +536,7 @@ namespace PhinixClient
             catch (Exception error) { Verse.Log.Error("[Phinix] ExtensionShutdownFailed: " + error); }
             finally
             {
-                try { try { (themeWindowService as IDisposable)?.Dispose(); } finally { localizationService?.Dispose(); } }
+                try { try { nicknameWindows?.Dispose(); nicknameWindows = null; } finally { try { (themeWindowService as IDisposable)?.Dispose(); } finally { localizationService?.Dispose(); } } }
                 finally
                 {
                     try { apiDirectory?.Dispose(); themePackages?.Dispose(); extensionControls?.Dispose(); managedExtensionRuntime?.Dispose(); }
@@ -807,6 +810,27 @@ namespace PhinixClient
         {
             connectionAttemptPending = false;
             netClient.Disconnect();
+        }
+
+        internal NicknameFacts CaptureNicknameFacts()
+        {
+            bool online = Authenticated && LoggedIn;
+            string observed = online && userManager.TryGetUser(Uuid, out var user) ? user.DisplayName : null;
+            return new NicknameFacts(Settings.DisplayName, observed, Uuid, online);
+        }
+
+        private void SaveNickname(string name)
+        {
+            if (!UnityData.IsInMainThread) throw new InvalidOperationException("Nickname save requires the game main thread.");
+            string previous = Settings.DisplayName;
+            try { Settings.DisplayName = name; Settings.AcceptChanges(); }
+            catch { Settings.DisplayName = previous; throw; }
+        }
+
+        internal void OpenNicknameEditor()
+        {
+            if (CanEditNickname) nicknameWindows.Open();
+            else Messages.Message("Phinix_nickname_unavailable".Translate(), MessageTypeDefOf.RejectInput, false);
         }
 
         /// <summary>

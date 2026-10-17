@@ -571,11 +571,17 @@ namespace PhinixClient
                             if (forceEnd && hasFeed || follows && feedFollowing) scroll.y = maxScroll;
                             if (scrollFeed != null)
                             {
-                                foreach (var block in blocks) if (block.Feed?.Id == scrollFeed)
-                                    for (int i = 0; i < block.Feed.Rows.Count; i++) if (block.Feed.Rows[i].Id == scrollRow)
-                                        scroll.y = block.Rect.y + block.RowOffsets[i] - viewport.height / 2f;
+                                foreach (var block in blocks)
+                                {
+                                    if (block.Feed?.Id == scrollFeed)
+                                        for (int i = 0; i < block.Feed.Rows.Count; i++) if (block.Feed.Rows[i].Id == scrollRow)
+                                            scroll.y = block.Rect.y + block.RowOffsets[i] - viewport.height / 2f;
+                                    if (block.List?.Id == scrollFeed)
+                                        for (int i = 0; i < block.List.Rows.Count; i++) if (block.List.Rows[i].Id == scrollRow)
+                                            scroll.y = block.Rect.y + block.RowOffsets[i];
+                                }
                                 bool foundFeed = false;
-                                foreach (var block in blocks) foundFeed |= block.Feed?.Id == scrollFeed;
+                                foreach (var block in blocks) foundFeed |= block.Feed?.Id == scrollFeed || block.List?.Id == scrollFeed;
                                 if (foundFeed) { scrollFeed = scrollRow = null; feedFollowing = false; }
                             }
                             if (hasFeed) forceEnd = false;
@@ -836,8 +842,13 @@ namespace PhinixClient
             public void ScrollToRow(string feedId, string rowId)
             {
                 Require(); if (page == null) return;
-                foreach (var section in page.Sections) if (section.Feed?.Id == feedId)
-                    foreach (var row in section.Feed.Rows) if (row.Id == rowId) { scrollFeed = feedId; scrollRow = rowId; forceEnd = false; feedFollowing = false; highlightedFeed = feedId; highlightedRow = rowId; highlightUntil = Time.realtimeSinceStartup + 1.2f; return; }
+                foreach (var section in page.Sections)
+                {
+                    if (section.List?.Id == feedId)
+                        foreach (var row in section.List.Rows) if (row.Id == rowId) { scrollFeed = feedId; scrollRow = rowId; forceEnd = false; feedFollowing = false; return; }
+                    if (section.Feed?.Id == feedId)
+                        foreach (var row in section.Feed.Rows) if (row.Id == rowId) { scrollFeed = feedId; scrollRow = rowId; forceEnd = false; feedFollowing = false; highlightedFeed = feedId; highlightedRow = rowId; highlightUntil = Time.realtimeSinceStartup + 1.2f; return; }
+                }
             }
             public void ScrollToEnd() { Require(); forceEnd = true; feedFollowing = true; scrollFeed = scrollRow = null; }
             private float BadgeWidth(ClientPresentationBadge badge, float width)

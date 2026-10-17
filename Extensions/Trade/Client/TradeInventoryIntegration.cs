@@ -50,6 +50,7 @@ namespace Phinix.TradeExtension.Client
             return new InventoryItemPresentation
             {
                 Label = label,
+                IconDefName = snapshot.DefName,
                 GroupKey = snapshot.DefName.Length + ":" + snapshot.DefName + snapshot.StuffDefName.Length + ":" +
                     snapshot.StuffDefName + ":" + (int)snapshot.Quality,
                 ItemsPerUnit = snapshot.StackCount

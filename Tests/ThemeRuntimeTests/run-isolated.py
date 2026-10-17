@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--references', type=Path, help='Joint build directory containing Utils.dll and Google.Protobuf.dll')
 args = parser.parse_args()
 source = Path(__file__).resolve().parent
 repo = source.parents[1]
@@ -19,13 +20,13 @@ if output.is_relative_to(workspace) or workspace.is_relative_to(output):
     parser.error('Use a directory outside the workspace.')
 if output.exists() and any(output.iterdir()):
     parser.error('Use a fresh directory to preserve prior results.')
-utils = repo/'Output/phinix-rework/Common/Assemblies/03-Utils.dll'
+utils = args.references/'Utils.dll' if args.references else repo/'Output/phinix-rework/Common/Assemblies/03-Utils.dll'
 if not utils.is_file():
     parser.error('The preserved Utils baseline is required.')
 output.mkdir(parents=True, exist_ok=True)
 reference_dir = output/'references'
 reference_dir.mkdir()
-protobuf = repo/'Output/phinix-rework/Common/Assemblies/02-Protobuf.dll'
+protobuf = args.references/'Google.Protobuf.dll' if args.references else repo/'Output/phinix-rework/Common/Assemblies/02-Protobuf.dll'
 shutil.copy2(utils, reference_dir/'Utils.dll')
 shutil.copy2(protobuf, reference_dir/'Protobuf.dll')
 project = ET.parse(source/'ThemeRuntimeTests.csproj')

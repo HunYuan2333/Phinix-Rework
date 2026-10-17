@@ -11,4 +11,5 @@
   <Phinix_shell_hideNotices>收起公告</Phinix_shell_hideNotices>
   <Phinix_theme_label_ui_action_primary>主要操作</Phinix_theme_label_ui_action_primary>
   <Phinix_theme_label_ui_navigation_selected>选中导航</Phinix_theme_label_ui_navigation_selected>
+  <Phinix_shell_resizeSidebar>左右拖动可调整侧栏宽度，分配比例会记住。</Phinix_shell_resizeSidebar>
 </LanguageData>

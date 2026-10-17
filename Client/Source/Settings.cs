@@ -82,6 +82,10 @@ namespace PhinixClient
 
         private float serverTabWidth;
         private float serverTabHeight;
+        private float serverSidebarRatio;
+        /// <summary>Right sidebar fraction of usable split width; zero keeps the provider default.</summary>
+        public float ServerSidebarRatio { get => serverSidebarRatio; set => serverSidebarRatio = value; }
+        private float originalServerSidebarRatio;
         /// <summary>主窗口（ServerTab）上次使用的尺寸，随窗口关闭持久化。</summary>
         public float ServerTabWidth
         {
@@ -124,6 +128,7 @@ namespace PhinixClient
                        !disabledExtensions.SetEquals(originalDisabledExtensions) ||
                        serverTabWidth != originalServerTabWidth ||
                        serverTabHeight != originalServerTabHeight ||
+                       serverSidebarRatio != originalServerSidebarRatio ||
                        collapseBlockedUsers != originalCollapseBlockedUsers;
             }
         }
@@ -243,6 +248,7 @@ namespace PhinixClient
             Scribe_Collections.Look(ref disabledExtensions, "disabledExtensions", LookMode.Value);
             Scribe_Values.Look(ref serverTabWidth, "serverTabWidth", 0f);
             Scribe_Values.Look(ref serverTabHeight, "serverTabHeight", 0f);
+            Scribe_Values.Look(ref serverSidebarRatio, "serverSidebarRatio", 0f);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
@@ -393,6 +399,7 @@ namespace PhinixClient
             originalCollapseBlockedUsers = collapseBlockedUsers;
             originalServerTabWidth = serverTabWidth;
             originalServerTabHeight = serverTabHeight;
+            originalServerSidebarRatio = serverSidebarRatio;
 
             originalBlockedUsers.Clear();
             originalBlockedUsers.AddRange(blockedUsers);

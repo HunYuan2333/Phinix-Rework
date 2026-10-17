@@ -15,6 +15,7 @@ namespace PhinixClient
         private readonly IClientThemeCatalog catalog;
         private ThemeSettingsWindow window;
         private ThemePresentationServices presentation;
+        internal ThemePresentationServices HostPresentation => presentation;
         private readonly IClientThemePackageExporter exporter;
         private readonly IClientSettingsContext settings;
         internal ClientThemeWindowService(IClientTheme theme, IClientThemeCatalog catalog,IClientThemePackageExporter exporter,IClientSettingsContext settings) { this.theme = theme; this.catalog = catalog;this.exporter=exporter;this.settings=settings; }

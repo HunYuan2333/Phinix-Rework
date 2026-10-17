@@ -71,7 +71,10 @@ namespace Phinix.TradeExtension.Client
         public void ViewUpdate()
         {
             if(view==null||view.IsClosed)return;
-            while(view.TryDequeueInput(out var input))
+            // Read the rendered revision completely before edits invalidate its context.
+            var pendingInputs = new List<ClientPresentationInput>();
+            while (view.TryDequeueInput(out var queued)) pendingInputs.Add(queued);
+            foreach (var input in pendingInputs)
             {
                 if(input.Revision!=revision)continue;
                 if(input.Id=="search"){search=input.Value;browsePage=0;}

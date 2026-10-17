@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_nickname_edit>改名</Phinix_nickname_edit>
+  <Phinix_nickname_title>修改名字</Phinix_nickname_title>
+  <Phinix_nickname_self>我：</Phinix_nickname_self>
+  <Phinix_nickname_online>当前在线昵称</Phinix_nickname_online>
+  <Phinix_nickname_offline>离线，显示已保存的昵称</Phinix_nickname_offline>
+  <Phinix_nickname_name>昵称原文</Phinix_nickname_name>
+  <Phinix_nickname_preview>显示预览</Phinix_nickname_preview>
+  <Phinix_nickname_save>保存</Phinix_nickname_save>
+  <Phinix_nickname_cancel>取消</Phinix_nickname_cancel>
+  <Phinix_nickname_close>关闭</Phinix_nickname_close>
+  <Phinix_nickname_help>在这里修改昵称。已有颜色标签会原样保留，下方可查看显示效果；只有点击保存才会提交。</Phinix_nickname_help>
+  <Phinix_nickname_editing>输入后点击保存；取消或关闭不会修改名字。</Phinix_nickname_editing>
+  <Phinix_nickname_invalid>请输入非空的单行昵称。</Phinix_nickname_invalid>
+  <Phinix_nickname_changed>当前名字或连接状态已变化。输入仍然保留，请核对后再次点击保存。</Phinix_nickname_changed>
+  <Phinix_nickname_savedOffline>昵称已保存，下次登录时使用。当前处于离线状态。</Phinix_nickname_savedOffline>
+  <Phinix_nickname_submitted>昵称已保存，在线修改已提交。正在等待在线名字更新。</Phinix_nickname_submitted>
+  <Phinix_nickname_observed>当前在线昵称与保存内容一致。</Phinix_nickname_observed>
+  <Phinix_nickname_savedNotSent>昵称已保存，但在线修改未提交；下次登录时使用。</Phinix_nickname_savedNotSent>
+  <Phinix_nickname_sendUnknown>昵称已保存，但发送结果尚不明确。请核对在线名字，不要重复提交。</Phinix_nickname_sendUnknown>
+  <Phinix_nickname_disconnected>昵称已保存；连接已变化，尚不能确认此前的在线更新结果。</Phinix_nickname_disconnected>
+  <Phinix_nickname_saveFailed>昵称未能保存。输入已保留，可以再次尝试。</Phinix_nickname_saveFailed>
+  <Phinix_nickname_alreadySubmitted>本次修改已保存。请核对结果；修改输入后可再次保存。</Phinix_nickname_alreadySubmitted>
+  <Phinix_nickname_unavailable>名字编辑暂不可用，请稍后再试。</Phinix_nickname_unavailable>
+  <Phinix_nickname_tooLong>当前名字超过快捷编辑容量，未作修改。请从全部设置编辑原文。</Phinix_nickname_tooLong>
+  <Phinix_nickname_savedDifferent>昵称已保存在本地，当前在线昵称与保存内容不同；可重新打开编辑核对。</Phinix_nickname_savedDifferent>
+</LanguageData>

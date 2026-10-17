@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_nickname_edit>Rename</Phinix_nickname_edit>
+  <Phinix_nickname_title>Change name</Phinix_nickname_title>
+  <Phinix_nickname_self>Me:</Phinix_nickname_self>
+  <Phinix_nickname_online>Current online name</Phinix_nickname_online>
+  <Phinix_nickname_offline>Offline: showing your saved name</Phinix_nickname_offline>
+  <Phinix_nickname_name>Name text</Phinix_nickname_name>
+  <Phinix_nickname_preview>Preview</Phinix_nickname_preview>
+  <Phinix_nickname_save>Save</Phinix_nickname_save>
+  <Phinix_nickname_cancel>Cancel</Phinix_nickname_cancel>
+  <Phinix_nickname_close>Close</Phinix_nickname_close>
+  <Phinix_nickname_help>Edit your name here. Existing color tags are preserved; see the result below. Changes are submitted only when you click Save.</Phinix_nickname_help>
+  <Phinix_nickname_editing>Click Save when ready. Cancel or close leaves your name unchanged.</Phinix_nickname_editing>
+  <Phinix_nickname_invalid>Enter a non-empty, single-line name.</Phinix_nickname_invalid>
+  <Phinix_nickname_changed>Your name or connection changed. Your draft is preserved. Review it, then click Save again.</Phinix_nickname_changed>
+  <Phinix_nickname_savedOffline>Name saved for your next login. You are currently offline.</Phinix_nickname_savedOffline>
+  <Phinix_nickname_submitted>Name saved and the online update submitted. Waiting for the online name to change.</Phinix_nickname_submitted>
+  <Phinix_nickname_observed>Your current online name matches the saved name.</Phinix_nickname_observed>
+  <Phinix_nickname_savedNotSent>Name saved, but the online update was not submitted. It will be used at your next login.</Phinix_nickname_savedNotSent>
+  <Phinix_nickname_sendUnknown>Name saved, but the send result is uncertain. Check your online name before submitting again.</Phinix_nickname_sendUnknown>
+  <Phinix_nickname_disconnected>Name saved. The connection changed, so the previous online update result is not confirmed.</Phinix_nickname_disconnected>
+  <Phinix_nickname_saveFailed>Could not save your name. Your draft is preserved; you can try again.</Phinix_nickname_saveFailed>
+  <Phinix_nickname_alreadySubmitted>This change is already saved. Check the result; edit the text to save another change.</Phinix_nickname_alreadySubmitted>
+  <Phinix_nickname_unavailable>Name editing is not available yet. Please try again shortly.</Phinix_nickname_unavailable>
+  <Phinix_nickname_tooLong>This name exceeds the quick editor capacity and was not changed. Edit the original text in All settings.</Phinix_nickname_tooLong>
+  <Phinix_nickname_savedDifferent>Name saved locally. Your current online name differs; you can review it in a new edit.</Phinix_nickname_savedDifferent>
+</LanguageData>

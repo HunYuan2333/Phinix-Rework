@@ -41,6 +41,7 @@ namespace PhinixClient.Framework
         // Neutral compact menu over the same published bindings and revision guards.
         // Keep this session alive while the menu/confirmation is open. No new action registry.
         IReadOnlyList<ClientPresentationMenuItem> CreateActionMenuItems();
+        // Scroll a feed or an ordinary list to its stable row identity.
         void ScrollToRow(string feedId, string rowId);
         void ScrollToEnd();
     }

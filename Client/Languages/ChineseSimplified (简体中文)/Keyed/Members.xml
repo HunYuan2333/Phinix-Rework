@@ -13,4 +13,8 @@
 <Phinix_chat_actions_retryImage>重试加载图片</Phinix_chat_actions_retryImage>
 <Phinix_chat_actions_imageFailure>图片加载失败，点击查看重试操作。</Phinix_chat_actions_imageFailure>
 <Phinix_chat_actions_imageUnavailable>图片无法解码，点击查看原图操作。</Phinix_chat_actions_imageUnavailable>
+  <Phinix_members_showBlocked>显示已屏蔽</Phinix_members_showBlocked>
+  <Phinix_members_hideBlocked>收起已屏蔽</Phinix_members_hideBlocked>
+  <Phinix_members_memberActions>更多操作</Phinix_members_memberActions>
+  <Phinix_members_startTrade>发起交易</Phinix_members_startTrade>
 </LanguageData>

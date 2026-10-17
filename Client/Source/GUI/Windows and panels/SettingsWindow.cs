@@ -279,22 +279,8 @@ namespace PhinixClient
             ResponsiveFormResult form = ResponsiveFormLayout.Calculate(rect, Mathf.Min(160f, rect.width * 0.35f),
                 140f, buttonWidth, nameRowHeight, Spacing, 0f);
             Widgets.Label(form.LabelRect, displayNameLabel);
-            string value = ClientWidgets.TextField(form.InputRect, Client.Instance.Settings.DisplayName, HostThemeDrawing.Current, controlName: "phinix.connection.name");
-            if (value != Client.Instance.Settings.DisplayName)
-            {
-                Client.Instance.Settings.DisplayName = value;
-                Client.Instance.Settings.AcceptChanges();
-            }
-            if (ClientWidgets.Button(form.ActionRect, setNameLabel, HostThemeDrawing.Current, wrap: true)) Client.Instance.UpdateDisplayName(value);
-            if (!string.Equals(cachedPreviewName, value, StringComparison.Ordinal))
-            {
-                cachedPreviewName = value;
-                previewText = "Phinix_settings_displayNamePreview".Translate(value).Resolve();
-            }
-            Rect previewRect = new Rect(rect.x, rect.y + form.Height + Spacing, rect.width,
-                Mathf.Max(0f, rect.height - form.Height - Spacing));
-            Widgets.Label(previewRect, previewText);
-            TooltipHandler.TipRegion(previewRect, previewText);
+            ClientWidgets.LabelEllipses(form.InputRect, Client.Instance.CaptureNicknameFacts().DisplayName, HostThemeDrawing.Current);
+            if (ClientWidgets.Button(form.ActionRect, "Phinix_nickname_edit".Translate(), HostThemeDrawing.Current, enabled: Client.Instance.CanEditNickname, wrap: true)) Client.Instance.OpenNicknameEditor();
         }
 
         private void RebuildLayoutIfNeeded(float width)
@@ -336,7 +322,7 @@ namespace PhinixClient
             ResponsiveFormResult name = ResponsiveFormLayout.Calculate(new Rect(0f, 0f, width, 500f),
                 Mathf.Min(160f, width * 0.35f), 140f,
                 Mathf.Min(width, Mathf.Max(100f, Text.CalcSize(setNameLabel).x + 24f)), nameRowHeight, Spacing, 0f);
-            displayNameHeight = name.Height + Spacing + Mathf.Max(RowHeight, Text.CalcHeight(previewText, width));
+            displayNameHeight = name.Height;
         }
 
         private void ClampToScreen()

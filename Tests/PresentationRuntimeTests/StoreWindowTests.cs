@@ -47,11 +47,12 @@ internal static partial class Program
             var window=new LocalPackageFileWindow(new Module(),renderer,points,points,()=>true,path=>selected=path);
             window.PreOpen();
             Check(points.Context.Surface==PluginStorePresentationSurface.LocalFile && !points.Context.InventoryKnown,"Local file context identifies its surface without inventing plugin inventory authority");
-            Event.current.type=EventType.Repaint;Widgets.FieldValue=folder;window.DoWindowContents(new Rect(0,0,680,440));window.WindowUpdate();
+            Event.current.type=EventType.Repaint;Widgets.FieldValue="/tmp";window.DoWindowContents(new Rect(0,0,680,440));
+            Widgets.FieldValue=folder;window.DoWindowContents(new Rect(0,0,680,440));window.WindowUpdate();
             var browse=points.Last.Actions.Single(a=>a.Id=="browse");Check(browse.TryExecute().Completed,"Explicit browse executes through collected public actions");
             var staleSelect=points.Last.Actions.Single(a=>a.Id=="select");Check(!staleSelect.TryExecute().Completed && selected==null,"Directory change invalidates previous action set before republish");
             window.WindowUpdate();Widgets.Labels.Clear();window.DoWindowContents(new Rect(0,0,680,440));
-            Check(Widgets.Labels.Any(l=>l.Text=="example.zip") && !Widgets.Labels.Any(l=>l.Text=="ignore.txt"),"Owner directory projection lists ZIP files and omits unrelated files");
+            Check(Widgets.Labels.Any(l=>l.Text=="example.zip") && !Widgets.Labels.Any(l=>l.Text=="ignore.txt"),"Real Host and store owner retain the last of two queued path edits and list only ZIP files");
             Widgets.FieldValue=zip;window.DoWindowContents(new Rect(0,0,680,440));window.WindowUpdate();
             Event.current.type=EventType.MouseDown;Widgets.ClickLabel="Phinix_store2_localSelect";
             window.DoWindowContents(new Rect(0,0,680,440));

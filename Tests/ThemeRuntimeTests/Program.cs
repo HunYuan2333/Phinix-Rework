@@ -36,6 +36,14 @@ internal static class Program
             registration.Dispose();Check(!service.Colors.ExistsKey("chat.sample"),"Scoped definitions revoked.");
             var owner=Register(service,"a");owner.RegisterColor("a.color",new ClientRgba(1,0,0));owner.Commit();using(var collision=Register(service,"b"))Reject(()=>collision.RegisterColor("a.color",new ClientRgba(0,1,0)),"Duplicate owner cannot replace default.");owner.Dispose();owner.Dispose();
             var eventService=new UiTheme(Path.Combine(root,"new-settings.xml"),user,()=>new ThemeSource[0],_=>{});int callbacks=0;eventService.Changed+=()=>throw new Exception("observer");eventService.Changed+=()=>callbacks++;eventService.Apply(eventService.Edit("builtin.default"));Check(callbacks==1,"Observer exception isolated.");
+            var controlDraft = eventService.Edit("builtin.default");
+            controlDraft.Colors["ui.button.background"] = new ClientRgba(.12f,.23f,.34f);
+            controlDraft.Colors["ui.accent"] = new ClientRgba(.95f,.9f,.8f);
+            eventService.Apply(controlDraft);
+            Equal(eventService.GetColor("ui.button.pressed").Red,.12f,"Missing pressed color follows custom button background, not bright accent.");
+            controlDraft.Colors["ui.button.pressed"] = new ClientRgba(.83f,.71f,.62f);
+            eventService.Apply(controlDraft);
+            Equal(eventService.GetColor("ui.button.pressed").Red,.83f,"Explicit custom pressed color remains authoritative.");
             long priorRegistrationVersion = eventService.Version;
             using (var neutral = Register(eventService, "neutral"))
             {

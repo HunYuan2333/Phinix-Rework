@@ -99,6 +99,7 @@
     <Compile Include="ChatSettingsInputAdapter.cs" />
     <Compile Include="ChatSettingsPanelProvider.cs" />
     <Compile Include="ChatSidebarProvider.cs" />
+    <Compile Include="MemberSidebarPresentation.cs" />
     <Compile Include="ChatTheme.cs" />
     <Compile Include="ChatUiHostContext.cs" />
     <Compile Include="FrameworkClientChatServiceAdapter.cs" />

@@ -47,7 +47,10 @@ namespace Phinix.PluginStore
             base.WindowUpdate();windowRect=UiScreenSafeArea.ClampWindow(windowRect,new Vector2(320,320));
             if(!Available) {Close();return;}
             if(presentation==null || presentation.IsClosed) return;
-            while(presentation.TryDequeueInput(out var input)) {HandleInput(input);Invalidate();}
+            // Read the rendered revision completely before edits invalidate its context.
+            var pendingInputs = new List<ClientPresentationInput>();
+            while (presentation.TryDequeueInput(out var queued)) pendingInputs.Add(queued);
+            foreach (var input in pendingInputs) {HandleInput(input);Invalidate();}
             if(dirty || pointRevision!=points.Revision || !ReferenceEquals(language,LanguageDatabase.activeLanguage) || !ReferenceEquals(result,presentation.LastActionResult)) RebuildPresentation();
         }
         public override void PostClose()

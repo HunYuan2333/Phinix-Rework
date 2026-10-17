@@ -57,3 +57,31 @@ namespace UnityEngine { public class Texture {} public sealed class Texture2D : 
 
 // Type marker lets source-linked reflective adapters discover this fixture's contract assembly.
 namespace PhinixClient.Framework { public interface IClientSessionContext {} }
+
+// Current native-window and drawing seams. Theme tests never execute an engine backend.
+namespace UnityEngine { public sealed class GUIStyle {} }
+namespace Verse
+{
+    public interface IWindowDrawing
+    {
+        UnityEngine.GUIStyle EmptyStyle { get; }
+        void DoWindowBackground(UnityEngine.Rect r); bool DoCloseButton(UnityEngine.Rect r,string text);
+        bool DoClostButtonSmall(UnityEngine.Rect r); void BeginGroup(UnityEngine.Rect r); void EndGroup(); void DoGrayOut(UnityEngine.Rect r);
+    }
+    public sealed class DefaultWindowDrawing : IWindowDrawing
+    {
+        public UnityEngine.GUIStyle EmptyStyle=>new UnityEngine.GUIStyle();
+        public void DoWindowBackground(UnityEngine.Rect r){} public bool DoCloseButton(UnityEngine.Rect r,string text)=>false;
+        public bool DoClostButtonSmall(UnityEngine.Rect r)=>false; public void BeginGroup(UnityEngine.Rect r){} public void EndGroup(){} public void DoGrayOut(UnityEngine.Rect r){}
+    }
+}
+namespace PhinixClient.Framework
+{
+    internal static class ClientGameDrawing
+    {
+        internal static void RoundedSurface(UnityEngine.Rect r,UnityEngine.Color c,float radius){}
+        internal static void RoundedBorder(UnityEngine.Rect r,UnityEngine.Color c,float radius,float thickness){}
+        internal static void Scrollbars(UnityEngine.Rect r,UnityEngine.Vector2 s,UnityEngine.Rect content,UnityEngine.Color track,UnityEngine.Color thumb,UnityEngine.Color hover){}
+    }
+}
+namespace UnityEngine { public enum EventType { Repaint } public sealed class Event { public static Event current; public EventType type; } }

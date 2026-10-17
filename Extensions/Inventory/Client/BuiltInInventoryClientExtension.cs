@@ -94,7 +94,7 @@ namespace Phinix.InventoryExtension.Client
         {
             host = hostContext;
             theme.Start(this);
-            tab.Start(this, hostContext.GetRequiredService<IClientPresentationService>(), hostContext.GetRequiredService<IClientExtensionPointService>());
+            tab.Start(this, hostContext.GetRequiredService<IClientPresentationService>(), hostContext.GetRequiredService<IClientExtensionPointService>(), windowService);
             settingsPanel.Start(this, hostContext.GetRequiredService<IClientPresentationService>(), hostContext.GetRequiredService<IClientExtensionPointService>(), settings);
             active = this;
             int generation = Interlocked.Increment(ref activationGeneration);
@@ -562,6 +562,15 @@ namespace Phinix.InventoryExtension.Client
 
         public bool TryExtract(string entryId, long quantity, out string reason)
         {
+            bool success = TryExtractForPresentation(entryId, quantity, out long delivered, out reason);
+            if (!success && delivered > 0) reason = "Phinix_inventory_extractPartial".Translate(delivered, quantity, reason).ToString();
+            return success;
+        }
+
+        // Same transaction path; report only fully verified stacks, never infer delivery from a balance delta.
+        internal bool TryExtractForPresentation(string entryId, long quantity, out long delivered, out string reason)
+        {
+            delivered = 0;
             if (!Ready(out reason)) return false;
             InventoryEntry entry = ledger.AvailableSnapshot().FirstOrDefault(candidate => candidate.EntryId == entryId);
             if (entry == null || quantity < 1)
@@ -582,15 +591,12 @@ namespace Phinix.InventoryExtension.Client
             if (!TryGetMaximumStackCount(codec, entry, out int maximumStack, out reason) || maximumStack < 1)
                 return false;
 
-            long delivered = 0;
             while (delivered < quantity)
             {
                 long stackQuantity = Math.Min(quantity - delivered, maximumStack);
                 if (!TryExtractSingleStack(entryId, stackQuantity, null, -1, out string stackReason))
                 {
-                    reason = delivered == 0
-                        ? stackReason
-                        : "Phinix_inventory_extractPartial".Translate(delivered, quantity, stackReason).ToString();
+                    reason = stackReason;
                     return false;
                 }
                 delivered += stackQuantity;
@@ -710,21 +716,38 @@ namespace Phinix.InventoryExtension.Client
 
         public IReadOnlyList<InventorySchedule> GetSchedules() => ledger.ScheduleSnapshot();
 
-        public bool SetDailySchedule(string entryId, long quantityPerRun, int dayTick, out string reason)
+        // Shared preflight: the editor and the write path must report the same rejection.
+        internal bool CanSetDailySchedule(string entryId, long quantityPerRun, int dayTick, out string reason)
         {
             if (!Ready(out reason)) return false;
             InventoryEntry entry = ledger.AvailableSnapshot().FirstOrDefault(candidate => candidate.EntryId == entryId);
-            if (entry == null || !codecs.TryGetValue(entry.CodecId, out IInventoryCodec codec) ||
-                quantityPerRun < 1 || quantityPerRun > entry.Quantity ||
-                !TryGetMaximumStackCount(codec, entry, out int maximumStack, out reason) || maximumStack < 1)
+            if (entry == null)
+                reason = "Phinix_inventory_planMissingItem".Translate().ToString();
+            else if (quantityPerRun < 1 || quantityPerRun > entry.Quantity)
+                reason = "Phinix_inventory_inlineQuantityInvalid".Translate(entry.Quantity).ToString();
+            else if (dayTick < 0 || dayTick >= 60000)
+                reason = "Phinix_inventory_planInvalid".Translate().ToString();
+            else
             {
-                reason = "Daily quantity must fit the available balance.";
-                return false;
+                IInventoryCodec codec;
+                lock (registrationLock) codecs.TryGetValue(entry.CodecId, out codec);
+                if (codec == null)
+                    reason = "Phinix_inventory_planCodecMissing".Translate().ToString();
+                else if (codec.Version != entry.CodecVersion)
+                    reason = "Phinix_inventory_planCodecVersion".Translate().ToString();
+                else if (!TryGetMaximumStackCount(codec, entry, out _, out _))
+                    reason = "Phinix_inventory_planItemUnreadable".Translate().ToString();
             }
+            return reason == null;
+        }
+
+        public bool SetDailySchedule(string entryId, long quantityPerRun, int dayTick, out string reason)
+        {
+            if (!CanSetDailySchedule(entryId, quantityPerRun, dayTick, out reason)) return false;
             InventoryState proposed = ledger.PrepareSchedule(entryId, quantityPerRun, dayTick, false);
             if (proposed == null || !journal.TryAppend(proposed))
             {
-                reason = "Daily schedule could not be saved.";
+                reason = "Phinix_inventory_planSaveFailed".Translate().ToString();
                 return false;
             }
             ledger.Publish(proposed);

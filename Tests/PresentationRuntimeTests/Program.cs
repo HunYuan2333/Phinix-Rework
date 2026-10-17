@@ -43,6 +43,7 @@ internal static partial class Program
     {return new ClientPresentationPage("page","title",revision,new[]{new ClientPresentationSection("section","","",binding==null?null:new[]{binding},fields:new[]{new ClientPresentationTextField("filter","Filter","")},region:region)});}
     public static void Main()
     {
+        CheckInventoryInline(); CheckInventoryPlans();
         CheckWindowThemeDrawing();
         CheckLocalFileAdapter();
         CheckListThemeRoles();
@@ -50,7 +51,7 @@ internal static partial class Program
         CheckTradeListProjection();
         CheckRowControlsAndSharedFooter();
         CheckInlineTradeOfferDrafts();
-        CheckCompactPresentationLayout();
+        CheckButtonStateContrast(); CheckCompactPresentationLayout(); CheckNicknameDraft(); CheckMemberSidebarDensity();
         CheckReadOnlyList();
         CheckImageLeases();
         CheckImageSlots();

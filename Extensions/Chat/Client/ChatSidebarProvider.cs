@@ -44,15 +44,15 @@ namespace Phinix.ChatExtension.Client
             point = scope.DefineActions<ChatMemberActionContext>(ChatMemberActionContext.PointId);
             scope.ContributeActions<ChatMemberActionContext>(ChatMemberActionContext.PointId, context =>
             {
-                if (context.Uuid == null) return new[] { new ClientActionDefinition("collapse-blocked", L("toggleBlocked"), () => settings.CollapseBlockedUsers = !settings.CollapseBlockedUsers) };
-                if (context.Uuid == host.Uuid) return new[] { new ClientActionDefinition("collapse-blocked", L("toggleBlocked"), () => settings.CollapseBlockedUsers = !settings.CollapseBlockedUsers) };
+                if (context.Uuid == null) return new[] { new ClientActionDefinition("collapse-blocked", L(settings.CollapseBlockedUsers ? "showBlocked" : "hideBlocked"), () => settings.CollapseBlockedUsers = !settings.CollapseBlockedUsers) };
+                if (context.Uuid == host.Uuid) return new[] { new ClientActionDefinition("collapse-blocked", L(settings.CollapseBlockedUsers ? "showBlocked" : "hideBlocked"), () => settings.CollapseBlockedUsers = !settings.CollapseBlockedUsers) };
                 var tradeProvider = trade;
                 bool canTrade = context.Online && tradeProvider != null && tradeProvider.TryGet(out var available);
                 return new[] {
-                    new ClientActionDefinition("collapse-blocked", L("toggleBlocked"), () => settings.CollapseBlockedUsers = !settings.CollapseBlockedUsers),
+                    new ClientActionDefinition("collapse-blocked", L(settings.CollapseBlockedUsers ? "showBlocked" : "hideBlocked"), () => settings.CollapseBlockedUsers = !settings.CollapseBlockedUsers),
                     new ClientActionDefinition("block", (context.Blocked ? "Phinix_chat_contextMenu_unblockUser" : "Phinix_chat_contextMenu_blockUser").Translate(),
                         () => { if (context.Blocked) host.UnBlockUser(context.Uuid); else host.BlockUser(context.Uuid); }),
-                    new ClientActionDefinition("trade", "Phinix_chat_contextMenu_tradeWith".Translate(TextHelper.StripRichText(context.DisplayName)),
+                    new ClientActionDefinition("trade", L("startTrade"),
                         () => { if (tradeProvider != null && tradeProvider.TryGet(out var api)) api.CreateTrade(context.Uuid); }, canTrade ? null : !context.Online ? "Phinix_chat_notConnected".Translate().ToString() : L("tradeUnavailable"))
                 };
             });
@@ -113,15 +113,17 @@ namespace Phinix.ChatExtension.Client
             try
             {
                 var bindings = new List<ClientPresentationAction>();
-                foreach (var action in actions.Actions) bindings.Add(new ClientPresentationAction(action.OwnerId + "." + action.Id, action));
-                var sections = new List<ClientPresentationSection>();
+                foreach (var action in actions.Actions)
+                {
+                    bool own = action.OwnerId == module.ExtensionId;
+                    bindings.Add(new ClientPresentationAction(action.OwnerId + "." + action.Id, action,
+                        own && action.Id == "trade" ? ClientButtonKind.Primary : ClientButtonKind.Normal)
+                        .WithSelection(own && action.Id == "collapse-blocked" && !settings.CollapseBlockedUsers));
+                }
                 string status = connected ? "Phinix_chat_onlineCount".Translate(users.OnlineCount).ToString() : "Phinix_chat_notConnected".Translate().ToString();
-                // Selected actions precede the full list so they remain easy to find in narrow sidebars.
-                sections.Add(new ClientPresentationSection("member-controls", "", target == null ? L("chooseMember") : TextHelper.StripRichText(target.Value.DisplayName), bindings,
-                    new ClientPresentationStatus(status), fields: new[] { new ClientPresentationTextField("member-filter", L("search"), filter, L("search")) }));
-                sections.Add(new ClientPresentationSection("member-rows", "", "", list: new ClientPresentationList("members-list", rows,
-                    !connected ? "Phinix_chat_notConnected".Translate().ToString() : filter.Length > 0 ? L("noMatches") : L("empty"), selected)));
-                view.Publish(new ClientPresentationPage("members", TabLabel, ++revision, sections), actions, current);
+                view.Publish(MemberSidebarPresentation.Build(++revision, module.ExtensionId, status, L("search"), filter,
+                    target == null ? null : TextHelper.StripRichText(target.Value.DisplayName), L("memberActions"), bindings, rows,
+                    !connected ? "Phinix_chat_notConnected".Translate().ToString() : filter.Length > 0 ? L("noMatches") : L("empty"), selected), actions, current);
             }
             catch { actions.Dispose(); throw; }
             memberVersion = version; pointVersion = contributions; online = connected; language = expectedLanguage;

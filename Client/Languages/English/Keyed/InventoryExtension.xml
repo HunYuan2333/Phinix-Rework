@@ -85,4 +85,38 @@
   <Phinix_inventory_batchRunning>Delivering one stack per frame. You may close the view or stop remaining work.</Phinix_inventory_batchRunning>
   <Phinix_inventory_batchCompleted>Batch completed.</Phinix_inventory_batchCompleted>
   <Phinix_inventory_batchStop>Stop remaining extraction</Phinix_inventory_batchStop>
+  <Phinix_inventory_searchPlaceholder>Search items or sources</Phinix_inventory_searchPlaceholder>
+  <Phinix_inventory_searchNoMatches>No matching items.</Phinix_inventory_searchNoMatches>
+  <Phinix_inventory_searchSelectionHidden>The item being edited is outside these search results.</Phinix_inventory_searchSelectionHidden>
+  <Phinix_inventory_searchGroupCleared>Search changed. The group selection was cleared; select a group again for batch extraction.</Phinix_inventory_searchGroupCleared>
+  <Phinix_inventory_page>Page {0} / {1}</Phinix_inventory_page>
+  <Phinix_inventory_previousPage>Previous</Phinix_inventory_previousPage>
+  <Phinix_inventory_nextPage>Next</Phinix_inventory_nextPage>
+  <Phinix_inventory_inlineQuantity>Quantity</Phinix_inventory_inlineQuantity>
+  <Phinix_inventory_inlineWholeUnits>Whole units ({0} items each)</Phinix_inventory_inlineWholeUnits>
+  <Phinix_inventory_inlineSelected>Details open</Phinix_inventory_inlineSelected>
+  <Phinix_inventory_inlineReview>Delivery needed reconciliation. Check the delivered amount, then edit the remaining quantity before extracting again.</Phinix_inventory_inlineReview>
+  <Phinix_inventory_inlineQuantityInvalid>Enter a quantity from 1 to {0}.</Phinix_inventory_inlineQuantityInvalid>
+  <Phinix_inventory_inlinePartial>Confirmed delivered: {0} of {1} items. Only the undelivered quantity remains in the field. {2}</Phinix_inventory_inlinePartial>
+  <Phinix_inventory_inlineFailed>Extraction stopped</Phinix_inventory_inlineFailed>
+  <Phinix_inventory_inlineSucceeded>Extracted</Phinix_inventory_inlineSucceeded>
+  <Phinix_inventory_inlineUnitChanged>The extraction unit changed. Review the unit size, then edit the quantity before extracting.</Phinix_inventory_inlineUnitChanged>
+  <Phinix_inventory_inlineUncertainPartial>Confirmed delivered: {0} of {1} items. The rest needs reconciliation; no automatic retry. {2}</Phinix_inventory_inlineUncertainPartial>
+  <Phinix_inventory_inlineUnavailable>No quantity is currently available to extract.</Phinix_inventory_inlineUnavailable>
+  <Phinix_inventory_managePlans>Daily plans ({0})</Phinix_inventory_managePlans>
+  <Phinix_inventory_plansTitle>Daily extraction plans</Phinix_inventory_plansTitle>
+  <Phinix_inventory_plansCount>{0} plans</Phinix_inventory_plansCount>
+  <Phinix_inventory_plansEmpty>No daily plans yet. Click an inventory item name to create one.</Phinix_inventory_plansEmpty>
+  <Phinix_inventory_plansEdit>Edit</Phinix_inventory_plansEdit>
+  <Phinix_inventory_plansBack>All plans</Phinix_inventory_plansBack>
+  <Phinix_inventory_plansDetails>Source details</Phinix_inventory_plansDetails>
+  <Phinix_inventory_plansHideDetails>Hide details</Phinix_inventory_plansHideDetails>
+  <Phinix_inventory_plansRemoveConfirm>Remove this daily plan? Items already extracted will not be changed.</Phinix_inventory_plansRemoveConfirm>
+  <Phinix_inventory_plansBlocked>Inventory reconciliation or batch extraction is in progress. Plans are temporarily read only.</Phinix_inventory_plansBlocked>
+  <Phinix_inventory_planMissingItem>The inventory record is no longer available.</Phinix_inventory_planMissingItem>
+  <Phinix_inventory_planRemaining>{0} items still due in this run</Phinix_inventory_planRemaining>
+  <Phinix_inventory_planCodecMissing>The plugin for this item is not active. Enable its source plugin and restart the game.</Phinix_inventory_planCodecMissing>
+  <Phinix_inventory_planCodecVersion>The source plugin cannot read this inventory record version. Use a compatible plugin version.</Phinix_inventory_planCodecVersion>
+  <Phinix_inventory_planItemUnreadable>The source plugin could not read this item. Keep the save and report this error with the game log.</Phinix_inventory_planItemUnreadable>
+  <Phinix_inventory_planSaveFailed>The plan could not be saved. Keep this window open and check the inventory status.</Phinix_inventory_planSaveFailed>
 </LanguageData>

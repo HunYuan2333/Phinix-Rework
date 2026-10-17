@@ -204,6 +204,11 @@
     <Compile Include="UI\ThemeInputAdapter.cs" />
     <Compile Include="UI\ThemeSettingsWindow.cs" />
     <Compile Include="UI\ThemePresentationWindow.cs" />
+    <Compile Include="UI\NicknameEditState.cs" />
+    <Compile Include="UI\NicknameDisplayMarkup.cs" />
+    <Compile Include="UI\SidebarSplitLayout.cs" />
+    <Compile Include="UI\SidebarResizeCursor.cs" />
+    <Compile Include="UI\NicknameWindow.cs" />
     <Compile Include="UI\ThemeDraftValues.cs" />
     <Compile Include="UI\LocalFileLocationAdapter.cs" />
     <Compile Include="UI\HostThemeDrawing.cs" />

@@ -51,7 +51,7 @@
     <Phinix_error_tradeCreationFailedTitle>交易创建失败</Phinix_error_tradeCreationFailedTitle>
     <Phinix_error_tradeCreationFailedMessage>无法开启一项交易：{0} ({1})</Phinix_error_tradeCreationFailedMessage>
     <Phinix_error_tradeUpdateFailedTitle>交易更新失败</Phinix_error_tradeUpdateFailedTitle>
-    <Phinix_error_tradeUpdateFailedMessage>无法更新你与{0}的交易: {1} ({2})\n你的物品已经运回。</Phinix_error_tradeUpdateFailedMessage>
+    <Phinix_error_tradeUpdateFailedMessage>无法更新你与{0}的交易: {1} ({2})\n本次更新未成功；此提示不代表物品已返还，请核对交易与库存状态。</Phinix_error_tradeUpdateFailedMessage>
     <Phinix_trade_listSearch>搜索对方或交易 ID</Phinix_trade_listSearch>
     <Phinix_trade_listDetails>交易详情</Phinix_trade_listDetails>
     <Phinix_trade_listSelectTrade>选择一笔交易查看当前报价状态。</Phinix_trade_listSelectTrade>

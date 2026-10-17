@@ -21,13 +21,13 @@ namespace UnityEngine
         public static int GroupDepth => Groups.Count; public static float GroupX, GroupY;
         public static void BeginGroup(Rect r){Groups.Push(new Vector2(GroupX,GroupY));GroupX+=r.x;GroupY+=r.y;}
         public static void EndGroup(){var previous=Groups.Pop();GroupX=previous.x;GroupY=previous.y;} public static void FocusControl(string name){FocusedControl=name;} public static readonly System.Collections.Generic.List<Color> SurfaceColors=new System.Collections.Generic.List<Color>(); public static readonly System.Collections.Generic.List<Rect> SurfaceRects=new System.Collections.Generic.List<Rect>(); public static int SurfaceCalls; public static bool ThrowIcon; public static int IconCalls; public static Rect LastIconRect; public static void DrawTexture(Rect rect,Texture texture){IconCalls++;LastIconRect=rect;if(ThrowIcon)throw new InvalidOperationException("GPU");} public static void DrawTexture(Rect r,Texture2D t,ScaleMode m,bool alpha,float aspect,Color c,Vector4 border,Vector4 radius){SurfaceCalls++;SurfaceColors.Add(c);SurfaceRects.Add(r);} }
-    public static class Input { public static bool GetMouseButton(int button)=>false; public static string compositionString=""; }
+    public static class Input { public static bool MouseDown; public static bool GetMouseButton(int button)=>MouseDown; public static string compositionString=""; }
 }
 namespace Verse
 {
     public sealed class TabRecord { }
     public static class TabDrawer { public static float TabHeight=>32; public static void DrawTabsOverflow(UnityEngine.Rect rect,System.Collections.Generic.List<TabRecord> tabs,float min,float max){} }
-    public static class Mouse { public static bool IsOver(UnityEngine.Rect r)=>false; }
+    public static class Mouse { public static bool Over; public static bool IsOver(UnityEngine.Rect r)=>Over; }
     public static class TooltipHandler { public static void TipRegion(UnityEngine.Rect r,string s){} }
     public enum GameFont { Small, Tiny }
     public static class Text { public static GameFont Font;public static UnityEngine.TextAnchor Anchor;public static bool WordWrap=true; public static bool MeasureWrapping; public static float CalcHeight(string s,float width)=>MeasureWrapping && WordWrap ? 24 * Math.Max(1,(int)Math.Ceiling(s.Length*8f/Math.Max(1,width))) : 24; public static UnityEngine.Vector2 CalcSize(string s)=>new UnityEngine.Vector2(s.Length*8,24); }
@@ -41,7 +41,7 @@ namespace Verse
         public static readonly System.Collections.Generic.List<(UnityEngine.Rect Rect, UnityEngine.Color Color, int GroupDepth, bool Enabled)> FilledBoxes = new System.Collections.Generic.List<(UnityEngine.Rect, UnityEngine.Color, int, bool)>();
         public static void DrawBoxSolid(UnityEngine.Rect r,UnityEngine.Color c){FilledBoxes.Add((r,c,UnityEngine.GUI.GroupDepth,UnityEngine.GUI.enabled));}
         public static bool ThrowFittedIcon; public static int FittedIcons; public static void DrawTextureFitted(UnityEngine.Rect r,UnityEngine.Texture t,float scale){FittedIcons++;if(ThrowFittedIcon)throw new InvalidOperationException("GPU");}
-        public static readonly System.Collections.Generic.List<(string Text, GameFont Font, UnityEngine.Rect Rect)> Labels = new System.Collections.Generic.List<(string, GameFont, UnityEngine.Rect)>(); public static int EllipsisCalls; public static UnityEngine.Rect LastFieldRect; public static string LastLabel; public static void Label(UnityEngine.Rect r,string s){LastLabel=s;Labels.Add((s,Text.Font,r));}
+        public static readonly System.Collections.Generic.List<(string Text, GameFont Font, UnityEngine.Rect Rect)> Labels = new System.Collections.Generic.List<(string, GameFont, UnityEngine.Rect)>(); public static int EllipsisCalls; public static UnityEngine.Rect LastFieldRect; public static readonly System.Collections.Generic.List<UnityEngine.Color> LabelColors=new System.Collections.Generic.List<UnityEngine.Color>(); public static string LastLabel; public static void Label(UnityEngine.Rect r,string s){LabelColors.Add(UnityEngine.GUI.color);LastLabel=s;Labels.Add((s,Text.Font,r));}
         public static void LabelEllipses(UnityEngine.Rect r,string s){EllipsisCalls++;}
         public static void DrawBox(UnityEngine.Rect r,int thickness=1){}
         public static bool RadioButtonLabeled(UnityEngine.Rect r,string s,bool selected)=>false;
@@ -79,11 +79,11 @@ namespace Verse
         public void DoGrayOut(UnityEngine.Rect r){GrayOut++;}
     }
     public class Window { public readonly IWindowDrawing Drawing; public Window(IWindowDrawing drawing=null){Drawing=drawing;}
- public bool doCloseX,closeOnAccept,absorbInputAroundWindow,draggable,resizeable,forcePause; public bool IsOpen; public UnityEngine.Rect windowRect;
+ public bool doCloseX,closeOnCancel,closeOnAccept,absorbInputAroundWindow,draggable,resizeable,forcePause; public bool IsOpen; public UnityEngine.Rect windowRect;
         public virtual UnityEngine.Vector2 InitialSize=>new UnityEngine.Vector2(); public virtual void PreOpen(){IsOpen=true;} public virtual void WindowUpdate(){} public virtual void PostClose(){} public virtual void DoWindowContents(UnityEngine.Rect r){} public void Close(){IsOpen=false;PostClose();} }
     public static class Find { public static Stack WindowStack=new Stack(); }
     public sealed class Stack { public Window Last, currentlyDrawnWindow; public FloatMenu FloatMenu; public bool GetsInput(Window w)=>true; public void Add(Window w){Last=w;} }
-    public static class TranslateStub { public static int Calls; public static string Translate(this string s){Calls++;return s;} public static string Translate(this string s,object argument){Calls++;return s;} }
+    public static class TranslateStub { public static int Calls; public static string Translate(this string s,params object[] args){Calls++;return s;} public static string Translate(this string s,object argument){Calls++;return s;} }
 }
 namespace Utils.Framework { public interface IPhinixExtensionModule { string ExtensionId { get; } } }
 namespace PhinixClient

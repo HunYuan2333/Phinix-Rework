@@ -134,8 +134,24 @@ namespace PhinixClient.Framework
             float delta = hover ? (Input.GetMouseButton(0) ? -.07f : .045f) : 0;
             return new Color(Mathf.Clamp01(accent.r + delta), Mathf.Clamp01(accent.g + delta), Mathf.Clamp01(accent.b + delta), accent.a);
         }
-        private static Color ButtonTextColor(IClientThemeReader theme, ClientButtonKind kind, bool active, Color? textColor)
-        { return !active ? theme.SecondaryText.ToUnityColor() : textColor ?? (kind == ClientButtonKind.Danger ? theme.Error.ToUnityColor() : kind == ClientButtonKind.Primary ? new Color(theme.Background.ToUnityColor().r, theme.Background.ToUnityColor().g, theme.Background.ToUnityColor().b, 1) : theme.PrimaryText.ToUnityColor()); }
+        private static double Linear(float c) => c <= .04045f ? c / 12.92 : Math.Pow((c + .055) / 1.055, 2.4);
+        private static double Luminance(Color color)
+        {
+            return .2126 * Linear(color.r) + .7152 * Linear(color.g) + .0722 * Linear(color.b);
+        }
+        private static double Contrast(Color a, Color b)
+        { double x = Luminance(a), y = Luminance(b); return (Math.Max(x, y) + .05) / (Math.Min(x, y) + .05); }
+        private static Color ButtonTextColor(IClientThemeReader theme, ClientButtonKind kind, bool active, Color? textColor, bool hover)
+        {
+            if (!active) return theme.SecondaryText.ToUnityColor();
+            if (textColor.HasValue) return textColor.Value;
+            Color preferred = kind == ClientButtonKind.Primary ? theme.Background.ToUnityColor() : theme.PrimaryText.ToUnityColor();
+            if (kind == ClientButtonKind.Primary) preferred.a = 1;
+            Color fill = OpaqueOn(ButtonFill(theme, kind, true, hover), OpaqueOn(theme.Surface.ToUnityColor(), theme.Background.ToUnityColor()));
+            if (Contrast(OpaqueOn(preferred, fill), fill) >= 4.5) return preferred;
+            var black = new Color(0, 0, 0, 1);
+            return Contrast(black, fill) >= Contrast(Color.white, fill) ? black : Color.white;
+        }
         // Clip in a local group: native ellipsis/button helpers may reset the text anchor.
         // Full rich text stays intact; tooltips expose content that exceeds the available width.
         public static void ClippedLabel(Rect rect, string text, Color color, TextAnchor anchor, bool wrap = false)
@@ -192,13 +208,14 @@ namespace PhinixClient.Framework
                 bool active = UnityEngine.GUI.enabled;
                 bool hover = active && Mouse.IsOver(rect);
                 RoundedSurface(rect, ButtonFill(theme, kind, active, hover), cornerRadius);
-                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, theme.Separator.ToUnityColor(), cornerRadius);
+                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, active && kind == ClientButtonKind.Danger ? theme.Error.ToUnityColor() : theme.Separator.ToUnityColor(), cornerRadius, active && kind == ClientButtonKind.Danger ? 2 : 1);
+                if (hover && Input.GetMouseButton(0)) RoundedBorder(rect.ContractedBy(2), Role(theme, "ui.accent", "ui.input.focus"), Mathf.Max(0, cornerRadius - 2), 2);
                 Text.Font = GameFont.Small; Text.Anchor = TextAnchor.MiddleCenter; Text.WordWrap = false;
-                UnityEngine.GUI.color = ButtonTextColor(theme, kind, active, textColor);
+                UnityEngine.GUI.color = ButtonTextColor(theme, kind, active, textColor, hover);
                 if (dropdown) ClippedLabel(new Rect(rect.xMax - 28, rect.y + 4, 18, Mathf.Max(0, rect.height - 8)), "▾",
-                    ButtonTextColor(theme, kind, active, textColor), TextAnchor.MiddleCenter);
+                    ButtonTextColor(theme, kind, active, textColor, hover), TextAnchor.MiddleCenter);
                 ClippedLabel(new Rect(rect.x + 10, rect.y + 4, Mathf.Max(0, rect.width - 20 - (dropdown ? 24 : 0)), Mathf.Max(0, rect.height - 8)), text,
-                    ButtonTextColor(theme, kind, active, textColor), TextAnchor.MiddleCenter, wrap);
+                    ButtonTextColor(theme, kind, active, textColor, hover), TextAnchor.MiddleCenter, wrap);
                 TooltipHandler.TipRegion(rect, text);
                 return Widgets.ButtonText(rect, "", drawBackground: false, active: active) && active;
             }
@@ -214,12 +231,13 @@ namespace PhinixClient.Framework
                 UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && enabled;
                 bool active = UnityEngine.GUI.enabled;
                 RoundedSurface(rect, ButtonFill(theme, kind, active, active && Mouse.IsOver(rect)));
-                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, theme.Separator.ToUnityColor());
+                if (kind != ClientButtonKind.Primary || !active) RoundedBorder(rect, active && kind == ClientButtonKind.Danger ? theme.Error.ToUnityColor() : theme.Separator.ToUnityColor(), thickness: active && kind == ClientButtonKind.Danger ? 2 : 1);
+                if (active && Mouse.IsOver(rect) && Input.GetMouseButton(0)) RoundedBorder(rect.ContractedBy(2), Role(theme, "ui.accent", "ui.input.focus"), 10, 2);
                 Text.Anchor = TextAnchor.MiddleCenter; Text.WordWrap = false;
                 float textWidth = Mathf.Min(Text.CalcSize(text ?? "").x, Mathf.Max(0, rect.width - iconSize.x - 6 - 16));
                 float groupWidth = textWidth + 6 + iconSize.x;
                 float x = rect.x + (rect.width - groupWidth) / 2f;
-                ClippedLabel(new Rect(x, rect.y + 4, textWidth, Mathf.Max(0, rect.height - 8)), text, ButtonTextColor(theme, kind, active, null), TextAnchor.MiddleCenter, wrap);
+                ClippedLabel(new Rect(x, rect.y + 4, textWidth, Mathf.Max(0, rect.height - 8)), text, ButtonTextColor(theme, kind, active, null, active && Mouse.IsOver(rect)), TextAnchor.MiddleCenter, wrap);
                 UnityEngine.GUI.color = active ? Color.white : theme.SecondaryText.ToUnityColor();
                 if (icon != null)
                 {

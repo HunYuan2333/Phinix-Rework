@@ -3,11 +3,11 @@
   <color key="primaryText" r="0.929412" g="0.909804" b="0.858824" a="1.0" />
   <color key="secondaryText" r="0.73" g="0.70" b="0.65" a="1.0" />
   <color key="background" r="0.082353" g="0.078431" b="0.070588" a="1.0" />
-  <color key="surface" r="0.098039" g="0.094118" b="0.082353" a="1.0" />
-  <color key="separator" r="0.34" g="0.31" b="0.26" a="1.0" />
+  <color key="surface" r="0.13" g="0.125" b="0.11" a="1.0" />
+  <color key="separator" r="0.49" g="0.46" b="0.40" a="1.0" />
   <color key="hoverHighlight" r="0.286275" g="0.266667" b="0.227451" a="1.0" />
   <color key="pending" r="1.00" g="1.00" b="1.00" a="0.60" />
-  <color key="error" r="0.85" g="0.30" b="0.25" a="1.00" />
+  <color key="error" r="0.98" g="0.45" b="0.38" a="1.00" />
   <color key="success" r="0.30" g="0.65" b="0.35" a="1.00" />
   <color key="warning" r="0.90" g="0.72" b="0.25" a="1.00" />
   <color key="chat.mentionText" r="0.45" g="0.75" b="1.00" a="1.00" />

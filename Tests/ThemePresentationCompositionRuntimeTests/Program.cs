@@ -33,6 +33,11 @@ internal static class Program
         var point=(IClientActionPoint<ClientThemePresentationActionContext>)serviceType.GetField("Point",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(services);
         var directory=(IClientExtensionPointService)points;
         Check(directory.CapturePoints().Single().OwnerId=="builtin.host","One normal Host-owned point");
+        var nicknameType=assembly.GetType("PhinixClient.ClientNicknameWindowService",true);
+        var nickname=New(nicknameType,services,null,null,null,null);
+        Check(directory.CapturePoints().Count==2&&directory.CapturePoints().All(p=>p.OwnerId=="builtin.host"),"Nickname shares permanent Host principal through a normal scope");
+        ((IDisposable)nickname).Dispose();
+        Check(directory.CapturePoints().Count==1,"Nickname disposal preserves theme scope and permanent owner");
         var consumer=new Consumer();Call(points,"OnActivating",consumer);Call(life,"OnActivating",consumer);
         var contributor=directory.ForModule(consumer);int count=0;
         contributor.ContributeActions<ClientThemePresentationActionContext>(ClientThemePresentationActionContext.PointId,c=>new[]{new ClientActionDefinition("count","Count",()=>count++)});

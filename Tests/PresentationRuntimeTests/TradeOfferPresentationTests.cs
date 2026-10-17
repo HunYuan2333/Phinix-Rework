@@ -34,6 +34,15 @@ internal static partial class Program
             Check(rows().All(r=>r.Field!=null)&&rows().Length==2,"Every available item has an inline quantity without selection");
             Action<string,string> edit=(id,value)=>{renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,id,ClientPresentationInputKind.TextChanged,value));window.TestUpdate();};
             string firstField=rows()[0].Field.Id,secondField=rows()[1].Field.Id;
+            foreach(var value in new[]{"词","词语"})renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,"search",ClientPresentationInputKind.TextChanged,value));
+            window.TestUpdate();
+            Check(renderer.Page.Sections.Single(s=>s.Id=="browse").Fields.Single().Value=="词语","Offer search retains the complete multi-event Chinese word");
+            edit("search", "");
+            renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,firstField,ClientPresentationInputKind.TextChanged,"3"));
+            renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,firstField,ClientPresentationInputKind.TextChanged,"30"));
+            renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,secondField,ClientPresentationInputKind.TextChanged,"10"));
+            window.TestUpdate();
+            Check(first.Selected==30&&second.Selected==10,"Offer batch preserves final quantity and edits to another rendered row");
             edit(firstField,"30");edit(secondField,"10");
             Check(first.Selected==30&&second.Selected==10&&window.TestSubmissions==0,"Editing two rows changes local drafts without sending any offer");
             edit(secondField,"21");

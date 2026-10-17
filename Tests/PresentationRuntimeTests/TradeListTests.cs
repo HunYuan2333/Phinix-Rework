@@ -42,13 +42,13 @@ internal static partial class Program
     }
     private sealed class CapturePresentation : IClientPresentationService,IClientPresentationSession
     {
-        public ClientPresentationPage Page;private IClientActionSet set;public readonly Queue<ClientPresentationInput> Inputs=new Queue<ClientPresentationInput>();
+        public ClientPresentationPage Page;private IClientActionSet set;private Func<bool> current;public readonly Queue<ClientPresentationInput> Inputs=new Queue<ClientPresentationInput>();
         public IClientPresentationSession Open(IPhinixExtensionModule module,string page){IsClosed=false;PageId=page;return this;}
         public string OwnerId=>"test";public string PageId {get;private set;}public bool IsClosed {get;private set;}public string FailureCode=>null;
         public ClientActionExecutionResult LastActionResult=>null;
-        public void Publish(ClientPresentationPage page,IClientActionSet actions,Func<bool> current){set?.Dispose();set=actions;Page=page;}
+        public void Publish(ClientPresentationPage page,IClientActionSet actions,Func<bool> current){set?.Dispose();set=actions;Page=page;this.current=current;}
         public void Draw(ClientPresentationBounds bounds){}public float MeasureComposerHeight(float width)=>0;
-        public bool TryDequeueInput(out ClientPresentationInput input){if(Inputs.Count==0){input=null;return false;}input=Inputs.Dequeue();return true;}
+        public bool TryDequeueInput(out ClientPresentationInput input){if(IsClosed||current!=null&&!current()){Inputs.Clear();input=null;return false;}if(Inputs.Count==0){input=null;return false;}input=Inputs.Dequeue();return true;}
         public string ComposerDraft=>"";public string ComposerControlName=>"";public bool ComposerFocused=>false;
         public void SetComposerDraft(string value){}public void RequestComposerFocus(){}public void InvokeAction(string id){}
         public IReadOnlyList<ClientPresentationMenuItem> CreateActionMenuItems()=>Array.Empty<ClientPresentationMenuItem>();public void ScrollToRow(string feed,string row){}public void ScrollToEnd(){}
@@ -64,6 +64,10 @@ internal static partial class Program
             list.Start(new Module(),renderer,points,theme);list.ViewOpened();
             Check(renderer.Page.SplitView==null&&renderer.Page.FixedHeaderSectionCount==1&&renderer.Page.Sections[1].List.Rows.Count==2,"Trade list restores full-width rows with pinned search");
             Check(points.Last.Actions.Count==0,"No trade selection exposes no detail mutation actions");
+            foreach(var value in new[]{"O","On","One"})renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,"search",ClientPresentationInputKind.TextChanged,value));
+            list.ViewUpdate();
+            Check(renderer.Page.Sections[0].Fields.Single(f=>f.Id=="search").Value=="One","Trade list drains a whole native commit before invalidating its context");
+            renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,"search",ClientPresentationInputKind.TextChanged,""));list.ViewUpdate();
             var direct=renderer.Page.Sections[1].List.Rows[1].Actions.Single(a=>a.Action.Id=="open");
             Check(direct.Action.TryExecute().Completed&&fixture.Opens==1,"Row open works without selecting a trade first");
             list.ViewUpdate();
