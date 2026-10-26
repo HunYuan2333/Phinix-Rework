@@ -32,6 +32,10 @@ namespace Phinix.PluginStore
         private ManagedStorePlan pendingPlan;
         private ManagedStoreSnapshot pendingLocalConfirmation;
         private bool presentationDirty = true;
+        private const int BrowsePageSize = 6;
+        private int browsePageSize = BrowsePageSize;
+        private int browsePage;
+        private bool showFailureDetails;
         private ClientActionExecutionResult publishedResult;
         internal void ConfigurePresentation(IPhinixExtensionModule owner, IClientPresentationService renderer, IClientExtensionPointService points, IClientActionPoint<PluginStorePresentationActionContext> point)
         { presentationOwner = owner; this.renderer = renderer; this.points = points; actionPoint = point; }
@@ -50,8 +54,8 @@ namespace Phinix.PluginStore
             while (presentation.TryDequeueInput(out var input)) inputs.Add(input);
             foreach (var input in inputs)
             {
-                if (input.Id == "search") { search = input.Value; presentationDirty = true; }
-                else if ((input.Id == "packages" || input.Id == "versions") && presentationRows.TryGetValue(input.Value, out var entry))
+                if (pendingPlan == null && pendingLocalConfirmation == null && input.Id == "search") { search = input.Value; browsePage = 0; presentationDirty = true; }
+                else if (pendingPlan == null && pendingLocalConfirmation == null && (input.Id == "packages" || input.Id == "versions") && presentationRows.TryGetValue(input.Value, out var entry))
                 { pendingPlan = null; Select(entry, controller.Snapshot); presentationDirty = true; }
             }
             ManagedStoreSnapshot snapshot;
@@ -68,23 +72,37 @@ namespace Phinix.PluginStore
             Func<bool> current = () => !stopped && presentation != null && !presentation.IsClosed && !presentationDirty && presentationRevision == revision && pendingPlan == framePlan && ReferenceEquals(presentation.LastActionResult, nextResult) &&
                 controller.Snapshot == snapshot && themeRepository.Revision==observedThemeRevision && EntryIdentity(selected) == selection && search == publishedQuery && filter == publishedFilter && kindFilter==publishedKindFilter && ReferenceEquals(publishedThemes,themes?.Packages) &&
                 (controls?.Capture().Revision ?? -1) == controlRevision && points.Revision == pointRevision && ReferenceEquals(LanguageDatabase.activeLanguage, nextLanguage) && Prefs.DevMode == dev;
+            if (feedback != publishedError || snapshot.Code != publishedSnapshot?.Code) showFailureDetails = false;
             confirmations.Clear();
-            var definitions = BuildPresentationActions(snapshot, picked);
-            var actions = actionPoint.Collect(new PluginStorePresentationActionContext(pageId, snapshot.Revision, selection, snapshot.State.ToString(), picked?.Id, picked?.Version, snapshot.Busy || controlState?.Busy == true || themeRepository.Installing, InventoryKnown, definitions), current);
+            var definitions = BuildPresentationActions(snapshot, picked).ToList();
+            // Keep both row actions within the existing 32-action contributor contract.
+            // Reserve two pagination intents; no hidden extra registry or raised limit.
+            int pageSize=BrowseCapacity(definitions.Count);
+            if(pageSize!=browsePageSize){browsePage=browsePage*browsePageSize/pageSize;browsePageSize=pageSize;}
+            browsePage=Math.Max(0,Math.Min(browsePage,Math.Max(0,(rows.Length-1)/pageSize)));
+            var visibleRows=rows.Skip(browsePage*pageSize).Take(pageSize).ToArray();
+            bool rowBusy=snapshot.Busy||controlState?.Busy==true||themeRepository.Installing||pendingLocalConfirmation==snapshot&&snapshot.LocalPackage!=null||pendingPlan!=null;
+            string browseBlocked=rowBusy?T(pendingPlan!=null?"reviewPlan":pendingLocalConfirmation!=null?"localConfirmation":snapshot.Busy?"state_"+snapshot.State:"state_Managing"):null;
+            if(browsePage>0)definitions.Add(new ClientActionDefinition("browse.previous",T("previousPage"),()=>{browsePage--;presentationDirty=true;},browseBlocked));
+            if((browsePage+1)*pageSize<rows.Length)definitions.Add(new ClientActionDefinition("browse.next",T("nextPage"),()=>{browsePage++;presentationDirty=true;},browseBlocked));
+            for(int i=0;i<visibleRows.Length;i++)definitions.AddRange(BuildBrowsePresentationActions(snapshot,visibleRows[i].Preferred,rowBusy,"row."+i+"."));
+            var actions = actionPoint.Collect(new PluginStorePresentationActionContext(pageId, snapshot.Revision, selection, snapshot.State.ToString(), picked?.Id, picked?.Version, snapshot.Busy || controlState?.Busy == true || themeRepository.Installing || pendingPlan != null || pendingLocalConfirmation == snapshot && snapshot.LocalPackage != null, InventoryKnown, definitions), current);
             try
             {
                 var toolbar = new List<ClientPresentationAction>(); var utilities = new List<ClientPresentationAction>(); var operations = new List<ClientPresentationAction>();
+                var rowActions = new Dictionary<string, ClientPresentationAction>();
                 foreach (var action in actions.Actions)
                 {
                     confirmations.TryGetValue(action.Id, out var confirmation);
                     var binding = new ClientPresentationAction(action.OwnerId + "." + action.Id, action, kind: action.OwnerId != presentationOwner.ExtensionId ? ClientButtonKind.Normal :
-                        action.Id == "package-uninstall" || action.Id == "package-theme-uninstall" ? ClientButtonKind.Danger :
-                        action.Id == "package-theme-install" || action.Id == "package-install" || action.Id == "package-update" || action.Id == "package-confirm-plan" || action.Id == "local-confirm" ? ClientButtonKind.Primary : ClientButtonKind.Normal,
+                        action.Id.EndsWith("package-uninstall",StringComparison.Ordinal) || action.Id.EndsWith("package-theme-uninstall",StringComparison.Ordinal) ? ClientButtonKind.Danger :
+                        action.Id.EndsWith("package-theme-install", StringComparison.Ordinal) || action.Id.EndsWith("package-install", StringComparison.Ordinal) || action.Id.EndsWith("package-update", StringComparison.Ordinal) || action.Id == "package-confirm-plan" || action.Id == "local-confirm" ? ClientButtonKind.Primary : ClientButtonKind.Normal,
                         confirmation: action.OwnerId == presentationOwner.ExtensionId ? confirmation : null);
                     if (action.OwnerId == presentationOwner.ExtensionId)
                         binding = binding.WithSelection(action.Id == "filter." + filter || action.Id=="kind."+kindFilter || action.Id == "access-github" && accessMethod == RepositoryAccessMethod.GitHub || action.Id == "access-cloudflare" && accessMethod == RepositoryAccessMethod.Cloudflare);
-                    if (action.OwnerId == presentationOwner.ExtensionId && action.Id.StartsWith("package-", StringComparison.Ordinal)) operations.Add(binding);
-                    else if (action.OwnerId == presentationOwner.ExtensionId && (action.Id.StartsWith("filter.", StringComparison.Ordinal) || action.Id.StartsWith("kind.", StringComparison.Ordinal))) toolbar.Add(binding);
+                    if (action.OwnerId == presentationOwner.ExtensionId && action.Id.StartsWith("row.", StringComparison.Ordinal)) rowActions[action.Id] = binding;
+                    else if (action.OwnerId == presentationOwner.ExtensionId && action.Id.StartsWith("package-", StringComparison.Ordinal)) operations.Add(binding);
+                    else if (action.OwnerId == presentationOwner.ExtensionId && (action.Id.StartsWith("filter.", StringComparison.Ordinal) || action.Id.StartsWith("kind.", StringComparison.Ordinal) || action.Id.StartsWith("browse.", StringComparison.Ordinal))) toolbar.Add(binding);
                     else utilities.Add(binding);
                 }
                 var routeIds = utilities.Where(b => b.Action.OwnerId == presentationOwner.ExtensionId && (b.Action.Id == "access-github" || b.Action.Id == "access-cloudflare")).Select(b => b.Id).ToArray();
@@ -101,21 +119,21 @@ namespace Phinix.PluginStore
                 sections.Add(new ClientPresentationSection("store-tools", pendingLocalConfirmation == null ? "" : T("localConfirmation"), localReview, utilities,
                     new ClientPresentationStatus(Bounded(state), error != null || snapshot.State == ManagedStoreState.Failed || themeRepository.Error!=null ? ClientPresentationTone.Error : !InventoryKnown || snapshot.Repository?.Offline == true || snapshot.Repository?.Stale == true ? ClientPresentationTone.Warning : snapshot.Busy ? ClientPresentationTone.Pending : ClientPresentationTone.Neutral)).WithWrappedActions().WithActionMenus(menus));
                 sections.Add(new ClientPresentationSection("browse-tools", "", "", toolbar,
-                    fields: new[] { new ClientPresentationTextField("search", T("search"), search, T("searchShort"), 128, snapshot.Busy || controlState?.Busy == true ? T("state_" + snapshot.State) : null) }).WithWrappedActions());
+                    fields: new[] { new ClientPresentationTextField("search", T("search"), search, T("searchShort"), 128, browseBlocked) }).WithWrappedActions());
                 presentationRows.Clear(); var list = new List<ClientPresentationRow>();
-                foreach (var group in rows)
+                for (int rowIndex = 0; rowIndex < visibleRows.Length; rowIndex++)
                 {
+                    var group = visibleRows[rowIndex];
                     var row = group.Preferred; string id = ListIdentity(row); presentationRows[id] = row;
-                    string route = T(row.IsLocalDevelopment ? "localBadge" : row.IsWorkshop ? "workshop" : "managedBadge");
                     var local = row.Installed; string facts = row.Version + " · " + Clean(row.Author);
                     if(row.IsTheme) facts += "\n"+T("themeBadge");
                     if(row.InstalledTheme!=null) facts+="\n"+T("installedVersion")+" "+row.InstalledTheme.Manifest.Version;
-                    if (local != null) facts += "\n" + T("installedVersion") + " " + Clean(local.Package.Version) + " · " + T("desired_" + local.Package.DesiredState);
-                    list.Add(new ClientPresentationRow(id, Bounded(Clean(row.DisplayName(locale))), Bounded(facts), snapshot.Busy || controlState?.Busy == true ? T("state_" + snapshot.State) : null).WithBadges(BuildBadges(row, snapshot)));
+                    if (local != null) facts += "\n" + T("installedVersion") + " " + Clean(local.Package.Version) + " · " + (controlState == null ? T("desired_" + local.Package.DesiredState) : PackageStateText(new ClientExtensionPackageState(local, controlState)));
+                    list.Add(new ClientPresentationRow(id, Bounded(Clean(row.DisplayName(locale))), Bounded(facts), browseBlocked).WithBadges(BuildBadges(row, snapshot)).WithControls(rowActions.Where(pair => pair.Key.StartsWith("row." + rowIndex + ".", StringComparison.Ordinal)).Select(pair => pair.Value)));
                 }
                 string selectedRow = picked == null ? null : ListIdentity(picked);
                 if (!list.Any(row => row.Id == selectedRow)) selectedRow = null;
-                var browseSection = new ClientPresentationSection("browse", resultCaption, "", list: new ClientPresentationList("packages", list, T(snapshot.Catalog == null ? "refreshFirst" : "empty"), selectedRow));
+                var browseSection = new ClientPresentationSection("browse", resultCaption + " · " + string.Format(T("browsePage"), browsePage + 1, Math.Max(1, (rows.Length + pageSize - 1) / pageSize)), "", list: new ClientPresentationList("packages", list, T(snapshot.Catalog == null ? "refreshFirst" : "empty"), selectedRow));
                 sections.Add(browseSection);
                 if (accessMethod == RepositoryAccessMethod.GitHub) sections.Add(new ClientPresentationSection("access", "", T("githubAccessGuidance")));
                 int primarySections = sections.Count;
@@ -123,17 +141,21 @@ namespace Phinix.PluginStore
                 if (picked != null)
                 {
                     sections.Add(new ClientPresentationSection("selected", Bounded(Clean(picked.DisplayName(locale))), T("version") + " " + Clean(picked.Version) + " · " + Clean(picked.Author) + (picked.License == null ? "" : " · " + Clean(picked.License)), operations).WithWrappedActions().WithBadges(BuildBadges(picked, snapshot)));
+                    if(pendingPlan!=null)sections.Add(new ClientPresentationSection("plan",T("reviewPlan"),PlanSummary(pendingPlan)));
+                    else
+                    {
                     if (!string.IsNullOrWhiteSpace(detail)) sections.Add(new ClientPresentationSection("package-facts", "", detail));
                     if (picked.CatalogRecord != null && !picked.IsWorkshop)
                     {
                         var versions = ManagedStoreListing.BuildEntries(snapshot.Catalog, SharedInventory(snapshot), snapshot.Repository?.Endpoint, "", locale).SelectMany(group => group.Versions).Where(entry => entry.Id == picked.Id).ToArray();
                         var versionRows = new List<ClientPresentationRow>();
-                        foreach (var version in versions) { string id = ListIdentity(version); presentationRows[id] = version; versionRows.Add(new ClientPresentationRow(id, version.Version, T(version.State == "active" ? "managedBadge" : "withdrawn"), snapshot.Busy ? T("state_" + snapshot.State) : null)); }
+                        foreach (var version in versions) { string id = ListIdentity(version); presentationRows[id] = version; versionRows.Add(new ClientPresentationRow(id, version.Version, T(version.State == "active" ? "managedBadge" : "withdrawn"), browseBlocked)); }
                         sections.Add(new ClientPresentationSection("versions", T("version"), "", list: new ClientPresentationList("versions", versionRows, "", versionRows.Any(row => row.Id == ListIdentity(picked)) ? ListIdentity(picked) : null)));
                     }
                     for (int i = 0; i < this.sections.Count; i++) sections.Add(new ClientPresentationSection("detail." + i, this.sections[i].Title, this.sections[i].Body));
+                    }
                 }
-                if (pendingPlan != null) sections.Add(new ClientPresentationSection("plan", T("dependencyConfirmation"), PlanSummary(pendingPlan)));
+                if(showFailureDetails&&(error!=null||snapshot.State==ManagedStoreState.Failed))sections.Add(new ClientPresentationSection("failure-details",T("failureDetails"),Bounded(Clean(ErrorDetails(snapshot)))));
                 publishedQuery = search; publishedFilter = filter; publishedKindFilter=kindFilter; publishedThemes=themes?.Packages;
                 presentationDirty = false;
                 presentation.Publish(new ClientPresentationPage(pageId, "", revision, sections.Select(s => s.WithPlainLayout())).WithSplitView(new ClientPresentationSplitView(primarySections, T("browsePane"), T("detailPane"), .5f).WithFixedHeaders(1, 1, 1, picked == null ? "none" : ListIdentity(picked)).WithAlignedHeaders()), actions, current);
@@ -162,7 +184,7 @@ namespace Phinix.PluginStore
             bool operationBusy = snapshot.Busy || controlState?.Busy == true || themeRepository.Installing;
             // Preserve the old modal review's exclusion of competing install/management operations.
             bool reviewingLocal = pendingLocalConfirmation == snapshot && snapshot.LocalPackage != null;
-            bool busy = operationBusy || reviewingLocal;
+            bool busy = operationBusy || reviewingLocal || pendingPlan != null;
             Action<string, string, Action, bool> add = (id, caption, execute, enabled) => result.Add(new ClientActionDefinition(id, caption, execute, enabled ? null : T(busy ? snapshot.Busy ? "state_" + snapshot.State : "state_Managing" : "blockedFriendly")));
             add("refresh", T("refresh"), () => ToolbarAction(0), !busy);
             add("access-github", T("accessGithub"), () => SwitchAccess(RepositoryAccessMethod.GitHub), !busy && accessMethod != RepositoryAccessMethod.GitHub);
@@ -170,9 +192,10 @@ namespace Phinix.PluginStore
             add("management", T("management"), () => ToolbarAction(2), !busy);
             add("themes", T("localThemes"), () => ToolbarAction(3), true);
             if (Prefs.DevMode) add("local-import", T("localImport"), () => ToolbarAction(4), !busy);
-            for(int i=0;i<3;i++) {int captured=i;add("kind."+i,T("kind"+i),()=> {kindFilter=captured;cached=null;},!busy && kindFilter!=i);}
-            for (int i = 0; i < 3; i++) { int captured = i; add("filter." + i, T("filter" + i), () => { filter = captured; cached = null; }, !busy && filter != i); }
+            for(int i=0;i<3;i++) {int captured=i;add("kind."+i,T("kind"+i),()=> {kindFilter=captured;browsePage=0;cached=null;},!busy && kindFilter!=i);}
+            for (int i = 0; i < 3; i++) { int captured = i; add("filter." + i, T("filter" + i), () => { filter = captured; browsePage=0; cached = null; }, !busy && filter != i); }
             if (snapshot.Busy) add("cancel", T("cancel"), () => { installIntent = null; pendingPlan = null; controller.Cancel(); }, true);
+            if (error != null || snapshot.State == ManagedStoreState.Failed) add("failure-details", T(showFailureDetails ? "hideFailureDetails" : "failureDetails"), () => { showFailureDetails = !showFailureDetails; presentationDirty = true; }, true);
             if (error != null || snapshot.State == ManagedStoreState.Failed) add("diagnostics", T("copySummary"), () => GUIUtility.systemCopyBuffer = ErrorDetails(snapshot), true);
             if (reviewingLocal)
             {
@@ -184,6 +207,29 @@ namespace Phinix.PluginStore
                 confirmations["local-confirm"] = new ClientPresentationConfirmation(T("localConfirmation"), LocalImportSummary(prepared), T("install"), T("cancel"));
                 add("local-discard", T("cancel"), () => { localImportActive = false; controller.DiscardLocal(prepared); pendingLocalConfirmation = null; }, !operationBusy);
             }
+            if (picked != null) result.AddRange(BuildPackagePresentationActions(snapshot, picked, busy));
+            return result;
+        }
+        private static int BrowseCapacity(int baseActions)
+        {
+            int available=(32-baseActions-2)/2;
+            if(available<1)throw new InvalidOperationException("StoreBrowseActionBudget");
+            return Math.Min(BrowsePageSize,available);
+        }
+        private IEnumerable<ClientActionDefinition> BuildBrowsePresentationActions(ManagedStoreSnapshot snapshot,ManagedStoreEntry entry,bool busy,string prefix)
+        {
+            var actions=BuildPackagePresentationActions(snapshot,entry,busy,prefix).ToArray();
+            if(actions.Length==0)return actions;
+            // The primary action and guarded uninstall are the two common row tasks.
+            return actions.Where(a=>ReferenceEquals(a,actions[0])||a.Id==prefix+"package-uninstall"||a.Id==prefix+"package-theme-uninstall").ToArray();
+        }
+        private IEnumerable<ClientActionDefinition> BuildPackagePresentationActions(ManagedStoreSnapshot snapshot, ManagedStoreEntry picked, bool busy, string prefix = "")
+        {
+            var result = new List<ClientActionDefinition>();
+            Action<string, string, Action, bool> add = (id, caption, execute, enabled) => result.Add(new ClientActionDefinition(prefix + id, caption, () => {
+                if (prefix.Length > 0) { pendingPlan = null; Select(picked, controller.Snapshot); presentationDirty = true; }
+                execute();
+            }, enabled ? null : T(pendingPlan != null ? "reviewPlan" : busy ? snapshot.Busy ? "state_" + snapshot.State : "state_Managing" : "blockedFriendly")));
             if (picked == null) return result;
             if(picked.IsTheme)
             {
@@ -198,7 +244,7 @@ namespace Phinix.PluginStore
                         pendingTheme=remote;pendingThemeSelection=EntryIdentity(picked);
                         themeRepository.Download(accessMethod,cachedThemeCatalog,remote,package?.ArtifactSha256,environment.Capture().PhinixCompatibilityVersion);
                     }),available && compatible && themeOwned && themeRepository.Error==null && remote.State=="active");
-                    confirmations["package-theme-install"]=new ClientPresentationConfirmation(label,Clean(remote.Manifest.Name)+" "+remote.Manifest.Version+"\nSHA-256: "+remote.Artifact.Sha256+"\n"+T("themeInstallNotice"),label,T("cancel"));
+                    confirmations[prefix + "package-theme-install"]=new ClientPresentationConfirmation(label,Clean(remote.Manifest.Name)+" "+remote.Manifest.Version+"\nSHA-256: "+remote.Artifact.Sha256+"\n"+T("themeInstallNotice"),label,T("cancel"));
                     if(!compatible) result.Add(new ClientActionDefinition("theme-incompatible",T("themeRequiresHost"),()=>{},T("themeRequiresHost")));
                     if(!themeOwned) result.Add(new ClientActionDefinition("theme-source-conflict",T("themeSourceConflict"),()=>{},T("themeSourceConflict")));
                 }
@@ -206,11 +252,11 @@ namespace Phinix.PluginStore
                 {
                     add("package-theme-select",T("themeSelector"),()=>Act(themeWindows.OpenThemeWindow),available && themeWindows!=null);
                     add("package-theme-uninstall",T("uninstall"),()=>Act(()=> {themes.Uninstall(package.Manifest.PackageId,package.ArtifactSha256);cached=null;}),available);
-                    confirmations["package-theme-uninstall"]=new ClientPresentationConfirmation(T("uninstall"),T("themeRemoveConfirm")+"\n"+Clean(package.Manifest.Name),T("uninstall"),T("cancel"));
+                    confirmations[prefix + "package-theme-uninstall"]=new ClientPresentationConfirmation(T("uninstall"),T("themeRemoveConfirm")+"\n"+Clean(package.Manifest.Name),T("uninstall"),T("cancel"));
                 }
                 return result;
             }
-            var local = selectedLocal; var state = local == null || controlState == null ? null : new ClientExtensionPackageState(local, controlState);
+            var local = picked.Installed; var state = local == null || controlState == null ? null : new ClientExtensionPackageState(local, controlState);
             bool owned = local != null && InventoryKnown;
             bool undo = local?.Package.DesiredState == ManagedExtensionDesiredState.PendingRemoval;
             bool enable = local != null && (local.Package.DesiredState != ManagedExtensionDesiredState.Enabled || state?.CanRestoreSingleModule == true);
@@ -230,13 +276,14 @@ namespace Phinix.PluginStore
             if (owned && !undo)
             {
                 add("package-uninstall", T("uninstall"), () => Act(() => controller.Change(local.Package, ManagedExtensionDesiredState.PendingRemoval, environment.Capture())), !busy && local.RemovalBlockCode == null);
-                confirmations["package-uninstall"] = new ClientPresentationConfirmation(T("uninstall"), T("confirmUninstall"), T("uninstall"), T("cancel"));
+                confirmations[prefix + "package-uninstall"] = new ClientPresentationConfirmation(T("uninstall"), T("confirmUninstall")+"\n"+Clean(picked.DisplayName(locale))+" "+Clean(local.Package.Version), T("uninstall"), T("cancel"));
             }
-            if (pendingPlan != null)
+            if (prefix.Length == 0 && pendingPlan != null)
             {
                 var plan = pendingPlan;
-                add("package-confirm-plan", T("install"), () => Act(() => controller.Download(plan, environment.Capture(), true)), !busy && snapshot.Plan == plan && picked.CatalogRecord == plan.Root);
-                confirmations["package-confirm-plan"] = new ClientPresentationConfirmation(T("install"), PlanSummary(plan), T("install"), T("cancel"));
+                add("package-confirm-plan", T("confirmPlan"), () => Act(() => controller.Download(plan, environment.Capture(), true)), !snapshot.Busy && controlState?.Busy != true && !themeRepository.Installing && snapshot.Plan == plan && picked.CatalogRecord == plan.Root);
+                add("package-cancel-plan", T("cancel"), () => { pendingPlan = null; presentationDirty = true; }, !snapshot.Busy);
+                result = result.Where(action => action.Id == "package-confirm-plan" || action.Id == "package-cancel-plan").ToList();
             }
             return result;
         }

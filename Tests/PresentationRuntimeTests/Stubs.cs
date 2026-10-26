@@ -6,6 +6,17 @@ namespace UnityEngine
     {
         public float r,g,b,a;
         public Color(float r,float g,float b,float a=1f){this.r=r;this.g=g;this.b=b;this.a=a;}
+        public static Color HSVToRGB(float h,float s,float v)
+        {
+            if(s==0)return new Color(v,v,v);float part=(h-(float)Math.Floor(h))*6;int sector=(int)part;float f=part-sector,p=v*(1-s),q=v*(1-s*f),t=v*(1-s*(1-f));
+            switch(sector){case 0:return new Color(v,t,p);case 1:return new Color(q,v,p);case 2:return new Color(p,v,t);case 3:return new Color(p,q,v);case 4:return new Color(t,p,v);default:return new Color(v,p,q);}
+        }
+        public static void RGBToHSV(Color c,out float h,out float s,out float v)
+        {
+            float max=Math.Max(c.r,Math.Max(c.g,c.b)),min=Math.Min(c.r,Math.Min(c.g,c.b)),d=max-min;v=max;s=max==0?0:d/max;
+            h=d==0?0:(max==c.r?(c.g-c.b)/d:max==c.g?(c.b-c.r)/d+2:(c.r-c.g)/d+4)/6;
+            if(h<0)h+=1;
+        }
         public static Color gray=>new Color(.5f,.5f,.5f); public static Color white=>new Color(1,1,1); public static Color clear=>new Color(0,0,0,0);
     }
     public struct Rect
@@ -33,6 +44,18 @@ namespace Verse
     public static class Text { public static GameFont Font;public static UnityEngine.TextAnchor Anchor;public static bool WordWrap=true; public static bool MeasureWrapping; public static float CalcHeight(string s,float width)=>MeasureWrapping && WordWrap ? 24 * Math.Max(1,(int)Math.Ceiling(s.Length*8f/Math.Max(1,width))) : 24; public static UnityEngine.Vector2 CalcSize(string s)=>new UnityEngine.Vector2(s.Length*8,24); }
     public static class Widgets
     {
+        public static UnityEngine.Color? WheelValue;
+        public static int WheelCalls,ColorBoxCalls,PresetPick=-1;
+        public static bool WheelConsumesEvent;
+        public static readonly System.Collections.Generic.List<bool> IncomingWheelDrags=new System.Collections.Generic.List<bool>();
+        public static readonly System.Collections.Generic.List<UnityEngine.Rect> ColorBoxRects=new System.Collections.Generic.List<UnityEngine.Rect>();
+        public static void HSVColorWheel(UnityEngine.Rect rect,ref UnityEngine.Color color,ref bool dragging,float? colorValueOverride=null,string controlName=null)
+        {
+            WheelCalls++;IncomingWheelDrags.Add(dragging);
+            if(WheelValue.HasValue){color=WheelValue.Value;WheelValue=null;dragging=true;if(WheelConsumesEvent)UnityEngine.Event.current.Use();}
+        }
+        public static bool ColorBox(UnityEngine.Rect rect,ref UnityEngine.Color color,UnityEngine.Color preset,int colorSize=22,int colorPadding=2)
+        {ColorBoxRects.Add(rect);if(ColorBoxCalls++!=PresetPick)return false;PresetPick=-1;color=preset;UnityEngine.Event.current.Use();return true;}
         public static int Clicks; public static bool Throw; public static string ClickLabel, FieldValue; public static bool ConsumeFieldEvent;
         public static readonly System.Collections.Generic.List<float> ScrollStarts = new System.Collections.Generic.List<float>();
         public static readonly System.Collections.Generic.List<float> ScrollWorldY = new System.Collections.Generic.List<float>();

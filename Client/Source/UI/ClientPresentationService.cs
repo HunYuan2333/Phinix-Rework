@@ -80,6 +80,7 @@ namespace PhinixClient
             public string ComposerDraft => page?.Composer == null ? "" : drafts[page.Composer.Field.Id];
             private readonly Queue<ClientPresentationInput> inputs = new Queue<ClientPresentationInput>();
             private readonly Dictionary<string, string> drafts = new Dictionary<string, string>(StringComparer.Ordinal);
+            private readonly Dictionary<string,bool> colorDragging=new Dictionary<string,bool>(StringComparer.Ordinal);
             private readonly HashSet<string> failedRegions = new HashSet<string>(StringComparer.Ordinal);
 
             internal Session(ClientPresentationService service, IClientLifetimeScope lifetime, string pageId, string identity)
@@ -146,6 +147,7 @@ namespace PhinixClient
                         if (previousSection.List != null && previousSection.List.Id == next.Sections[i].List.Id && previousSection.List.SelectedId != next.Sections[i].List.SelectedId) selectionChanged = true;
                 if (selectionChanged || next.SplitView?.SecondaryContextId != page?.SplitView?.SecondaryContextId)
                 {
+                    colorDragging.Clear();
                     if (next.SplitView == null) { if (next.FixedHeaderSectionCount > 0) panes[0].Scroll.y = 0; else scroll.y = 0; }
                     else
                     {
@@ -159,7 +161,9 @@ namespace PhinixClient
                 var previous = actions;
                 page = next; actions = nextActions; isCurrent = current; generation++;
                 attempted.Clear(); blocks = null; InvalidatePaneMeasurements(); FailureCode = null; inputs.Clear(); failedRegions.Clear(); mediaVisibility.Clear();
-                drafts.Clear(); foreach (var field in Fields(next)) drafts.Add(field.Id, field.Value);
+                var pickerIds=new HashSet<string>();
+                drafts.Clear(); foreach (var field in Fields(next)) {drafts.Add(field.Id, field.Value);if(field.ColorPicker!=null)pickerIds.Add(field.Id);}
+                foreach(var id in new List<string>(colorDragging.Keys))if(!pickerIds.Contains(id))colorDragging.Remove(id);
                 if (next.Composer != null) drafts.Add(next.Composer.Field.Id, next.Composer.Field.Value);
                 CloseConfirmation(); Release(previous);
             }
@@ -283,8 +287,8 @@ namespace PhinixClient
                             var field = section.Fields[first + column]; float cellY = y;
                             int firstBlock = blocks.Count;
                             AddText(field.Label, fieldWidth, ref cellY, section);
-                            blocks.Add(new Block { Rect = new Rect(padding, cellY, fieldWidth, ClientWidgets.ControlHeight + (field.Slider == null ? 0 : 36)), Field = field });
-                            cellY += ClientWidgets.ControlHeight + (field.Slider == null ? 0 : 36) + ClientWidgets.Gap;
+                            blocks.Add(new Block { Rect = new Rect(padding, cellY, fieldWidth, (field.ColorPicker!=null?ColorPickerHeight(fieldWidth):ClientWidgets.ControlHeight + (field.Slider == null ? 0 : 36))), Field = field });
+                            cellY += (field.ColorPicker!=null?ColorPickerHeight(fieldWidth):ClientWidgets.ControlHeight + (field.Slider == null ? 0 : 36)) + ClientWidgets.Gap;
                             AddText(field.ValidationText, fieldWidth, ref cellY, section, true, ClientPresentationTone.Warning);
                             for (int b = firstBlock; b < blocks.Count; b++) { var cell = blocks[b].Rect; cell.x += column * (fieldWidth + ClientWidgets.Gap); blocks[b].Rect = cell; }
                             rowBottom = Mathf.Max(rowBottom, cellY);
@@ -355,7 +359,7 @@ namespace PhinixClient
                 contentHeight = y;
             }
             private static bool HasSlider(ClientPresentationSection section)
-            { foreach (var field in section.Fields) if (field.Slider != null) return true; return false; }
+            { foreach (var field in section.Fields) if (field.Slider != null||field.ColorPicker!=null) return true; return false; }
             private void MeasureToolbar(ClientPresentationSection section, float width, float padding, ref float y)
             {
                 float available = Mathf.Max(1, width - 2 * padding), x = padding, rowY = y, rowHeight = 0;
@@ -611,6 +615,7 @@ namespace PhinixClient
                                         using (new ClientGuiScope(true))
                                         {
                                             UnityEngine.GUI.enabled = UnityEngine.GUI.enabled && fresh && field.DisabledReason == null;
+                                            if(field.ColorPicker!=null){DrawColorPicker(block.Rect,field);continue;}
                                             var textRect = new Rect(block.Rect.x, block.Rect.y, block.Rect.width, ClientWidgets.ControlHeight);
                                             string value = ClientWidgets.TextField(textRect, drafts[field.Id], palette, identity + "." + field.Id, field.Placeholder, field.MaxLength, Validator(field));
                                             bool textChanged = value != drafts[field.Id];
@@ -823,6 +828,61 @@ namespace PhinixClient
                     }
                 }
                 catch (Exception error) { Fail("ComposerDrawFailed", error); }
+            }
+
+            private const int PresetSize=24,PresetGap=4;
+            private static readonly List<Color> colorPresets=CreateColorPresets();
+            private static List<Color> CreateColorPresets()
+            {
+                var result=new List<Color>();
+                for(int i=0;i<10;i++){float shade=i/9f;result.Add(new Color(shade,shade,shade));}
+                for(int row=0;row<5;row++)for(int hue=0;hue<10;hue++)
+                    result.Add(Color.HSVToRGB(hue/10f,row==1||row==3?.45f:1f,row==2||row==3?.6f:1f));
+                return result;
+            }
+            private static int PresetColumns(float width)=>Math.Max(1,Math.Min(10,(int)(width/(PresetSize+PresetGap))));
+            private static float ColorPickerHeight(float width)
+            {
+                float paletteWidth=width>=480?width-176:width;
+                int columns=PresetColumns(paletteWidth);float paletteHeight=((colorPresets.Count+columns-1)/columns)*(PresetSize+PresetGap);
+                return (width>=480?Mathf.Max(160,paletteHeight):Mathf.Min(160,width)+12+paletteHeight)+60;
+            }
+            private void DrawColorPicker(Rect rect,ClientPresentationTextField field)
+            {
+                var picker=field.ColorPicker;var value=picker.Value;
+                var original=new Color(value.Red,value.Green,value.Blue,value.Alpha);var color=original;
+                bool input=InputEvent(),dragging=colorDragging.TryGetValue(field.Id,out var drag)&&drag;
+                float hue,saturation,brightness;Color.RGBToHSV(color,out hue,out saturation,out brightness);
+                // Keep the wheel bright and readable even for dark/black backgrounds.
+                var wheelColor=Color.HSVToRGB(hue,saturation,1);var beforeWheel=wheelColor;
+                float size=Mathf.Min(160,rect.width);var wheelRect=new Rect(rect.x,rect.y,size,size);
+                Widgets.HSVColorWheel(wheelRect,ref wheelColor,ref dragging,null,identity+"."+field.Id+".wheel");
+                colorDragging[field.Id]=dragging;
+                if(input&&(wheelColor.r!=beforeWheel.r||wheelColor.g!=beforeWheel.g||wheelColor.b!=beforeWheel.b))
+                {
+                    Color.RGBToHSV(wheelColor,out hue,out saturation,out var ignored);
+                    color=Color.HSVToRGB(hue,saturation,brightness==0?1:brightness);
+                }
+                bool alongside=rect.width>=480;float paletteWidth=alongside?rect.width-176:rect.width;
+                float paletteX=alongside?rect.x+176:rect.x,paletteY=alongside?rect.y:rect.y+size+12;
+                int columns=PresetColumns(paletteWidth);
+                for(int i=0;i<colorPresets.Count;i++)
+                {
+                    var cell=new Rect(paletteX+(i%columns)*(PresetSize+PresetGap),paletteY+(i/columns)*(PresetSize+PresetGap),PresetSize,PresetSize);
+                    Widgets.ColorBox(cell,ref color,colorPresets[i],PresetSize,0);
+                }
+                Color.RGBToHSV(color,out hue,out saturation,out brightness);
+                float bottom=rect.y+rect.height-60;
+                ClientWidgets.Label(new Rect(rect.x,bottom,rect.width,24),picker.BrightnessLabel,palette);
+                float next=ClientWidgets.Slider(new Rect(rect.x,bottom+26,rect.width,28),brightness,0,1,palette);
+                if(input&&next!=brightness)color=Color.HSVToRGB(hue,saturation,next);
+                color.a=original.a; // Palette and wheel never silently remove transparency.
+                if(UnityEngine.GUI.enabled&&input&&(color.r!=original.r||color.g!=original.g||color.b!=original.b))
+                {
+                    var culture=System.Globalization.CultureInfo.InvariantCulture;
+                    string raw=string.Join(",",new[]{color.r.ToString("R",culture),color.g.ToString("R",culture),color.b.ToString("R",culture),color.a.ToString("R",culture)});
+                    drafts[field.Id]=raw;Enqueue(field.Id,ClientPresentationInputKind.TextChanged,raw);
+                }
             }
 
             private static bool InputEvent() => Event.current != null && Event.current.type != EventType.Layout && Event.current.type != EventType.Repaint;
@@ -1113,7 +1173,7 @@ namespace PhinixClient
             public void Dispose()
             {
                 service.MainThread(); if (IsClosed) return;
-                IsClosed = true; ComposerFocused = false; composerFocusAttempts = 0; generation++; isCurrent = null; page = null; blocks = null; InvalidatePaneMeasurements(); palette = null;
+                IsClosed = true; ComposerFocused = false; composerFocusAttempts = 0; generation++; isCurrent = null; page = null; blocks = null; InvalidatePaneMeasurements(); palette = null; colorDragging.Clear();
                 CloseConfirmation(); var previous = actions; actions = null; Release(previous); attempted.Clear();
                 inputs.Clear(); drafts.Clear(); failedRegions.Clear(); mediaVisibility.Clear(); scrollFeed = scrollRow = null;
                 service.identities.Remove(identity); lifetime.Dispose();

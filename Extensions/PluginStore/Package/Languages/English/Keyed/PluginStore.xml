@@ -265,4 +265,11 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_themeRequiresHost>Update the main Phinix Rework mod before installing this theme.</Phinix_store2_themeRequiresHost>
   <Phinix_store2_themeSourceConflict>This theme was imported from another source. Remove it before installing the catalog package.</Phinix_store2_themeSourceConflict>
   <Phinix_store2_themeFeedUnavailable>The theme catalog is unavailable. Plugins and installed themes remain available.</Phinix_store2_themeFeedUnavailable>
+  <Phinix_store2_previousPage>Previous</Phinix_store2_previousPage>
+  <Phinix_store2_nextPage>Next</Phinix_store2_nextPage>
+  <Phinix_store2_browsePage>Page {0} / {1}</Phinix_store2_browsePage>
+  <Phinix_store2_reviewPlan>Review or cancel the installation plan first.</Phinix_store2_reviewPlan>
+  <Phinix_store2_failureDetails>View failure details</Phinix_store2_failureDetails>
+  <Phinix_store2_hideFailureDetails>Hide failure details</Phinix_store2_hideFailureDetails>
+  <Phinix_store2_confirmPlan>Confirm and install</Phinix_store2_confirmPlan>
 </LanguageData>

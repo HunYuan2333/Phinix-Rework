@@ -1,33 +1,33 @@
 <?xml version='1.0' encoding='utf-8'?>
 <LanguageData>
-  <Phinix_theme_group_text>文字与昵称</Phinix_theme_group_text>
-  <Phinix_theme_group_surface>表面与交互</Phinix_theme_group_surface>
-  <Phinix_theme_group_status>状态与提示</Phinix_theme_group_status>
-  <Phinix_theme_group_extension>扩展管理</Phinix_theme_group_extension>
+  <Phinix_theme_group_text>文字与昵称颜色</Phinix_theme_group_text>
+  <Phinix_theme_group_surface>背景、边框与鼠标效果</Phinix_theme_group_surface>
+  <Phinix_theme_group_status>成功、警告与错误提示</Phinix_theme_group_status>
+  <Phinix_theme_group_extension>插件列表与运行提示</Phinix_theme_group_extension>
   <Phinix_theme_group_reply>回复与引用</Phinix_theme_group_reply>
   <Phinix_theme_group_image>图片</Phinix_theme_group_image>
   <Phinix_theme_group_offers>报价</Phinix_theme_group_offers>
-  <Phinix_theme_group_inventory>列表与编辑</Phinix_theme_group_inventory>
-  <Phinix_theme_group_delivery>交付选择</Phinix_theme_group_delivery>
-  <Phinix_theme_group_source>来源徽章</Phinix_theme_group_source>
+  <Phinix_theme_group_inventory>库存列表与提取窗口</Phinix_theme_group_inventory>
+  <Phinix_theme_group_delivery>接收物品时的选项</Phinix_theme_group_delivery>
+  <Phinix_theme_group_source>商店来源标记</Phinix_theme_group_source>
   <Phinix_theme_group_general>其他</Phinix_theme_group_general>
-  <Phinix_theme_owner_host>Host 通用与外壳</Phinix_theme_owner_host>
+  <Phinix_theme_owner_host>通用界面</Phinix_theme_owner_host>
   <Phinix_theme_owner_chat>聊天</Phinix_theme_owner_chat>
   <Phinix_theme_owner_trade>交易</Phinix_theme_owner_trade>
   <Phinix_theme_owner_inventory>库存</Phinix_theme_owner_inventory>
   <Phinix_theme_owner_store>插件商店</Phinix_theme_owner_store>
-  <Phinix_theme_label_ui_text_primary>主文字</Phinix_theme_label_ui_text_primary>
-  <Phinix_theme_desc_ui_text_primary>主文字。</Phinix_theme_desc_ui_text_primary>
-  <Phinix_theme_label_ui_text_secondary>次级文字</Phinix_theme_label_ui_text_secondary>
-  <Phinix_theme_desc_ui_text_secondary>次级文字。</Phinix_theme_desc_ui_text_secondary>
-  <Phinix_theme_label_ui_background>外壳背景</Phinix_theme_label_ui_background>
-  <Phinix_theme_desc_ui_background>外壳背景。</Phinix_theme_desc_ui_background>
-  <Phinix_theme_label_ui_surface>通用表面</Phinix_theme_label_ui_surface>
-  <Phinix_theme_desc_ui_surface>通用表面。</Phinix_theme_desc_ui_surface>
+  <Phinix_theme_label_ui_text_primary>普通文字颜色</Phinix_theme_label_ui_text_primary>
+  <Phinix_theme_desc_ui_text_primary>通用界面中标题、说明和按钮文字的基础颜色。聊天正文、昵称等有独立设置；昵称自带的颜色标签仍会保留。</Phinix_theme_desc_ui_text_primary>
+  <Phinix_theme_label_ui_text_secondary>辅助说明文字颜色</Phinix_theme_label_ui_text_secondary>
+  <Phinix_theme_desc_ui_text_secondary>较次要的说明、数量和状态文字。建议与背景保持足够反差，避免深色主题下看不清。</Phinix_theme_desc_ui_text_secondary>
+  <Phinix_theme_label_ui_background>主窗口与弹窗背景色</Phinix_theme_label_ui_background>
+  <Phinix_theme_desc_ui_background>Phinix 主窗口的大面积底色，也用于设置、主题编辑器等弹窗。右侧面板和消息卡片有各自的背景设置；要明显改变底色，请把“不透明度”调到接近 1。</Phinix_theme_desc_ui_background>
+  <Phinix_theme_label_ui_surface>右侧面板与通用卡片背景色</Phinix_theme_label_ui_surface>
+  <Phinix_theme_desc_ui_surface>右侧成员面板、通用内容卡片等区域的底色。聊天消息、交易报价和库存卡片如果指定了自己的颜色，需要到对应分类调整。</Phinix_theme_desc_ui_surface>
   <Phinix_theme_label_ui_separator>边框与分隔线</Phinix_theme_label_ui_separator>
   <Phinix_theme_desc_ui_separator>边框与分隔线。</Phinix_theme_desc_ui_separator>
-  <Phinix_theme_label_ui_hover>悬停与选中背景</Phinix_theme_label_ui_hover>
-  <Phinix_theme_desc_ui_hover>悬停与选中背景。</Phinix_theme_desc_ui_hover>
+  <Phinix_theme_label_ui_hover>鼠标移上去时的背景色</Phinix_theme_label_ui_hover>
+  <Phinix_theme_desc_ui_hover>通用列表的鼠标经过效果；未单独设置颜色的选中项也可能沿用此色。按钮和聊天消息有独立的鼠标经过颜色。</Phinix_theme_desc_ui_hover>
   <Phinix_theme_label_ui_pending>等待状态</Phinix_theme_label_ui_pending>
   <Phinix_theme_desc_ui_pending>等待状态。</Phinix_theme_desc_ui_pending>
   <Phinix_theme_label_ui_error>错误状态</Phinix_theme_label_ui_error>
@@ -36,8 +36,8 @@
   <Phinix_theme_desc_ui_success>成功状态。</Phinix_theme_desc_ui_success>
   <Phinix_theme_label_ui_warning>警告状态</Phinix_theme_label_ui_warning>
   <Phinix_theme_desc_ui_warning>警告状态。</Phinix_theme_desc_ui_warning>
-  <Phinix_theme_label_ui_accent>通用强调色</Phinix_theme_label_ui_accent>
-  <Phinix_theme_desc_ui_accent>链接、滑块、扩展名称及用户名悬停的强调色。</Phinix_theme_desc_ui_accent>
+  <Phinix_theme_label_ui_accent>链接与重点提示颜色</Phinix_theme_label_ui_accent>
+  <Phinix_theme_desc_ui_accent>链接、滑块、插件名称和部分鼠标经过效果的基础强调色。主要按钮、选中标签等未单独设置时也会沿用它。</Phinix_theme_desc_ui_accent>
   <Phinix_theme_label_ext_statusActive>已启用状态</Phinix_theme_label_ext_statusActive>
   <Phinix_theme_desc_ext_statusActive>已启用状态。</Phinix_theme_desc_ext_statusActive>
   <Phinix_theme_label_ext_statusFailed>加载失败状态</Phinix_theme_label_ext_statusFailed>
@@ -58,23 +58,23 @@
   <Phinix_theme_desc_ext_headerText>管理列表标题。</Phinix_theme_desc_ext_headerText>
   <Phinix_theme_label_ext_summaryText>模块摘要文字</Phinix_theme_label_ext_summaryText>
   <Phinix_theme_desc_ext_summaryText>模块摘要文字。</Phinix_theme_desc_ext_summaryText>
-  <Phinix_theme_label_chat_messageText>聊天正文</Phinix_theme_label_chat_messageText>
+  <Phinix_theme_label_chat_messageText>聊天正文颜色</Phinix_theme_label_chat_messageText>
   <Phinix_theme_desc_chat_messageText>普通已确认聊天正文的基础色；显式富文本颜色和提及高亮仍保留。</Phinix_theme_desc_chat_messageText>
-  <Phinix_theme_label_chat_inputText>输入文字</Phinix_theme_label_chat_inputText>
+  <Phinix_theme_label_chat_inputText>消息输入文字颜色</Phinix_theme_label_chat_inputText>
   <Phinix_theme_desc_chat_inputText>输入文字。</Phinix_theme_desc_chat_inputText>
-  <Phinix_theme_label_chat_nameColor_saturation>用户名颜色饱和度</Phinix_theme_label_chat_nameColor_saturation>
+  <Phinix_theme_label_chat_nameColor_saturation>其他人的昵称：颜色鲜艳程度</Phinix_theme_label_chat_nameColor_saturation>
   <Phinix_theme_desc_chat_nameColor_saturation>调整按 UUID 生成的他人昵称颜色；自定义富文本昵称和自己的昵称使用各自样式。</Phinix_theme_desc_chat_nameColor_saturation>
-  <Phinix_theme_label_chat_nameColor_value>用户名颜色亮度</Phinix_theme_label_chat_nameColor_value>
+  <Phinix_theme_label_chat_nameColor_value>其他人的昵称：明亮程度</Phinix_theme_label_chat_nameColor_value>
   <Phinix_theme_desc_chat_nameColor_value>调整按 UUID 生成的他人昵称颜色；自定义富文本昵称和自己的昵称使用各自样式。</Phinix_theme_desc_chat_nameColor_value>
-  <Phinix_theme_label_chat_mentionText>提及文字</Phinix_theme_label_chat_mentionText>
+  <Phinix_theme_label_chat_mentionText>被提到的名字颜色</Phinix_theme_label_chat_mentionText>
   <Phinix_theme_desc_chat_mentionText>提及文字。</Phinix_theme_desc_chat_mentionText>
   <Phinix_theme_label_chat_mentionSelfBg>被提及时的消息背景</Phinix_theme_label_chat_mentionSelfBg>
   <Phinix_theme_desc_chat_mentionSelfBg>被提及时的消息背景。</Phinix_theme_desc_chat_mentionSelfBg>
-  <Phinix_theme_label_chat_selfName>自己的昵称</Phinix_theme_label_chat_selfName>
+  <Phinix_theme_label_chat_selfName>自己的昵称颜色</Phinix_theme_label_chat_selfName>
   <Phinix_theme_desc_chat_selfName>自己的昵称。</Phinix_theme_desc_chat_selfName>
-  <Phinix_theme_label_chat_selfMessageBg>自己的消息背景</Phinix_theme_label_chat_selfMessageBg>
+  <Phinix_theme_label_chat_selfMessageBg>自己发出的消息背景色</Phinix_theme_label_chat_selfMessageBg>
   <Phinix_theme_desc_chat_selfMessageBg>自己的消息背景。</Phinix_theme_desc_chat_selfMessageBg>
-  <Phinix_theme_label_chat_rowHoverBg>消息悬停背景</Phinix_theme_label_chat_rowHoverBg>
+  <Phinix_theme_label_chat_rowHoverBg>鼠标移到消息时的背景色</Phinix_theme_label_chat_rowHoverBg>
   <Phinix_theme_desc_chat_rowHoverBg>消息悬停背景。</Phinix_theme_desc_chat_rowHoverBg>
   <Phinix_theme_label_chat_groupIndentLine>连续消息缩进线</Phinix_theme_label_chat_groupIndentLine>
   <Phinix_theme_desc_chat_groupIndentLine>连续消息缩进线。</Phinix_theme_desc_chat_groupIndentLine>
@@ -82,15 +82,15 @@
   <Phinix_theme_desc_chat_replyQuoteBorder>引用竖线。</Phinix_theme_desc_chat_replyQuoteBorder>
   <Phinix_theme_label_chat_replyQuoteBg>引用背景</Phinix_theme_label_chat_replyQuoteBg>
   <Phinix_theme_desc_chat_replyQuoteBg>引用背景。</Phinix_theme_desc_chat_replyQuoteBg>
-  <Phinix_theme_label_chat_replyQuoteText>引用及时间戳文字</Phinix_theme_label_chat_replyQuoteText>
+  <Phinix_theme_label_chat_replyQuoteText>引用内容与时间文字颜色</Phinix_theme_label_chat_replyQuoteText>
   <Phinix_theme_desc_chat_replyQuoteText>引用及时间戳文字。</Phinix_theme_desc_chat_replyQuoteText>
-  <Phinix_theme_label_chat_noticeAccent>通知强调色</Phinix_theme_label_chat_noticeAccent>
+  <Phinix_theme_label_chat_noticeAccent>聊天通知的重点颜色</Phinix_theme_label_chat_noticeAccent>
   <Phinix_theme_desc_chat_noticeAccent>通知强调色。</Phinix_theme_desc_chat_noticeAccent>
   <Phinix_theme_label_chat_noticeBg>通知消息背景</Phinix_theme_label_chat_noticeBg>
   <Phinix_theme_desc_chat_noticeBg>通知消息背景。</Phinix_theme_desc_chat_noticeBg>
   <Phinix_theme_label_chat_noticeBannerBg>通知横幅背景</Phinix_theme_label_chat_noticeBannerBg>
   <Phinix_theme_desc_chat_noticeBannerBg>通知横幅背景。</Phinix_theme_desc_chat_noticeBannerBg>
-  <Phinix_theme_label_chat_noticeProgress>通知进度</Phinix_theme_label_chat_noticeProgress>
+  <Phinix_theme_label_chat_noticeProgress>通知进度条颜色</Phinix_theme_label_chat_noticeProgress>
   <Phinix_theme_desc_chat_noticeProgress>通知进度。</Phinix_theme_desc_chat_noticeProgress>
   <Phinix_theme_label_chat_inputReplyBorder>输入区回复竖线</Phinix_theme_label_chat_inputReplyBorder>
   <Phinix_theme_desc_chat_inputReplyBorder>输入区回复竖线。</Phinix_theme_desc_chat_inputReplyBorder>
@@ -98,19 +98,19 @@
   <Phinix_theme_desc_chat_inputReplyBg>输入区回复背景。</Phinix_theme_desc_chat_inputReplyBg>
   <Phinix_theme_label_chat_blockedBg>屏蔽消息背景</Phinix_theme_label_chat_blockedBg>
   <Phinix_theme_desc_chat_blockedBg>屏蔽消息背景。</Phinix_theme_desc_chat_blockedBg>
-  <Phinix_theme_label_chat_blockedName>屏蔽昵称</Phinix_theme_label_chat_blockedName>
+  <Phinix_theme_label_chat_blockedName>被屏蔽成员的名字颜色</Phinix_theme_label_chat_blockedName>
   <Phinix_theme_desc_chat_blockedName>屏蔽昵称。</Phinix_theme_desc_chat_blockedName>
-  <Phinix_theme_label_chat_pendingMessage>待发送消息</Phinix_theme_label_chat_pendingMessage>
+  <Phinix_theme_label_chat_pendingMessage>等待发送的消息文字颜色</Phinix_theme_label_chat_pendingMessage>
   <Phinix_theme_desc_chat_pendingMessage>待发送消息。</Phinix_theme_desc_chat_pendingMessage>
-  <Phinix_theme_label_chat_deniedMessage>被拒绝的消息</Phinix_theme_label_chat_deniedMessage>
+  <Phinix_theme_label_chat_deniedMessage>发送失败的消息文字颜色</Phinix_theme_label_chat_deniedMessage>
   <Phinix_theme_desc_chat_deniedMessage>被拒绝的消息。</Phinix_theme_desc_chat_deniedMessage>
   <Phinix_theme_label_chat_imagePlaceholderBg>图片占位背景</Phinix_theme_label_chat_imagePlaceholderBg>
   <Phinix_theme_desc_chat_imagePlaceholderBg>图片占位背景。</Phinix_theme_desc_chat_imagePlaceholderBg>
   <Phinix_theme_label_chat_imageFailedText>图片失败提示</Phinix_theme_label_chat_imageFailedText>
   <Phinix_theme_desc_chat_imageFailedText>图片失败提示。</Phinix_theme_desc_chat_imageFailedText>
-  <Phinix_theme_label_trade_ourOfferAccent>己方报价强调色</Phinix_theme_label_trade_ourOfferAccent>
+  <Phinix_theme_label_trade_ourOfferAccent>我方报价的重点颜色</Phinix_theme_label_trade_ourOfferAccent>
   <Phinix_theme_desc_trade_ourOfferAccent>己方报价强调色。</Phinix_theme_desc_trade_ourOfferAccent>
-  <Phinix_theme_label_trade_theirOfferAccent>对方报价强调色</Phinix_theme_label_trade_theirOfferAccent>
+  <Phinix_theme_label_trade_theirOfferAccent>对方报价的重点颜色</Phinix_theme_label_trade_theirOfferAccent>
   <Phinix_theme_desc_trade_theirOfferAccent>对方报价强调色。</Phinix_theme_desc_trade_theirOfferAccent>
   <Phinix_theme_label_trade_ourOfferBg>己方报价背景</Phinix_theme_label_trade_ourOfferBg>
   <Phinix_theme_desc_trade_ourOfferBg>己方报价背景。</Phinix_theme_desc_trade_ourOfferBg>
@@ -124,7 +124,7 @@
   <Phinix_theme_desc_trade_pendingBadge>等待确认标记。</Phinix_theme_desc_trade_pendingBadge>
   <Phinix_theme_label_trade_rowHoverBg>交易列表悬停背景</Phinix_theme_label_trade_rowHoverBg>
   <Phinix_theme_desc_trade_rowHoverBg>交易列表悬停背景。</Phinix_theme_desc_trade_rowHoverBg>
-  <Phinix_theme_label_trade_panelBg>交易面板背景</Phinix_theme_label_trade_panelBg>
+  <Phinix_theme_label_trade_panelBg>交易内容区域背景色</Phinix_theme_label_trade_panelBg>
   <Phinix_theme_desc_trade_panelBg>交易面板背景。</Phinix_theme_desc_trade_panelBg>
   <Phinix_theme_label_trade_searchPlaceholder>交易搜索提示</Phinix_theme_label_trade_searchPlaceholder>
   <Phinix_theme_desc_trade_searchPlaceholder>交易搜索提示。</Phinix_theme_desc_trade_searchPlaceholder>
@@ -132,7 +132,7 @@
   <Phinix_theme_desc_inventory_infoBackground>顶部说明背景。</Phinix_theme_desc_inventory_infoBackground>
   <Phinix_theme_label_inventory_infoAccent>说明卡片竖线</Phinix_theme_label_inventory_infoAccent>
   <Phinix_theme_desc_inventory_infoAccent>说明卡片竖线。</Phinix_theme_desc_inventory_infoAccent>
-  <Phinix_theme_label_inventory_editorBackground>提取与计划编辑背景</Phinix_theme_label_inventory_editorBackground>
+  <Phinix_theme_label_inventory_editorBackground>提取数量与每日计划窗口背景色</Phinix_theme_label_inventory_editorBackground>
   <Phinix_theme_desc_inventory_editorBackground>提取与计划编辑背景。</Phinix_theme_desc_inventory_editorBackground>
   <Phinix_theme_label_inventory_noticeBackground>恢复与未决提示背景</Phinix_theme_label_inventory_noticeBackground>
   <Phinix_theme_desc_inventory_noticeBackground>恢复与未决提示背景。</Phinix_theme_desc_inventory_noticeBackground>
@@ -142,7 +142,7 @@
   <Phinix_theme_desc_inventory_selectedBackground>选中库存条目背景。</Phinix_theme_desc_inventory_selectedBackground>
   <Phinix_theme_label_inventory_alternateBackground>交替条目背景</Phinix_theme_label_inventory_alternateBackground>
   <Phinix_theme_desc_inventory_alternateBackground>交替条目背景。</Phinix_theme_desc_inventory_alternateBackground>
-  <Phinix_theme_label_inventory_choiceBackground>交付选择卡片背景</Phinix_theme_label_inventory_choiceBackground>
+  <Phinix_theme_label_inventory_choiceBackground>接收方式选项背景色</Phinix_theme_label_inventory_choiceBackground>
   <Phinix_theme_desc_inventory_choiceBackground>交付选择卡片背景。</Phinix_theme_desc_inventory_choiceBackground>
   <Phinix_theme_label_inventory_directDeliveryAccent>直接投放强调色</Phinix_theme_label_inventory_directDeliveryAccent>
   <Phinix_theme_desc_inventory_directDeliveryAccent>直接投放强调色。</Phinix_theme_desc_inventory_directDeliveryAccent>
@@ -156,19 +156,19 @@
   <Phinix_theme_desc_plugin_store_badge_workshop>创意工坊徽章。</Phinix_theme_desc_plugin_store_badge_workshop>
   <Phinix_theme_label_plugin_store_badge_local>本地开发包徽章</Phinix_theme_label_plugin_store_badge_local>
   <Phinix_theme_desc_plugin_store_badge_local>本地开发包徽章。</Phinix_theme_desc_plugin_store_badge_local>
-  <Phinix_theme_group_controls>公共控件</Phinix_theme_group_controls>
-  <Phinix_theme_label_ui_button_background>按钮背景</Phinix_theme_label_ui_button_background>
+  <Phinix_theme_group_controls>按钮、输入框与滚动条</Phinix_theme_group_controls>
+  <Phinix_theme_label_ui_button_background>普通按钮背景色</Phinix_theme_label_ui_button_background>
   <Phinix_theme_desc_ui_button_background>按钮未被鼠标指向时的底色。</Phinix_theme_desc_ui_button_background>
-  <Phinix_theme_label_ui_button_hover>按钮悬停</Phinix_theme_label_ui_button_hover>
+  <Phinix_theme_label_ui_button_hover>鼠标移到按钮时的颜色</Phinix_theme_label_ui_button_hover>
   <Phinix_theme_desc_ui_button_hover>鼠标指向按钮时叠加在底色上的颜色。</Phinix_theme_desc_ui_button_hover>
-  <Phinix_theme_label_ui_button_pressed>按钮按下</Phinix_theme_label_ui_button_pressed>
+  <Phinix_theme_label_ui_button_pressed>按住按钮时的颜色</Phinix_theme_label_ui_button_pressed>
   <Phinix_theme_desc_ui_button_pressed>指向按钮并按住鼠标时显示的颜色。</Phinix_theme_desc_ui_button_pressed>
-  <Phinix_theme_label_ui_control_disabled>禁用控件背景</Phinix_theme_label_ui_control_disabled>
+  <Phinix_theme_label_ui_control_disabled>暂时不可用的按钮与输入框底色</Phinix_theme_label_ui_control_disabled>
   <Phinix_theme_desc_ui_control_disabled>禁用按钮和输入框的背景色。</Phinix_theme_desc_ui_control_disabled>
-  <Phinix_theme_label_ui_input_background>输入框背景染色</Phinix_theme_label_ui_input_background>
-  <Phinix_theme_desc_ui_input_background>对输入框原有背景进行染色。</Phinix_theme_desc_ui_input_background>
-  <Phinix_theme_label_ui_input_focus>输入框焦点边框</Phinix_theme_label_ui_input_focus>
-  <Phinix_theme_desc_ui_input_focus>正在接收输入的文本框边框。</Phinix_theme_desc_ui_input_focus>
+  <Phinix_theme_label_ui_input_background>输入框背景色</Phinix_theme_label_ui_input_background>
+  <Phinix_theme_desc_ui_input_background>搜索框、消息输入框等通用输入框的底色。输入文字的颜色由文字设置控制。</Phinix_theme_desc_ui_input_background>
+  <Phinix_theme_label_ui_input_focus>正在输入时的边框颜色</Phinix_theme_label_ui_input_focus>
+  <Phinix_theme_desc_ui_input_focus>点进输入框、准备打字时显示的边框颜色，帮助分辨当前在哪个框里输入。</Phinix_theme_desc_ui_input_focus>
   <Phinix_theme_label_chat_speakerSeparator>发言人分隔线</Phinix_theme_label_chat_speakerSeparator>
   <Phinix_theme_desc_chat_speakerSeparator>不同发言人之间的细分隔线，不改变消息间距。</Phinix_theme_desc_chat_speakerSeparator>
   <Phinix_theme_label_ui_scroll_track>滚动槽</Phinix_theme_label_ui_scroll_track>

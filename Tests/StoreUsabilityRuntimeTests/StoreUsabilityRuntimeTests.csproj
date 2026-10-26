@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><NuGetAudit>false</NuGetAudit></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ClientPresentation.Contracts"><HintPath>$(ReferencesRoot)/ClientPresentation.Contracts.dll</HintPath></Reference>
+    <Reference Include="Utils"><HintPath>$(ReferencesRoot)/Utils.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(ReferencesRoot)/Assembly-CSharp.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

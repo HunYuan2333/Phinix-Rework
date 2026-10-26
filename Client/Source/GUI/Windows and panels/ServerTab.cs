@@ -49,6 +49,12 @@ namespace PhinixClient
         {
             // The shell paints its own rounded background; a native rectangle leaks at the corners.
             doWindowBackground = false;
+#if PHINIX_RIMWORLD_17
+            // 1.7 queues GUI.Window content after WindowStack's atlas shadow pass.
+            // This shell already paints a rounded background and border. Keep the
+            // extra rectangular backdrop out of the maximized/transparent window.
+            drawShadow = false;
+#endif
             closeOnAccept = false; closeOnCancel = false; resizeable = true; draggable = true;
             RefreshProviders();
         }

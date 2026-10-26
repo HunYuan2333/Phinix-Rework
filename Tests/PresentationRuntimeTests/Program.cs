@@ -47,6 +47,7 @@ internal static partial class Program
         CheckWindowThemeDrawing();
         CheckLocalFileAdapter();
         CheckListThemeRoles();
+        CheckInlineColorPicker();
         CheckTradeQuantityDraft();
         CheckTradeListProjection();
         CheckRowControlsAndSharedFooter();

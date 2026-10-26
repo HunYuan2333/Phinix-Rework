@@ -21,6 +21,26 @@ namespace PhinixClient
             if(isFloat){draft.Colors.Remove(key);draft.Floats[key]=values[0];}
             else {draft.Floats.Remove(key);draft.Colors[key]=new ClientRgba(values[0],values[1],values[2],values[3]);}
         }
+        internal static string Hex(ClientRgba color)
+        {
+            Func<float,int> channel=v=>(int)Math.Round(v*255,MidpointRounding.AwayFromZero);
+            return "#"+channel(color.Red).ToString("X2")+channel(color.Green).ToString("X2")+channel(color.Blue).ToString("X2")+channel(color.Alpha).ToString("X2");
+        }
+        internal static bool TryHex(string text,float alpha,out ClientRgba color)
+        {
+            color=default(ClientRgba);string value=(text??"").Trim();if(value.StartsWith("#",StringComparison.Ordinal))value=value.Substring(1);
+            if(value.Length!=6&&value.Length!=8)return false;
+            var channels=new float[4];channels[3]=alpha;
+            for(int i=0;i<value.Length/2;i++)
+            {if(!byte.TryParse(value.Substring(i*2,2),NumberStyles.AllowHexSpecifier,CultureInfo.InvariantCulture,out var b))return false;channels[i]=b/255f;}
+            color=new ClientRgba(channels[0],channels[1],channels[2],channels[3]);return true;
+        }
+        internal static bool TryPicker(string text,out ClientRgba color)
+        {
+            color=default(ClientRgba);var parts=(text??"").Split(',');if(parts.Length!=4)return false;var channels=new float[4];
+            for(int i=0;i<4;i++)if(!float.TryParse(parts[i],NumberStyles.Float,CultureInfo.InvariantCulture,out channels[i])||float.IsNaN(channels[i])||float.IsInfinity(channels[i])||channels[i]<0||channels[i]>1)return false;
+            color=new ClientRgba(channels[0],channels[1],channels[2],channels[3]);return true;
+        }
         internal static void Clear(ClientThemeDraft draft,IDictionary<string,ThemeDraftInput> inputs,string key,bool inherit)
         {draft.Colors.Remove(key);draft.Floats.Remove(key);draft.InheritedKeys.Remove(key);if(inherit)draft.InheritedKeys.Add(key);inputs.Remove(key);}
         internal static void Reset(ClientThemeDraft draft,IDictionary<string,ThemeDraftInput> inputs)

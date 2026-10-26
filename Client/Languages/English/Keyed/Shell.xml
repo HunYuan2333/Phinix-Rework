@@ -9,7 +9,7 @@
   <Phinix_shell_providerFailed>This plugin page is unavailable. Re-enable the plugin and try again.</Phinix_shell_providerFailed>
   <Phinix_shell_showNotices>Show notices</Phinix_shell_showNotices>
   <Phinix_shell_hideNotices>Collapse notices</Phinix_shell_hideNotices>
-  <Phinix_theme_label_ui_action_primary>Primary action</Phinix_theme_label_ui_action_primary>
-  <Phinix_theme_label_ui_navigation_selected>Selected navigation</Phinix_theme_label_ui_navigation_selected>
+  <Phinix_theme_label_ui_action_primary>Primary button color</Phinix_theme_label_ui_action_primary>
+  <Phinix_theme_label_ui_navigation_selected>Selected tab background</Phinix_theme_label_ui_navigation_selected>
   <Phinix_shell_resizeSidebar>Drag left or right to resize the sidebar. The ratio is remembered.</Phinix_shell_resizeSidebar>
 </LanguageData>

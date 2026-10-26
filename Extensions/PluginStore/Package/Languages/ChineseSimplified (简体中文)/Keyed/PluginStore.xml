@@ -265,4 +265,11 @@
   <Phinix_store2_themeRequiresHost>请先更新 Phinix Rework 主模组，再安装此主题。</Phinix_store2_themeRequiresHost>
   <Phinix_store2_themeSourceConflict>此主题来自其他来源。请先卸载，再安装商店版本。</Phinix_store2_themeSourceConflict>
   <Phinix_store2_themeFeedUnavailable>主题目录暂时不可用，仍可使用插件目录和已安装主题。</Phinix_store2_themeFeedUnavailable>
+  <Phinix_store2_previousPage>上一页</Phinix_store2_previousPage>
+  <Phinix_store2_nextPage>下一页</Phinix_store2_nextPage>
+  <Phinix_store2_browsePage>第 {0} / {1} 页</Phinix_store2_browsePage>
+  <Phinix_store2_reviewPlan>请先核对安装计划，或取消本次安装。</Phinix_store2_reviewPlan>
+  <Phinix_store2_failureDetails>查看失败详情</Phinix_store2_failureDetails>
+  <Phinix_store2_hideFailureDetails>收起失败详情</Phinix_store2_hideFailureDetails>
+  <Phinix_store2_confirmPlan>确认并安装</Phinix_store2_confirmPlan>
 </LanguageData>

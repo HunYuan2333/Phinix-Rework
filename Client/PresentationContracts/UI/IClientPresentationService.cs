@@ -121,6 +121,19 @@ namespace PhinixClient.Framework
         }
         public float Minimum { get; } public float Maximum { get; } public float Value { get; }
     }
+    // Neutral inline color input. Emits four invariant 0..1 channels separated by commas;
+    // parsing, drafts and persistence remain with the publisher. No popup or business callback.
+    public sealed class ClientPresentationColorPicker
+    {
+        public ClientPresentationColorPicker(ClientRgba value, string brightnessLabel)
+        {
+            foreach(float channel in new[]{value.Red,value.Green,value.Blue,value.Alpha})
+                if(float.IsNaN(channel)||float.IsInfinity(channel)||channel<0||channel>1)throw new ArgumentException("PresentationColorPickerInvalid");
+            Value=value;BrightnessLabel=ClientPresentationLimits.Text(brightnessLabel);
+        }
+        public ClientRgba Value { get; }
+        public string BrightnessLabel { get; }
+    }
     public sealed class ClientPresentationSwatch
     {
         public ClientPresentationSwatch(string id, string label, ClientRgba value)
@@ -147,11 +160,17 @@ namespace PhinixClient.Framework
             MaxLength = maxLength; DisabledReason = disabledReason == null ? null : ClientPresentationLimits.Text(disabledReason);
             ValidationText = ClientPresentationLimits.Text(validationText);
         }
+        public ClientPresentationColorPicker ColorPicker { get; private set; }
+        public ClientPresentationTextField WithColorPicker(ClientPresentationColorPicker picker)
+        {
+            if(InputKind!=ClientPresentationTextInputKind.Text||Slider!=null||picker==null)throw new ArgumentException("PresentationColorPickerFieldInvalid");
+            return new ClientPresentationTextField(Id,Label,Value,Placeholder,MaxLength,DisabledReason,ValidationText,InputKind){ColorPicker=picker};
+        }
         public ClientPresentationSlider Slider { get; private set; }
         // Slider emits the same raw TextChanged intent; parsing/commit remain with the owner.
         public ClientPresentationTextField WithSlider(ClientPresentationSlider slider)
         {
-            if (InputKind != ClientPresentationTextInputKind.Text || slider == null) throw new ArgumentException("PresentationSliderFieldInvalid");
+            if (InputKind != ClientPresentationTextInputKind.Text || ColorPicker!=null || slider == null) throw new ArgumentException("PresentationSliderFieldInvalid");
             return new ClientPresentationTextField(Id, Label, Value, Placeholder, MaxLength, DisabledReason, ValidationText, InputKind) { Slider = slider };
         }
         public string Id { get; }
@@ -196,7 +215,7 @@ namespace PhinixClient.Framework
         public ClientPresentationTextField Field { get; private set; }
         public ClientPresentationRow WithControls(IEnumerable<ClientPresentationAction> actions, ClientPresentationTextField field = null)
         {
-            if (field?.Slider != null) throw new ArgumentException("PresentationRowSliderUnsupported");
+            if (field?.Slider != null || field?.ColorPicker != null) throw new ArgumentException("PresentationRowSliderUnsupported");
             return new ClientPresentationRow(Id, Label, Detail, DisabledReason, ColorKey) {
                 Image = Image, Badges = Badges, Actions = ClientPresentationLimits.Copy(actions, 4, a => a.Id), Field = field };
         }
@@ -409,7 +428,7 @@ namespace PhinixClient.Framework
     {
         public ClientPresentationComposer(ClientPresentationTextField field, ClientPresentationAction submit,
             IClientPresentationImage image = null, IEnumerable<ClientPresentationAction> actions = null)
-        { if (field?.Slider != null) throw new ArgumentException("PresentationComposerSliderUnsupported"); Actions = ClientPresentationLimits.Copy(actions, 31, a => a.Id); Field = field ?? throw new ArgumentNullException(nameof(field)); Submit = submit ?? throw new ArgumentNullException(nameof(submit)); Image = image; }
+        { if (field?.Slider != null || field?.ColorPicker != null) throw new ArgumentException("PresentationComposerSliderUnsupported"); Actions = ClientPresentationLimits.Copy(actions, 31, a => a.Id); Field = field ?? throw new ArgumentNullException(nameof(field)); Submit = submit ?? throw new ArgumentNullException(nameof(submit)); Image = image; }
         public ClientPresentationTextField Field { get; }
         public ClientPresentationAction Submit { get; }
         public IClientPresentationImage Image { get; }
