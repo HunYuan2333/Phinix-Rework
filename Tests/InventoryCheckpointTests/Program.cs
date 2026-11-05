@@ -47,11 +47,43 @@ internal static class Program
         {
             artifacts = args[1]; Directory.CreateDirectory(artifacts);
             CapacityRegression.Run(root); InventoryJournalScenarios.Run(); LegacyFixture(root, args[0]);
-            CompatibilityMaintenance(root); CheckpointAndFuture(root); SavedFileValidation(root); CompactionFailures(root); LargeLegacy(root); LongRun(root); PendingExtraction(root); RecoveryVeto(root); MoreFailures(root); ConcurrentMaintenance(root); Crashes(root);
+            ExplicitSavedSnapshotDiscard(root); CompatibilityMaintenance(root); CheckpointAndFuture(root); SavedFileValidation(root); CompactionFailures(root); LargeLegacy(root); LongRun(root); PendingExtraction(root); RecoveryVeto(root); MoreFailures(root); ConcurrentMaintenance(root); Crashes(root);
             Console.WriteLine("CHECKPOINT RESULT passed; assertions=" + checks + "; fixed schedule; no real game assets or player data");
         }
         finally { Directory.Delete(root, true); }
     }
+    static void ExplicitSavedSnapshotDiscard(string root)
+    {
+        string folder=Path.Combine(root,"explicit-discard");Directory.CreateDirectory(folder);
+        string save=Path.Combine(folder,"save.rws"),path=Path.Combine(folder,"inventory.journal");
+        var snapshot=State(2); string identity=Guid.NewGuid().ToString("N");
+        Save(save,snapshot,Id,identity);
+        string damaged="damaged future journal evidence",marker="damaged marker";
+        File.WriteAllText(path,damaged);File.WriteAllText(path+".authority",marker);
+        using(var readOnly=new InventoryJournal(path,snapshot,identity))
+            Check(readOnly.Faulted && File.ReadAllText(path)==damaged && File.ReadAllText(path+".authority")==marker &&
+                Directory.GetDirectories(folder,"*.discarded-*").Length==0,"Opening a fault leaves read-only evidence untouched without a user decision");
+        Throws(()=>InventoryJournal.DiscardToSavedSnapshot(path,State(3),save,Id,identity,null),"Stale saved-file proof must reject discard");
+        Check(File.ReadAllText(path)==damaged && Directory.GetDirectories(folder,"*.discarded-*").Length==0,"Rejected proof cannot move or reset evidence");
+        using(var held=new FileStream(path+".lock",FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None))
+            Throws(()=>InventoryJournal.DiscardToSavedSnapshot(path,snapshot,save,Id,identity,null),"Another attachment lease prevents discard");
+        Check(File.ReadAllText(path)==damaged,"Lock failure preserves the original file");
+        using(var restored=InventoryJournal.DiscardToSavedSnapshot(path,snapshot,save,Id,identity,null))
+            Check(!restored.Faulted && !restored.HasPendingRecovery && restored.Identity==identity && File.ReadAllText(path)==Record(snapshot),
+                "Explicit choice restores exactly the saved state, not unverified later changes");
+        string backup=Directory.GetDirectories(folder,"*.discarded-*").Single();
+        Check(File.ReadAllText(Path.Combine(backup,"inventory.journal"))==damaged && File.ReadAllText(Path.Combine(backup,"inventory.authority"))==marker &&
+            File.Exists(Path.Combine(backup,"decision.txt")),"Journal and authority backups retain exact bytes and an explicit decision record");
+        using(var reopened=new InventoryJournal(path,snapshot,identity))
+            Check(!reopened.Faulted && reopened.TryAppend(State(3)),"Restored saved inventory reopens and accepts the next normal transaction");
+        Check(File.ReadAllText(Path.Combine(backup,"inventory.journal"))==damaged,"New transactions do not overwrite abandoned evidence");
+        string failed=Path.Combine(folder,"write-failure.journal");File.WriteAllText(failed,damaged);Directory.CreateDirectory(failed+".authority");
+        Throws(()=>InventoryJournal.DiscardToSavedSnapshot(failed,snapshot,save,Id,identity,null),"Incomplete replacement must report failure");
+        string failedBackup=Directory.GetDirectories(folder,"write-failure.journal.discarded-*").Single();
+        Check(File.ReadAllText(Path.Combine(failedBackup,"inventory.journal"))==damaged,"Replacement failure retains original evidence");
+        using(var closed=new InventoryJournal(failed,snapshot,identity)) Check(closed.Faulted,"Incomplete replacement cannot become implicitly ready");
+    }
+
     static void LegacyFixture(string root, string fixture)
     {
         string path = Path.Combine(root, "legacy-v1.journal"), save = Path.Combine(root, "legacy-v1.rws");

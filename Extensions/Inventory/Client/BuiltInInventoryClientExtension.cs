@@ -288,6 +288,10 @@ namespace Phinix.InventoryExtension.Client
             if (component == null || (component == attachedSave && identity == attachedIdentity && journal != null)) return;
             InvalidateReceiveScope();
             InventoryJournal previousJournal = journal;
+            InventoryGameComponent previousSave = attachedSave;
+            string previousIdentity = attachedIdentity;
+            InventoryState previousState = ledger.Export();
+            bool branchOpened = false;
             bool sameGameNewPath = component == attachedSave && identity != attachedIdentity;
             journal = null;
             attachedSave = component;
@@ -309,7 +313,12 @@ namespace Phinix.InventoryExtension.Client
                     ? previousJournal.OpenSavedBranch(path, ledger.Export(), attachedIdentity, component.SaveId,
                         component.JournalIdentity, report)
                     : new InventoryJournal(path, ledger.Export(), component.JournalIdentity, report);
-                if (!journal.Faulted) { component.JournalIdentity = journal.Identity; CheckpointJournal(component); }
+                if (!journal.Faulted)
+                {
+                    branchOpened = true;
+                    component.JournalIdentity = journal.Identity;
+                    CheckpointJournal(component);
+                }
                 if (journal.Faulted)
                 {
                     fault = (journal.FaultReason ?? "Inventory journal is damaged or locked.") + " Inventory is read only.";
@@ -324,6 +333,17 @@ namespace Phinix.InventoryExtension.Client
             }
             finally
             {
+                // A failed path transition must not replace the only healthy recovery anchor.
+                // Keep operations restricted by fault/path mismatch until a proved branch opens.
+                if (sameGameNewPath && previousJournal != null && !previousJournal.Faulted && !branchOpened)
+                {
+                    journal?.Dispose();
+                    journal = previousJournal;
+                    previousJournal = null;
+                    attachedSave = previousSave;
+                    attachedIdentity = previousIdentity;
+                    ledger.Restore(previousState);
+                }
                 previousJournal?.Dispose();
                 PublishReceiveScope();
                 RaiseAvailabilityChanged();
@@ -864,6 +884,52 @@ namespace Phinix.InventoryExtension.Client
                 Thread.CurrentThread.ManagedThreadId == mainThreadId &&
                 InventoryGameComponent.BelongsTo(attachedSave, Current.Game) &&
                 string.Equals(attachedIdentity, ResolveSaveIdentity(), StringComparison.Ordinal);
+        }
+
+        internal bool CanDiscardUnrecoverableHistory => ReferenceEquals(active, this) &&
+            mainThreadId != 0 && Thread.CurrentThread.ManagedThreadId == mainThreadId &&
+            InventoryGameComponent.BelongsTo(attachedSave, Current.Game) &&
+            !string.IsNullOrEmpty(Fault) && !string.IsNullOrEmpty(attachedSave.SaveId) &&
+            File.Exists(ResolveSaveIdentity());
+
+        internal bool DiscardUnrecoverableHistory(out string reason)
+        {
+            reason = null;
+            if (!CanDiscardUnrecoverableHistory) { reason = "Inventory discard requires an active saved game with an unresolved journal fault."; return false; }
+            string savedPath = ResolveSaveIdentity();
+            InventoryJournal replacement = null;
+            try
+            {
+                var snapshot = attachedSave.ReadSnapshot();
+                using (InventorySaveCheckpoint.Open(savedPath, attachedSave.SaveId, snapshot, attachedSave.JournalIdentity)) { }
+                string target = host.GetStoragePath(ExtensionId, Hash(attachedSave.SaveId + "|" + savedPath) + ".journal");
+                InvalidateReceiveScope();
+                if (journal?.UsesPath(target) == true) journal.Dispose();
+                replacement = InventoryJournal.DiscardToSavedSnapshot(target, snapshot, savedPath,
+                    attachedSave.SaveId, attachedSave.JournalIdentity,
+                    message => host?.Log?.Invoke("[Inventory] " + message, LogLevel.ERROR));
+                journal?.Dispose();
+                journal = replacement; replacement = null;
+                attachedIdentity = savedPath;
+                attachedSave.JournalIdentity = journal.Identity;
+                ledger.Restore(snapshot);
+                fault = null;
+                RaiseInventoryChanged();
+                return true;
+            }
+            catch (Exception error)
+            {
+                reason = "Saved inventory could not be restored safely: " + error.Message;
+                fault = reason;
+                host?.Log?.Invoke("[Inventory] Explicit saved-snapshot reset failed: " + error, LogLevel.ERROR);
+                return false;
+            }
+            finally
+            {
+                replacement?.Dispose();
+                PublishReceiveScope();
+                RaiseAvailabilityChanged();
+            }
         }
 
         internal bool ApproveRecovery()

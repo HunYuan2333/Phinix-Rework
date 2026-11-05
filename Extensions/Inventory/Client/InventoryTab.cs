@@ -122,13 +122,15 @@ namespace Phinix.InventoryExtension.Client
         private void InvalidateRows(object sender, EventArgs args) { shownVersion = -1; dirty = true; plansWindow?.Invalidate(); }
         private static string RowId(string kind, string id)
         { using (var sha = SHA256.Create()) return kind + "." + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(id))).Replace("-", "").ToLowerInvariant(); }
-        private string Mode => inventory.HasPendingRecovery ? "recovery" : inventory.HasPendingExtraction ? "reconcile" : inventory.Fault != null ? "fault" : inventory.BatchProgress?.Running == true ? "batch" : selectedGroupKey != null ? "group" : editorMode.ToString();
+        private string Mode => inventory.Fault != null ? "fault" : inventory.HasPendingRecovery ? "recovery" : inventory.HasPendingExtraction ? "reconcile" : inventory.BatchProgress?.Running == true ? "batch" : selectedGroupKey != null ? "group" : editorMode.ToString();
         private static bool ParseQuantity(string text, out long quantity) => long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out quantity) && quantity > 0;
         private static bool ParseTick(string text, out int tick) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out tick) && tick >= 0 && tick < 60000;
         private void Refresh()
         {
             if (view == null || view.IsClosed) return;
             var language = LanguageDatabase.activeLanguage; var game = Current.Game;
+            string savePath = InventorySaveIdentityPatch.CurrentPath;
+            int saveGeneration = InventorySaveIdentityPatch.Generation;
             if (!dirty && publishedVersion == inventory.Version && ReferenceEquals(publishedLanguage, language) && ReferenceEquals(publishedGame, game) &&
                 pointsRevision == points.Revision && ReferenceEquals(publishedResult, view.LastActionResult)) return;
             string mode = Mode;
@@ -142,7 +144,8 @@ namespace Phinix.InventoryExtension.Client
             string selectedId = selectedEntryId, quantity = mode == "group" ? batchRecordsText : editorMode == EditorMode.DailySchedule ? scheduleQuantityText : extractQuantityText, tick = dayTickText;
             var context = new InventoryPresentationActionContext(version, mode, selectedId, GetAvailableQuantity(selectedId), GetPresentation(selectedId).ItemsPerUnit, quantity, tick, groupKey, GroupPlan(groupKey, 10001).Count);
             Func<bool> current = () => !disposed && view != null && !view.IsClosed && !dirty && revision == nextRevision && inventory.Version == version &&
-                points.Revision == pointVersion && ReferenceEquals(Current.Game, game) && ReferenceEquals(LanguageDatabase.activeLanguage, language) && Mode == mode && selectedEntryId == selectedId && selectedGroupKey == groupKey;
+                points.Revision == pointVersion && InventorySaveIdentityPatch.Generation == saveGeneration &&
+                string.Equals(InventorySaveIdentityPatch.CurrentPath, savePath, StringComparison.Ordinal) && ReferenceEquals(Current.Game, game) && ReferenceEquals(LanguageDatabase.activeLanguage, language) && Mode == mode && selectedEntryId == selectedId && selectedGroupKey == groupKey;
             batchConfirmations.Clear();
             var actions = point.Collect(context, current);
             try
@@ -167,7 +170,7 @@ namespace Phinix.InventoryExtension.Client
                 if (mode == "recovery" || mode == "reconcile")
                     sections.Add(new ClientPresentationSection("resolution", L(mode == "recovery" ? "recoveryTitle" : "pendingTitle"),
                         L(mode == "recovery" ? "recoveryWarning" : "pendingWarning"), bindings, new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Warning), "inventory.noticeBackground"));
-                else if (mode == "fault") sections.Add(new ClientPresentationSection("fault", L("unavailableTitle"), inventory.Fault, bindings, status: new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Error), surfaceKey: "inventory.errorBackground"));
+                else if (mode == "fault") sections.Add(new ClientPresentationSection("fault", L("unavailableTitle"), L("faultExplanation") + "\n" + inventory.Fault, bindings, status: new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Error), surfaceKey: "inventory.errorBackground"));
                 else
                 {
                     sections.Add(new ClientPresentationSection("save", "", "Phinix_inventory_entryCount".Translate(groups.Count) + " · " + L("saveOnly"), surfaceKey: "inventory.infoBackground").WithPlainLayout());
@@ -242,6 +245,17 @@ namespace Phinix.InventoryExtension.Client
             { add("recover", "recover", () => notice = inventory.ApproveRecovery() ? null : L("operationFailed"), null); add("keep-save", "keepSave", () => notice = inventory.RejectRecovery() ? null : L("operationFailed"), null); }
             else if (context.Mode == "reconcile")
             { add("mark-delivered", "markDelivered", () => notice = inventory.ResolvePendingExtraction(true) ? null : L("operationFailed"), null); add("restore-balance", "restoreBalance", () => notice = inventory.ResolvePendingExtraction(false) ? null : L("operationFailed"), null); }
+            else if (context.Mode == "fault")
+            {
+                add("keep-readonly", "keepReadOnly", () => notice = L("readOnlyKept"), null);
+                add("discard-history", "discardHistory", () =>
+                {
+                    notice = inventory.DiscardUnrecoverableHistory(out string reason) ? L("savedSnapshotRestored") : reason;
+                    shownVersion = -1;
+                }, inventory.CanDiscardUnrecoverableHistory ? null : L("saveProofRequired"));
+                batchConfirmations["discard-history"] = new ClientPresentationConfirmation(
+                    L("discardHistory"), L("discardHistoryWarning"), L("discardHistoryConfirm"), L("keepReadOnly"));
+            }
             else if (context.Mode == "batch")
                 add("batch-stop", "batchStop", inventory.StopBatchExtraction, null);
             else if (context.Mode == "group")

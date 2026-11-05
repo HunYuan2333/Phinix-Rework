@@ -119,4 +119,12 @@
   <Phinix_inventory_planCodecVersion>The source plugin cannot read this inventory record version. Use a compatible plugin version.</Phinix_inventory_planCodecVersion>
   <Phinix_inventory_planItemUnreadable>The source plugin could not read this item. Keep the save and report this error with the game log.</Phinix_inventory_planItemUnreadable>
   <Phinix_inventory_planSaveFailed>The plan could not be saved. Keep this window open and check the inventory status.</Phinix_inventory_planSaveFailed>
+  <Phinix_inventory_keepReadOnly>Keep read-only</Phinix_inventory_keepReadOnly>
+  <Phinix_inventory_readOnlyKept>Inventory remains read-only. No files or items were changed.</Phinix_inventory_readOnlyKept>
+  <Phinix_inventory_discardHistory>Abandon journal changes</Phinix_inventory_discardHistory>
+  <Phinix_inventory_discardHistoryConfirm>Back up and use saved inventory</Phinix_inventory_discardHistoryConfirm>
+  <Phinix_inventory_discardHistoryWarning>Keep only the inventory recorded in this save. Local journal changes after that snapshot may be lost, including deliveries and consumed items. The journal and authority files will be retained in a backup. This does not refund, resend or prove delivery. Cancel to keep read-only.</Phinix_inventory_discardHistoryWarning>
+  <Phinix_inventory_savedSnapshotRestored>Saved inventory restored. Abandoned journal evidence was retained in a backup.</Phinix_inventory_savedSnapshotRestored>
+  <Phinix_inventory_saveProofRequired>Save identity and a readable matching save are required.</Phinix_inventory_saveProofRequired>
+  <Phinix_inventory_faultExplanation>The inventory journal could not be verified. Keep read-only, or back up the journal and return to the inventory stored in this save.</Phinix_inventory_faultExplanation>
 </LanguageData>

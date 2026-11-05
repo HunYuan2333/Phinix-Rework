@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
@@ -23,6 +24,44 @@ internal static class Program
     static int checks;
     static void Check(bool value,string reason) { checks++; if (!value) throw new Exception(reason); }
     static void Set(object target,string field,object value) => target.GetType().GetField(field,Fields).SetValue(target,value);
+    static void CheckFaultChoices(Assembly assembly,object module)
+    {
+        var previous=LanguageDatabase.activeLanguage;
+        try
+        {
+            var language=(LoadedLanguage)FormatterServices.GetUninitializedObject(typeof(LoadedLanguage));
+            typeof(LoadedLanguage).GetField("dataIsLoaded",Fields).SetValue(language,true);
+            typeof(LoadedLanguage).GetField("folderName",Fields).SetValue(language,"English");
+            typeof(LoadedLanguage).GetField("workerInt",Fields).SetValue(language,new LanguageWorker_English());
+            var field=typeof(LoadedLanguage).GetField("keyedReplacements",Fields);
+            var values=(System.Collections.IDictionary)Activator.CreateInstance(field.FieldType);
+            var replacementType=field.FieldType.GetGenericArguments()[1];
+            foreach(string label in new[]{"keepReadOnly","readOnlyKept","discardHistory","discardHistoryWarning","discardHistoryConfirm","saveProofRequired"})
+            {
+                string key="Phinix_inventory_"+label;object replacement=Activator.CreateInstance(replacementType);
+                replacementType.GetField("key").SetValue(replacement,key);replacementType.GetField("value").SetValue(replacement,key);values.Add(key,replacement);
+            }
+            field.SetValue(language,values);LanguageDatabase.activeLanguage=language;
+            Type tabType=assembly.GetType("Phinix.InventoryExtension.Client.InventoryTab",true);
+            var tab=FormatterServices.GetUninitializedObject(tabType);
+            Set(tab,"inventory",module);
+            var confirmationsField=tabType.GetField("batchConfirmations",Fields);
+            confirmationsField.SetValue(tab,Activator.CreateInstance(confirmationsField.FieldType));
+            var context=new Phinix.InventoryExtension.InventoryPresentationActionContext(0,"fault",null,0,1,"","",null,0);
+            var actions=((IEnumerable<ClientActionDefinition>)tabType.GetMethod("BuildActions",Fields).Invoke(tab,new object[]{context})).ToArray();
+            Check(actions.Length==2 && actions.Any(a=>a.Id=="keep-readonly") && actions.Single(a=>a.Id=="discard-history").DisabledReason==null,
+                "Fault presentation offers only read-only or an eligible explicit discard choice");
+            var confirmations=(System.Collections.IDictionary)confirmationsField.GetValue(tab);
+            var confirmation=(ClientPresentationConfirmation)confirmations["discard-history"];
+            Check(confirmation!=null && confirmation.CancelLabel=="Phinix_inventory_keepReadOnly" && !string.IsNullOrEmpty(confirmation.Text),
+                "Destructive choice uses the existing confirmation contract with a read-only cancel action");
+            actions.Single(a=>a.Id=="keep-readonly").Execute();
+            Check(((Phinix.InventoryExtension.IInventoryReadApi)module).GetStatus().Availability==Phinix.InventoryExtension.InventoryAvailability.ReadOnlyFault,
+                "Choosing read-only does not reset or make the inventory writable");
+        }
+        finally {LanguageDatabase.activeLanguage=previous;}
+    }
+
     static void Main()
     {
         var assembly = typeof(Phinix.InventoryExtension.Client.BuiltInInventoryClientExtension).Assembly;
@@ -113,6 +152,72 @@ internal static class Program
                         using(var orphan=(IDisposable)openBranch.Invoke(journal,new object[]{unsafeTarget,two,file,"synthetic",journalIdentity,null}))
                             Check((bool)journalType.GetProperty("Faulted").GetValue(orphan),"An existing orphan journal cannot be adopted as a fresh branch");
                         Check(File.ReadAllText(unsafeTarget)=="retain evidence" && !File.Exists(unsafeTarget+".authority"),"Orphan evidence stays unchanged");
+                        if (sequence > 0)
+                        {
+                            string matching = Path.Combine(root,"matching-unmarked.journal");
+                            string matchingBytes = record(one) + record(two);
+                            File.WriteAllText(matching, matchingBytes);
+                            using(var adopted=(IDisposable)openBranch.Invoke(journal,new object[]{matching,two,file,"synthetic",journalIdentity,null}))
+                                Check(!(bool)journalType.GetProperty("Faulted").GetValue(adopted) &&
+                                    File.ReadAllText(matching+".authority")==journalIdentity && File.ReadAllText(matching)==matchingBytes,
+                                    "A live source and saved-file proof may bind an exactly matching unmarked legacy target without rewriting history");
+                            string coldMatching=Path.Combine(root,"cold-matching.journal");File.WriteAllText(coldMatching,matchingBytes);
+                            using(var cold=(IDisposable)Activator.CreateInstance(journalType,new object[]{coldMatching,two,journalIdentity}))
+                                Check((bool)journalType.GetProperty("Faulted").GetValue(cold) && !File.Exists(coldMatching+".authority"),
+                                    "Exact bytes alone cannot authorize an unmarked cold load");
+                            foreach(string kind in new[]{"stale", "future", "conflict", "truncated"})
+                            {
+                                object other=Activator.CreateInstance(stateType);
+                                stateType.GetProperty("Sequence").SetValue(other,kind=="future"?3L:2L);
+                                ((System.Collections.IList)stateType.GetProperty("Entries").GetValue(other)).Add(
+                                    new Phinix.InventoryExtension.InventoryEntry { EntryId="synthetic-entry",CodecId="test.codec",CodecVersion=1,
+                                        Payload=new byte[]{1,0,255},Quantity=43,Label="Synthetic",Source="test" });
+                                string bytes=kind=="stale"?record(one):kind=="truncated"?matchingBytes+"3|partial":record(other);
+                                string target=Path.Combine(root,"unmarked-"+kind+".journal");File.WriteAllText(target,bytes);
+                                using(var invalid=(IDisposable)openBranch.Invoke(journal,new object[]{target,two,file,"synthetic",journalIdentity,null}))
+                                    Check((bool)journalType.GetProperty("Faulted").GetValue(invalid) && !File.Exists(target+".authority") && File.ReadAllText(target)==bytes,
+                                        "Unsafe unmarked target remains untouched and cannot receive authority: "+kind);
+                            }
+                        }
+                        // Reproduce the two-stage user failure through actual saved callbacks.
+                        var sourceJournal=journal;
+                        file=Path.Combine(root,"blocked-save-"+sequence+".rws");pathProperty.SetValue(null,file);writeSave(json);
+                        string blockedKey=(string)moduleType.GetMethod("Hash",Fields).Invoke(null,new object[]{"synthetic|"+file});
+                        string blocked=context.GetStoragePath("builtin.inventory",blockedKey+".journal");File.WriteAllText(blocked,"retain orphan evidence");
+                        refresh.Invoke(null,null);dispatcher.Drain();
+                        journal=(IDisposable)moduleType.GetField("journal",Fields).GetValue(module);
+                        Check(ReferenceEquals(journal,sourceJournal) && !(bool)journalType.GetProperty("Faulted").GetValue(journal),
+                            "Failed Save As must retain the original healthy journal and its lease");
+                        Check(File.ReadAllText(blocked)=="retain orphan evidence" && !File.Exists(blocked+".authority"),
+                            "Failed path transition never overwrites orphan evidence");
+                        Check(((Phinix.InventoryExtension.IInventoryReadApi)module).GetStatus().Availability==Phinix.InventoryExtension.InventoryAvailability.ReadOnlyFault,
+                            "Keeping the recovery anchor does not permit writes under the rejected save path");
+                        file=Path.Combine(root,"retry-save-"+sequence+".rws");pathProperty.SetValue(null,file);writeSave(json);
+                        refresh.Invoke(null,null);dispatcher.Drain();
+                        journal=(IDisposable)moduleType.GetField("journal",Fields).GetValue(module);
+                        Check(!ReferenceEquals(journal,sourceJournal) && !(bool)journalType.GetProperty("Faulted").GetValue(journal) &&
+                            ((Phinix.InventoryExtension.IInventoryReadApi)module).GetStatus().Availability==Phinix.InventoryExtension.InventoryAvailability.Ready,
+                            "A later proved fresh save can recover without inheriting the rejected target's fault");
+                        Check((string)serialize.Invoke(null,new[]{ledger.GetType().GetMethod("Export").Invoke(ledger,null)})==json,
+                            "Failure and successful retry preserve the full inventory snapshot");
+                        // User explicitly chooses the persisted snapshot after a new target fails.
+                        file=Path.Combine(root,"discard-save-"+sequence+".rws");pathProperty.SetValue(null,file);writeSave(json);
+                        string discardKey=(string)moduleType.GetMethod("Hash",Fields).Invoke(null,new object[]{"synthetic|"+file});
+                        string discardPath=context.GetStoragePath("builtin.inventory",discardKey+".journal");File.WriteAllText(discardPath,"unrecoverable later changes");
+                        refresh.Invoke(null,null);dispatcher.Drain();
+                        Check(File.ReadAllText(discardPath)=="unrecoverable later changes" &&
+                            Directory.GetDirectories(Path.GetDirectoryName(discardPath),Path.GetFileName(discardPath)+".discarded-*").Length==0,
+                            "Read-only default does not implicitly discard files");
+                        CheckFaultChoices(assembly,module);
+                        var discardMethod=moduleType.GetMethod("DiscardUnrecoverableHistory",Fields);
+                        object[] discardArgs={null};
+                        Check((bool)discardMethod.Invoke(module,discardArgs),"Explicit saved-snapshot decision can resolve a faulted target");
+                        journal=(IDisposable)moduleType.GetField("journal",Fields).GetValue(module);
+                        string backup=Directory.GetDirectories(Path.GetDirectoryName(discardPath),Path.GetFileName(discardPath)+".discarded-*")[0];
+                        Check(File.ReadAllText(Path.Combine(backup,"inventory.journal"))=="unrecoverable later changes" &&
+                            (string)serialize.Invoke(null,new[]{ledger.GetType().GetMethod("Export").Invoke(ledger,null)})==json &&
+                            ((Phinix.InventoryExtension.IInventoryReadApi)module).GetStatus().Availability==Phinix.InventoryExtension.InventoryAvailability.Ready,
+                            "Explicit reset retains all saved quantities/payloads, preserves evidence and returns the actual module to ready");
                         writeSave((string)serialize.Invoke(null,new[]{one}));
                         string rejected=Path.Combine(root,"unproved-"+sequence+".journal");bool refused=false;
                         try {openBranch.Invoke(journal,new object[]{rejected,two,file,"synthetic",journalIdentity,null});}

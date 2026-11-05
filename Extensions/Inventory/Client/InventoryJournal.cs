@@ -43,13 +43,13 @@ namespace Phinix.InventoryExtension.Client
         public InventoryJournal(string path, InventoryState snapshot, string expectedIdentity) : this(path, snapshot, expectedIdentity, null, null) { }
         public InventoryJournal(string path, InventoryState snapshot, string expectedIdentity, Action<string> diagnostic) : this(path, snapshot, expectedIdentity, diagnostic, null) { }
         internal InventoryJournal(string path, InventoryState snapshot, Action<string> diagnostic, Action<string> barrier) : this(path, snapshot, null, diagnostic, barrier) { }
-        private InventoryJournal(string path, InventoryState snapshot, string expectedIdentity, Action<string> diagnostic, Action<string> barrier, bool savedBranch = false)
+        private InventoryJournal(string path, InventoryState snapshot, string expectedIdentity, Action<string> diagnostic, Action<string> barrier, bool savedBranch = false, FileStream ownedLock = null)
         {
             this.path = path ?? throw new ArgumentNullException(nameof(path));
             this.diagnostic = diagnostic; this.barrier = barrier;
             InventoryLedger.Validate(snapshot); committedSequence = snapshot.Sequence; snapshotSequence = snapshot.Sequence; snapshotOwnership = OwnershipHash(snapshot); snapshotFingerprint = Fingerprint(snapshot);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            lockFile = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            lockFile = ownedLock ?? new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
             try
             {
                 string marker = path + ".authority";
@@ -62,8 +62,13 @@ namespace Phinix.InventoryExtension.Client
                 }
                 else
                 {
-                    if (expectedIdentity != null && (!savedBranch || File.Exists(path)))
-                        throw new InvalidDataException("Expected inventory journal marker is missing.");
+                    if (expectedIdentity != null)
+                    {
+                        if (!savedBranch) throw new InvalidDataException("Expected inventory journal marker is missing.");
+                        // A live source plus the saved-file lease authorizes this path only.
+                        // Existing unmarked history must independently end at the exact saved state.
+                        if (File.Exists(path)) ValidateUnmarkedSavedBranch(path, snapshot);
+                    }
                     Identity = expectedIdentity ?? Guid.NewGuid().ToString("N");
                     if (!File.Exists(path)) using (var created = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read)) created.Flush(true);
                     using (var authority = new FileStream(marker, FileMode.CreateNew, FileAccess.Write, FileShare.None))
@@ -126,6 +131,77 @@ namespace Phinix.InventoryExtension.Client
                 using (InventorySaveCheckpoint.Open(saveFile, saveId, snapshot, Identity))
                     return new InventoryJournal(target, snapshot, Identity, report, null, true);
             }
+        }
+
+        internal bool UsesPath(string target) => string.Equals(Path.GetFullPath(path), Path.GetFullPath(target),
+            Path.DirectorySeparatorChar == (char)92 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+        // Called only by the explicit saved-snapshot choice, never by automatic recovery.
+        internal static InventoryJournal DiscardToSavedSnapshot(string target, InventoryState snapshot,
+            string saveFile, string saveId, string expectedIdentity, Action<string> report)
+        {
+            InventoryLedger.Validate(snapshot);
+            byte[] anchor = snapshot.Sequence > 0 ? Encode(snapshot) : Array.Empty<byte>();
+            string identity = expectedIdentity ?? Guid.NewGuid().ToString("N");
+            if (!Guid.TryParseExact(identity, "N", out _)) throw new InvalidDataException("Invalid saved journal identity.");
+            using (InventorySaveCheckpoint.Open(saveFile, saveId, snapshot, expectedIdentity))
+            {
+                string folder = Path.GetDirectoryName(target);
+                Directory.CreateDirectory(folder);
+                foreach (string candidate in new[] { folder, target, target + ".authority", target + ".lock" })
+                    if ((File.Exists(candidate) || Directory.Exists(candidate)) &&
+                        (File.GetAttributes(candidate) & FileAttributes.ReparsePoint) != 0)
+                        throw new InvalidDataException("Cannot discard inventory evidence through a filesystem link.");
+                var lease = new FileStream(target + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                bool transferred = false;
+                try
+                {
+                    string backup = target + ".discarded-" + Guid.NewGuid().ToString("N");
+                    Directory.CreateDirectory(backup);
+                    // A crash between these moves remains a fault, never implicit permission to reset.
+                    if (File.Exists(target)) File.Move(target, Path.Combine(backup, "inventory.journal"));
+                    if (File.Exists(target + ".authority")) File.Move(target + ".authority", Path.Combine(backup, "inventory.authority"));
+                    WriteNew(Path.Combine(backup, "decision.txt"), Encoding.UTF8.GetBytes(
+                        "User selected saved inventory snapshot; later journal changes abandoned.\nsequence=" + snapshot.Sequence + "\nfingerprint=" + Fingerprint(snapshot)));
+                    WriteNew(target, anchor);
+                    WriteNew(target + ".authority", Encoding.ASCII.GetBytes(identity));
+                    var opened = new InventoryJournal(target, snapshot, identity, report, null, false, lease);
+                    if (opened.Faulted) { opened.Dispose(); throw new InvalidDataException(opened.FaultReason); }
+                    transferred = true;
+                    return opened;
+                }
+                finally { if (!transferred) lease.Dispose(); }
+            }
+        }
+
+        private static void WriteNew(string file, byte[] bytes)
+        {
+            using (var output = new FileStream(file, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { output.Write(bytes, 0, bytes.Length); output.Flush(true); }
+        }
+
+        private static void ValidateUnmarkedSavedBranch(string target, InventoryState snapshot)
+        {
+            if (new FileInfo(target).Length > MaxRecoveryBytes)
+                throw new InvalidDataException("Unmarked target exceeds recovery scan limit.");
+            long previous = -1;
+            InventoryState last = null;
+            using (var stream = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var reader = new StreamReader(stream, Encoding.UTF8, false))
+            {
+                string line;
+                while ((line = ReadLine(reader)) != null)
+                {
+                    var state = Parse(line);
+                    ValidateSequence(state.Sequence, previous, snapshot.Sequence);
+                    if (state.Sequence > snapshot.Sequence)
+                        throw new InvalidDataException("Unmarked target has transactions beyond this save; retain for reconciliation.");
+                    previous = state.Sequence;
+                    last = state;
+                }
+            }
+            if (last == null || last.Sequence != snapshot.Sequence || Fingerprint(last) != Fingerprint(snapshot))
+                throw new InvalidDataException("Unmarked target does not prove the exact saved inventory state.");
         }
 
         private static string ReadLine(StreamReader reader)
