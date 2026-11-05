@@ -31,6 +31,7 @@ namespace Phinix.LegacyAdapter.Client
         private IFrameworkTradeClientApi tradeApi;
         private ITradeStateInput tradeStateInput;
         private Action<string, LogLevel> log;
+        private IClientUserDirectory users;
 
         private LegacyChatProtocolAdapter chatAdapter;
         internal LegacyTradeProtocolAdapter tradeAdapter;
@@ -60,7 +61,11 @@ namespace Phinix.LegacyAdapter.Client
                 lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
                 displaySink = hostContext.GetRequiredService<IDisplayMessageSink>();
                 sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
-                log = hostContext.Log;
+                hostContext.TryGetService(out users);
+                log = (message, level) =>
+                {
+                    try { hostContext.Log?.Invoke(message, level); } catch { /* Diagnostic isolation. */ }
+                };
 
                 if (!hostContext.ApiRegistry.TryResolve<IFrameworkTradeClientApi>(out tradeApi))
                 {
@@ -103,7 +108,7 @@ namespace Phinix.LegacyAdapter.Client
             composition = null;
             chatAdapter = null; tradeAdapter = null; session = null;
             legacyTransport = null; lifecycle = null; displaySink = null; sessionContext = null;
-            tradeApi = null; tradeStateInput = null; log = null;
+            tradeApi = null; tradeStateInput = null; log = null; users = null;
             owned?.Dispose();
         }
 
@@ -122,6 +127,8 @@ namespace Phinix.LegacyAdapter.Client
 
         public ClientOutgoingMessageResult HandleOutgoingText(string rawMessage, ClientFrameworkContext context)
         {
+            if (!CanHandleOutgoingText(rawMessage))
+                return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Continue };
             SendMessage(rawMessage, Guid.NewGuid().ToString());
             return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Handled };
         }
@@ -132,12 +139,24 @@ namespace Phinix.LegacyAdapter.Client
 
         public ClientOutgoingMessageResult HandleOutgoingMessage(FrameworkPacket message, ClientFrameworkContext context)
         {
+            if (!CanHandleOutgoingMessage(message))
+                return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Continue };
             var payload = new global::Phinix.Framework.BuiltInChatMessagePayload();
             using (var input = new Google.Protobuf.CodedInputStream(message.PayloadBytes)) payload.MergeFrom(input);
-            if (payload.MentionedUuids.Count != 0 || !string.IsNullOrEmpty(payload.ReplyToMessageId))
-                log?.Invoke("[LegacyAdapter] Chat metadata is unavailable on this endpoint; sending the original message text.", LogLevel.INFO);
-            SendMessage(payload.Message, payload.MessageId);
+            string text = payload.Message;
+            if (!string.IsNullOrEmpty(payload.ReplyToMessageId))
+                text = "[回复 " + (string.IsNullOrWhiteSpace(payload.ReplyToSnippet) ? payload.ReplyToMessageId : payload.ReplyToSnippet) + "] " + text;
+            if (payload.MentionedUuids.Count != 0)
+                text = "[提及 " + string.Join(", ", System.Linq.Enumerable.Select(payload.MentionedUuids, MentionLabel)) + "] " + text;
+            SendMessage(text, payload.MessageId);
             return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Handled };
+        }
+
+        private string MentionLabel(string uuid)
+        {
+            if (users != null && users.TryGetUser(uuid, out var user) && !string.IsNullOrWhiteSpace(user.DisplayName))
+                return TextHelper.StripRichText(user.DisplayName);
+            return uuid;
         }
 
         private void SendMessage(string text, string messageId)
@@ -204,6 +223,8 @@ namespace Phinix.LegacyAdapter.Client
         public ClientOutgoingCommandResult HandleOutgoingCommand(
             FrameworkPacket command, ClientFrameworkContext context)
         {
+            if (!CanHandleOutgoingCommand(command))
+                return new ClientOutgoingCommandResult { Action = MessageHandlingResultAction.Continue };
             log?.Invoke(
                 $"[LegacyAdapter] BuiltInExtension.HandleOutgoingCommand: msgType={command?.MessageType ?? "null"}",
                 LogLevel.DEBUG);

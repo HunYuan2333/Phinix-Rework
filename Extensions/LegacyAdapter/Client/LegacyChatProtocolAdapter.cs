@@ -3,7 +3,6 @@ using Google.Protobuf;
 using PhinixClient.Framework;
 using Utils;
 using Utils.Framework;
-using Verse;
 
 namespace Phinix.LegacyAdapter.Client
 {
@@ -27,25 +26,27 @@ namespace Phinix.LegacyAdapter.Client
         private const string ChatHistoryPacketType = "ChatHistoryPacket";
         private const string ChatMessageResponsePacketType = "ChatMessageResponsePacket";
 
-        // 入站消息队列上限 —— 与 PhinixFrameworkClient.MaxDisplayMessages(1000) 对齐
-        private const int MaxPendingMessages = 200;
-        private int pendingMessageCount;
+        private readonly Action<string, LogLevel> log;
+        private void Report(string message, LogLevel level)
+        {
+            try { log?.Invoke(message, level); } catch { /* Diagnostics cannot change dispatch. */ }
+        }
         private volatile bool handlersRegistered;
 
         public LegacyChatProtocolAdapter(
             ILegacyModuleTransport legacyTransport,
             IDisplayMessageSink displaySink,
-            IClientSessionContext sessionContext)
+            IClientSessionContext sessionContext, Action<string, LogLevel> log = null)
         {
             this.legacyTransport = legacyTransport;
             this.displaySink = displaySink;
             this.sessionContext = sessionContext;
+            this.log = log;
         }
 
         public void RegisterHandlers()
         {
             if (handlersRegistered) return;
-            pendingMessageCount = 0;
             handlersRegistered = true;
             legacyTransport.RegisterHandler(ChatModuleName, OnLegacyChatPacketReceived);
         }
@@ -54,7 +55,6 @@ namespace Phinix.LegacyAdapter.Client
         {
             if (!handlersRegistered) return;
             handlersRegistered = false;
-            pendingMessageCount = 0;
             legacyTransport.UnregisterHandler(ChatModuleName);
         }
 
@@ -79,13 +79,13 @@ namespace Phinix.LegacyAdapter.Client
 
                 var packed = ProtobufPacketHelper.Pack(chatPacket);
                 byte[] data = packed.ToByteArray();
-                Verse.Log.Message($"[LegacyAdapter] SendChatMessage: sending {data.Length} bytes to module '{ChatModuleName}'.");
+                Report($"[LegacyAdapter] SendChatMessage: sending {data.Length} bytes to module '{ChatModuleName}'.", LogLevel.DEBUG);
                 legacyTransport.Send(ChatModuleName, data);
                 return true;
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning($"[LegacyAdapter] Failed to send legacy chat message: {ex.Message}");
+                Report($"[LegacyAdapter] Failed to send legacy chat message: {ex.Message}", LogLevel.WARNING);
                 return false;
             }
         }
@@ -126,7 +126,7 @@ namespace Phinix.LegacyAdapter.Client
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning($"[LegacyAdapter] Error handling legacy chat packet: {ex.Message}");
+                Report($"[LegacyAdapter] Error handling legacy chat packet: {ex.Message}", LogLevel.WARNING);
             }
         }
 
@@ -144,7 +144,7 @@ namespace Phinix.LegacyAdapter.Client
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning($"[LegacyAdapter] Failed to unpack {typeof(T).Name}: {ex.Message}");
+                Report($"[LegacyAdapter] Failed to unpack {typeof(T).Name}: {ex.Message}", LogLevel.WARNING);
                 return;
             }
 
@@ -156,7 +156,7 @@ namespace Phinix.LegacyAdapter.Client
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning($"[LegacyAdapter] Error in {typeof(T).Name} handler: {ex.Message}");
+                Report($"[LegacyAdapter] Error in {typeof(T).Name} handler: {ex.Message}", LogLevel.WARNING);
             }
         }
 
@@ -165,21 +165,13 @@ namespace Phinix.LegacyAdapter.Client
             if (packet == null) return;
             if (string.IsNullOrWhiteSpace(packet.Message)) return;
 
-            // 入站反压：超出限制时丢弃最旧的消息（与 framework 1000 条上限对齐，
-            // 但 legacy 入站直接注入，不受 framework 容量管控）
-            if (pendingMessageCount++ > MaxPendingMessages)
-            {
-                Verse.Log.Warning("[LegacyAdapter] Too many pending legacy chat messages, resetting counter.");
-                pendingMessageCount = MaxPendingMessages / 2;
-            }
-
             var displayMsg = new FrameworkDisplayMessage
             {
                 MessageId = packet.MessageId ?? Guid.NewGuid().ToString(),
                 SenderUuid = packet.Uuid ?? string.Empty,
                 Text = packet.Message,
                 TimestampUtcTicks = packet.Timestamp != null
-                    ? packet.Timestamp.Seconds * 10_000_000L + packet.Timestamp.Nanos / 100
+                    ? packet.Timestamp.ToDateTime().Ticks
                     : DateTime.UtcNow.Ticks,
                 Source = "builtin_chat"
             };
@@ -203,11 +195,11 @@ namespace Phinix.LegacyAdapter.Client
 
             if (packet.Success)
             {
-                Verse.Log.Message($"[LegacyAdapter] Chat message acked by server: {packet.OriginalMessageId} → {packet.NewMessageId}");
+                Report($"[LegacyAdapter] Chat message acked by server: {packet.OriginalMessageId} → {packet.NewMessageId}", LogLevel.DEBUG);
             }
             else
             {
-                Verse.Log.Warning($"[LegacyAdapter] Chat message rejected by server: {packet.Message ?? "unknown reason"}");
+                Report($"[LegacyAdapter] Chat message rejected by server: {packet.Message ?? "unknown reason"}", LogLevel.WARNING);
                 displaySink.Enqueue(new FrameworkDisplayMessage
                 {
                     SenderUuid = FrameworkProtocol.SystemSenderUuid,

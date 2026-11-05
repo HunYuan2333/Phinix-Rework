@@ -61,10 +61,48 @@ namespace Phinix.LegacyAdapter.Client
             this.tradeApi = tradeApi;
             this.stateInput = stateInput;
             this.lifecycle = lifecycle;
-            this.log = log;
+            selectedMode = lifecycle?.CompatibilityMode ?? FrameworkCompatibilityMode.Legacy;
+            this.log = (message, level) =>
+            {
+                try { log?.Invoke(message, level); } catch { /* Diagnostics do not determine protocol results. */ }
+            };
         }
 
         int ICommandHandler.Priority => 500; // 高于 Trade handler (1100)，优先拦截
+
+        private readonly object packetGate = new object();
+        private sealed class EarlyPacket
+        {
+            internal byte[] Bytes;
+            internal Action Completion;
+        }
+        private readonly List<EarlyPacket> earlyPackets = new List<EarlyPacket>();
+        private int earlyBytes;
+        private bool earlyOverflow;
+        private FrameworkCompatibilityMode selectedMode;
+
+        internal void SelectMode(FrameworkCompatibilityMode mode)
+        {
+            lock (packetGate)
+            {
+                if (mode == FrameworkCompatibilityMode.Unknown && selectedMode == mode) return;
+                selectedMode = mode;
+                var pending = earlyPackets.ToArray();
+                earlyPackets.Clear();
+                earlyBytes = 0;
+                if (mode == FrameworkCompatibilityMode.Unknown || mode == FrameworkCompatibilityMode.FrameworkV2) earlyOverflow = false;
+                if (mode == FrameworkCompatibilityMode.Legacy && !earlyOverflow)
+                    foreach (var packet in pending)
+                    {
+                        try
+                        {
+                            if (packet.Completion != null) packet.Completion();
+                            else HandleSelectedPacket(TradingModuleName, string.Empty, packet.Bytes);
+                        }
+                        catch (Exception error) { log?.Invoke("[LegacyAdapter] Deferred original packet failed: " + error, LogLevel.ERROR); }
+                    }
+            }
+        }
 
         public void RegisterHandlers()
         {
@@ -98,18 +136,9 @@ namespace Phinix.LegacyAdapter.Client
                 $"[LegacyAdapter] HandleOutgoingCommand: msgType={command?.MessageType ?? "null"}, mode={lifecycle?.CompatibilityMode}",
                 LogLevel.DEBUG);
 
-            try
-            {
-                SendLegacyPacket(command);
-                log?.Invoke($"[LegacyAdapter] HandleOutgoingCommand: sent successfully", LogLevel.DEBUG);
-            }
-            catch (Exception ex)
-            {
-                log?.Invoke($"[LegacyAdapter] HandleOutgoingCommand failed: {ex}", LogLevel.ERROR);
-            }
+            // A handled command must not hide dispatch failure from the operation owner.
+            SendLegacyPacket(command);
 
-            // 总是返回 Handled（Command=null），框架不再发送 FrameworkPacket。
-            // Legacy 模式下 trade 包已通过 legacy transport 发出。
             return new ClientOutgoingCommandResult
             {
                 Action = MessageHandlingResultAction.Handled
@@ -118,6 +147,8 @@ namespace Phinix.LegacyAdapter.Client
 
         private void SendLegacyPacket(FrameworkPacket packet)
         {
+            lock (packetGate)
+                if (earlyOverflow) throw new InvalidOperationException("Original login trade buffer overflow; reconnect before trading.");
             log?.Invoke(
                 $"[LegacyAdapter] SendLegacyPacket: msgType={packet?.MessageType ?? "null"}",
                 LogLevel.DEBUG);
@@ -134,7 +165,7 @@ namespace Phinix.LegacyAdapter.Client
                     }
                     else
                     {
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: CreateRequest payload deserialization failed", LogLevel.WARNING);
+                        throw new InvalidOperationException("Invalid trade request payload.");
                     }
                     break;
                 }
@@ -168,7 +199,7 @@ namespace Phinix.LegacyAdapter.Client
                     }
                     else
                     {
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: OfferUpdate payload deserialization failed", LogLevel.WARNING);
+                        throw new InvalidOperationException("Invalid trade request payload.");
                     }
                     break;
                 }
@@ -182,13 +213,12 @@ namespace Phinix.LegacyAdapter.Client
                     }
                     else
                     {
-                        log?.Invoke($"[LegacyAdapter] SendLegacyPacket: StatusUpdate payload deserialization failed", LogLevel.WARNING);
+                        throw new InvalidOperationException("Invalid trade request payload.");
                     }
                     break;
                 }
                 default:
-                    log?.Invoke($"[LegacyAdapter] SendLegacyPacket: unknown MessageType '{packet?.MessageType}'", LogLevel.WARNING);
-                    break;
+                    throw new NotSupportedException("The original endpoint cannot express command: " + packet?.MessageType);
             }
         }
 
@@ -196,22 +226,15 @@ namespace Phinix.LegacyAdapter.Client
 
         public void SendCreateTrade(string otherPartyUuid)
         {
-            try
+            var packet = new Trading.CreateTradePacket
             {
-                var packet = new Trading.CreateTradePacket
-                {
-                    SessionId = sessionContext.SessionId ?? string.Empty,
-                    Uuid = sessionContext.Uuid ?? string.Empty,
-                    OtherPartyUuid = otherPartyUuid ?? string.Empty
-                };
-                var packed = ProtobufPacketHelper.Pack(packet);
-                legacyTransport.Send(TradingModuleName, packed.ToByteArray());
-                log?.Invoke($"[LegacyAdapter] Sent CreateTrade to {otherPartyUuid}", LogLevel.DEBUG);
-            }
-            catch (Exception ex)
-            {
-                log?.Invoke($"[LegacyAdapter] Failed to send CreateTrade: {ex}", LogLevel.ERROR);
-            }
+                SessionId = sessionContext.SessionId ?? string.Empty,
+                Uuid = sessionContext.Uuid ?? string.Empty,
+                OtherPartyUuid = otherPartyUuid ?? string.Empty
+            };
+            var packed = ProtobufPacketHelper.Pack(packet);
+            legacyTransport.Send(TradingModuleName, packed.ToByteArray());
+            log?.Invoke($"[LegacyAdapter] Sent CreateTrade to {otherPartyUuid}", LogLevel.DEBUG);
         }
 
         public void SendUpdateItems(string tradeId, IEnumerable<Trading.ProtoThing> items, string token = "")
@@ -250,29 +273,61 @@ namespace Phinix.LegacyAdapter.Client
 
         public void SendUpdateStatus(string tradeId, bool? accepted, bool? cancelled)
         {
-            try
+            var packet = new Trading.UpdateTradeStatusPacket
             {
-                var packet = new Trading.UpdateTradeStatusPacket
-                {
-                    SessionId = sessionContext.SessionId ?? string.Empty,
-                    Uuid = sessionContext.Uuid ?? string.Empty,
-                    TradeId = tradeId ?? string.Empty,
-                    Accepted = accepted ?? false,
-                    Cancelled = cancelled ?? false
-                };
-                var packed = ProtobufPacketHelper.Pack(packet);
-                legacyTransport.Send(TradingModuleName, packed.ToByteArray());
-                log?.Invoke($"[LegacyAdapter] Sent UpdateTradeStatus for {tradeId} (accepted={accepted}, cancelled={cancelled})", LogLevel.DEBUG);
-            }
-            catch (Exception ex)
-            {
-                log?.Invoke($"[LegacyAdapter] Failed to send UpdateTradeStatus: {ex}", LogLevel.ERROR);
-            }
+                SessionId = sessionContext.SessionId ?? string.Empty,
+                Uuid = sessionContext.Uuid ?? string.Empty,
+                TradeId = tradeId ?? string.Empty,
+                Accepted = accepted ?? false,
+                Cancelled = cancelled ?? false
+            };
+            var packed = ProtobufPacketHelper.Pack(packet);
+            legacyTransport.Send(TradingModuleName, packed.ToByteArray());
+            log?.Invoke($"[LegacyAdapter] Sent UpdateTradeStatus for {tradeId} (accepted={accepted}, cancelled={cancelled})", LogLevel.DEBUG);
         }
 
         // ============ 入站：Legacy Proto → FrameworkTradeStateSnapshot → repo ============
 
         private void OnLegacyTradePacketReceived(string module, string connectionId, byte[] data)
+        {
+            lock (packetGate)
+            {
+                if (selectedMode == FrameworkCompatibilityMode.FrameworkV2) return;
+                if (selectedMode == FrameworkCompatibilityMode.Unknown)
+                {
+                    if (data == null || data.Length == 0) return;
+                    if (earlyOverflow) return;
+                    if (earlyPackets.Count >= 256 || data.Length > 16 * 1024 * 1024 - earlyBytes)
+                    {
+                        earlyOverflow = true;
+                        earlyPackets.Clear(); earlyBytes = 0;
+                        log?.Invoke("[LegacyAdapter] Original login trade buffer exceeded; trading is restricted until reconnect.", LogLevel.ERROR);
+                        return;
+                    }
+                    try
+                    {
+                        var pending = new EarlyPacket { Bytes = (byte[])data.Clone() };
+                        var envelope = new Google.Protobuf.WellKnownTypes.Any();
+                        using (var input = new CodedInputStream(data)) envelope.MergeFrom(input);
+                        if (envelope.TypeUrl == "Phinix/Trading.CompleteTradePacket")
+                        {
+                            var completion = envelope.Unpack<Trading.CompleteTradePacket>();
+                            var input = stateInput as ITradeCompletionInput
+                                ?? throw new InvalidOperationException("Deferred completion input is unavailable.");
+                            pending.Completion = input.CaptureCompletion(completion.TradeId, completion.Success,
+                                completion.OtherPartyUuid, ConvertProtoThings(completion.Items));
+                        }
+                        earlyPackets.Add(pending);
+                        earlyBytes += data.Length;
+                    }
+                    catch (Exception error) { log?.Invoke("[LegacyAdapter] Invalid early original packet: " + error, LogLevel.ERROR); }
+                    return;
+                }
+                HandleSelectedPacket(module, connectionId, data);
+            }
+        }
+
+        private void HandleSelectedPacket(string module, string connectionId, byte[] data)
         {
             try
             {
@@ -633,13 +688,22 @@ namespace Phinix.LegacyAdapter.Client
         {
             if (packet?.Trades == null || tradeApi == null) return;
 
+            var snapshots = new List<FrameworkTradeStateSnapshot>();
+            var ids = new HashSet<string>(StringComparer.Ordinal);
             foreach (var legacyTrade in packet.Trades)
             {
-                if (string.IsNullOrEmpty(legacyTrade.TradeId)) continue;
-
-                var snapshot = ConvertTradeProto(legacyTrade);
-                stateInput?.UpsertTrade(snapshot);
+                if (string.IsNullOrEmpty(legacyTrade.TradeId) || !ids.Add(legacyTrade.TradeId) ||
+                    string.IsNullOrEmpty(legacyTrade.OtherPartyUuid) || legacyTrade.OtherPartyUuid == sessionContext.Uuid)
+                    throw new InvalidOperationException("Invalid original trade sync participants or duplicate trade.");
+                snapshots.Add(ConvertTradeProto(legacyTrade));
             }
+            // Translate and validate the entire original full sync before replacing state.
+            var normalized = new FrameworkPacket
+            {
+                PayloadJson = FrameworkSerialization.SerializePayload(new FrameworkTradeStateCollectionSnapshot { Trades = snapshots })
+            };
+            normalized.SetStateKind(FrameworkMetadataStateKinds.Snapshot);
+            tradeApi.HandleSnapshot(normalized);
 
             log?.Invoke($"[LegacyAdapter] Synced {packet.Trades.Count} active trade(s)", LogLevel.DEBUG);
         }

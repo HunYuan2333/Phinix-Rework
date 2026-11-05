@@ -264,32 +264,7 @@ namespace Phinix.ChatExtension.Client
                                 commandTransport.TryHandleOutgoingCommand(historyRequest);
                             }
                         }
-                        else if (args.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
-                        {
-                            int generation = System.Threading.Volatile.Read(ref callbackGeneration);
-                            Game game = Current.Game;
-                            dispatcher.Enqueue(() =>
-                            {
-                                if (!active || generation != System.Threading.Volatile.Read(ref callbackGeneration)
-                                    || !ReferenceEquals(Current.Game, game)) return;
-                                try
-                                {
-                                    // 尚未进入存档时 Find.LetterStack 为 null，直接弹信会 NRE，故做空保护。
-                                    LetterDef letterDef = DefDatabase<LetterDef>.GetNamedSilentFail("TradeCreated");
-                                    if (letterDef != null && Find.LetterStack != null)
-                                    {
-                                        Find.LetterStack.ReceiveLetter(
-                                            "Phinix_chat_legacyModeLetter_label".Translate(),
-                                            "Phinix_chat_legacyModeLetter_description".Translate(),
-                                            letterDef);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    hostLog?.Invoke($"Failed to raise legacy-mode chat letter: {ex.Message}", LogLevel.WARNING);
-                                }
-                            });
-                        }
+
                     });
                 };
             }

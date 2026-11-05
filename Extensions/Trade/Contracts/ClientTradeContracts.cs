@@ -59,6 +59,12 @@ namespace Phinix.TradeExtension.Client
         void CompleteTrade(string tradeId, bool success, string otherPartyUuid, IEnumerable<FrameworkItemPayload> items);
     }
 
+    // A transport may defer selection without rebinding an incoming delivery to a later game/save.
+    public interface ITradeCompletionInput
+    {
+        Action CaptureCompletion(string tradeId, bool success, string otherPartyUuid, IEnumerable<FrameworkItemPayload> items);
+    }
+
     public interface ITradeUiHostContext
     {
         IClientTradeService TradeService { get; }

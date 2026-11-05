@@ -163,10 +163,7 @@ namespace Phinix.TradeExtension.Client
                     if (!activated || generation != activationGeneration) return;
                     itemPipeline?.SetCompatibilityMode(args.CompatibilityMode);
                     deliveryRecovery?.RequestRecovery();
-                    if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2 &&
-                        sessionContext.Authenticated && sessionContext.LoggedIn &&
-                        frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
-                        commandTransport.TryHandleOutgoingCommand(tradeApi.CreateSnapshotRequestPacket(sessionContext.SessionId, sessionContext.Uuid));
+                    intentAdapter.RequestSnapshot();
                 };
                 usersChangedHandler = (_, __) => { if (activated && generation == activationGeneration) {syncAcceptingTrades();deliveryRecovery?.RequestRecovery();} };
                 disconnectedHandler = (_, __) => { if (activated && generation == activationGeneration) { lastSyncedAcceptingTrades = null; System.Threading.Interlocked.Exchange(ref basicTermsNoticeShown, 0); } };
@@ -470,30 +467,7 @@ namespace Phinix.TradeExtension.Client
 
         private void acknowledgeCompletion(string tradeId, bool cancelled)
         {
-            if (string.IsNullOrWhiteSpace(tradeId) ||
-                lifecycle?.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2 ||
-                frameworkClient == null ||
-                !frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.CompletionAckRequestType))
-            {
-                return;
-            }
-
-            FrameworkPacket packet = new FrameworkPacket
-            {
-                Flow = global::Phinix.Framework.FrameworkFlow.Command,
-                CommandKind = global::Phinix.Framework.FrameworkCommandKind.Request,
-                MessageType = FrameworkTradeProtocol.CompletionAckRequestType,
-                MessageId = Guid.NewGuid().ToString(),
-                SessionId = sessionContext?.SessionId,
-                SenderUuid = sessionContext?.Uuid,
-                PayloadJson = FrameworkSerialization.SerializePayload(new FrameworkTradeCompletionAckRequest
-                {
-                    TradeId = tradeId,
-                    Cancelled = cancelled
-                })
-            };
-            packet.SetCorrelationId(tradeId);
-            commandTransport?.TryHandleOutgoingCommand(packet);
+            (tradeFacade as FrameworkClientTradeServiceAdapter)?.AcknowledgeCompletion(tradeId, cancelled);
         }
 
         private void handleCompletionAckResponse(FrameworkPacket packet)

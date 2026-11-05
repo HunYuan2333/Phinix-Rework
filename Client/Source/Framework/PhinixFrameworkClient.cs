@@ -279,7 +279,8 @@ namespace PhinixClient.Framework
                 {
                     RaiseLogEntry(new LogEventArgs(
                         $"Message handler {handler.GetType().FullName} threw for outgoing text: {ex}", LogLevel.ERROR));
-                    continue;
+                    // Dispatch may already have occurred; never try another handler.
+                    throw;
                 }
 
                 RaiseLogEntry(new LogEventArgs(
@@ -420,7 +421,8 @@ namespace PhinixClient.Framework
                 {
                     RaiseLogEntry(new LogEventArgs(
                         $"[Phinix] Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
-                    continue;
+                    // Dispatch may already have occurred; never try another handler.
+                    throw;
                 }
 
                 RaiseLogEntry(new LogEventArgs(
@@ -515,7 +517,8 @@ namespace PhinixClient.Framework
                 {
                     RaiseLogEntry(new LogEventArgs(
                         $"[Phinix] Outgoing item handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
-                    continue;
+                    // Dispatch may already have occurred; never try another handler.
+                    throw;
                 }
 
                 if (result == null || result.Action == ItemHandlingResultAction.Continue)

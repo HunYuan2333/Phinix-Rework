@@ -34,6 +34,7 @@ namespace Phinix.TradeExtension.Client
             intentJournal = journal; intentEndpoint = endpoint;
             operationQueries = new TradeOperationQueryClient(journal, endpoint, () => sessionContext?.Uuid, () => sessionContext?.SessionId,
                 () => sessionContext?.Authenticated == true && sessionContext?.LoggedIn == true &&
+                    lifecycle?.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2 &&
                     frameworkClient?.HasRemoteCapability(TradeOperationQueryProtocol.Request) == true && frameworkClient?.HasRemoteCapability(TradeOperationQueryProtocol.Response) == true,
                 packet => commandTransport != null && commandTransport.TryHandleOutgoingCommand(packet));
         }
@@ -64,6 +65,43 @@ namespace Phinix.TradeExtension.Client
             this.lifecycle = lifecycle;
             this.sessionContext = sessionContext;
             this.log = log;
+        }
+
+        internal void AcknowledgeCompletion(string tradeId, bool cancelled)
+        {
+            if (string.IsNullOrWhiteSpace(tradeId) ||
+                lifecycle?.CompatibilityMode != FrameworkCompatibilityMode.FrameworkV2 ||
+                frameworkClient == null ||
+                !frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.CompletionAckRequestType))
+            {
+                return;
+            }
+
+            FrameworkPacket packet = new FrameworkPacket
+            {
+                Flow = global::Phinix.Framework.FrameworkFlow.Command,
+                CommandKind = global::Phinix.Framework.FrameworkCommandKind.Request,
+                MessageType = FrameworkTradeProtocol.CompletionAckRequestType,
+                MessageId = Guid.NewGuid().ToString(),
+                SessionId = sessionContext?.SessionId,
+                SenderUuid = sessionContext?.Uuid,
+                PayloadJson = FrameworkSerialization.SerializePayload(new FrameworkTradeCompletionAckRequest
+                {
+                    TradeId = tradeId,
+                    Cancelled = cancelled
+                })
+            };
+            packet.SetCorrelationId(tradeId);
+            commandTransport?.TryHandleOutgoingCommand(packet);
+        }
+
+        internal void RequestSnapshot()
+        {
+            EnsureActive();
+            if (lifecycle?.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2 &&
+                sessionContext.Authenticated && sessionContext.LoggedIn &&
+                frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
+                DispatchTradePacket(tradeService.CreateSnapshotRequestPacket(sessionContext.SessionId, sessionContext.Uuid));
         }
 
         public void Dispose()
@@ -248,6 +286,10 @@ namespace Phinix.TradeExtension.Client
 
         private void PrepareIntent(FrameworkPacket packet, IEnumerable<FrameworkPacket> items)
         {
+            // Original wire requests have no durable operation/query-result contract.
+            // Their real offer responses settle the existing escrow; do not reserve
+            // modern result slots which that endpoint can never fill.
+            if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy) return;
             if (intentJournal == null || (packet.MessageType != FrameworkTradeProtocol.CreateRequestType &&
                 packet.MessageType != FrameworkTradeProtocol.OfferUpdateRequestType && packet.MessageType != FrameworkTradeProtocol.StatusUpdateRequestType)) return;
             var record = intentJournal.Prepare(intentEndpoint?.Invoke(), sessionContext?.Uuid, packet, items);
@@ -261,7 +303,7 @@ namespace Phinix.TradeExtension.Client
 
             if (commandTransport == null || !commandTransport.TryHandleOutgoingCommand(packet))
             {
-                log?.Invoke($"[TradeAdapter] No handler for outgoing command {packet.MessageType}", LogLevel.WARNING);
+                throw new InvalidOperationException("No transport handler accepted trade command: " + packet.MessageType);
             }
             else
             {

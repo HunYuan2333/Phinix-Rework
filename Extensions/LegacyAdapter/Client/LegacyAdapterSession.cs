@@ -21,6 +21,8 @@ namespace Phinix.LegacyAdapter.Client
         private readonly SessionTransport transport;
         private readonly Action<string, LogLevel> log;
         private readonly object lifecycleGate = new object();
+        private readonly IDisplayMessageSink sink;
+        private bool legacyNoticePublished;
         private bool active;
         private bool tradeRegistered;
         internal LegacyChatProtocolAdapter Chat { get; }
@@ -30,9 +32,13 @@ namespace Phinix.LegacyAdapter.Client
             IClientSessionContext session, IFrameworkClientLifecycle lifecycle, LegacyTradeDependencies dependencies)
         {
             this.lifecycle = lifecycle;
-            log = dependencies.Log;
+            this.sink = sink;
+            log = (message, level) =>
+            {
+                try { dependencies.Log?.Invoke(message, level); } catch { /* Diagnostic isolation. */ }
+            };
             this.transport = new SessionTransport(transport);
-            Chat = new LegacyChatProtocolAdapter(this.transport, sink, session);
+            Chat = new LegacyChatProtocolAdapter(this.transport, sink, session, dependencies.Log);
             Trade = new LegacyTradeProtocolAdapter(this.transport, sink, session, dependencies.Api,
                 dependencies.Repository, lifecycle, dependencies.Log);
         }
@@ -67,14 +73,25 @@ namespace Phinix.LegacyAdapter.Client
 
         private void Select(FrameworkCompatibilityMode mode)
         {
-            if (mode == FrameworkCompatibilityMode.Legacy)
+            Trade.SelectMode(mode);
+            if (mode == FrameworkCompatibilityMode.Unknown) legacyNoticePublished = false;
+            if (mode == FrameworkCompatibilityMode.Legacy && !legacyNoticePublished)
+            {
+                legacyNoticePublished = true;
+                sink.Enqueue(new FrameworkDisplayMessage
+                {
+                    SenderUuid = FrameworkProtocol.SystemSenderUuid, Source = "system",
+                    TimestampUtcTicks = DateTime.UtcNow.Ticks,
+                    Text = "当前连接使用原版 Phinix 协议；回复、提及以文字展示，交易交付不支持持久 ACK。"
+                });
+            }
+            if (mode == FrameworkCompatibilityMode.Legacy || mode == FrameworkCompatibilityMode.Unknown)
             {
                 Chat.RegisterHandlers();
                 if (!tradeRegistered)
                 {
-                    tradeRegistered = true; // Cleanup also covers a partially successful registration.
+                    tradeRegistered = true;
                     Trade.RegisterHandlers();
-                    log?.Invoke("[LegacyAdapter] Registered legacy protocol handlers (Chat + Trading).", LogLevel.INFO);
                 }
             }
             else
@@ -84,9 +101,7 @@ namespace Phinix.LegacyAdapter.Client
                     tradeRegistered = false;
                     UnregisterTrade();
                 }
-                // History can arrive before negotiation finishes.
-                if (mode == FrameworkCompatibilityMode.Unknown) Chat.RegisterHandlers();
-                else Chat.UnregisterHandlers();
+                Chat.UnregisterHandlers();
             }
         }
 

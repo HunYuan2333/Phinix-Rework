@@ -10,7 +10,7 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkTradeUpdateResultApi, ITradeStateInput
+    public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkTradeUpdateResultApi, ITradeStateInput, ITradeCompletionInput
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
         private TradeCompletionInbox completionInbox;
@@ -562,13 +562,30 @@ namespace Phinix.TradeExtension.Client
         public void CompleteTrade(string tradeId, bool success, string otherPartyUuid,
             IEnumerable<FrameworkItemPayload> items)
         {CompleteTradeCore(tradeId,success,otherPartyUuid,items,null);}
+        public Action CaptureCompletion(string tradeId, bool success, string otherPartyUuid, IEnumerable<FrameworkItemPayload> items)
+        {
+            var gameScope = completionGameScopes?.Capture();
+            var saveScope = completionReceiveScopes?.CaptureReceiveScope();
+            string endpoint = completionEndpoint?.Invoke(), principal = userDirectory?.Uuid;
+            var payloads = (items ?? Array.Empty<FrameworkItemPayload>()).Select(item =>
+                FrameworkSerialization.DeserializePayload<FrameworkItemPayload>(FrameworkSerialization.SerializePayload(item))).ToArray();
+            return () => CompleteCaptured(tradeId, success, otherPartyUuid, payloads, null, gameScope, saveScope, endpoint, principal);
+        }
+
         private void CompleteTradeCore(string tradeId,bool success,string otherPartyUuid,IEnumerable<FrameworkItemPayload> items,Action afterPersist)
         {
             // Capture before enumeration, durable IO and decoding; none may move ownership to a later game.
             var gameScope=completionGameScopes?.Capture();
             var saveScope=completionReceiveScopes?.CaptureReceiveScope();
+            CompleteCaptured(tradeId,success,otherPartyUuid,items,afterPersist,gameScope,saveScope,completionEndpoint?.Invoke(),userDirectory?.Uuid);
+        }
+
+        private void CompleteCaptured(string tradeId, bool success, string otherPartyUuid,
+            IEnumerable<FrameworkItemPayload> items, Action afterPersist, IClientGameScope gameScope,
+            IInventoryReceiveScope saveScope, string endpoint, string principal)
+        {
             FrameworkItemPayload[] payloads = (items ?? Array.Empty<FrameworkItemPayload>()).ToArray();
-            bool first=completionInbox==null || completionInbox.Record(completionEndpoint(), userDirectory?.Uuid, tradeId, success, otherPartyUuid, payloads);
+            bool first=completionInbox==null || completionInbox.Record(endpoint, principal, tradeId, success, otherPartyUuid, payloads);
             afterPersist?.Invoke();
             if (!first)
             {

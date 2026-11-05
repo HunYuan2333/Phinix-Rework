@@ -14,7 +14,7 @@ p.add_argument('--assemblies', type=Path, required=True)
 p.add_argument('--game', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
 p.add_argument('--harmony', type=Path, help='Explicit compile/runtime Harmony reference for constructor IL inspection')
-p.add_argument('--suite', choices=['trade-composition', 'trade-wire', 'inventory-runtime', 'inventory-composition', 'host-startup', 'inventory-checkpoint', 'recovery-queue'], required=True)
+p.add_argument('--suite', choices=['legacy-adapter', 'trade-composition', 'trade-wire', 'inventory-runtime', 'inventory-composition', 'host-startup', 'inventory-checkpoint', 'recovery-queue'], required=True)
 a = p.parse_args()
 r = Path(__file__).resolve().parents[2]
 out, assemblies, game = a.output.resolve(), a.assemblies.resolve(), a.game.resolve()
@@ -23,6 +23,7 @@ if out.is_relative_to(r.parent) or out.is_relative_to(game) or game.is_relative_
 if out.exists() and any(out.iterdir()):
     p.error('Use a fresh output.')
 suites = {
+    'legacy-adapter': ('LegacyTradeRuntimeTests', 'Tests/LegacyTradeRuntimeTests'),
     'recovery-queue': ('TradeRecoveryQueueTests', 'Tests/TradeRecoveryQueueTests'),
     'inventory-checkpoint': ('InventoryCheckpointIntegrationTests', 'Tests/InventoryCheckpointIntegrationTests'),
     'host-startup': ('HostStartupTests', 'Tests/HostStartupTests'),

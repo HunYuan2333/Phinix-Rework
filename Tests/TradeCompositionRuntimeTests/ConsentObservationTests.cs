@@ -11,6 +11,7 @@ internal static partial class Program
     private static void CheckConsentObservation()
     {
         CheckCompletionInboxIntegration();
+        CheckLegacyIntentIsolation();
         var service = new PhinixFrameworkTradeClientService(null, new Users(), null);
         Action<long> receive = version =>
         {
@@ -82,6 +83,70 @@ internal static partial class Program
         catch (TargetInvocationException e) { refused = e.InnerException is InvalidOperationException; }
         Assert(refused, "An unbound placeholder cannot manufacture confirmation consent.");
     }
+    private static void CheckLegacyIntentIsolation()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+        string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "phinix-legacy-intents-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var pipelineType = typeof(TradeWindow).Assembly.GetType("Phinix.TradeExtension.Client.TradeClientItemPipeline", true);
+            var pipeline = (ITradeItemPayloadEncoder)Activator.CreateInstance(pipelineType, null, FrameworkCompatibilityMode.Legacy, null);
+            var service = new PhinixFrameworkTradeClientService(pipeline, new Users(), null);
+            service.HandleSnapshot(TradeSnapshot("legacy-capacity", null));
+            using (var host = new TradeHost())
+            {
+                var type = typeof(TradeWindow).Assembly.GetType("Phinix.TradeExtension.Client.FrameworkClientTradeServiceAdapter", true);
+                var adapter = Activator.CreateInstance(type, new object[] { service });
+                type.GetMethod("Initialize", flags).Invoke(adapter, new object[] { host, host, host, host, null });
+                type.GetMethod("ConfigureSaveReadiness", flags).Invoke(adapter, new object[] {
+                    (Func<Phinix.InventoryExtension.InventoryStatus>)(() => new Phinix.InventoryExtension.InventoryStatus {
+                        Availability = Phinix.InventoryExtension.InventoryAvailability.Ready, SaveIdentity = new string('a',64) }) });
+                var journalType = type.Assembly.GetType("Phinix.TradeExtension.Client.TradeIntentJournal", true);
+                var journal = Activator.CreateInstance(journalType, flags, null, new object[] { root }, null);
+                type.GetMethod("ConfigureIntentJournal", flags).Invoke(adapter, new object[] { journal, (Func<string>)(() => host.RemoteEndpoint) });
+                var facade = (IClientTradeService)adapter;
+                bool full = false;
+                for (int n = 0; n < 100 && !full; n++)
+                {
+                    int before = host.Commands.Count;
+                    try { facade.CreateTrade("remote"); }
+                    catch (System.IO.IOException error)
+                    {
+                        Assert(error.Message.Contains("headroom"), "Regression reaches the actual result reserve admission limit.");
+                        Assert(host.Commands.Count == before, "Modern full intent journal refuses before transport.");
+                        full = true;
+                    }
+                }
+                Assert(full, "Real journal reaches reserved result capacity within bounded requests.");
+                var evidence = System.IO.Directory.GetFiles(root).ToDictionary(f => f, System.IO.File.ReadAllBytes);
+                int sent = host.Commands.Count;
+                host.Mode = FrameworkCompatibilityMode.Legacy;
+                facade.CreateTrade("remote");
+                facade.UpdateTradeItems("legacy-capacity", Array.Empty<TradeItemSnapshot>(), "legacy-offer");
+                facade.CancelTrade("legacy-capacity");
+                service.TryGetTrade("legacy-capacity", out ClientTradeSnapshot displayed);
+                type.GetMethod("AcceptObservedTrade", flags).Invoke(adapter, new object[] { displayed });
+                Assert(host.Commands.Count == sent + 4, "Known original endpoint can create, quote, cancel and confirm without modern result reservations.");
+                Assert(System.IO.Directory.GetFiles(root).Length == evidence.Count && evidence.All(pair => System.IO.File.ReadAllBytes(pair.Key).SequenceEqual(pair.Value)),
+                    "Legacy routing neither adds modern intents nor deletes or mutates historical recovery evidence.");
+                host.Mode = FrameworkCompatibilityMode.FrameworkV2;
+                bool refused = false;
+                try { facade.CreateTrade("remote"); } catch (System.IO.IOException) { refused = true; }
+                Assert(refused && host.Commands.Count == sent + 4, "Switching back retains strict modern durability admission.");
+                host.Mode = FrameworkCompatibilityMode.Legacy;
+                Assert(!(bool)type.GetProperty("CanQueryOperation", flags).GetValue(adapter), "Original endpoint cannot advertise modern operation lookup through stale capabilities.");
+                type.GetMethod("AcknowledgeCompletion", flags).Invoke(adapter, new object[] { "legacy-capacity", false });
+                Assert(host.Commands.Count == sent + 4, "Legacy delivery cannot synthesize an unsupported completion ACK.");
+                host.Mode = FrameworkCompatibilityMode.FrameworkV2;
+                type.GetMethod("AcknowledgeCompletion", flags).Invoke(adapter, new object[] { "legacy-capacity", false });
+                Assert(host.Commands.Count == sent + 5 && host.Commands.Last().MessageType == FrameworkTradeProtocol.CompletionAckRequestType,
+                    "Modern delivery retains its real completion ACK route.");
+                ((IDisposable)adapter).Dispose();
+            }
+        }
+        finally { if (System.IO.Directory.Exists(root)) System.IO.Directory.Delete(root, true); }
+    }
+
     private static void CheckCompletionInboxIntegration()
     {
         string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "phinix-inbox-integration-" + Guid.NewGuid().ToString("N"));

@@ -30,6 +30,8 @@ internal static class Program
                 Console.WriteLine("LEGACY CONSENT WIRE RESULT passed; actual adapter/serializer/original status shape");
                 return 0;
             }
+            AssertOutgoingFailureStopsPipeline();
+            AssertFullSyncIsAtomicReplacement();
             AssertRegistryComposition();
             AssertEarlyLegacyChatHistory();
             AssertOnlyResponseConfirmsOffer();
@@ -41,7 +43,7 @@ internal static class Program
             AssertEncodingFailureDoesNotReturnPartialItems();
             AssertUnknownSendOutcomeRemainsPending();
             AssertStatefulItemsRoundTripThroughLegacyServerShape();
-            Console.WriteLine("All 11 legacy adapter runtime scenarios passed: " + assertions + " assertions; " + (baseline ? "before" : "after"));
+            Console.WriteLine("Legacy adapter runtime scenarios passed: " + assertions + " assertions; " + (baseline ? "before" : "after"));
             return 0;
         }
         catch (Exception exception)
@@ -49,6 +51,68 @@ internal static class Program
             Console.Error.WriteLine(exception);
             return 1;
         }
+    }
+
+    private static void AssertOutgoingFailureStopsPipeline()
+    {
+        // Isolate authentication/network setup only; exercise the actual Host dispatch loops.
+        object Bare(Type type) => System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+        var client = new PhinixFrameworkClient(null,
+            (Authentication.ClientAuthenticator)Bare(typeof(Authentication.ClientAuthenticator)),
+            (UserManagement.ClientUserManager)Bare(typeof(UserManagement.ClientUserManager)));
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+        object runtime = typeof(PhinixFrameworkClient).GetField("extensionRuntime", flags).GetValue(client);
+        var discovered = (DiscoveredPhinixExtensions)runtime.GetType().GetProperty("Extensions", flags).GetValue(runtime);
+        var first = new DispatchProbe(10, true);
+        var next = new DispatchProbe(20, false);
+        discovered.Extensions.Add(first); discovered.Extensions.Add(next);
+        discovered.ClientMessageHandlers.Add(first); discovered.ClientMessageHandlers.Add(next);
+        discovered.ClientOutgoingItemHandlers.Add(first); discovered.ClientOutgoingItemHandlers.Add(next);
+        foreach (Action dispatch in new Action[] {
+            () => client.TryHandleOutgoingCommand(new FrameworkPacket { MessageType = "probe.command" }),
+            () => client.TryHandleOutgoingMessage("probe text"),
+            () => client.TryHandleOutgoingItem(new FrameworkItemPayload { CodecId = "probe" }) })
+        {
+            bool failed = false;
+            try { dispatch(); } catch (InvalidOperationException error) { failed = error.Message == "sent-then-failed"; }
+            Assert(failed && next.Calls == 0, "A possibly sent operation must propagate failure without invoking another handler.");
+        }
+        Assert(first.Calls == 3, "All three actual outgoing Host loops exercise the failure boundary.");
+    }
+
+    private sealed class DispatchProbe : IPhinixExtension, IClientOutgoingCommandHandler, IClientMessageHandler, IClientOutgoingItemHandler
+    {
+        public string ExtensionId => "probe." + Priority;
+        public int Priority { get; }
+        private readonly bool fails;
+        public int Calls;
+        public DispatchProbe(int priority, bool fails) { Priority = priority; this.fails = fails; }
+        private void Dispatch() { Calls++; if (fails) throw new InvalidOperationException("sent-then-failed"); }
+        public bool CanHandleOutgoingCommand(FrameworkPacket packet) => true;
+        public ClientOutgoingCommandResult HandleOutgoingCommand(FrameworkPacket packet, ClientFrameworkContext context)
+        { Dispatch(); return new ClientOutgoingCommandResult { Action = MessageHandlingResultAction.Handled }; }
+        public bool CanHandleOutgoingText(string text) => true;
+        public ClientOutgoingMessageResult HandleOutgoingText(string text, ClientFrameworkContext context)
+        { Dispatch(); return new ClientOutgoingMessageResult { Action = MessageHandlingResultAction.Handled }; }
+        public bool CanHandleIncomingMessage(FrameworkPacket packet) => false;
+        public ClientIncomingMessageResult HandleIncomingMessage(FrameworkPacket packet, ClientFrameworkContext context) => null;
+        public bool CanHandleOutgoingItem(FrameworkItemPayload item) => true;
+        public ClientOutgoingItemResult HandleOutgoingItem(FrameworkItemPayload item, ClientFrameworkContext context)
+        { Dispatch(); return new ClientOutgoingItemResult { Action = ItemHandlingResultAction.Handled }; }
+    }
+
+    private static void AssertFullSyncIsAtomicReplacement()
+    {
+        var fixture = new Fixture();
+        var sync = new Trading.SyncTradesPacket();
+        sync.Trades.Add(new Trading.TradeProto { TradeId = "replacement", OtherPartyUuid = "remote" });
+        fixture.Transport.Receive(sync);
+        Assert(fixture.Service.GetRepositoryTrades().Single().TradeId == "replacement", "Original full sync removes stale trades.");
+        sync.Trades.Add(new Trading.TradeProto { TradeId = "invalid", OtherPartyUuid = "local" });
+        fixture.Transport.Receive(sync);
+        Assert(fixture.Service.GetRepositoryTrades().Single().TradeId == "replacement", "Malformed later sync entry cannot partially replace state.");
+        fixture.Transport.Receive(new Trading.SyncTradesPacket());
+        Assert(!fixture.Service.GetRepositoryTrades().Any(), "Empty original full sync clears stale trades.");
     }
 
     private static void AssertRegistryComposition()
@@ -105,23 +169,55 @@ internal static class Program
         host.AddService<IFrameworkClientLifecycle>(lifecycle);
         host.AddService<IDisplayMessageSink>(sink);
         host.AddService<IClientSessionContext>(new FakeSession());
+        var tradeService = new PhinixFrameworkTradeClientService(null, new FakeUsers(), null);
+        host.ApiRegistry.RegisterApi<IFrameworkTradeClientApi>("builtin.trade", tradeService);
+        host.ApiRegistry.RegisterApi<ITradeStateInput>("builtin.trade", tradeService);
+        int syncs = 0; tradeService.OnTradesSynced += (_, __) => syncs++;
+        var originalScope = new ReceiveScope();
+        var scopes = new ReceiveScopes { Current = originalScope };
+        tradeService.GetType().GetMethod("ConfigureGameScopes", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(tradeService, new object[] { scopes });
+        int completions = 0;
+        tradeService.OnTradeCompleted += (_, args) =>
+        {
+            completions++;
+            var captured = args.GetType().GetField("GameScope", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(args);
+            Assert(ReferenceEquals(captured, originalScope) && !((IClientGameScope)captured).IsCurrent(),
+                "Deferred login delivery retains the receive-time game token instead of binding to the later game.");
+        };
         var module = new Phinix.LegacyAdapter.Client.BuiltInLegacyAdapterClientExtension();
         module.Activate(host);
         if (!baseline) module.Activate(host);
-        Assert(transport.Registrations == 1, "Repeated activation does not register twice.");
-        Assert(transport.Handlers.ContainsKey("Chat") && !transport.Handlers.ContainsKey("Trading"), "Unknown mode prepares Chat history without enabling Trade.");
+        Assert(transport.Registrations == 2, "Repeated activation does not register twice.");
+        Assert(transport.Handlers.ContainsKey("Chat") && transport.Handlers.ContainsKey("Trading"), "Unknown mode captures login packets without enabling Trade dispatch.");
         var history = new Chat.ChatHistoryPacket();
-        history.ChatMessages.Add(new Chat.ChatMessagePacket { MessageId = "before-negotiation", Uuid = "remote", Message = "old history" });
+        history.ChatMessages.Add(new Chat.ChatMessagePacket { MessageId = "before-negotiation", Uuid = "remote", Message = "old history", Timestamp = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(new DateTime(2026,11,5,0,0,0,DateTimeKind.Utc)) });
         transport.Receive(history);
         Assert(sink.Messages.Single().MessageId == "before-negotiation", "Login-time history arrives before Legacy negotiation completes.");
+        Assert(sink.Messages.Single().TimestampUtcTicks == new DateTime(2026,11,5,0,0,0,DateTimeKind.Utc).Ticks,
+            "Original protobuf timestamp includes the Unix epoch offset.");
+        // A packet arriving during negotiation must be replayed only after Legacy selection.
+        transport.ReceiveTrade(new Trading.SyncTradesPacket());
+        transport.ReceiveTrade(new Trading.CompleteTradePacket { TradeId = "early-completion", Success = true, OtherPartyUuid = "remote" });
+        Assert(completions == 0, "Unknown protocol selection cannot publish a buffered completion.");
+        originalScope.Valid = false; scopes.Current = new ReceiveScope();
         lifecycle.Change(FrameworkCompatibilityMode.Legacy);
         lifecycle.Change(FrameworkCompatibilityMode.Legacy);
+        Assert(completions == 1, "Selected original completion is published exactly once.");
+        Assert(syncs == 1, "Negotiation replays the real early full sync exactly once.");
         Assert(transport.Handlers.Count == 2 && transport.Registrations == 2, "Legacy transition does not register Chat twice.");
+        module.HandleOutgoingText("hello original", null);
+        Assert(transport.Sent.Single().Message == "hello original", "Original chat dispatch does not require a running Verse logger.");
+        var structured = new global::Phinix.Framework.BuiltInChatMessagePayload { MessageId = "structured", Message = "reply text", ReplyToMessageId = "parent", ReplyToSnippet = "quote" };
+        structured.MentionedUuids.Add("remote");
+        module.HandleOutgoingMessage(new FrameworkPacket { MessageType = Phinix.ChatExtension.FrameworkChatProtocol.MessageType, PayloadBytes = structured.ToByteArray() }, null);
+        Assert(transport.Sent.Last().Message.Contains("quote") && transport.Sent.Last().Message.Contains("remote") && transport.Sent.Last().Message.Contains("reply text"), "Legacy projection preserves reply and mention context as explicit text.");
         lifecycle.Change(FrameworkCompatibilityMode.Unknown);
-        Assert(transport.Handlers.ContainsKey("Chat") && !transport.Handlers.ContainsKey("Trading"), "Reconnect keeps Chat ready for the next login history.");
+        Assert(transport.Handlers.ContainsKey("Chat") && transport.Handlers.ContainsKey("Trading"), "Reconnect keeps login handlers ready for the next login history.");
         transport.Receive(history);
-        Assert(sink.Messages.Count == 2, "Reconnect login-time history reaches the display sink again.");
+        Assert(sink.Messages.Count(m => m.MessageId == "before-negotiation") == 2, "Reconnect login-time history reaches the display sink again.");
+        transport.ReceiveTrade(new Trading.SyncTradesPacket());
         lifecycle.Change(FrameworkCompatibilityMode.FrameworkV2);
+        Assert(syncs == 1, "Modern selection discards buffered original packets.");
         Assert(transport.Handlers.Count == 0, "FrameworkV2 relinquishes legacy Chat and Trade handlers.");
         lifecycle.Change(FrameworkCompatibilityMode.Unknown);
         Assert(transport.Handlers.ContainsKey("Chat"), "A new negotiation prepares Chat again.");
@@ -129,7 +225,7 @@ internal static class Program
         module.Shutdown(host); module.Shutdown(host);
         if (!baseline) {
         staleChat("Chat", "server", ProtobufPacketHelper.Pack(history).ToByteArray());
-        Assert(sink.Messages.Count == 2, "Detached Chat callback cannot publish after shutdown.");
+        Assert(sink.Messages.Count(m => m.MessageId == "before-negotiation") == 2, "Detached Chat callback cannot publish after shutdown.");
         Assert(module.HandleOutgoingText("stale", null).Action == MessageHandlingResultAction.Continue,
             "Stopped module does not swallow or echo outgoing text.");
         }
@@ -162,6 +258,17 @@ internal static class Program
         }
     }
 
+    private sealed class ReceiveScope : IClientGameScope
+    {
+        internal bool Valid = true;
+        public bool IsCurrent() => Valid;
+    }
+    private sealed class ReceiveScopes : IClientGameScopeService
+    {
+        internal IClientGameScope Current;
+        public IClientGameScope Capture() => Current;
+    }
+
     private sealed class ChatTransport : ILegacyModuleTransport, IDisposable
     {
         internal readonly Dictionary<string, RawPacketHandlerDelegate> Handlers = new Dictionary<string, RawPacketHandlerDelegate>();
@@ -180,7 +287,9 @@ internal static class Program
             Handlers.Remove(module);
             if (FailUnregistration) throw new InvalidOperationException("Injected unregister failure after removal");
         }
-        public void Send(string module, byte[] data) { throw new Exception("Unexpected send"); }
+        internal readonly List<Chat.ChatMessagePacket> Sent = new List<Chat.ChatMessagePacket>();
+        public void Send(string module, byte[] data) { Sent.Add(Google.Protobuf.WellKnownTypes.Any.Parser.ParseFrom(data).Unpack<Chat.ChatMessagePacket>()); }
+        internal void ReceiveTrade(IMessage packet) { Handlers["Trading"]("Trading", "server", ProtobufPacketHelper.Pack(packet).ToByteArray()); }
         internal void Receive(IMessage packet) { Handlers["Chat"]("Chat", "server", ProtobufPacketHelper.Pack(packet).ToByteArray()); }
     }
     private sealed class ChatLifecycle : IFrameworkClientLifecycle, IDisposable
@@ -236,8 +345,12 @@ internal static class Program
         var fixture = new Fixture();
         fixture.Transport.FailSend = true;
         fixture.Send("not-sent", VanillaItem(20));
+        Assert(fixture.LastSendError is Connections.NotConnectedException, "Definite dispatch failure propagates out of the adapter.");
         Assert(fixture.Successes.Count == 0 && fixture.Failures.Single().Token == "not-sent", "Send failure must reach the operation owner.");
         Assert(fixture.LocalCount == 3, "Send failure must not write a predicted offer.");
+        bool refused = false;
+        try { fixture.Confirm(); } catch (Connections.NotConnectedException) { refused = true; }
+        Assert(refused, "Status send failure cannot be swallowed as handled success.");
         Assert(!fixture.Service.IsTradeUpdatePending("trade", "not-sent"), "Definite send failure must settle the pending request.");
     }
 
@@ -246,6 +359,7 @@ internal static class Program
         var fixture = new Fixture();
         fixture.Transport.ThrowAfterSend = true;
         fixture.Send("unknown-result", VanillaItem(20));
+        Assert(fixture.LastSendError != null, "Unknown dispatch failure must propagate to the caller.");
         Assert(fixture.Transport.Sent.Count == 1, "The simulated transport accepted the packet before failing.");
         Assert(fixture.Successes.Count == 0 && fixture.Failures.Count == 0,
             "An uncertain send must not confirm or restore items.");
@@ -399,6 +513,7 @@ internal static class Program
         public readonly List<string> Successes = new List<string>();
         public readonly List<TradeUpdateEventArgs> Failures = new List<TradeUpdateEventArgs>();
         private readonly IClientOutgoingCommandHandler adapter;
+        public Exception LastSendError;
 
         public Fixture()
         {
@@ -438,7 +553,9 @@ internal static class Program
                 })
             };
             packet.SetCorrelationId(token);
-            adapter.HandleOutgoingCommand(packet, new ClientFrameworkContext());
+            LastSendError = null;
+            try { adapter.HandleOutgoingCommand(packet, new ClientFrameworkContext()); }
+            catch (Exception error) { LastSendError = error; }
         }
 
         public void Confirm()
