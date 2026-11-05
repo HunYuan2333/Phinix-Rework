@@ -121,10 +121,10 @@
   <Phinix_inventory_planSaveFailed>计划未能保存。请保留当前窗口，并检查库存状态。</Phinix_inventory_planSaveFailed>
   <Phinix_inventory_keepReadOnly>保持只读</Phinix_inventory_keepReadOnly>
   <Phinix_inventory_readOnlyKept>库存保持只读，未修改文件或物品。</Phinix_inventory_readOnlyKept>
-  <Phinix_inventory_discardHistory>抛弃日志变更</Phinix_inventory_discardHistory>
-  <Phinix_inventory_discardHistoryConfirm>备份并使用存档库存</Phinix_inventory_discardHistoryConfirm>
-  <Phinix_inventory_discardHistoryWarning>仅保留这份存档中已保存的库存。此快照之后的本地日志变更可能丢失，包括交付和物品扣除记录。原日志及身份标记会保留备份；不会退款、重发或认定已经到账。取消则保持只读。</Phinix_inventory_discardHistoryWarning>
-  <Phinix_inventory_savedSnapshotRestored>已恢复存档内库存，抛弃的日志证据已保留备份。</Phinix_inventory_savedSnapshotRestored>
+  <Phinix_inventory_discardHistory>放弃恢复（不安全）</Phinix_inventory_discardHistory>
+  <Phinix_inventory_discardHistoryConfirm>我了解风险，放弃恢复</Phinix_inventory_discardHistoryConfirm>
+  <Phinix_inventory_discardHistoryWarning>仅使用当前存档内已保存的库存，并放弃存档之后的本地日志恢复。这可能造成物品丢失、重复，或使本地库存与服务端交易结果不一致；已完成的交易不会撤销。原日志和身份标记会保留备份，但备份不保证能够恢复。不会自动退款或重发物品。不接受这些风险，请选择“保持只读”。</Phinix_inventory_discardHistoryWarning>
+  <Phinix_inventory_savedSnapshotRestored>已放弃后续日志恢复，当前使用存档内库存；原日志证据已保留备份。</Phinix_inventory_savedSnapshotRestored>
   <Phinix_inventory_saveProofRequired>需要可读取且身份与内容一致的存档证明。</Phinix_inventory_saveProofRequired>
-  <Phinix_inventory_faultExplanation>库存日志无法安全核对。可保持只读，或备份日志并回到这份存档内已保存的库存。</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_faultExplanation>库存日志无法安全核对。建议保持只读；也可选择“放弃恢复（不安全）”，承担风险并使用存档内已保存的库存。</Phinix_inventory_faultExplanation>
 </LanguageData>
