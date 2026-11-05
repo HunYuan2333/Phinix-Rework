@@ -320,7 +320,8 @@ internal static partial class Program
         public event Action<string, object> OnSettingChanged { add { Add("settings", value); } remove { Remove("settings", value); } }
         public void Emit(string key) { ((EventHandler)Listener(key))?.Invoke(this, EventArgs.Empty); }
         public void Compatibility() { ((EventHandler<FrameworkCompatibilityModeChangedEventArgs>)Listener("compatibility"))?.Invoke(this, new FrameworkCompatibilityModeChangedEventArgs(FrameworkCompatibilityMode.FrameworkV2)); }
-        public FrameworkCompatibilityMode CompatibilityMode => FrameworkCompatibilityMode.FrameworkV2;
+        public FrameworkCompatibilityMode Mode = FrameworkCompatibilityMode.FrameworkV2;
+        public FrameworkCompatibilityMode CompatibilityMode => Mode;
         public string RemoteEndpoint => "127.0.0.1:16200";
         public bool Authenticated => true; public bool LoggedIn => true; public string SessionId => "session"; public string Uuid => "local";
         public bool HasRemoteCapability(string capability) => true;

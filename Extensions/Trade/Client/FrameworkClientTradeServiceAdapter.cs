@@ -214,10 +214,12 @@ namespace Phinix.TradeExtension.Client
         {
             EnsureActive();
             RequireSavedRecipient();
-            long version = TradeSnapshotObservation.Require(snapshot);
+            long? version = lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy
+                ? LegacyTradeConsentAdapter.Observe(snapshot, tradeService)
+                : TradeSnapshotObservation.Require(snapshot);
             GuardOfferOperation(snapshot.TradeId, null, false);
             FrameworkPacket packet = tradeService.CreateStatusUpdateRequest(snapshot.TradeId, true, null, createContext());
-            packet.SetSnapshotVersion(version);
+            if (version.HasValue) packet.SetSnapshotVersion(version.Value);
             SendTradePacket(packet);
         }
 

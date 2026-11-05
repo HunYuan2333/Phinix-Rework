@@ -19,6 +19,17 @@ internal static class Program
         baseline = args.Contains("--baseline");
         try
         {
+            var consentFixture = new Fixture();
+            consentFixture.Confirm();
+            Assert(consentFixture.Transport.Status.Single().Accepted &&
+                !consentFixture.Transport.Status.Single().Cancelled &&
+                consentFixture.Transport.Status.Single().TradeId == "trade",
+                "Unversioned Legacy consent must encode the original status packet.");
+            if (args.Contains("--consent-only"))
+            {
+                Console.WriteLine("LEGACY CONSENT WIRE RESULT passed; actual adapter/serializer/original status shape");
+                return 0;
+            }
             AssertRegistryComposition();
             AssertEarlyLegacyChatHistory();
             AssertOnlyResponseConfirmsOffer();
@@ -430,6 +441,12 @@ internal static class Program
             adapter.HandleOutgoingCommand(packet, new ClientFrameworkContext());
         }
 
+        public void Confirm()
+        {
+            adapter.HandleOutgoingCommand(Service.CreateStatusUpdateRequest("trade", true, null,
+                new ClientFrameworkContext()), new ClientFrameworkContext());
+        }
+
         public void Reply(string token, bool success, int count)
         {
             var response = new Trading.UpdateTradeItemsResponsePacket
@@ -447,13 +464,17 @@ internal static class Program
         private RawPacketHandlerDelegate handler;
         public bool FailSend;
         public bool ThrowAfterSend;
+        public readonly List<Trading.UpdateTradeStatusPacket> Status = new List<Trading.UpdateTradeStatusPacket>();
         public readonly List<Trading.UpdateTradeItemsPacket> Sent = new List<Trading.UpdateTradeItemsPacket>();
         public void RegisterHandler(string moduleName, RawPacketHandlerDelegate callback) => handler = callback;
         public void UnregisterHandler(string moduleName) => handler = null;
         public void Send(string moduleName, byte[] data)
         {
             if (FailSend) throw new Connections.NotConnectedException();
-            Sent.Add(Google.Protobuf.WellKnownTypes.Any.Parser.ParseFrom(data).Unpack<Trading.UpdateTradeItemsPacket>());
+            var envelope = Google.Protobuf.WellKnownTypes.Any.Parser.ParseFrom(data);
+            if (envelope.TypeUrl.EndsWith("UpdateTradeStatusPacket", StringComparison.Ordinal))
+                Status.Add(envelope.Unpack<Trading.UpdateTradeStatusPacket>());
+            else Sent.Add(envelope.Unpack<Trading.UpdateTradeItemsPacket>());
             if (ThrowAfterSend) throw new InvalidOperationException("Transport failed after accepting the packet");
         }
         public void Receive(IMessage message) => handler("Trading", "server", ProtobufPacketHelper.Pack(message).ToByteArray());

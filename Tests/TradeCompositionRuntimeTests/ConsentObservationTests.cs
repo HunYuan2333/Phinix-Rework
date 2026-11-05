@@ -50,6 +50,32 @@ internal static partial class Program
         try { require.Invoke(null, new object[] { unversioned }); }
         catch (TargetInvocationException e) { refused = e.InnerException is InvalidOperationException; }
         Assert(refused, "An unversioned quote cannot manufacture confirmation consent.");
+        using (var host = new TradeHost())
+        {
+            var adapterType = typeof(TradeWindow).Assembly.GetType("Phinix.TradeExtension.Client.FrameworkClientTradeServiceAdapter", true);
+            var adapter = Activator.CreateInstance(adapterType, new object[] { service });
+            adapterType.GetMethod("Initialize", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(adapter, new object[] { host, host, host, host, null });
+            adapterType.GetMethod("ConfigureSaveReadiness", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(adapter,
+                new object[] { (Func<Phinix.InventoryExtension.InventoryStatus>)(() => new Phinix.InventoryExtension.InventoryStatus
+                { Availability = Phinix.InventoryExtension.InventoryAvailability.Ready, SaveIdentity = new string('a', 64) }) });
+            var accept = adapterType.GetMethod("AcceptObservedTrade");
+            refused = false;
+            try { accept.Invoke(adapter, new object[] { unversioned }); }
+            catch (TargetInvocationException error) { refused = error.InnerException is InvalidOperationException; }
+            Assert(refused && host.Commands.Count == 0, "Modern connection still refuses an unversioned quote before sending.");
+            host.Mode = FrameworkCompatibilityMode.Legacy;
+            accept.Invoke(adapter, new object[] { unversioned });
+            Assert(host.Commands.Count == 1 && !host.Commands[0].TryGetSnapshotVersion(out _),
+                "Known Legacy connection sends current quote consent without inventing a version.");
+            var changedQuote = service.GetRepositoryTrades().Single(trade => trade.TradeId == "observed");
+            changedQuote.Participants[0].Accepted = true;
+            service.UpsertTrade(changedQuote);
+            refused = false;
+            try { accept.Invoke(adapter, new object[] { unversioned }); }
+            catch (TargetInvocationException error) { refused = error.InnerException is InvalidOperationException; }
+            Assert(refused && host.Commands.Count == 1, "A superseded Legacy quote must be redisplayed before consent.");
+            ((IDisposable)adapter).Dispose();
+        }
         var placeholder = new ClientTradeSnapshot("placeholder", new UserManagement.ImmutableUser("remote"), null, null, false, false);
         refused = false;
         try { require.Invoke(null, new object[] { placeholder }); }

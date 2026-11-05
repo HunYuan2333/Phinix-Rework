@@ -100,6 +100,7 @@
     <Compile Include="TradeTheme.cs" />
     <Compile Include="TradeWindow.cs" />
     <Compile Include="TradeSnapshotObservation.cs" />
+    <Compile Include="LegacyTradeConsentAdapter.cs" />
     <Compile Include="TradeCompletionInbox.cs" />
     <Compile Include="TradeDeliveryReceipts.cs" />
     <Compile Include="TradeDeliveryRecovery.cs" />

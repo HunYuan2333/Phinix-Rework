@@ -667,7 +667,7 @@ namespace Phinix.TradeExtension.Client
                 DecodeTradeItems(localParticipant?.ItemsOnOffer),
                 DecodeTradeItems(otherParticipant.ItemsOnOffer),
                 localParticipant?.Accepted ?? false,
-                otherParticipant.Accepted), snapshot.SnapshotVersion);
+                otherParticipant.Accepted), snapshot.SnapshotVersion, snapshot);
         }
 
         private static TradeItemSnapshot[] DecodeTradeItems(IEnumerable<FrameworkItemPayload> items)
