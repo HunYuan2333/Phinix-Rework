@@ -66,7 +66,7 @@ namespace UserManagement
         /// <summary>
         /// <see cref="NetClient"/> to send packets through and bind events to.
         /// </summary>
-        private NetClient netClient;
+        private IClientTransport netClient;
 
         /// <summary>
         /// <see cref="ClientAuthenticator"/> to retrieve session ID from.
@@ -82,7 +82,7 @@ namespace UserManagement
         /// </summary>
         protected override object userStoreLock { get; } = new object();
 
-        public ClientUserManager(NetClient netClient, ClientAuthenticator authenticator)
+        public ClientUserManager(IClientTransport netClient, ClientAuthenticator authenticator)
         {
             this.netClient = netClient;
             this.authenticator = authenticator;

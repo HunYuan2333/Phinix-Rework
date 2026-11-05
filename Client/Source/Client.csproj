@@ -149,6 +149,7 @@
     <Compile Include="Framework\ClientRuntimeAssemblyFacts.cs" />
     <Compile Include="Framework\ClientFrameworkUserDirectoryAdapter.cs" />
     <Compile Include="Framework\ClientMainThreadDispatcher.cs" />
+    <Compile Include="Framework\ClientGameScopeService.cs" />
     <Compile Include="Framework\ClientExtensionPointService.cs" />
     <Compile Include="Framework\ClientApiDirectory.cs" />
     <Compile Include="Framework\ClientLifetimeService.cs" />
@@ -163,6 +164,7 @@
     <Compile Include="Framework\ExtensionControlSettingsPanelProvider.cs" />
     <Compile Include="Framework\StaticActivationPolicy.cs" />
     <Compile Include="Framework\PhinixFrameworkClient.cs" />
+    <Compile Include="Framework\FrameworkAdmissionControl.cs" />
     <Compile Include="Framework\ClientExtensionRuntime.cs" />
     <Compile Include="Framework\NetClientLegacyTransportAdapter.cs" />
     <Compile Include="LegacySettings.cs" />

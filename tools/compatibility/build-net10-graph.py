@@ -37,6 +37,7 @@ project_paths={k:out/v['name']/(v['name']+'.csproj') for k,v in nodes.items()};f
 for original,node in nodes.items():
  name=node['name'];pr=E.Element('Project',Sdk='Microsoft.NET.Sdk');pg=E.SubElement(pr,'PropertyGroup');props=node['props'];sdk=bool(node['tree'].getroot().get('Sdk'));generate=props.get('GenerateAssemblyInfo','true' if sdk else 'false')
  values={'DefineConstants':'PHINIX_RIMWORLD_17','TargetFramework':'net10.0','AssemblyName':name,'EnableDefaultCompileItems':'false','GenerateAssemblyInfo':generate,'AllowUnsafeBlocks':'true','LangVersion':'latest','NuGetAudit':'false','IsTrimmable':'false','RestorePackagesWithLockFile':'true'}
+ values['ImplicitUsings']=props.get('ImplicitUsings','disable')
  for key in ['RootNamespace','Version','VersionPrefix','AssemblyVersion','FileVersion','InformationalVersion','SignAssembly']:
   if props.get(key) and '$(' not in props[key]:values[key]=props[key]
  if props.get('AssemblyOriginatorKeyFile'):values['AssemblyOriginatorKeyFile']=str((original.parent/props['AssemblyOriginatorKeyFile'].replace('\\','/')).resolve())

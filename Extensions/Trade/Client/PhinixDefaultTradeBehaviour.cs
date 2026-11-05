@@ -25,9 +25,20 @@ namespace Phinix.TradeExtension.Client
         private readonly IInventoryReadApi inventoryReadApi;
         private readonly Action<string, bool> acknowledgeCompletion;
         private readonly Action<LogEventArgs> log;
+        private readonly Action<string,string> notifyDeliveryFailure;
         private readonly HashSet<string> waitingForTradeCreationWith = new HashSet<string>();
         private readonly object waitingLock = new object();
         private readonly Dictionary<string, PendingCompletion> pendingCompletions = new Dictionary<string, PendingCompletion>(StringComparer.OrdinalIgnoreCase);
+        private TradeCompletionInbox completionJournal;
+        private Func<string> completionEndpoint;
+        private IClientGameScopeService completionGameScopes;
+        private IInventoryReceiveScopeApi completionReceiveScopes;
+        internal void ConfigureReceiveScopes(IInventoryReceiveScopeApi scopes)
+        { if(started) throw new InvalidOperationException("Configure receive scopes before activation.");completionReceiveScopes=scopes; }
+        internal void ConfigureGameScopes(IClientGameScopeService scopes)
+        { if(started) throw new InvalidOperationException("Configure game scopes before activation."); completionGameScopes=scopes; }
+        internal void ConfigureCompletionJournal(TradeCompletionInbox journal,Func<string> endpoint)
+        { if(started) throw new InvalidOperationException("Configure delivery before activation."); completionJournal=journal;completionEndpoint=endpoint; }
 
         public PhinixDefaultTradeBehaviour(
             IClientTradeService tradeService,
@@ -39,7 +50,8 @@ namespace Phinix.TradeExtension.Client
             TradeInventoryDelivery inventoryDelivery,
             IInventoryReadApi inventoryReadApi,
             Action<string, bool> acknowledgeCompletion,
-            Action<LogEventArgs> log)
+            Action<LogEventArgs> log,
+            Action<string,string> notifyDeliveryFailure=null)
         {
             this.tradeService = tradeService;
             this.userDirectory = userDirectory;
@@ -51,6 +63,7 @@ namespace Phinix.TradeExtension.Client
             this.inventoryReadApi = inventoryReadApi;
             this.acknowledgeCompletion = acknowledgeCompletion;
             this.log = log;
+            this.notifyDeliveryFailure=notifyDeliveryFailure??((key,reason)=>Messages.Message(key.Translate(reason),MessageTypeDefOf.RejectInput,false));
         }
 
         private volatile bool started;
@@ -184,10 +197,22 @@ namespace Phinix.TradeExtension.Client
                 if (args == null) return;
                 string displayName = resolveDisplayName(args.OtherPartyUuid);
                 bool display = completed || shouldDisplayTradeEvent(args.OtherPartyUuid);
+                string recipient=userDirectory.Uuid,endpoint=completionEndpoint?.Invoke();
+                // Capture before queueing. Capture never accesses Verse from a network thread.
+                var gameScope=args is ScopedTradeCompletionEventArgs received ? received.GameScope : completionGameScopes?.Capture();
+                var saveScope=args is ScopedTradeCompletionEventArgs scoped ? scoped.SaveScope : completionReceiveScopes?.CaptureReceiveScope();
+                var scope=new TradeCompletionScope(recipient,endpoint,gameScope==null?null:(Func<bool>)gameScope.IsCurrent,
+                    ()=>userDirectory.Uuid,()=>completionEndpoint?.Invoke(),
+                    (args.ItemPayloads?.Length??0)>0 || (args.Items?.Length??0)>0);
                 Enqueue(() =>
                 {
                     string key = completionKey(args.TradeId, !completed);
-                    pendingCompletions[key] = new PendingCompletion(args, displayName, completed, display);
+                    if(pendingCompletions.ContainsKey(key)) return;
+                    pendingCompletions[key] = new PendingCompletion(args, displayName, completed, display)
+                    {
+                        Recipient=recipient,Endpoint=endpoint,
+                        Scope=scope,SaveScope=saveScope
+                    };
                     tryDepositPending(key, true);
                 });
             }
@@ -223,19 +248,52 @@ namespace Phinix.TradeExtension.Client
         private void tryDepositPending(string key, bool notifyFailure)
         {
             if (!pendingCompletions.TryGetValue(key, out PendingCompletion pending)) return;
+            if(pending.Attempted) return;
+            if(pending.ReconciliationOnly) return;
             try
             {
+                if(completionJournal==null || pending.Scope==null || !pending.Scope.IsValid())
+                {
+                    pending.ReconciliationOnly=true;pending.HoldMessageKey="Phinix_trade_deliveryScopePending";
+                    throw new InvalidOperationException("Trade delivery scope is unavailable; reconciliation required.");
+                }
                 bool useInventory = InventoryDeliveryPreference.UsesInventory(
                     settingsContext.Get(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop));
+                bool nonempty=(pending.Args.ItemPayloads?.Length??0)>0 || (pending.Args.Items?.Length??0)>0;
+                if(nonempty)
+                {
+                    var origin=pending.SaveScope;
+                    if(origin==null || !origin.IsCurrent() || origin.SaveIdentity!=inventoryReadApi.GetStatus()?.SaveIdentity)
+                    {
+                        pending.ReconciliationOnly=true;
+                        pending.HoldMessageKey=origin==null?"Phinix_trade_deliverySavePending":"Phinix_trade_deliveryScopePending";
+                        throw new InvalidOperationException("Trade receipt belongs to an unavailable or changed inventory save scope; reconciliation required.");
+                    }
+                    string save=origin.SaveIdentity;
+                    completionJournal.BindSave(pending.Endpoint,pending.Recipient,pending.Args.TradeId,pending.Completed,save);
+                }
+                // Publish the exact idempotent request before its attempt marker or any external deposit.
+                // A crash after plan publication can recover without guessing a new save/journal or payload.
+                InventoryDeposit frozenDeposit=null;
+                if(useInventory)
+                {
+                    var receipt=completionJournal.GetReceipt(pending.Endpoint,pending.Recipient,pending.Args.TradeId,pending.Completed);
+                    frozenDeposit=inventoryDelivery.CreateDeposit(pending.Args,pending.DisplayName,completionJournal.DeliveryReceipt(receipt)?.DeliveryId);
+                    if(frozenDeposit!=null)completionJournal.RecordInventoryPlan(pending.Endpoint,pending.Recipient,pending.Args.TradeId,pending.Completed,inventoryReadApi.GetStatus().JournalIdentity,frozenDeposit);
+                }
+                if(!completionJournal.TryBeginDelivery(pending.Endpoint,pending.Recipient,pending.Args.TradeId,pending.Completed,useInventory))
+                {
+                    pending.Attempted=true;
+                    throw new InvalidOperationException("Trade delivery was already attempted; reconciliation required.");
+                }
+                pending.Attempted=true;
                 InventoryDepositResult inventoryResult = null;
                 InventoryDeliveryResult directResult = null;
-                if (useInventory)
-                    inventoryResult = inventoryDelivery.Deposit(pending.Args, pending.DisplayName);
-                else
-                    directResult = inventoryDelivery.DeliverDirect(pending.Args,
-                        settingsContext.Get("trade.dropCurrentMap", false));
+                if(useInventory)inventoryResult=frozenDeposit==null?new InventoryDepositResult {Status=InventoryDepositStatus.AlreadyCommitted}:inventoryDelivery.DepositFrozen(frozenDeposit);
+                else directResult=inventoryDelivery.DeliverDirect(pending.Args,settingsContext.Get("trade.dropCurrentMap",false));
 
                 bool succeeded = useInventory ? inventoryResult.Succeeded : directResult.Succeeded;
+                completionJournal.RecordDeliveryReturn(pending.Endpoint,pending.Recipient,pending.Args.TradeId,pending.Completed,useInventory,succeeded);
                 if (!succeeded)
                 {
                     string reason = useInventory
@@ -243,11 +301,11 @@ namespace Phinix.TradeExtension.Client
                             ? inventoryResult.FailureCode.ToString() : inventoryResult.Reason)
                         : (directResult?.Reason ?? "Direct delivery failed.");
                     log?.Invoke(new LogEventArgs(
-                        $"[Trade] Delivery failed for '{pending.Args.TradeId}'; completion remains pending: {reason}",
+                        $"[Trade] Delivery failed for '{pending.Args.TradeId}'; retained for reconciliation, no automatic retry: {reason}",
                         LogLevel.ERROR));
                     if (notifyFailure)
-                        Messages.Message((useInventory ? "Phinix_trade_inventoryDepositFailed" :
-                            "Phinix_trade_directDeliveryFailed").Translate(reason), MessageTypeDefOf.RejectInput, false);
+                        notifyDeliveryFailure(useInventory ? "Phinix_trade_inventoryDepositFailed" :
+                            "Phinix_trade_directDeliveryFailed",reason);
                     return;
                 }
 
@@ -272,11 +330,19 @@ namespace Phinix.TradeExtension.Client
             }
             catch (Exception ex)
             {
+                if(pending.ReconciliationOnly)
+                {
+                    // This immutable receive scope cannot become valid on a later save.
+                    // Keep Received/Unbound evidence and report once, without repeated retries/stacks.
+                    log?.Invoke(new LogEventArgs("[Trade] Delivery retained for reconciliation: "+pending.HoldMessageKey+"; trade="+pending.Args.TradeId,LogLevel.WARNING));
+                    if(notifyFailure)notifyDeliveryFailure(pending.HoldMessageKey,string.Empty);
+                    return;
+                }
                 log?.Invoke(new LogEventArgs(
-                    $"[Trade] Inventory delivery threw for '{pending.Args.TradeId}'; completion remains pending: {ex}",
+                    $"[Trade] Delivery did not complete for '{pending.Args.TradeId}'; retained for reconciliation: {ex}",
                     LogLevel.ERROR));
                 if (notifyFailure)
-                    Messages.Message("Phinix_trade_inventoryDepositFailed".Translate(ex.Message), MessageTypeDefOf.RejectInput, false);
+                    notifyDeliveryFailure("Phinix_trade_inventoryDepositFailed",ex.Message);
             }
         }
 
@@ -299,6 +365,12 @@ namespace Phinix.TradeExtension.Client
             public string DisplayName { get; }
             public bool Completed { get; }
             public bool Display { get; }
+            public string Recipient,Endpoint;
+            public TradeCompletionScope Scope;
+            public IInventoryReceiveScope SaveScope;
+            public bool Attempted;
+            public bool ReconciliationOnly;
+            public string HoldMessageKey;
         }
 
         private void onTradeUpdateFailure(object sender, TradeUpdateEventArgs args)

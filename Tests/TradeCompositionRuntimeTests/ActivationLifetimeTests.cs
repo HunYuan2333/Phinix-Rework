@@ -16,34 +16,49 @@ internal static partial class Program
 {
     private static void CheckActivationLifetime(Type type, bool legacy, List<string> facts)
     {
-        foreach (string scenario in legacy ? new[] { "success" } : new[] { "success", "source-failure", "subscription-failure", "stop-failure", "missing-dependency", "ui-failure", "behavior-failure", "missing-inventory" })
+        foreach (string scenario in legacy ? new[] { "success" } : new[] { "success", "source-failure", "subscription-failure", "stop-failure", "missing-dependency", "ui-failure", "behavior-failure", "missing-inventory", "missing-inbox", "missing-tasks" })
         {
+            string inboxRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "phinix-activation-inbox-" + Guid.NewGuid().ToString("N"));
             var services = new TradeHost();
             var inventory = new InventoryHost { FailSource = scenario == "source-failure", FailRelease = scenario == "stop-failure" };
             var errors = new List<Exception>();
             using (var factory = new ClientCompositionFactory(() => true, errors.Add))
             {
                 var host = new ExtensionHostContext();
-                host.AddService<IClientCompositionFactory>(factory);
+                host.AddService<IClientCompositionFactory>(new Factory(factory,false)
+                {AdditionalBindings=local=>local.Borrow<Action<string,string>>((key,reason)=>services.DeliveryNotifications.Add(key))});
                 host.AddService<IClientPresentationService>(services);host.AddService<IClientExtensionPointService>(services);
                 host.AddService<IClientTheme>(services); host.AddService<IClientThemeRegistry>(services);
                 host.AddService<IFrameworkClientTransport>(services);
                 host.AddService<IFrameworkClientCommandTransport>(services);
                 host.AddService<IFrameworkClientLifecycle>(services);
                 host.AddService<IClientSessionContext>(services);
+                host.AddService<IClientConnectionIdentity>(services);
+                if (scenario != "missing-inbox") host.AddService(new ClientEnvironmentPaths(System.IO.Path.Combine(inboxRoot,"mods"),System.IO.Path.Combine(inboxRoot,"saves")));
                 host.AddService<IClientSettingsContext>(services);
                 host.AddService<IClientUserEventStream>(services);
                 host.AddService<IClientUserDirectory>(services);
                 host.AddService<IClientMainThreadDispatcher>(services);
+                var gameScopesType=typeof(PhinixClient.Client).Assembly.GetType("PhinixClient.Framework.ClientGameScopeService",true);
+                var gameScopes=Activator.CreateInstance(gameScopesType,BindingFlags.NonPublic|BindingFlags.Instance,null,new object[]{(Func<object>)(()=>Current.Game),(Func<bool>)(()=>true)},null);
+                var publishScope=gameScopesType.GetMethod("Publish",BindingFlags.Instance|BindingFlags.NonPublic);
+                host.AddService<IClientGameScopeService>((IClientGameScopeService)gameScopes);
                 if (scenario != "missing-dependency") host.AddService<IClientGameWindowService>(services);
                 host.AddService<Action<bool>>(value => services.AcceptingUpdates++);
                 var registry = (ExtensionApiRegistry)host.ApiRegistry;
                 registry.RegisterApi<IInventoryRegistrationApi>("builtin.inventory", inventory);
                 registry.RegisterApi<IInventoryDepositApi>("builtin.inventory", inventory);
                 registry.RegisterApi<IInventoryReadApi>("builtin.inventory", inventory);
+                registry.RegisterApi<IInventoryReceiveScopeApi>("builtin.inventory",inventory);
                 if(scenario != "missing-inventory") registry.RegisterApi<IInventoryReservationApi>("builtin.inventory", inventory);
                 var module = (IPhinixExtensionModule)Activator.CreateInstance(type);
                 module.Register(new Builder(host, false));
+                var taskType=typeof(PhinixClient.Client).Assembly.GetType("PhinixClient.Framework.ClientMainThreadDispatcher",true);
+                var taskHost=Activator.CreateInstance(taskType,BindingFlags.NonPublic|BindingFlags.Instance|BindingFlags.Public,null,new object[]{null,(Func<bool>)(()=>true)},null);
+                taskType.GetMethod("SetModuleTypes",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(taskHost,new object[]{new[]{type}});
+                taskType.GetMethod("OnActivating").Invoke(taskHost,new object[]{module});
+                if(scenario!="missing-tasks")host.AddService<IClientTaskService>((IClientTaskService)taskHost);
+                services.TaskDrain=()=>taskType.GetMethod("DrainPendingActions").Invoke(taskHost,null);
                 if (scenario == "subscription-failure") services.FailAdd = "compatibility";
                 if (scenario == "ui-failure") services.FailAdd = "name";
                 if (scenario == "behavior-failure") services.FailAdd = "settings#2";
@@ -59,8 +74,8 @@ internal static partial class Program
                     Assert(services.DefinedPoints.Count(id=>id==TradeOfferPresentationActionContext.PointId)==1,"Offer editor defines one ordinary public action point per activation.");
                     var orphan=new TradeOfferPresentationActionContext("closed-view",1,"test",null,0,0,false,false,false);
                     Assert(!services.OfferContributions(orphan).Any(),"A closed or foreign editor context cannot collect official commands.");
-                    Assert(services.Count("compatibility") == 1 && services.Count("users") == 1 && services.Count("disconnected") == 2 && services.Count("name") == 1 && services.Count("settings") == 2 && inventory.AvailabilityCount == 2,
-                        "Connection, UI and behavior subscriptions match original startup.");
+                    Assert(services.Count("compatibility") == 1 && services.Count("users") == 1 && services.Count("disconnected") == 2 && services.Count("name") == 1 && services.Count("settings") == 2 && inventory.AvailabilityCount == 4,
+                        "Connection/UI subscriptions and four owned inventory recovery subscriptions are registered once.");
                     Assert(services.Commands.Count == 1 && services.Commands[0].MessageType == FrameworkTradeProtocol.SnapshotType, "Negotiated startup requests trade snapshot.");
                     Assert(services.AcceptingUpdates == 1, "Initial accepting-trades update occurs once.");
                     services.Emit("users"); services.Set("trade.acceptingTrades", false); services.Emit("disconnected"); services.Emit("users"); services.Compatibility();
@@ -69,6 +84,9 @@ internal static partial class Program
                     services.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.Inventory);
                     services.Drain();
                     var completed = liveBehavior.GetType().GetMethod("onTradeCompleted", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var journal=Field(liveBehavior,"completionJournal");
+                    Action<string,bool,FrameworkItemPayload[]> receipt=(id,success,items)=>journal.GetType().GetMethod("Record").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,id,success,"remote",items});
+                    receipt("empty-completion",true,Array.Empty<FrameworkItemPayload>());
                     completed.Invoke(liveBehavior, new object[] { null, new TradeCompletionEventArgs("empty-completion", true, "remote", new TradeItemSnapshot[0]) });
                     Assert(services.Commands.Count == 2, "Completion ACK waits for main-thread delivery.");
                     services.Drain();
@@ -76,10 +94,12 @@ internal static partial class Program
                         "Successful empty/idempotent delivery acknowledges through command pipeline.");
                     services.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop);services.Drain();
                     int beforeDirect=services.Commands.Count;
+                    receipt("empty-direct-completion",true,Array.Empty<FrameworkItemPayload>());
                     completed.Invoke(liveBehavior,new object[] {null,new TradeCompletionEventArgs("empty-direct-completion",true,"remote",new TradeItemSnapshot[0])});
                     Assert(services.Commands.Count==beforeDirect,"Empty direct completion still waits for main-thread delivery.");services.Drain();
                     Assert(services.Commands.Count==beforeDirect+1 && services.Commands.Last().MessageType==FrameworkTradeProtocol.CompletionAckRequestType,"Empty gift direct completion acknowledges without a map or drop pod.");
                     var cancelled=liveBehavior.GetType().GetMethod("onTradeCancelled",BindingFlags.Instance|BindingFlags.NonPublic);
+                    receipt("empty-direct-cancel",false,Array.Empty<FrameworkItemPayload>());
                     cancelled.Invoke(liveBehavior,new object[] {null,new TradeCompletionEventArgs("empty-direct-cancel",false,"remote",new TradeItemSnapshot[0])});services.Drain();
                     Assert(services.Commands.Count==beforeDirect+2 && services.Commands.Last().MessageType==FrameworkTradeProtocol.CompletionAckRequestType,"Empty cancelled return follows the same no-delivery acknowledgement chain.");
                     var delivery=Field(liveBehavior,"inventoryDelivery");
@@ -90,12 +110,90 @@ internal static partial class Program
                     var badDirectResult=(InventoryDeliveryResult)direct.Invoke(delivery,new object[]{new TradeCompletionEventArgs("bad-direct",true,"remote",new TradeItemSnapshot[0],null,new[]{bad}),false});
                     Assert(!badDirectResult.Succeeded && badDirectResult.Status==InventoryDeliveryStatus.Rejected,"Nonempty unavailable codec remains a rejected delivery.");
                     int beforeBad=services.Commands.Count;
+                    inventory.Status.SaveIdentity=new string('a',64);
+                    var previousGame=Current.Game;
+                    try
+                    {
+                        Current.Game=(Game)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Game));
+                        publishScope.Invoke(gameScopes,null);
+                        receipt("queued-save-switch",true,new[]{bad});
+                        completed.Invoke(liveBehavior,new object[]{null,new TradeCompletionEventArgs("queued-save-switch",true,"remote",new TradeItemSnapshot[0],null,new[]{bad})});
+                        Current.Game=(Game)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(Game));
+                        // Only the external native notification boundary is isolated; business and disk evidence are real.
+                        services.Drain();
+                        Assert((string)journal.GetType().GetMethod("DeliveryState").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"queued-save-switch",true})=="Received",
+                            "A game switch between receipt and queue execution must precede binding and any delivery attempt.");
+                        Assert((string)journal.GetType().GetMethod("SaveBinding").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"queued-save-switch",true,inventory.Status.SaveIdentity})=="Unbound",
+                            "Queued receipt cannot adopt the replacement game's save identity.");
+                        Assert(services.Commands.Count==beforeBad,"Rejected queue scope emits no ACK.");
+                        publishScope.Invoke(gameScopes,null);
+                        receipt("queued-save-as",true,new[]{bad});
+                        completed.Invoke(liveBehavior,new object[]{null,new TradeCompletionEventArgs("queued-save-as",true,"remote",new TradeItemSnapshot[0],null,new[]{bad})});
+                        inventory.Status.SaveIdentity=new string('b',64);
+                        services.Drain();
+                        Assert((string)journal.GetType().GetMethod("DeliveryState").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"queued-save-as",true})=="Received",
+                            "A same-Game save change between receipt and dispatch must not enter delivery.");
+                        Assert((string)journal.GetType().GetMethod("SaveBinding").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"queued-save-as",true,inventory.Status.SaveIdentity})=="Unbound",
+                            "A queued receipt cannot bind to the later save path's inventory scope.");
+                        Assert(services.Commands.Count==beforeBad,"Save As scope rejection emits no ACK.");
+                        inventory.Status.SaveIdentity=new string('a',64);
+                        ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Remove("completed:queued-save-as");
+                        inventory.Status.SaveIdentity=null;
+                        receipt("received-before-save",true,new[]{bad});
+                        completed.Invoke(liveBehavior,new object[]{null,new TradeCompletionEventArgs("received-before-save",true,"remote",new TradeItemSnapshot[0],null,new[]{bad})});
+                        inventory.Status.SaveIdentity=new string('a',64);
+                        services.Drain();
+                        inventory.RaiseAvailability();services.Drain();
+                        int heldNotifications=services.DeliveryNotifications.Count;
+                        inventory.RaiseAvailability();services.Drain();inventory.RaiseAvailability();services.Drain();
+                        Assert(services.DeliveryNotifications.Count==heldNotifications,"An immutable missing receive scope reports once, not on each later save/availability notification.");
+                        Assert((string)journal.GetType().GetMethod("DeliveryState").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"received-before-save",true})=="Received",
+                            "A receipt without a save scope cannot adopt a later save on dispatch or availability retry.");
+                        Assert((string)journal.GetType().GetMethod("SaveBinding").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"received-before-save",true,inventory.Status.SaveIdentity})=="Unbound",
+                            "Saving later cannot manufacture the missing receipt-time owner binding.");
+                        Assert(services.Commands.Count==beforeBad,"Missing receive-time save scope emits no ACK.");
+                        ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Remove("completed:received-before-save");
+                        // A stable published game must still reach the real whole-batch codec rejection.
+                        publishScope.Invoke(gameScopes,null);
+                        receipt("queued-stable-game",true,new[]{bad});
+                        completed.Invoke(liveBehavior,new object[]{null,new TradeCompletionEventArgs("queued-stable-game",true,"remote",new TradeItemSnapshot[0],null,new[]{bad})});
+                        services.Drain();
+                        Assert((string)journal.GetType().GetMethod("DeliveryState").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"queued-stable-game",true})=="ReturnedFailure",
+                            "Stable game scope must reach actual codec validation, not block every delivery.");
+                        Assert((string)journal.GetType().GetMethod("SaveBinding").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"queued-stable-game",true,inventory.Status.SaveIdentity})=="Current",
+                            "Stable game binds its own save before the attempted whole batch.");
+                        Assert(services.Commands.Count==beforeBad,"Rejected codec batch emits no ACK.");
+                        Assert(services.DeliveryNotifications.Count==4,"Every refused scope/batch requests exactly one real notification boundary; no native exception is skipped.");
+                        string durableInbox=(string)Field(journal,"directory");
+                        foreach(string blocked in new[]{"queued-save-switch","queued-save-as","received-before-save"})
+                        {
+                            string raw=System.IO.Directory.GetFiles(durableInbox,"*.receipt").Single(path=>System.IO.File.ReadAllText(path).Contains("\"TradeId\":\""+blocked+"\""));
+                            Assert(!System.IO.File.Exists(System.IO.Path.ChangeExtension(raw,".binding"))&&
+                                !System.IO.File.Exists(System.IO.Path.ChangeExtension(raw,".attempt"))&&
+                                !System.IO.File.Exists(System.IO.Path.ChangeExtension(raw,".result")),
+                                "Independent file check: rejected ownership retains raw payload without binding, attempt or result: "+blocked);
+                        }
+
+                        ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Remove("completed:queued-stable-game");
+
+                    }
+                    finally {Current.Game=previousGame;((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Remove("completed:queued-save-switch");}
                     var pendingType=liveBehavior.GetType().GetNestedType("PendingCompletion",BindingFlags.NonPublic);
                     var failedArgs=new TradeCompletionEventArgs("bad-direct",true,"remote",new TradeItemSnapshot[0],null,new[]{bad});
-                    ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Add("completed:bad-direct",Activator.CreateInstance(pendingType,new object[]{failedArgs,"remote",true,true}));
+                    receipt("bad-direct",true,new[]{bad});
+                    var pending=Activator.CreateInstance(pendingType,new object[]{failedArgs,"remote",true,true});
+                    pendingType.GetField("SaveScope").SetValue(pending,((IInventoryReceiveScopeApi)inventory).CaptureReceiveScope());
+                    pendingType.GetField("Recipient").SetValue(pending,services.Uuid);pendingType.GetField("Endpoint").SetValue(pending,services.RemoteEndpoint);
+                    var scopeType=typeof(TradeWindow).Assembly.GetType("Phinix.TradeExtension.Client.TradeCompletionScope",true);
+                    object fakeGame=new object();
+                    pendingType.GetField("Scope").SetValue(pending,Activator.CreateInstance(scopeType,new object[]{services.Uuid,services.RemoteEndpoint,(Func<object>)(()=>fakeGame),(Func<string>)(()=>services.Uuid),(Func<string>)(()=>services.RemoteEndpoint),true}));
+                    ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Add("completed:bad-direct",pending);
                     // Retry without native notification; real Unity localization cannot run in this harness.
                     liveBehavior.GetType().GetMethod("tryDepositPending",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(liveBehavior,new object[]{"completed:bad-direct",false});
                     Assert(services.Commands.Count==beforeBad && ((System.Collections.IDictionary)Field(liveBehavior,"pendingCompletions")).Count==1,"Nonempty delivery failure remains pending and emits no acknowledgement.");
+                    Assert((string)journal.GetType().GetMethod("DeliveryState").Invoke(journal,new object[]{services.RemoteEndpoint,services.Uuid,"bad-direct",true})=="ReturnedFailure","Actual delivery owner records the real rejected codec result.");
+                    liveBehavior.GetType().GetMethod("tryDepositPending",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(liveBehavior,new object[]{"completed:bad-direct",false});
+                    Assert((bool)pendingType.GetField("Attempted").GetValue(pending) && services.Commands.Count==beforeBad,"Availability retry cannot reinvoke an attempted delivery or forge ACK.");
                     if(scenario=="success")
                     {
                         object facade=Field(module,"tradeFacade");var oldGuard=Field(facade,"offerSubmissionGuard");
@@ -138,7 +236,7 @@ internal static partial class Program
                         object behavior = Field(module, "defaultTradeBehaviour");
                         ((IActivatablePhinixExtensionModule)module).Activate(host);
                         behavior.GetType().GetMethod("Start").Invoke(behavior, null);
-                        Assert(services.Subscriptions == count && inventory.Codecs == 1 && inventory.AvailabilityCount == 2, "Repeated activation/Start is idempotent.");
+                        Assert(services.Subscriptions == count && inventory.Codecs == 1 && inventory.AvailabilityCount == 4, "Repeated activation/Start is idempotent.");
                         int ran = 0;
                         behavior.GetType().GetMethod("Enqueue", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(behavior, new object[] { (Action)(() => ran++) });
                         var ui = (ITradeUiHostContext)Field(module, "tradeUiHostContext");
@@ -178,11 +276,12 @@ internal static partial class Program
                     if (scenario == "stop-failure") Assert(errors.Count >= 2, "Both subscription and token cleanup failures reported without skipping release.");
                 }
             }
+            if (System.IO.Directory.Exists(inboxRoot)) System.IO.Directory.Delete(inboxRoot, true);
         }
     }
 
     private sealed class TradeHost : IFrameworkClientTransport, IFrameworkClientCommandTransport, IFrameworkClientLifecycle,
-        IClientSessionContext, IClientSettingsContext, IClientUserEventStream, IClientUserDirectory,
+        IClientSessionContext, IClientConnectionIdentity, IClientSettingsContext, IClientUserEventStream, IClientUserDirectory,
         IClientMainThreadDispatcher, IClientGameWindowService, IClientTheme,IClientThemeRegistry,IClientPresentationService,IClientExtensionPointService, IDisposable
     {
         public IClientPresentationSession Open(IPhinixExtensionModule owner,string page)=>throw new InvalidOperationException("Native view not exercised by activation probe");
@@ -222,6 +321,7 @@ internal static partial class Program
         public void Emit(string key) { ((EventHandler)Listener(key))?.Invoke(this, EventArgs.Empty); }
         public void Compatibility() { ((EventHandler<FrameworkCompatibilityModeChangedEventArgs>)Listener("compatibility"))?.Invoke(this, new FrameworkCompatibilityModeChangedEventArgs(FrameworkCompatibilityMode.FrameworkV2)); }
         public FrameworkCompatibilityMode CompatibilityMode => FrameworkCompatibilityMode.FrameworkV2;
+        public string RemoteEndpoint => "127.0.0.1:16200";
         public bool Authenticated => true; public bool LoggedIn => true; public string SessionId => "session"; public string Uuid => "local";
         public bool HasRemoteCapability(string capability) => true;
         public void SendFrameworkPacket(FrameworkPacket packet) { throw new InvalidOperationException("Must use command pipeline."); }
@@ -234,7 +334,9 @@ internal static partial class Program
         public ImmutableUser[] GetUsers(bool loggedIn = false) => new ImmutableUser[0];
         public bool TryGetUser(string uuid, out ImmutableUser user) { user = new ImmutableUser(uuid); return true; }
         public void Enqueue(Action action) { Queue.Add(action); }
-        public void Drain() { Action[] actions = Queue.ToArray(); Queue.Clear(); foreach (Action action in actions) action(); }
+        public readonly List<string> DeliveryNotifications=new List<string>();
+        public Action TaskDrain;
+        public void Drain() { TaskDrain?.Invoke();Action[] actions = Queue.ToArray(); Queue.Clear(); foreach (Action action in actions) action(); }
         public void Open(Window window) { throw new InvalidOperationException("Unexpected game UI work."); } public void OpenSettingsWindow() { }
         public long Version => 0;
         public event Action Changed { add { } remove { } }
@@ -249,10 +351,19 @@ internal static partial class Program
         public void Dispose() { Disposed++; }
     }
 
-    private sealed class InventoryHost : IInventoryRegistrationApi, IInventoryDepositApi, IInventoryReadApi, IInventoryReservationApi, IDisposable
+    private sealed class InventoryHost : IInventoryRegistrationApi, IInventoryDepositApi, IInventoryReadApi, IInventoryReservationApi, IInventoryReceiveScopeApi, IDisposable
     {
         private EventHandler availability;
         public bool FailSource, FailRelease;public string ResolutionEvidence;public int ResolutionCalls;
+        public IInventoryReceiveScope CaptureReceiveScope()
+        {var id=Status.SaveIdentity;return id==null?null:new TestReceiveScope(id,()=>Status.SaveIdentity==id);}
+        private sealed class TestReceiveScope : IInventoryReceiveScope
+        {
+            private readonly Func<bool> current;private bool invalid;
+            public string SaveIdentity {get;}
+            public TestReceiveScope(string id,Func<bool> current){SaveIdentity=id;this.current=current;}
+            public bool IsCurrent(){if(!current())invalid=true;return !invalid;}
+        }
         public InventoryStatus Status=new InventoryStatus();public IReadOnlyList<InventoryReservation> Reservations=new InventoryReservation[0];
         public int Codecs, Sources, CodecReleases, SourceReleases, Deposits, Disposed;
         public void RaiseAvailability()=>availability?.Invoke(this,EventArgs.Empty);

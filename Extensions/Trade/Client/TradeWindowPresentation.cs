@@ -52,9 +52,10 @@ namespace Phinix.TradeExtension.Client
             var actions=new List<ClientActionDefinition>();
             string busy=EditorBusy?L("editorWaiting"):null;
             string blocked=busy??rowErrors.Values.FirstOrDefault()??quantityError;
-            actions.Add(new ClientActionDefinition("submit",L("editorSubmitQuote"),()=>{UpdateTradeItems();presentationDirty=true;},blocked??(availableItems.Any(i=>i.Selected>0)?null:L("editorSelectQuantity"))));
-            actions.Add(new ClientActionDefinition("accept",L(trade.Accepted?"editorWithdraw":"confirmTrade"),()=>{sendTradeStatusUpdate(!trade.Accepted);presentationDirty=true;},blocked));
-            actions.Add(new ClientActionDefinition("reset",L("resetButton"),()=>{ResetTradeItems();presentationDirty=true;},busy??(trade.ItemsOnOffer.Length==0?L("quoteEmpty"):null)));
+            string saveBlocked=SaveBlockMessage;
+            actions.Add(new ClientActionDefinition("submit",L("editorSubmitQuote"),()=>{UpdateTradeItems();presentationDirty=true;},busy??saveBlocked??blocked??(availableItems.Any(i=>i.Selected>0)?null:L("editorSelectQuantity"))));
+            actions.Add(new ClientActionDefinition("accept",L(trade.Accepted?"editorWithdraw":"confirmTrade"),()=>{sendTradeStatusUpdate(!trade.Accepted);presentationDirty=true;},busy??(!trade.Accepted?saveBlocked:null)??blocked));
+            actions.Add(new ClientActionDefinition("reset",L("resetButton"),()=>{ResetTradeItems();presentationDirty=true;},busy??saveBlocked??(trade.ItemsOnOffer.Length==0?L("quoteEmpty"):null)));
             actions.Add(new ClientActionDefinition("cancel",L("cancelButton"),()=>{sendCancelTradeRequest();cancelSubmitted=true;editorNotice=L("listCancelPending");presentationDirty=true;},busy));
             actions.Add(new ClientActionDefinition("refresh-items",L("editorRefresh"),refreshAvailableItems,EditorBusy?L("editorWaiting"):null));
             if(itemPage>0)actions.Add(new ClientActionDefinition("previous",L("browsePrevious"),()=>{itemPage--;presentationDirty=true;}));
@@ -126,8 +127,9 @@ namespace Phinix.TradeExtension.Client
                 Func<ClientPresentationAction,bool> itemAction=b=>b.Action.OwnerId==presentation.Owner.ExtensionId&&(b.Action.Id.StartsWith("step.")||new[]{"all","half","none","hundred"}.Contains(b.Action.Id));
                 Func<ClientPresentationAction,bool> browseAction=b=>b.Action.OwnerId==presentation.Owner.ExtensionId&&new[]{"refresh-items","previous","next"}.Contains(b.Action.Id);
                 Func<ClientPresentationAction,bool> submitAction=b=>b.Action.OwnerId==presentation.Owner.ExtensionId&&b.Action.Id=="submit";
+                string saveBlocked=SaveBlockMessage;
                 var state=new ClientPresentationSection("trade-state",string.Format(L("activeTrade_tradeWithLabel"),Safe(trade.OtherPartyDisplayName)),"",bindings.Where(b=>!browseAction(b)&&!itemAction(b)&&!submitAction(b)),
-                    status:new ClientPresentationStatus(EditorBusy?L("editorWaiting"):editorNotice,EditorBusy?ClientPresentationTone.Pending:ClientPresentationTone.Neutral))
+                    status:new ClientPresentationStatus(EditorBusy?L("editorWaiting"):saveBlocked??editorNotice,EditorBusy?ClientPresentationTone.Pending:saveBlocked!=null?ClientPresentationTone.Warning:ClientPresentationTone.Neutral))
                     .WithPlainLayout().WithInlineToolbar();
                 var ours=new ClientPresentationSection("our-quote",L("ourOfferLabel")+" · "+L(trade.Accepted?"editorConfirmed":"editorUnconfirmed"),"",
                     list:new ClientPresentationList("our-quote",TradeQuoteRows.Build(trade.ItemsOnOffer,DefLabel,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly().WithCompactRows()).WithPlainLayout();

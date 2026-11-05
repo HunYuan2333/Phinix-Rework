@@ -110,10 +110,38 @@ namespace Phinix.InventoryExtension
         public int MaximumDepositPayloadBytes { get; set; }
     }
 
+    // Optional receive-time scope. Capture is safe on a network thread and never reads game APIs.
+    // This is ownership context only, not a committed deposit or saved-delivery receipt.
+    public interface IInventoryReceiveScopeApi
+    {
+        IInventoryReceiveScope CaptureReceiveScope();
+    }
+    public interface IInventoryReceiveScope
+    {
+        string SaveIdentity { get; }
+        // Main thread only. A false result permanently expires this token.
+        bool IsCurrent();
+    }
+
+    public sealed class InventorySavedDepositReceipt
+    {
+        public string SaveIdentity {get;set;}
+        public string JournalIdentity {get;set;}
+        public string CheckpointFingerprint {get;set;}
+        public long Sequence {get;set;}
+    }
+    public interface IInventorySavedReceiptApi
+    {
+        event EventHandler SavedCheckpoint;
+        InventorySavedDepositReceipt ReadSavedDepositReceipt(InventoryDeposit deposit);
+    }
     public sealed class InventoryStatus
     {
         public InventoryAvailability Availability { get; set; }
         public string Reason { get; set; }
+        // Opaque local save scope, not a path, credential, or proof of saved delivery.
+        public string SaveIdentity { get; set; }
+        public string JournalIdentity {get;set;}
         public bool CanWrite => Availability == InventoryAvailability.Ready;
     }
 

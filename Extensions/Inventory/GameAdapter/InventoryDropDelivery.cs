@@ -68,7 +68,31 @@ namespace Phinix.InventoryExtension
                 return custody;
             }
 
-            return InspectCustody(materialized, map, dropSpot);
+            InventoryDeliveryResult result = InspectCustody(materialized, map, dropSpot);
+            TraceP5Drop(materialized, map, dropSpot, result.Status);
+            return result;
+        }
+
+        // P5 only. Remove before P6; this samples custody immediately after the game call.
+        private static void TraceP5Drop(List<Verse.Thing> things, Verse.Map map, Verse.IntVec3 dropSpot,
+            InventoryDeliveryStatus status)
+        {
+            if (!Verse.Prefs.DevMode) return;
+            try
+            {
+                var entries = new List<string>(things.Count);
+                foreach (Verse.Thing thing in things)
+                {
+                    entries.Add($"{thing.def.defName} x{thing.stackCount}: holder={thing.ParentHolder?.GetType().Name ?? "none"}, " +
+                        $"spawned={thing.Spawned}, destroyed={thing.Destroyed}, position={thing.PositionHeld}");
+                }
+                Verse.Log.Message($"[Phinix][P5Drop] map={map.uniqueID}, requestedCell={dropSpot}, custody={status}; " +
+                    string.Join(" | ", entries));
+            }
+            catch (Exception exception)
+            {
+                Verse.Log.Warning("[Phinix][P5Drop] Could not inspect custody: " + exception.GetType().Name);
+            }
         }
 
         public static InventoryDeliveryResult InspectCustody(

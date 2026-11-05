@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_framework_controlNegotiationRejected>The server rejected connection negotiation. Check client/server versions and reconnect.</Phinix_framework_controlNegotiationRejected>
+  <Phinix_framework_controlAdmissionRejected>The server refused this request. Existing trade outcomes still need checking; do not resubmit or return items manually.</Phinix_framework_controlAdmissionRejected>
+  <Phinix_framework_controlMalformed>The server negotiation response could not be verified. Check versions and reconnect.</Phinix_framework_controlMalformed>
+</LanguageData>

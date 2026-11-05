@@ -25,11 +25,15 @@ internal static partial class Program
             string dll=args.Length>1?args[1]:Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"TradeExtension.Client.dll");
             Type type=Assembly.LoadFrom(Path.GetFullPath(dll)).GetType("Phinix.TradeExtension.Client.BuiltInTradeClientExtension",true);
             Assert(Path.GetFullPath(type.Assembly.Location)==Path.GetFullPath(dll),"Probe must load the requested actual DLL.");
+            CheckTransportSelection();
             CheckTradeRequestBoundary();
             CheckOfferGameScope(type);
             CheckQuotePreview(type);
             CheckInventoryRecovery(type);
             CheckOfferCorrelation();
+            CheckSaveReadiness();
+            CheckConsentObservation();
+            CheckInventorySaveScope();
             var matches=typeof(TradeWindow).GetMethod("CompletionMatches",BindingFlags.Static|BindingFlags.NonPublic);
             Assert((bool)matches.Invoke(null,new object[]{"one","ONE"}),"Matching completion ID follows existing case-insensitive trade identity.");
             Assert(!(bool)matches.Invoke(null,new object[]{"one","two"}),"Another trade completion cannot close this window.");
@@ -42,11 +46,16 @@ internal static partial class Program
                 if(scenario!="missing-factory") host.AddService<IClientCompositionFactory>(factory);
                 var module=(IPhinixExtensionModule)Activator.CreateInstance(type);
                 var builder=new Builder(host,scenario=="register-failure"); bool failed=false;
-                try { module.Register(builder); } catch(Exception) { failed=true; }
+                try { module.Register(builder); }
+                catch(Exception)
+                {
+                    if(scenario=="success") throw;
+                    failed=true;
+                }
                 Assert(failed==(scenario!="success"),"Expected construction outcome: "+scenario);
                 if(scenario=="success")
                 {
-                    Assert(builder.Items.Count==11,"Eleven current API registrations including ordinary Trade offer status API.");
+                    Assert(builder.Items.Count==12,"Twelve current API registrations including ordinary Trade operation query API.");
                     Assert(ReferenceEquals(builder.Items[typeof(ITradeInventoryRecoveryApi)],Field(module,"inventoryRecovery")),"Recovery inspection API is a normal singleton registration, not a Host shortcut.");
                     Assert(ReferenceEquals(builder.Items[typeof(ITradeOfferOperationApi)],Field(module,"offerOperations")),"One ordinary Trade-owned status/retry API instance; not a window-owned owner.");
                     object service=builder.Items[typeof(IFrameworkTradeClientApi)];
@@ -113,8 +122,9 @@ internal static partial class Program
     {
         private readonly IClientCompositionFactory inner;private readonly bool fail;public Scope Scope;
         public Factory(IClientCompositionFactory inner,bool fail){this.inner=inner;this.fail=fail;}
+        public Action<IClientCompositionBuilder> AdditionalBindings;
         public IClientCompositionScope CreateScope(Action<IClientCompositionBuilder> configure)
-        { Scope=new Scope(inner.CreateScope(configure),fail);return Scope; }
+        { Scope=new Scope(inner.CreateScope(local=>{configure(local);AdditionalBindings?.Invoke(local);}),fail);return Scope; }
     }
     private sealed class Scope : IClientCompositionScope
     {

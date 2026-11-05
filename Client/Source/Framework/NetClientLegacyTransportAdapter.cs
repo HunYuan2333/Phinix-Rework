@@ -10,9 +10,9 @@ namespace PhinixClient.Framework
     /// </summary>
     internal sealed class NetClientLegacyTransportAdapter : ILegacyModuleTransport
     {
-        private readonly NetClient netClient;
+        private readonly IClientTransport netClient;
 
-        public NetClientLegacyTransportAdapter(NetClient netClient)
+        public NetClientLegacyTransportAdapter(IClientTransport netClient)
         {
             this.netClient = netClient ?? throw new ArgumentNullException(nameof(netClient));
         }

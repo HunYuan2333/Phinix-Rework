@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Phinix.InventoryExtension;
 using PhinixClient;
@@ -25,6 +26,9 @@ namespace Phinix.TradeExtension.Client
         private IClientTradeService tradeFacade;
         private ClientTradeUiHostContext tradeUiHostContext;
         private PhinixDefaultTradeBehaviour defaultTradeBehaviour;
+        private TradeDeliveryReceiptClient deliveryReceipts;
+        private TradeDeliveryRecovery deliveryRecovery;
+        private TradeIntentSettlement intentSettlement;
         private IFrameworkClientTransport frameworkClient;
         private IFrameworkClientCommandTransport commandTransport;
         private IFrameworkClientLifecycle lifecycle;
@@ -33,6 +37,7 @@ namespace Phinix.TradeExtension.Client
         private IClientUserEventStream userEvents;
         private Action<bool> updateAcceptingTrades;
         private bool? lastSyncedAcceptingTrades;
+        private int basicTermsNoticeShown;
         private EventHandler<FrameworkCompatibilityModeChangedEventArgs> compatibilityChangedHandler;
         private EventHandler usersChangedHandler;
         private EventHandler disconnectedHandler;
@@ -77,6 +82,7 @@ namespace Phinix.TradeExtension.Client
 
             builder.RegisterApi<ITradeOfferOperationApi>(offerOperations);
             builder.RegisterApi<ITradeInventoryRecoveryApi>(inventoryRecovery);
+            builder.RegisterApi<ITradeOperationQueryApi>(inventoryRecovery);
             builder.RegisterApi(tradeApi);
             builder.RegisterApi<IFrameworkTradeUpdateResultApi>((IFrameworkTradeUpdateResultApi)tradeApi);
             builder.RegisterApi<ITradeStateInput>((ITradeStateInput)tradeApi);
@@ -104,6 +110,7 @@ namespace Phinix.TradeExtension.Client
             try
             {
                 hostLog = hostContext.Log;
+                var recoveryTasks=hostContext.GetRequiredService<IClientTaskService>();
 
                 IClientTheme theme = hostContext.GetRequiredService<IClientTheme>();
                 themeRegistration = hostContext.GetRequiredService<IClientThemeRegistry>().RegisterModule(this, "trade", "Phinix_theme_owner_trade");
@@ -119,6 +126,19 @@ namespace Phinix.TradeExtension.Client
                 lifecycle = hostContext.GetRequiredService<IFrameworkClientLifecycle>();
                 sessionContext = hostContext.GetRequiredService<IClientSessionContext>();
                 settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
+                var completionPaths = hostContext.GetRequiredService<ClientEnvironmentPaths>();
+                var connection = hostContext.GetRequiredService<IClientConnectionIdentity>();
+                var completionJournal=new TradeCompletionInbox(System.IO.Path.Combine(completionPaths.GetExtensionDataDirectory(ExtensionId), "completion-inbox"));
+                Func<string> completionEndpoint=() => sessionContext.Authenticated && sessionContext.LoggedIn ? connection.RemoteEndpoint : null;
+                ((PhinixFrameworkTradeClientService)tradeApi).ConfigureCompletionInbox(
+                    completionJournal,completionEndpoint);
+                var intentJournal = new TradeIntentJournal(System.IO.Path.Combine(completionPaths.GetExtensionDataDirectory(ExtensionId), "operation-intents"));
+                var intentAdapter = (FrameworkClientTradeServiceAdapter)tradeFacade;
+                intentAdapter.ConfigureIntentJournal(intentJournal, completionEndpoint);
+                deliveryReceipts=new TradeDeliveryReceiptClient(completionJournal,completionEndpoint,()=>sessionContext.Uuid,()=>sessionContext.SessionId,
+                    ()=>sessionContext.Authenticated&&sessionContext.LoggedIn&&frameworkClient.HasRemoteCapability(TradeDeliveryProtocol.Request)&&frameworkClient.HasRemoteCapability(TradeDeliveryProtocol.Response),
+                    packet=>commandTransport.TryHandleOutgoingCommand(packet),message=>hostLog?.Invoke(message,LogLevel.WARNING));
+                ((PhinixFrameworkTradeClientService)tradeApi).ConfigureDeliveryReceipts(deliveryReceipts);
                 userEvents = hostContext.GetRequiredService<IClientUserEventStream>();
                 updateAcceptingTrades = hostContext.GetRequiredService<Action<bool>>();
 
@@ -129,18 +149,27 @@ namespace Phinix.TradeExtension.Client
                 {
                     throw new InvalidOperationException("Inventory registration, deposit, read, and reservation APIs are required by trade.");
                 }
+                intentAdapter.ConfigureSaveReadiness(()=>inventoryReadApi.GetStatus());
+                intentAdapter.IntentPrepared=intent=>
+                {
+                    if(intent.RequestType!=FrameworkTradeProtocol.OfferUpdateRequestType)return;
+                    string expected="trade-offer:"+TradeIntentJournal.TradeId(intent)+":"+intent.CorrelationId;
+                    var reservation=inventoryReservationApi.GetReservations().SingleOrDefault(r=>r.OwnerExtensionId=="builtin.trade"&&r.Purpose=="trade.offer"&&r.OperationId==expected);
+                    if(reservation!=null)intentJournal.BindReservation(intent,inventoryReadApi.GetStatus(),reservation);
+                };
                 Action<LogEventArgs> log = args => hostLog?.Invoke(args.Message, args.LogLevel);
                 compatibilityChangedHandler = (_, args) =>
                 {
                     if (!activated || generation != activationGeneration) return;
                     itemPipeline?.SetCompatibilityMode(args.CompatibilityMode);
+                    deliveryRecovery?.RequestRecovery();
                     if (args.CompatibilityMode == FrameworkCompatibilityMode.FrameworkV2 &&
                         sessionContext.Authenticated && sessionContext.LoggedIn &&
                         frameworkClient.HasRemoteCapability(FrameworkTradeProtocol.Capability))
                         commandTransport.TryHandleOutgoingCommand(tradeApi.CreateSnapshotRequestPacket(sessionContext.SessionId, sessionContext.Uuid));
                 };
-                usersChangedHandler = (_, __) => { if (activated && generation == activationGeneration) syncAcceptingTrades(); };
-                disconnectedHandler = (_, __) => { if (activated && generation == activationGeneration) lastSyncedAcceptingTrades = null; };
+                usersChangedHandler = (_, __) => { if (activated && generation == activationGeneration) {syncAcceptingTrades();deliveryRecovery?.RequestRecovery();} };
+                disconnectedHandler = (_, __) => { if (activated && generation == activationGeneration) { lastSyncedAcceptingTrades = null; System.Threading.Interlocked.Exchange(ref basicTermsNoticeShown, 0); } };
                 settingChangedHandler = (key, _) =>
                 {
                     if (activated && generation == activationGeneration && key == "trade.acceptingTrades") syncAcceptingTrades();
@@ -180,7 +209,15 @@ namespace Phinix.TradeExtension.Client
                 tradeUiHostContext.ConfigureOfferPresentation(new TradeOfferPresentationFactory(this,
                     hostContext.GetRequiredService<IClientPresentationService>(),hostContext.GetRequiredService<IClientExtensionPointService>(),currentTheme));
                 offerOperations.Start();
+                intentSettlement=new TradeIntentSettlement(intentJournal,inventoryReadApi,inventoryReservationApi,recoveryTasks.ForModule(this),completionEndpoint,()=>sessionContext.Uuid,offerOperations,
+                    message=>hostLog?.Invoke(message,LogLevel.WARNING));
                 inventoryRecovery.Start(inventoryReadApi,inventoryReservationApi);
+                inventoryRecovery.ConfigureCompletions(completionJournal,()=>sessionContext?.Uuid,completionEndpoint);
+                inventoryRecovery.ConfigureIntents(intentJournal, () => intentAdapter.CanQueryOperation, intentAdapter.QueryOperation);
+                hostContext.TryResolveApi<IInventorySavedReceiptApi>(out var savedReceipts);
+                deliveryRecovery=new TradeDeliveryRecovery(completionJournal,inventoryReadApi,inventoryDeposit,savedReceipts,recoveryTasks.ForModule(this),deliveryReceipts,
+                    completionEndpoint,()=>sessionContext.Uuid,message=>hostLog?.Invoke(message,LogLevel.WARNING));
+                intentSettlement.Start();deliveryRecovery.Start();
                 composition.Resolve<TradeMainTabProvider>().Start(this,hostContext.GetRequiredService<IClientPresentationService>(),
                     hostContext.GetRequiredService<IClientExtensionPointService>(),currentTheme,offerOperations,inventoryRecovery);
 
@@ -199,6 +236,14 @@ namespace Phinix.TradeExtension.Client
                 }
 
                 syncAcceptingTrades();
+                defaultTradeBehaviour?.ConfigureCompletionJournal(completionJournal,completionEndpoint);
+                // Missing host support retains the inbox without binding/delivering nonempty batches.
+                hostContext.TryGetService<IClientGameScopeService>(out var gameScopes);
+                defaultTradeBehaviour?.ConfigureGameScopes(gameScopes);
+                ((PhinixFrameworkTradeClientService)tradeApi).ConfigureGameScopes(gameScopes);
+                hostContext.TryResolveApi<IInventoryReceiveScopeApi>(out var receiveScopes);
+                defaultTradeBehaviour?.ConfigureReceiveScopes(receiveScopes);
+                ((PhinixFrameworkTradeClientService)tradeApi).ConfigureReceiveScopes(receiveScopes);
                 defaultTradeBehaviour?.Start();
             }
             catch (Exception error)
@@ -218,6 +263,8 @@ namespace Phinix.TradeExtension.Client
             themeRegistration?.Dispose(); themeRegistration = null;
             System.Threading.Interlocked.Increment(ref activationGeneration);
             var failures = new List<Exception>();
+            TradeLifetimeCleanup.Try(()=>deliveryRecovery?.Dispose(),failures);deliveryRecovery=null;
+            TradeLifetimeCleanup.Try(()=>intentSettlement?.Dispose(),failures);intentSettlement=null;
             TradeLifetimeCleanup.Try(() => inventoryRecovery?.Dispose(), failures);
             TradeLifetimeCleanup.Try(() => offerOperations?.Dispose(), failures);
             TradeLifetimeCleanup.Try(() => (tradeFacade as IDisposable)?.Dispose(), failures);
@@ -246,6 +293,7 @@ namespace Phinix.TradeExtension.Client
             userEvents = null;
             updateAcceptingTrades = null;
             lastSyncedAcceptingTrades = null;
+            basicTermsNoticeShown = 0;
             compatibilityChangedHandler = null;
             usersChangedHandler = null;
             disconnectedHandler = null;
@@ -309,6 +357,10 @@ namespace Phinix.TradeExtension.Client
             yield return FrameworkTradeProtocol.CancelledEventType;
             yield return FrameworkTradeProtocol.CompletionAckRequestType;
             yield return FrameworkTradeProtocol.CompletionAckResponseType;
+            yield return TradeOperationQueryProtocol.Request;
+            yield return TradeOperationQueryProtocol.Response;
+            yield return TradeDeliveryProtocol.Request;
+            yield return TradeDeliveryProtocol.Response;
         }
 
         public bool CanHandleIncomingCommand(FrameworkPacket command)
@@ -320,14 +372,25 @@ namespace Phinix.TradeExtension.Client
                     command.MessageType == FrameworkTradeProtocol.StatusUpdateResponseType ||
                     command.MessageType == FrameworkTradeProtocol.CompletedEventType ||
                     command.MessageType == FrameworkTradeProtocol.CancelledEventType ||
-                    command.MessageType == FrameworkTradeProtocol.CompletionAckResponseType);
+                    command.MessageType == FrameworkTradeProtocol.CompletionAckResponseType ||
+                    command.MessageType == TradeOperationQueryProtocol.Response || command.MessageType==TradeDeliveryProtocol.Response);
         }
 
         public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket command, ClientFrameworkContext context)
         {
+            if (!((FrameworkClientTradeServiceAdapter)tradeFacade).RecordCommandResult(command))
+                return new ClientIncomingCommandResult { Action = MessageHandlingResultAction.Handled };
             switch (command.MessageType)
             {
+                case TradeDeliveryProtocol.Response:
+                    deliveryReceipts?.Handle(command);
+                    // Server receipt response never settles assets or changes a game-save result.
+                    break;
+                case TradeOperationQueryProtocol.Response:
+                    ((FrameworkClientTradeServiceAdapter)tradeFacade).HandleOperationQueryResponse(command);
+                    break;
                 case FrameworkTradeProtocol.SnapshotType:
+                    ShowBasicTermsNotice(command);
                     tradeApi.HandleSnapshot(command);
                     break;
                 case FrameworkTradeProtocol.CreateResponseType:
@@ -354,6 +417,19 @@ namespace Phinix.TradeExtension.Client
             {
                 Action = MessageHandlingResultAction.Handled
             };
+        }
+
+        private void ShowBasicTermsNotice(FrameworkPacket command)
+        {
+            if (!command.TryGetMetadataValue("trade_basic_terms_v1", out string ids) ||
+                string.IsNullOrEmpty(ids) || ids.Length > 4096 || tradeUiHostContext == null) return;
+            var marked = new HashSet<string>(ids.Split(','), StringComparer.OrdinalIgnoreCase);
+            var snapshot = FrameworkSerialization.DeserializePayload<FrameworkTradeStateCollectionSnapshot>(command.PayloadJson);
+            if (snapshot?.Trades == null || !snapshot.Trades.Any(t => marked.Contains(t.TradeId)) ||
+                System.Threading.Interlocked.CompareExchange(ref basicTermsNoticeShown, 1, 0) != 0) return;
+            // Presentation only. No protocol switch, settlement or asset mutation here.
+            tradeUiHostContext.RunOnMainThread(() => Messages.Message(
+                "Phinix_trade_basicCompatibilityNotice".Translate(), RimWorld.MessageTypeDefOf.CautionInput, false));
         }
 
         // ========== IClientOutgoingCommandHandler ==========

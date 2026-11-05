@@ -145,4 +145,41 @@
   <Phinix_trade_editorYouReceive>You receive</Phinix_trade_editorYouReceive>
   <Phinix_trade_editorTradeActions>Trade actions</Phinix_trade_editorTradeActions>
   <Phinix_trade_editorQuotes>Both offers</Phinix_trade_editorQuotes>
+  <Phinix_trade_completionRecoveryTitle>Delivery to review</Phinix_trade_completionRecoveryTitle>
+  <Phinix_trade_completionState_Received>Event recorded; delivery not verified</Phinix_trade_completionState_Received>
+  <Phinix_trade_completionState_Attempted>Delivery attempted; result unknown</Phinix_trade_completionState_Attempted>
+  <Phinix_trade_completionState_ReturnedSuccess>Local delivery API returned success; save not verified</Phinix_trade_completionState_ReturnedSuccess>
+  <Phinix_trade_completionState_ReturnedFailure>Local delivery API returned failure; review required</Phinix_trade_completionState_ReturnedFailure>
+  <Phinix_trade_completionSave_Current>Bound to this saved game</Phinix_trade_completionSave_Current>
+  <Phinix_trade_completionSave_Different>Bound to a different or unavailable saved game</Phinix_trade_completionSave_Different>
+  <Phinix_trade_completionSave_Unbound>No recorded save binding</Phinix_trade_completionSave_Unbound>
+  <Phinix_trade_completionRecoveryNotice>Read-only evidence. This does not confirm items were saved. No automatic redelivery or refund is authorized.</Phinix_trade_completionRecoveryNotice>
+  <Phinix_trade_completionRecoveryJournal>Delivery journal</Phinix_trade_completionRecoveryJournal>
+  <Phinix_trade_recoveryRecordCount>{0} records to review</Phinix_trade_recoveryRecordCount>
+  <Phinix_trade_intentRecoveryTitle>Saved trade operation</Phinix_trade_intentRecoveryTitle>
+  <Phinix_trade_intentRecoveryJournal>Operation journal</Phinix_trade_intentRecoveryJournal>
+  <Phinix_trade_intentQuery>Check original server result</Phinix_trade_intentQuery>
+  <Phinix_trade_intentQuerySubmitted>Query submitted. Waiting for the server result.</Phinix_trade_intentQuerySubmitted>
+  <Phinix_trade_intentQueryFailed>Could not complete the query. The original operation remains unchanged.</Phinix_trade_intentQueryFailed>
+  <Phinix_trade_intentQueryUnavailable>Reconnect to a server that supports operation queries.</Phinix_trade_intentQueryUnavailable>
+  <Phinix_trade_intentRecoveryNotice>This only checks the original server result. Not found, timeout or disconnect does not permit refunds or resending items. A committed operation does not prove the game saved its delivery.</Phinix_trade_intentRecoveryNotice>
+  <Phinix_trade_intentState_Prepared>Request saved; no recorded send attempt</Phinix_trade_intentState_Prepared>
+  <Phinix_trade_intentState_OutcomeUnknown>Send attempted; original result unknown</Phinix_trade_intentState_OutcomeUnknown>
+  <Phinix_trade_intentState_CommittedSuccess>Server committed success; game delivery not confirmed</Phinix_trade_intentState_CommittedSuccess>
+  <Phinix_trade_intentState_CommittedFailure>Server committed rejection</Phinix_trade_intentState_CommittedFailure>
+  <Phinix_trade_intentState_NotFoundObserved>Not found by this query; result remains unknown</Phinix_trade_intentState_NotFoundObserved>
+  <Phinix_trade_intentState_Conflict>Request fingerprint conflict; preserve this record</Phinix_trade_intentState_Conflict>
+  <Phinix_trade_intentState_InvalidRequest>Server rejected the query</Phinix_trade_intentState_InvalidRequest>
+  <Phinix_trade_intentLookup_None>No result query recorded in this session.</Phinix_trade_intentLookup_None>
+  <Phinix_trade_intentLookup_Committed>Latest query returned the original committed result.</Phinix_trade_intentLookup_Committed>
+  <Phinix_trade_intentLookup_NotFound>Latest query did not find the operation at that time.</Phinix_trade_intentLookup_NotFound>
+  <Phinix_trade_intentLookup_Conflict>Latest query reported a fingerprint conflict.</Phinix_trade_intentLookup_Conflict>
+  <Phinix_trade_intentLookup_InvalidRequest>Latest query was rejected.</Phinix_trade_intentLookup_InvalidRequest>
+  <Phinix_trade_intentState_ResponseSuccess>Server success response recorded; durable result not queried</Phinix_trade_intentState_ResponseSuccess>
+  <Phinix_trade_intentState_ResponseFailure>Server rejection response recorded; durable result not queried</Phinix_trade_intentState_ResponseFailure>
+  <Phinix_trade_saveBeforeTrading>Save the current game before submitting items or confirming this trade. This action has not moved any items.</Phinix_trade_saveBeforeTrading>
+  <Phinix_trade_inventoryUnavailableBeforeTrading>Inventory is not ready. Check its status before submitting items or confirming this trade.</Phinix_trade_inventoryUnavailableBeforeTrading>
+  <Phinix_trade_deliverySavePending>Trade items are retained but could not be delivered because no ready save was bound when they arrived. Save the game and review the pending trade.</Phinix_trade_deliverySavePending>
+  <Phinix_trade_deliveryScopePending>Trade items are retained for review because the game or save scope changed. Check pending trades before taking further action.</Phinix_trade_deliveryScopePending>
+  <Phinix_trade_basicCompatibilityNotice>This trade uses original Phinix compatibility: only item type, quantity, material, quality, hit points and contained items are kept. Extra item properties are discarded. Confirmations and delivery follow the original client’s weaker rules; sending does not prove the game has saved the items.</Phinix_trade_basicCompatibilityNotice>
 </LanguageData>

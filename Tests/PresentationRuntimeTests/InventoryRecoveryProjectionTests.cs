@@ -12,30 +12,36 @@ internal static partial class Program
     private sealed class RecoveryFacts : ITradeInventoryRecoveryApi
     {
         public long Revision {get;set;}
+        public int Captures;
         public IReadOnlyList<TradeInventoryRecoveryRecord> Records=Array.Empty<TradeInventoryRecoveryRecord>();
-        public IReadOnlyList<TradeInventoryRecoveryRecord> Capture()=>Records;
+        public IReadOnlyList<TradeInventoryRecoveryRecord> Capture(){Captures++;return Records;}
     }
     private static void CheckInventoryRecoveryProjection()
     {
-        var facts=new RecoveryFacts{Records=new[]{new TradeInventoryRecoveryRecord("reservation","original-operation","Reserved","note","one","token",new[]{new TradeInventoryRecoveryLine("entry",7)})}};
+        bool previous=Verse.Prefs.DevMode;
+        var facts=new RecoveryFacts{Records=new[]{
+            new TradeInventoryRecoveryRecord("reservation","operation","Reserved","private evidence","one","token",Array.Empty<TradeInventoryRecoveryLine>()),
+            new TradeInventoryRecoveryRecord("completion","op2","ReturnedSuccess","private evidence","one",null,Array.Empty<TradeInventoryRecoveryLine>(),"Completion","OtherSave"),
+            new TradeInventoryRecoveryRecord("intent","op3","Pending","private evidence","one",null,Array.Empty<TradeInventoryRecoveryLine>(),"Intent",null)}};
         var fixture=new TradeFixture{Trades=new[]{new ClientTradeSnapshot("one",new ImmutableUser("peer","Peer",true,true),Array.Empty<TradeItemSnapshot>(),Array.Empty<TradeItemSnapshot>())}};
         var renderer=new CapturePresentation();var points=new TradePoints();
-        using(var list=new TradeList(fixture))
+        try
         {
-            list.Start(new Module(),renderer,points,new Theme(),recovery:facts);list.ViewOpened();
-            var recoveryRow=renderer.Page.Sections[1].List.Rows.Single(r=>r.Label=="Phinix_trade_inventoryRecoveryTitle");
-            Check(renderer.Page.Sections[1].List.Rows.Count==2,"Current trade and journal reservation are separate facts, not two invented trades");
-            renderer.Inputs.Enqueue(new ClientPresentationInput(renderer.Page.Revision,"trades",ClientPresentationInputKind.RowSelected,recoveryRow.Id));list.ViewUpdate();
-            Check(points.Last.Actions.Count==0&&fixture.Cancels==0,"Selecting journal record cannot inherit open/cancel/retry actions from a matching active trade");
-            Check(renderer.Page.Sections.Single(s=>s.Id=="reserved-lines").List.IsReadOnly&&renderer.Page.Sections.Single(s=>s.Id=="reserved-lines").List.Rows[0].Label=="entry","Reservation units use the same public readonly list");
-            list.ViewClosed();fixture.Finish("one");list.ViewOpened();
-            Check(renderer.Page.Sections[1].List.Rows.Count==1&&points.Last.Actions.Count==0,"Journal fact stays reachable after trade removal and reopening without refund");
-            facts.Records=Array.Empty<TradeInventoryRecoveryRecord>();facts.Revision++;list.ViewUpdate();
-            Check(renderer.Page.Sections[1].List.Rows.Count==0&&renderer.Page.Sections.All(s=>s.Id!="reserved-lines"),"Journal reload/clear invalidates old selected record and line projection");
-            facts.Records=Enumerable.Range(0,101).Select(i=>new TradeInventoryRecoveryRecord("record-"+i,"operation-"+i,"Reserved","",null,null,Array.Empty<TradeInventoryRecoveryLine>())).ToArray();facts.Revision++;list.ViewUpdate();
-            Check(renderer.Page.Sections[1].List.Rows.Count==100&&renderer.Page.Sections[0].Actions.Any(a=>a.Action.Id=="browse-next"),"Large journal has bounded pages with public navigation, not hidden records or Host limit failure");
-            points.Last.Actions.Single(a=>a.Id=="browse-next").TryExecute();list.ViewUpdate();
-            Check(renderer.Page.Sections[1].List.Rows.Count==1&&points.Last.Actions.Any(a=>a.Id=="browse-previous"),"Final recovery record remains reachable on next page without business mutation");
+            Verse.Prefs.DevMode=false;
+            using(var list=new TradeList(fixture))
+            {
+                list.Start(new Module(),renderer,points,new Theme(),recovery:facts);list.ViewOpened();
+                Check(renderer.Page.Sections[1].List.Rows.Count==1&&facts.Captures==0,"Ordinary trade view never captures or exposes durable developer journals");
+                Check(!renderer.Page.Sections[1].Title.Contains("recoveryRecordCount"),"Ordinary trade count omits development journal counters");
+                Check(renderer.Page.Sections[1].List.Rows[0].Actions.Any(a=>a.Action.Id=="cancel"),"Removing diagnostics preserves actual player trade actions");
+                Verse.Prefs.DevMode=true;list.ViewUpdate();
+                Check(renderer.Page.Sections[1].List.Rows.Count==1&&facts.Captures==0,"Developer mode also omits the removed journal view");
+                Check(renderer.Page.Sections.All(s=>s.Id!="details"),"Enabling developer mode does not reveal journal details");
+                facts.Revision++;list.ViewUpdate();list.ViewClosed();list.ViewOpened();
+                Check(facts.Records.Count==3&&fixture.Cancels==0,"Hiding, refreshing and reopening diagnostics neither deletes records nor submits a trade");
+            }
         }
+        finally {Verse.Prefs.DevMode=previous;}
     }
+
 }

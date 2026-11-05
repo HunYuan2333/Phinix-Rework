@@ -8,7 +8,7 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    internal sealed class FrameworkClientTradeServiceAdapter : IClientTradeService, ITradeRequestApi, IDisposable
+    internal sealed class FrameworkClientTradeServiceAdapter : IClientTradeService, ITradeRequestApi, IObservedTradeConsentService, IDisposable
     {
         private readonly IFrameworkTradeClientApi tradeService;
         private volatile bool stopped;
@@ -17,6 +17,34 @@ namespace Phinix.TradeExtension.Client
         private IFrameworkClientLifecycle lifecycle;
         private IClientSessionContext sessionContext;
         private Action<string, LogLevel> log;
+        private TradeIntentJournal intentJournal;
+        internal Action<TradeIntentRecord> IntentPrepared;
+        private Func<string> intentEndpoint;
+        private TradeOperationQueryClient operationQueries;
+        private Func<Phinix.InventoryExtension.InventoryStatus> saveReadiness;
+        internal void ConfigureSaveReadiness(Func<Phinix.InventoryExtension.InventoryStatus> readStatus)
+        {saveReadiness=readStatus??throw new ArgumentNullException(nameof(readStatus));}
+        private void RequireSavedRecipient()
+        {
+            string reason=TradeSaveReadiness.BlockReason(saveReadiness?.Invoke());
+            if(reason!=null)throw new InvalidOperationException(reason);
+        }
+        internal void ConfigureIntentJournal(TradeIntentJournal journal, Func<string> endpoint)
+        {
+            intentJournal = journal; intentEndpoint = endpoint;
+            operationQueries = new TradeOperationQueryClient(journal, endpoint, () => sessionContext?.Uuid, () => sessionContext?.SessionId,
+                () => sessionContext?.Authenticated == true && sessionContext?.LoggedIn == true &&
+                    frameworkClient?.HasRemoteCapability(TradeOperationQueryProtocol.Request) == true && frameworkClient?.HasRemoteCapability(TradeOperationQueryProtocol.Response) == true,
+                packet => commandTransport != null && commandTransport.TryHandleOutgoingCommand(packet));
+        }
+        internal bool CanQueryOperation => operationQueries?.Available == true;
+        internal void QueryOperation(string operationId) => operationQueries.Query(operationId);
+        internal void HandleOperationQueryResponse(FrameworkPacket packet) => operationQueries?.Handle(packet);
+        internal bool RecordCommandResult(FrameworkPacket packet)
+        {
+            return intentJournal == null || intentJournal.RecordResponse(intentEndpoint?.Invoke(), sessionContext?.Uuid, packet);
+        }
+
 
         public FrameworkClientTradeServiceAdapter(
             IFrameworkTradeClientApi tradeService)
@@ -46,6 +74,9 @@ namespace Phinix.TradeExtension.Client
             lifecycle = null;
             sessionContext = null;
             log = null;
+            intentJournal = null; intentEndpoint = null;
+            operationQueries = null;
+            saveReadiness = null;
         }
 
         private void EnsureActive()
@@ -114,7 +145,7 @@ namespace Phinix.TradeExtension.Client
         {
             EnsureActive();
             GuardOfferOperation(tradeId,null,false);
-            log?.Invoke($"[TradeAdapter] CancelTrade: tradeId={tradeId}", LogLevel.DEBUG);
+
             SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, null, true, createContext()));
         }
 
@@ -146,6 +177,7 @@ namespace Phinix.TradeExtension.Client
         public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
         {
             EnsureActive();
+            RequireSavedRecipient();
             GuardOfferOperation(tradeId,token,true);
             var tradeItems = items.ToList();
 
@@ -161,40 +193,41 @@ namespace Phinix.TradeExtension.Client
 
             FrameworkItemPayload[] payloads = tradeService.EncodeTradeItems(tradeItems);
 
-            List<string> itemPacketIds = new List<string>();
-            foreach (FrameworkItemPayload payload in payloads)
+            var itemPackets = payloads.Select(payload =>
             {
-                FrameworkPacket itemPacket = FrameworkSerialization.BuildItemPacket(
-                    payload, sessionContext.SessionId, sessionContext.Uuid);
-                itemPacketIds.Add(itemPacket.MessageId);
+                var item = FrameworkSerialization.BuildItemPacket(payload, sessionContext.SessionId, sessionContext.Uuid);
+                item.MessageType = FrameworkTradeProtocol.Capability;
+                return item;
+            }).ToArray();
+            var command = tradeService.CreateOfferUpdateRequest(tradeId, itemPackets.Select(i => i.MessageId), createContext());
+            if (!string.IsNullOrEmpty(token)) command.SetCorrelationId(token);
+            // Preserve the complete batch and exact command identity, then mark the
+            // uncertain transport boundary before any item or command can leave.
+            PrepareIntent(command, itemPackets);
+            for (int i = 0; i < payloads.Length; i++)
+                if (!frameworkClient.TryHandleOutgoingItem(payloads[i]))
+                    frameworkClient.SendFrameworkPacket(itemPackets[i]);
+            DispatchTradePacket(command);
+        }
 
-                if (!frameworkClient.TryHandleOutgoingItem(payload))
-                {
-                    log?.Invoke(
-                        $"[TradeAdapter] No IClientOutgoingItemHandler registered — falling back to direct SendFrameworkPacket for item id={itemPacket.MessageId}",
-                        LogLevel.DEBUG);
-                    frameworkClient.SendFrameworkPacket(itemPacket);
-                }
-                else
-                {
-                    log?.Invoke(
-                        $"[TradeAdapter] Item packet id={itemPacket.MessageId} routed through TryHandleOutgoingItem pipeline",
-                        LogLevel.DEBUG);
-                }
-            }
-
-            FrameworkPacket cmdPacket = tradeService.CreateOfferUpdateRequest(tradeId, itemPacketIds, createContext());
-            if (!string.IsNullOrEmpty(token))
-                cmdPacket.SetCorrelationId(token);
-
-            SendTradePacket(cmdPacket);
+        public void AcceptObservedTrade(ClientTradeSnapshot snapshot)
+        {
+            EnsureActive();
+            RequireSavedRecipient();
+            long version = TradeSnapshotObservation.Require(snapshot);
+            GuardOfferOperation(snapshot.TradeId, null, false);
+            FrameworkPacket packet = tradeService.CreateStatusUpdateRequest(snapshot.TradeId, true, null, createContext());
+            packet.SetSnapshotVersion(version);
+            SendTradePacket(packet);
         }
 
         public void UpdateTradeStatus(string tradeId, bool? accepted = null, bool? cancelled = null)
         {
             EnsureActive();
+            if (accepted == true && cancelled != true)
+                throw new InvalidOperationException("Confirmation requires the displayed trade quote.");
             GuardOfferOperation(tradeId,null,false);
-            log?.Invoke($"[TradeAdapter] UpdateTradeStatus: tradeId={tradeId}, accepted={accepted}, cancelled={cancelled}", LogLevel.DEBUG);
+
             SendTradePacket(tradeService.CreateStatusUpdateRequest(tradeId, accepted, cancelled, createContext()));
         }
 
@@ -207,10 +240,22 @@ namespace Phinix.TradeExtension.Client
         private void SendTradePacket(FrameworkPacket packet)
         {
             if (packet == null) return;
+            PrepareIntent(packet, Array.Empty<FrameworkPacket>());
+            DispatchTradePacket(packet);
+        }
 
-            log?.Invoke(
-                $"[TradeAdapter] SendTradePacket: msgType={packet.MessageType}, mode={lifecycle.CompatibilityMode}",
-                LogLevel.DEBUG);
+        private void PrepareIntent(FrameworkPacket packet, IEnumerable<FrameworkPacket> items)
+        {
+            if (intentJournal == null || (packet.MessageType != FrameworkTradeProtocol.CreateRequestType &&
+                packet.MessageType != FrameworkTradeProtocol.OfferUpdateRequestType && packet.MessageType != FrameworkTradeProtocol.StatusUpdateRequestType)) return;
+            var record = intentJournal.Prepare(intentEndpoint?.Invoke(), sessionContext?.Uuid, packet, items);
+            IntentPrepared?.Invoke(record);
+            intentJournal.BeginAttempt(record);
+        }
+
+        private void DispatchTradePacket(FrameworkPacket packet)
+        {
+
 
             if (commandTransport == null || !commandTransport.TryHandleOutgoingCommand(packet))
             {
@@ -218,7 +263,7 @@ namespace Phinix.TradeExtension.Client
             }
             else
             {
-                log?.Invoke($"[TradeAdapter] SendTradePacket: pipeline handled '{packet.MessageType}' successfully", LogLevel.DEBUG);
+
             }
         }
 

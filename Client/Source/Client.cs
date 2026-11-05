@@ -33,7 +33,7 @@ namespace PhinixClient
         public override string SettingsCategory() => "Phinix";
 
         #region Modules
-        private NetClient netClient;
+        private IClientTransport netClient;
         public bool Connected => netClient.Connected;
         private volatile bool connectionAttemptPending;
         private volatile bool connectionAttemptFailed;
@@ -140,6 +140,7 @@ namespace PhinixClient
         private ClientUserEventStream userEventStream;
         private ClientShellEventStream shellEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
+        private ClientGameScopeService gameScopes;
         private readonly IClientGameWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
         internal IClientSettingsContext SettingsContext => settingsContext;
@@ -185,16 +186,31 @@ namespace PhinixClient
             // Load in Settings
             Settings = GetSettings<Settings>();
             // Set up our module instances
-            netClient = new NetClient();
-            authenticator = new ClientAuthenticator(netClient, getCredentials);
+            netClient = new ConfiguredClientTransport((address, port) => {
+                string identityMode = Settings.GetExtensionSetting("identity.mode", "legacy");
+                if (identityMode != "legacy" && identityMode != "passwordless") throw new System.InvalidOperationException("Unknown identity mode.");
+                if (identityMode == "passwordless" && Settings.GetExtensionSetting("transport.mode", "udp") != "tls") throw new System.InvalidOperationException("Passwordless identity requires TLS.");
+                return ClientTransportFactory.Create(
+                Settings.GetExtensionSetting("transport.mode", "udp"),
+                Settings.GetExtensionSetting("transport.tls.serverName", address),
+                Settings.GetExtensionSetting("transport.tls.spkiPin", ""),
+                Settings.GetExtensionSetting("transport.tls.rootCertificateFile", "")); });
+            authenticator = new ClientAuthenticator(netClient, getCredentials, "PhinixCredentials.bin", deferHistoricalCredentials: Settings.GetExtensionSetting("identity.mode", "legacy") == "passwordless");
+#if PHINIX_RIMWORLD_17
+            authenticator.ConfigureModernIdentity(() => Settings.GetExtensionSetting("identity.mode", "legacy") == "passwordless",
+                System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData, System.Environment.SpecialFolderOption.DoNotVerify), "Phinix-Rework", "identities-v1"));
+#endif
             userManager = new ClientUserManager(netClient, authenticator);
             IClientUserDirectory frameworkUserDirectory = new ClientFrameworkUserDirectoryAdapter(userManager);
-            IClientSessionContext sessionContext = new ClientSessionContextAdapter(authenticator, userManager);
+            IClientSessionContext sessionContext = new ClientSessionContextAdapter(authenticator, userManager, () => netClient.RemoteEndpoint);
             settingsContext = new ClientSettingsContextAdapter(this);
             windowService = new ClientWindowService();
             userEventStream = new ClientUserEventStream();
             shellEventStream = new ClientShellEventStream();
             mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)), () => UnityData.IsInMainThread);
+            gameScopes = new ClientGameScopeService(() => Current.Game, () => UnityData.IsInMainThread);
+            // Mod constructors run on the loading thread. Publish in Update,
+            // before draining queued extension startup and delivery callbacks.
             IClientSoundService soundService = new ClientSoundService(this);
             ExtensionHostContext extensionHostContext = new ExtensionHostContext
             {
@@ -205,11 +221,13 @@ namespace PhinixClient
             extensionHostContext.AddService(userManager);
             extensionHostContext.AddService(frameworkUserDirectory);
             extensionHostContext.AddService(sessionContext);
+            extensionHostContext.AddService<IClientConnectionIdentity>((IClientConnectionIdentity)sessionContext);
             extensionHostContext.AddService(settingsContext);
             extensionHostContext.AddService<IClientUserEventStream>(userEventStream);
             extensionHostContext.AddService<IClientShellEventStream>(shellEventStream);
             extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientTaskService>(mainThreadDispatcher);
+            extensionHostContext.AddService<IClientGameScopeService>(gameScopes);
             extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientGameWindowService>(windowService);
             extensionHostContext.AddService<IClientSettingsWindowService>((IClientSettingsWindowService)windowService);
@@ -391,6 +409,7 @@ namespace PhinixClient
                 try
                 {
                     var paths = new ClientEnvironmentPaths(GenFilePaths.ModsFolderPath,GenFilePaths.SaveDataFolderPath);
+                    extensionHostContext.AddService(paths);
                     managedExtensionRuntime = new ManagedExtensionRuntime(paths.ManagedExtensions,
                         entry => Verse.Log.Message("[Phinix] " + ManagedExtensionAuditJson.Format(entry)),
                         error => { if(Prefs.DevMode) Verse.Log.Warning("[Phinix] Managed extension internal diagnostic: " + error); },
@@ -525,6 +544,7 @@ namespace PhinixClient
         private void StopExtensions()
         {
             if (!UnityData.IsInMainThread) throw new InvalidOperationException("Extension shutdown requires the main thread.");
+            gameScopes?.Stop();
             authenticator.OnLogEntry -= ILoggableHandler;
             userManager.OnLogEntry -= ILoggableHandler;
             if (frameworkClient != null) frameworkClient.OnLogEntry -= ILoggableHandler;
@@ -759,6 +779,7 @@ namespace PhinixClient
                     sound.PlayOneShotOnCamera();
                 }
             }
+            gameScopes?.Publish();
             mainThreadDispatcher?.DrainPendingActions();
             if(localizationService != null && !ReferenceEquals(localizationGameLanguage,LanguageDatabase.activeLanguage))
             {

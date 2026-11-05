@@ -45,7 +45,8 @@ namespace Phinix.ChatExtension.Client
         private static readonly Dictionary<string, Texture2D> imageTextureCache = new Dictionary<string, Texture2D>();
         private static readonly List<string> imageCacheOrder = new List<string>();
         private readonly ChatImageDownloadQueue<Texture2D> imageDownloads;
-        private IClientMainThreadDispatcher imageDispatcher;
+        private readonly object imageCompletionGate = new object();
+        private long imageGeneration;
         private readonly ConcurrentQueue<Action> imageCompletions = new ConcurrentQueue<Action>();
 
         private readonly List<UIChatMessage> filteredMessages = new List<UIChatMessage>();
@@ -138,7 +139,7 @@ namespace Phinix.ChatExtension.Client
         public ChatMessageList(IChatUiHostContext hostContext, IClientMainThreadDispatcher dispatcher)
         {
             this.hostContext = hostContext;
-            imageDispatcher = dispatcher;
+            // Keep the public constructor signature; image completion uses its own main-thread pump.
             imageDownloads = new ChatImageDownloadQueue<Texture2D>(StartImageDownload,
                 ex => hostContext.Log(new LogEventArgs("Image download callback failed: " + ex.Message, LogLevel.WARNING)));
         }
@@ -160,15 +161,12 @@ namespace Phinix.ChatExtension.Client
         {
             started = false;
             ViewClosed();
-            imageDownloads.CancelAll();
-            while (imageCompletions.TryDequeue(out _)) { }
             messageImageStates.Clear();
             foreach (Texture2D texture in imageTextureCache.Values)
                 if (texture != null) UnityEngine.Object.Destroy(texture);
             imageTextureCache.Clear();
             imageCacheOrder.Clear();
             Clear();
-            imageDispatcher = null;
             hostContext.ChatService.OnChatMessageReceived -= ChatMessageReceivedEventHandler;
             hostContext.OnUserDisplayNameChanged -= UserChangedEventHandler;
             hostContext.OnBlockedUsersChanged -= BlockedUsersChangedEventHandler;
@@ -203,7 +201,7 @@ namespace Phinix.ChatExtension.Client
             }
             wasOnline = online;
 
-            while (imageCompletions.TryDequeue(out Action completion)) completion();
+            DrainImageCompletions();
             imageDownloads.Pump(Time.realtimeSinceStartup);
             bool markAsRead = false;
             if (Monitor.TryEnter(messagesLock))
@@ -256,7 +254,13 @@ namespace Phinix.ChatExtension.Client
             }
         }
         internal void ViewClosed()
-        { requestedMessageActions = null; MessageActions?.CloseView(); var previous = feedView; feedView = null; previous?.Dispose(); feedMessages.Clear(); layoutDirty = true; }
+        {
+            imageDownloads.CancelAll();
+            DiscardImageCompletions();
+            foreach(var states in messageImageStates.Values)
+                foreach(var state in states) state.IsLoading=false;
+            requestedMessageActions = null; MessageActions?.CloseView(); var previous = feedView; feedView = null; previous?.Dispose(); feedMessages.Clear(); layoutDirty = true;
+        }
 
         private void UpdateFeed()
         {
@@ -1087,12 +1091,8 @@ namespace Phinix.ChatExtension.Client
                 }
             };
             UnityWebRequestAsyncOperation operation;
-            IClientMainThreadDispatcher dispatcher = imageDispatcher;
-            Action<AsyncOperation> handler = _ =>
-            {
-                if (dispatcher != null) dispatcher.Enqueue(finish);
-                else imageCompletions.Enqueue(finish); // Standalone public ChatMessageList instances pump on Draw.
-            };
+            Action publish=CaptureImageCompletion(finish);
+            Action<AsyncOperation> handler = _ => publish();
             try
             {
                 request.timeout = timeout;
@@ -1113,6 +1113,30 @@ namespace Phinix.ChatExtension.Client
                 try { request.Abort(); }
                 finally { request.Dispose(); }
             };
+        }
+
+        private Action CaptureImageCompletion(Action completion)
+        {
+            long generation;
+            lock(imageCompletionGate) generation=imageGeneration;
+            return () =>
+            {
+                lock(imageCompletionGate)
+                    if(generation==imageGeneration) imageCompletions.Enqueue(completion);
+            };
+        }
+        private void DrainImageCompletions()
+        {
+            // Called only by the existing game-thread ViewUpdate, never by the network callback.
+            while(imageCompletions.TryDequeue(out Action completion)) completion();
+        }
+        private void DiscardImageCompletions()
+        {
+            lock(imageCompletionGate)
+            {
+                imageGeneration++;
+                while(imageCompletions.TryDequeue(out _)) { }
+            }
         }
 
         private void ApplyLoadedTexture(ChatImageState state, Texture2D texture, ChatImageFailure failure)

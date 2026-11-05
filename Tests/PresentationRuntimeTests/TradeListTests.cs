@@ -92,7 +92,7 @@ internal static partial class Program
             fixture.Update(new ClientTradeSnapshot("two",default(ImmutableUser),Array.Empty<TradeItemSnapshot>(),Array.Empty<TradeItemSnapshot>()));list.ViewUpdate();
             Check(points.Last.Actions.Single(a=>a.Id=="open").DisabledReason!=null&&renderer.Page.Sections[1].List.Rows.Count==1,"Missing peer facts retain identifiable trade while disabling offer editing");
             fixture.FailCancel=true;points.Last.Actions.Single(a=>a.Id=="cancel").TryExecute();list.ViewUpdate();
-            Check(renderer.Page.Sections[1].List.Rows.Count==1&&renderer.Page.Sections[0].Status.Text.Contains("uncertain"),"Submission exception preserves trade and reports uncertainty");
+            Check(renderer.Page.Sections[1].List.Rows.Count==1&&renderer.Page.Sections[0].Status.Text=="Phinix_trade_listCancelUncertain","Submission exception preserves trade and reports uncertainty");
             translated=TranslateStub.Calls;fixture.Disconnect();Check(TranslateStub.Calls==translated,"Disconnect callback does not run UI translation");list.ViewUpdate();
             Check(renderer.Page.Sections[1].List.Rows.Count==0&&points.Last.Actions.Count==0,"Disconnect clears projection without generating command or return");
         }

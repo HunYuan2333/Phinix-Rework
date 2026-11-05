@@ -37,7 +37,7 @@ namespace PhinixClient.Framework
 
         public FrameworkCompatibilityMode CompatibilityMode { get; private set; } = FrameworkCompatibilityMode.Unknown;
 
-        private readonly NetClient netClient;
+        private readonly IClientTransport netClient;
         private readonly ClientAuthenticator authenticator;
         private readonly ClientUserManager userManager;
         private readonly ExtensionHostContext extensionHostContext;
@@ -52,6 +52,8 @@ namespace PhinixClient.Framework
         private const int MaxDisplayMessages = 1000;
         private readonly object displayMessagesLock = new object();
         private Timer negotiationTimer;
+        private readonly FrameworkAdmissionControlState admissionControl = new FrameworkAdmissionControlState();
+        public event EventHandler<FrameworkAdmissionRejectedEventArgs> AdmissionRejected;
         private ElapsedEventHandler negotiationElapsedHandler;
         private EventHandler disconnectHandler;
         private const int MaxExtensionLogEntries = 300;
@@ -64,7 +66,7 @@ namespace PhinixClient.Framework
         private bool hostBindingsAttached;
         private volatile bool disposed;
 
-        public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
+        public PhinixFrameworkClient(IClientTransport netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
             this.authenticator = authenticator;
@@ -125,9 +127,10 @@ namespace PhinixClient.Framework
                 negotiationElapsedHandler = (_, __) => enterLegacyMode();
                 this.negotiationTimer.Elapsed += negotiationElapsedHandler;
 
-                disconnectHandler = (_, __) => reset();
+                disconnectHandler = (_, __) => reset(true);
                 netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
                 netClient.OnDisconnect += disconnectHandler;
+                authenticator.SessionRenewed += sessionRenewed;
                 started = true;
 
                 string summary = $"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities.";
@@ -223,11 +226,15 @@ namespace PhinixClient.Framework
 
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
 
+            string helloId = Guid.NewGuid().ToString();
+            if (!admissionControl.Begin(authenticator.SessionId, helloId))
+            { showSystemMessage("Phinix_framework_controlNegotiationRejected"); return; }
             negotiationTimer.Start();
             RaiseLogEntry(new LogEventArgs($"[Phinix] Starting capability negotiation with server. Capabilities: {string.Join(", ", capabilities)}", LogLevel.INFO));
             sendPacket(new FrameworkPacket
             {
                 Kind = FrameworkProtocol.KindHello,
+                MessageId = helloId,
                 SessionId = authenticator.SessionId,
                 SenderUuid = userManager.Uuid,
                 PayloadJson = FrameworkSerialization.SerializePayload(new FrameworkCapabilitiesPayload
@@ -682,9 +689,20 @@ namespace PhinixClient.Framework
 
             switch (packet.Kind)
             {
+                case FrameworkAdmissionRejection.PacketKind:
+                    handleAdmissionControl(packet);
+                    break;
                 case FrameworkProtocol.KindCapabilities:
+                    if (packet.Version != FrameworkProtocol.Version || packet.SenderUuid != FrameworkProtocol.SystemSenderUuid || packet.SessionId != authenticator.SessionId) break;
+                    if (!admissionControl.ObserveCapabilities(packet.SessionId, packet.GetCorrelationId()))
+                    { negotiationTimer.Stop(); RaiseLogEntry(new LogEventArgs("Rejected unmatched framework capability response; reconnect required.", LogLevel.WARNING)); break; }
                     RaiseLogEntry(new LogEventArgs("[Phinix] Processing KindCapabilities from server...", LogLevel.INFO));
-                    FrameworkCapabilitiesPayload capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(packet.PayloadJson);
+                    FrameworkCapabilitiesPayload capabilitiesPayload;
+                    try { capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(packet.PayloadJson); }
+                    catch { admissionControl.RejectMalformed(packet.SessionId); negotiationTimer.Stop(); break; }
+                    if (capabilitiesPayload == null || capabilitiesPayload.Capabilities == null || capabilitiesPayload.Capabilities.Count > 512 ||
+                        capabilitiesPayload.Capabilities.Any(capability => string.IsNullOrWhiteSpace(capability) || capability.Length > 256))
+                    { admissionControl.RejectMalformed(packet.SessionId); negotiationTimer.Stop(); break; }
                     lock (remoteCapabilities)
                     {
                         remoteCapabilities.Clear();
@@ -725,6 +743,35 @@ namespace PhinixClient.Framework
                 default:
                     RaiseLogEntry(new LogEventArgs($"Unknown framework packet kind '{packet.Kind}'", LogLevel.DEBUG));
                     break;
+            }
+        }
+
+        private void handleAdmissionControl(FrameworkPacket packet)
+        {
+            if (!authenticator.Authenticated || packet.Version != FrameworkProtocol.Version ||
+                packet.SenderUuid != FrameworkProtocol.SystemSenderUuid || packet.SessionId != authenticator.SessionId ||
+                packet.MessageType != FrameworkAdmissionRejection.PacketType) return;
+            FrameworkAdmissionRejection rejection;
+            try { rejection = FrameworkSerialization.DeserializePayload<FrameworkAdmissionRejection>(packet.PayloadJson); }
+            catch
+            {
+                admissionControl.RejectMalformed(packet.SessionId);
+                negotiationTimer.Stop();
+                RaiseLogEntry(new LogEventArgs("Malformed framework control; reconnect required, no protocol fallback.", LogLevel.WARNING));
+                showSystemMessage("Phinix_framework_controlMalformed");
+                return;
+            }
+            if (!admissionControl.ObserveRejection(packet.SessionId, packet.GetCorrelationId(), rejection)) return;
+            negotiationTimer.Stop();
+            // Admission refusal does not prove the operation was never committed on an earlier attempt.
+            RaiseLogEntry(new LogEventArgs("Framework admission rejected: " + rejection.Code + "; operation outcome remains unknown.", LogLevel.WARNING));
+            if (admissionControl.NegotiationRejected) setCompatibilityMode(FrameworkCompatibilityMode.Unknown);
+            showSystemMessage(admissionControl.NegotiationRejected ? "Phinix_framework_controlNegotiationRejected" : "Phinix_framework_controlAdmissionRejected");
+            var args = new FrameworkAdmissionRejectedEventArgs(rejection);
+            foreach (EventHandler<FrameworkAdmissionRejectedEventArgs> subscriber in AdmissionRejected?.GetInvocationList() ?? Array.Empty<Delegate>())
+            {
+                try { subscriber(this, args); }
+                catch { RaiseLogEntry(new LogEventArgs("Framework admission observer failed.", LogLevel.WARNING)); }
             }
         }
 
@@ -1019,6 +1066,9 @@ namespace PhinixClient.Framework
                 if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindItem;
             }
 
+            if (admissionControl.NegotiationRejected) return;
+            admissionControl.Track(packet.MessageId, packet.GetCorrelationId());
+
             // Use NetClient.Send which validates connection state atomically
             byte[] serialized = FrameworkSerialization.SerializePacket(packet);
             try
@@ -1033,11 +1083,20 @@ namespace PhinixClient.Framework
             }
         }
 
+        private void sessionRenewed(string previous, string current)
+        { if (!admissionControl.ReplaceSession(previous, current)) netClient.Disconnect(); }
         private void enterLegacyMode()
         {
             if (disposed || !started) return;
             if (!authenticator.Authenticated || !userManager.LoggedIn) return;
-            if (CompatibilityMode != FrameworkCompatibilityMode.Unknown) return;
+            if (CompatibilityMode != FrameworkCompatibilityMode.Unknown || !admissionControl.MayTimeoutFallback) return;
+            if (authenticator.RequiresModernIdentity)
+            {
+                admissionControl.RejectMalformed(authenticator.SessionId);
+                RaiseLogEntry(new LogEventArgs("Secure identity requires modern capability negotiation; connection closed.", LogLevel.WARNING));
+                showSystemMessage("Phinix_framework_controlNegotiationRejected");
+                netClient.Disconnect(); return;
+            }
 
             RaiseLogEntry(new LogEventArgs($"[Phinix] Negotiation timer fired. CompatibilityMode={CompatibilityMode}. Falling back to Legacy.", LogLevel.INFO));
             setCompatibilityMode(
@@ -1046,8 +1105,9 @@ namespace PhinixClient.Framework
                 "Phinix_framework_connectedLegacyServer");
         }
 
-        private void reset()
+        private void reset(bool connectionClosed = false)
         {
+            if (connectionClosed) admissionControl.ResetConnection();
             if (disposed) return;
 
             negotiationTimer.Stop();
@@ -1148,6 +1208,7 @@ namespace PhinixClient.Framework
                 {
                     netClient.UnregisterPacketHandler(FrameworkProtocol.ModuleName);
                     netClient.OnDisconnect -= disconnectHandler;
+                    authenticator.SessionRenewed -= sessionRenewed;
                     disconnectHandler = null;
                 }
             }

@@ -145,4 +145,41 @@
   <Phinix_trade_editorYouReceive>你将收到</Phinix_trade_editorYouReceive>
   <Phinix_trade_editorTradeActions>交易操作</Phinix_trade_editorTradeActions>
   <Phinix_trade_editorQuotes>双方报价</Phinix_trade_editorQuotes>
+  <Phinix_trade_completionRecoveryTitle>待核对交付</Phinix_trade_completionRecoveryTitle>
+  <Phinix_trade_completionState_Received>事件已记录，交付尚未核实</Phinix_trade_completionState_Received>
+  <Phinix_trade_completionState_Attempted>已尝试交付，结果未知</Phinix_trade_completionState_Attempted>
+  <Phinix_trade_completionState_ReturnedSuccess>本地交付接口返回成功，尚未核实游戏保存</Phinix_trade_completionState_ReturnedSuccess>
+  <Phinix_trade_completionState_ReturnedFailure>本地交付接口返回失败，需要核对</Phinix_trade_completionState_ReturnedFailure>
+  <Phinix_trade_completionSave_Current>绑定当前已保存的游戏</Phinix_trade_completionSave_Current>
+  <Phinix_trade_completionSave_Different>绑定其他存档，或当前存档不可用</Phinix_trade_completionSave_Different>
+  <Phinix_trade_completionSave_Unbound>没有已记录的存档绑定</Phinix_trade_completionSave_Unbound>
+  <Phinix_trade_completionRecoveryNotice>此处仅展示记录，不证明物品已保存；不会自动补投或退款。</Phinix_trade_completionRecoveryNotice>
+  <Phinix_trade_completionRecoveryJournal>交付日志</Phinix_trade_completionRecoveryJournal>
+  <Phinix_trade_recoveryRecordCount>{0} 条待核对记录</Phinix_trade_recoveryRecordCount>
+  <Phinix_trade_intentRecoveryTitle>已保存的交易操作</Phinix_trade_intentRecoveryTitle>
+  <Phinix_trade_intentRecoveryJournal>操作日志</Phinix_trade_intentRecoveryJournal>
+  <Phinix_trade_intentQuery>核对服务端原结果</Phinix_trade_intentQuery>
+  <Phinix_trade_intentQuerySubmitted>查询已提交，正在等待服务端结果。</Phinix_trade_intentQuerySubmitted>
+  <Phinix_trade_intentQueryFailed>本次查询未能完成，原操作保持不变。</Phinix_trade_intentQueryFailed>
+  <Phinix_trade_intentQueryUnavailable>请重连支持操作查询的服务端。</Phinix_trade_intentQueryUnavailable>
+  <Phinix_trade_intentRecoveryNotice>这里只核对服务端原结果。未找到、超时或断线不允许退款或重新发送物品；服务端提交成功也不证明游戏已保存交付。</Phinix_trade_intentRecoveryNotice>
+  <Phinix_trade_intentState_Prepared>请求已保存，没有已记录的发送尝试</Phinix_trade_intentState_Prepared>
+  <Phinix_trade_intentState_OutcomeUnknown>已尝试发送，原结果仍未知</Phinix_trade_intentState_OutcomeUnknown>
+  <Phinix_trade_intentState_CommittedSuccess>服务端已提交成功，尚非游戏到账确认</Phinix_trade_intentState_CommittedSuccess>
+  <Phinix_trade_intentState_CommittedFailure>服务端已提交拒绝</Phinix_trade_intentState_CommittedFailure>
+  <Phinix_trade_intentState_NotFoundObserved>本次查询未找到记录，结果仍未知</Phinix_trade_intentState_NotFoundObserved>
+  <Phinix_trade_intentState_Conflict>请求指纹冲突，请保留此记录</Phinix_trade_intentState_Conflict>
+  <Phinix_trade_intentState_InvalidRequest>服务端拒绝了查询</Phinix_trade_intentState_InvalidRequest>
+  <Phinix_trade_intentLookup_None>本次会话没有已记录的结果查询。</Phinix_trade_intentLookup_None>
+  <Phinix_trade_intentLookup_Committed>最近一次查询返回了原已提交结果。</Phinix_trade_intentLookup_Committed>
+  <Phinix_trade_intentLookup_NotFound>最近一次查询在当时未找到此操作。</Phinix_trade_intentLookup_NotFound>
+  <Phinix_trade_intentLookup_Conflict>最近一次查询报告请求指纹冲突。</Phinix_trade_intentLookup_Conflict>
+  <Phinix_trade_intentLookup_InvalidRequest>最近一次查询被拒绝。</Phinix_trade_intentLookup_InvalidRequest>
+  <Phinix_trade_intentState_ResponseSuccess>已记录服务端成功回执，尚未核对持久结果</Phinix_trade_intentState_ResponseSuccess>
+  <Phinix_trade_intentState_ResponseFailure>已记录服务端拒绝回执，尚未核对持久结果</Phinix_trade_intentState_ResponseFailure>
+  <Phinix_trade_saveBeforeTrading>请先保存当前游戏，再提交物品或确认交易。本次操作尚未转移物品。</Phinix_trade_saveBeforeTrading>
+  <Phinix_trade_inventoryUnavailableBeforeTrading>当前库存尚未就绪，请先查看库存状态，再提交物品或确认交易。</Phinix_trade_inventoryUnavailableBeforeTrading>
+  <Phinix_trade_deliverySavePending>交易物品已保留，接收时当前存档尚未就绪，暂未交付。请先保存，再查看待核对交易。</Phinix_trade_deliverySavePending>
+  <Phinix_trade_deliveryScopePending>交易物品已保留；游戏或存档范围已改变，暂未发放。请查看待核对交易，避免重复操作。</Phinix_trade_deliveryScopePending>
+  <Phinix_trade_basicCompatibilityNotice>当前交易使用原版 Phinix 兼容规则：仅保留物品种类、数量、材质、品质、耐久及内含物，其他附加属性会丢弃。确认与交付采用原版较弱规则；服务端发出物品不代表对方游戏已保存到账。</Phinix_trade_basicCompatibilityNotice>
 </LanguageData>

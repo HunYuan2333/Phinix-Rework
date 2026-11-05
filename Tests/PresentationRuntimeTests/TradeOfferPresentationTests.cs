@@ -85,6 +85,8 @@ namespace Phinix.TradeExtension.Client
         private ClientTradeSnapshot trade=new ClientTradeSnapshot("offer",new ImmutableUser("peer","Peer",true,true),new[]{new TradeItemSnapshot()},Array.Empty<TradeItemSnapshot>());
         private bool closed,shouldClose,tradeUpdated;
         private bool OfferBusy=>TestBusy;
+        // Presentation-only fixture; real save readiness is covered by TradeCompositionRuntimeTests.
+        private string SaveBlockMessage=>null;
         private bool? getPendingAccepted()=>null;
         private List<TradeAvailableItem> availableItems,filteredAvailableItems;
         private string searchText="";

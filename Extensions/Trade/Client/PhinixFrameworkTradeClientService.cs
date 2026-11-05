@@ -1,4 +1,5 @@
 using System;
+using Phinix.InventoryExtension;
 using System.Collections.Generic;
 using System.Linq;
 using PhinixClient.Framework;
@@ -12,6 +13,17 @@ namespace Phinix.TradeExtension.Client
     public sealed class PhinixFrameworkTradeClientService : IFrameworkTradeClientApi, IFrameworkTradeUpdateResultApi, ITradeStateInput
     {
         private readonly PhinixFrameworkTradeClientRepository repository;
+        private TradeCompletionInbox completionInbox;
+        private TradeDeliveryReceiptClient deliveryReceipts;
+        internal void ConfigureDeliveryReceipts(TradeDeliveryReceiptClient receipts){deliveryReceipts=receipts;}
+        private Func<string> completionEndpoint;
+        private IClientGameScopeService completionGameScopes;
+        private IInventoryReceiveScopeApi completionReceiveScopes;
+        internal void ConfigureReceiveScopes(IInventoryReceiveScopeApi scopes) { completionReceiveScopes=scopes; }
+        internal void ConfigureGameScopes(IClientGameScopeService scopes) { completionGameScopes=scopes; }
+        internal void ConfigureCompletionInbox(TradeCompletionInbox inbox, Func<string> endpoint)
+        { completionInbox = inbox; completionEndpoint = endpoint; }
+
         private readonly ITradeItemPayloadEncoder itemPipeline;
         private IClientUserDirectory userDirectory;
         private readonly Action<LogEventArgs> log;
@@ -357,12 +369,12 @@ namespace Phinix.TradeExtension.Client
                     bool emittedPendingEvent = FlushPendingEventsForTrade(trade.TradeId, true, correlationId);
                     if (!emittedPendingEvent && TryGetTrade(trade.TradeId, out ClientTradeSnapshot updatedTrade))
                     {
-                        log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: firing trade update for tradeId={updatedTrade.TradeId}, accepted={updatedTrade.Accepted}, otherAccepted={updatedTrade.OtherPartyAccepted}", LogLevel.DEBUG));
+
                         OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
                     }
                     else
                     {
-                        log?.Invoke(new LogEventArgs($"[TradeService] HandleSnapshot: skipped update for tradeId={trade.TradeId}, emittedPending={emittedPendingEvent}", LogLevel.DEBUG));
+
                     }
                 }
             }
@@ -373,9 +385,7 @@ namespace Phinix.TradeExtension.Client
                 OnTradesSynced?.Invoke(this, new TradesSyncedEventArgs(GetTrades()));
             }
 
-            log?.Invoke(new LogEventArgs(
-                $"Framework trade repository {(isFullSnapshot ? "replaced" : "updated")} with {payload?.Trades?.Count ?? 0} trade snapshot(s).",
-                LogLevel.DEBUG));
+
         }
 
         public void HandleCreateResponse(FrameworkPacket packet)
@@ -408,11 +418,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeOfferUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeOfferUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
-                log?.Invoke(new LogEventArgs("[TradeService] HandleOfferUpdateResponse: payload is null", LogLevel.DEBUG));
+
                 return;
             }
 
-            log?.Invoke(new LogEventArgs($"[TradeService] HandleOfferUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}", LogLevel.DEBUG));
+
             packet.TryGetMetadataValue(FrameworkMetadataKeys.CorrelationId, out string token);
             if (payload.Success)
             {
@@ -442,11 +452,11 @@ namespace Phinix.TradeExtension.Client
             FrameworkTradeStatusUpdateResponse payload = FrameworkSerialization.DeserializePayload<FrameworkTradeStatusUpdateResponse>(packet.PayloadJson);
             if (payload == null)
             {
-                log?.Invoke(new LogEventArgs("[TradeService] HandleStatusUpdateResponse: payload is null", LogLevel.DEBUG));
+
                 return;
             }
 
-            log?.Invoke(new LogEventArgs($"[TradeService] HandleStatusUpdateResponse: tradeId={payload.TradeId}, success={payload.Success}, failureReason={payload.FailureReason}, failureMessage={payload.FailureMessage ?? "null"}", LogLevel.DEBUG));
+
             string token = packet.GetCorrelationId();
             if (payload.Success)
             {
@@ -474,7 +484,7 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            CompleteTrade(payload.TradeId, true, payload.OtherPartyUuid, payload.Items);
+            CompleteTradeCore(payload.TradeId, true, payload.OtherPartyUuid, payload.Items,deliveryReceipts?.Prepare(packet,payload));
         }
 
         public void HandleCancelledEvent(FrameworkPacket packet)
@@ -485,7 +495,7 @@ namespace Phinix.TradeExtension.Client
                 return;
             }
 
-            CompleteTrade(payload.TradeId, false, payload.OtherPartyUuid, payload.Items);
+            CompleteTradeCore(payload.TradeId, false, payload.OtherPartyUuid, payload.Items,deliveryReceipts?.Prepare(packet,payload));
         }
 
         /// <summary>
@@ -528,9 +538,7 @@ namespace Phinix.TradeExtension.Client
             {
                 if (TryGetTrade(snapshot.TradeId, out ClientTradeSnapshot updatedTrade))
                 {
-                    log?.Invoke(new LogEventArgs(
-                        $"Trade state update event emitted for '{snapshot.TradeId}'.",
-                        LogLevel.DEBUG));
+
                     OnTradeUpdateSuccess?.Invoke(this, new TradeUpdateEventArgs(updatedTrade));
                 }
             }
@@ -553,8 +561,20 @@ namespace Phinix.TradeExtension.Client
 
         public void CompleteTrade(string tradeId, bool success, string otherPartyUuid,
             IEnumerable<FrameworkItemPayload> items)
+        {CompleteTradeCore(tradeId,success,otherPartyUuid,items,null);}
+        private void CompleteTradeCore(string tradeId,bool success,string otherPartyUuid,IEnumerable<FrameworkItemPayload> items,Action afterPersist)
         {
+            // Capture before enumeration, durable IO and decoding; none may move ownership to a later game.
+            var gameScope=completionGameScopes?.Capture();
+            var saveScope=completionReceiveScopes?.CaptureReceiveScope();
             FrameworkItemPayload[] payloads = (items ?? Array.Empty<FrameworkItemPayload>()).ToArray();
+            bool first=completionInbox==null || completionInbox.Record(completionEndpoint(), userDirectory?.Uuid, tradeId, success, otherPartyUuid, payloads);
+            afterPersist?.Invoke();
+            if (!first)
+            {
+                log?.Invoke(new LogEventArgs("[Trade] Completion already recorded; retained for reconciliation, no automatic redelivery.", LogLevel.WARNING));
+                return;
+            }
             TradeItemSnapshot[] snapshots = DecodeTradeItems(payloads);
             if (string.IsNullOrEmpty(tradeId)) return;
 
@@ -562,8 +582,8 @@ namespace Phinix.TradeExtension.Client
             repository.Remove(tradeId);
             if (hadTrade) RepositoryChanged?.Invoke(this, EventArgs.Empty);
 
-            TradeCompletionEventArgs args = new TradeCompletionEventArgs(
-                tradeId, success, otherPartyUuid ?? string.Empty, snapshots, null, payloads);
+            TradeCompletionEventArgs args = new ScopedTradeCompletionEventArgs(
+                tradeId, success, otherPartyUuid ?? string.Empty, snapshots, payloads, gameScope,saveScope);
             if (success) OnTradeCompleted?.Invoke(this, args);
             else OnTradeCancelled?.Invoke(this, args);
         }
@@ -641,13 +661,13 @@ namespace Phinix.TradeExtension.Client
                 otherParty = existingUser;
             }
 
-            return new ClientTradeSnapshot(
+            return TradeSnapshotObservation.Bind(new ClientTradeSnapshot(
                 snapshot.TradeId,
                 otherParty,
                 DecodeTradeItems(localParticipant?.ItemsOnOffer),
                 DecodeTradeItems(otherParticipant.ItemsOnOffer),
                 localParticipant?.Accepted ?? false,
-                otherParticipant.Accepted);
+                otherParticipant.Accepted), snapshot.SnapshotVersion);
         }
 
         private static TradeItemSnapshot[] DecodeTradeItems(IEnumerable<FrameworkItemPayload> items)
@@ -693,4 +713,13 @@ namespace Phinix.TradeExtension.Client
             }
         }
     }
+    internal sealed class ScopedTradeCompletionEventArgs : TradeCompletionEventArgs
+    {
+        internal readonly IClientGameScope GameScope;
+        internal readonly IInventoryReceiveScope SaveScope;
+        internal ScopedTradeCompletionEventArgs(string id,bool success,string other,TradeItemSnapshot[] snapshots,
+            FrameworkItemPayload[] payloads,IClientGameScope gameScope,IInventoryReceiveScope saveScope)
+            : base(id,success,other,snapshots,null,payloads) { GameScope=gameScope;SaveScope=saveScope; }
+    }
+
 }

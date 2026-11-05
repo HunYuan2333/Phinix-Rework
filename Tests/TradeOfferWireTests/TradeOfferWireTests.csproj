@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="TradeExtension.Client"><HintPath>$(ProbeReferences)/TradeExtension.Client.dll</HintPath></Reference>
+    <Reference Include="TradeExtension"><HintPath>$(ProbeReferences)/TradeExtension.dll</HintPath></Reference>
+    <Reference Include="InventoryExtension"><HintPath>$(ProbeReferences)/InventoryExtension.dll</HintPath></Reference>
+    <Reference Include="ClientExtensionAbstractions"><HintPath>$(ProbeReferences)/ClientExtensionAbstractions.dll</HintPath></Reference>
+    <Reference Include="ClientPresentation.Contracts"><HintPath>$(ProbeReferences)/ClientPresentation.Contracts.dll</HintPath></Reference>
+    <Reference Include="Utils"><HintPath>$(ProbeReferences)/Utils.dll</HintPath></Reference>
+    <Reference Include="Protobuf"><HintPath>$(ProbeReferences)/Protobuf.dll</HintPath></Reference>
+    <Reference Include="UserManagement"><HintPath>$(ProbeReferences)/UserManagement.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameReferences)/Assembly-CSharp.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

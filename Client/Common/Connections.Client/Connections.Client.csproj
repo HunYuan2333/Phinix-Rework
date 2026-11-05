@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../../../Phinix-Rework-Server/Server/ServerTransport/ServerTransport.csproj" Condition="'$(TargetFramework)' == 'net10.0'" />
     <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Connections/Connections.csproj" />
     <ProjectReference Include="../../../Dependencies/Phinix.Common/Common/Utils/Utils.csproj" />
   </ItemGroup>

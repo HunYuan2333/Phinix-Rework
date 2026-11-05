@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Linq;
 using Phinix.InventoryExtension;
 using Phinix.TradeExtension;
 
@@ -33,6 +34,36 @@ internal static partial class Program
         Assert(api.Capture().Count==0,"Unbound new game cannot expose old ledger recovery records.");
         source.Status.Availability=InventoryAvailability.ReadOnlyFault;source.RaiseAvailability();
         Assert(api.Capture().Count==1,"A bound read-only inventory fault still permits inspection, not mutation.");
+        string inboxRoot=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"phinix-recovery-view-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var inboxType=type.Assembly.GetType("Phinix.TradeExtension.Client.TradeCompletionInbox",true);
+            var inbox=Activator.CreateInstance(inboxType,new object[]{inboxRoot});
+            string actor="local",server="synthetic-server",save=new string('a',64);
+            source.Reservations=Array.Empty<InventoryReservation>();source.Status.SaveIdentity=save;
+            var recordMethod=inboxType.GetMethod("Record");
+            recordMethod.Invoke(inbox,new object[]{server,actor,"completion",true,"remote",Array.Empty<Utils.Framework.FrameworkItemPayload>()});
+            recordMethod.Invoke(inbox,new object[]{server,"foreign","foreign-completion",true,"remote",Array.Empty<Utils.Framework.FrameworkItemPayload>()});
+            type.GetMethod("ConfigureCompletions",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(instance,new object[]{inbox,(Func<string>)(()=>actor),(Func<string>)(()=>server)});
+            rows=api.Capture();
+            Assert(rows.Count==1&&rows[0].RecordKind=="Completion"&&rows[0].State=="Received"&&rows[0].SaveBinding=="Unbound","Read-only completion view filters recipient and preserves unbound history.");
+            inboxType.GetMethod("BindSave").Invoke(inbox,new object[]{server,actor,"completion",true,save});
+            Assert(api.Capture()[0].SaveBinding=="Current","New binding invalidates cached recovery projection.");
+            source.Status.SaveIdentity=new string('b',64);
+            Assert(api.Capture()[0].SaveBinding=="Different","Changing save identity updates projection without adopting receipt.");
+            actor="foreign";
+            Assert(api.Capture().Count==1&&api.Capture()[0].TradeId=="foreign-completion","Switching principal cannot expose previous principal receipts.");
+            server="another-server";Assert(api.Capture().Count==0,"Another endpoint cannot expose receipt payloads or identities.");
+            Assert(source.ResolutionCalls==0,"Completion inspection never resolves or delivers inventory assets.");
+            var listType=type.Assembly.GetType("Phinix.TradeExtension.Client.TradeList",true);
+            var list=System.Runtime.Serialization.FormatterServices.GetUninitializedObject(listType);
+            listType.GetField("sync",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(list,new object());
+            listType.GetField("trades",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(list,new System.Collections.Generic.List<PhinixClient.Trade.ClientTradeSnapshot>());
+            var context=new TradePresentationActionContext("trade-completion-recovery",1,"completion",false,false,0,0,tradeAvailable:false);
+            var actions=(System.Collections.IEnumerable)listType.GetMethod("Actions",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(list,new object[]{context});
+            Assert(!actions.Cast<object>().Any(),"Completion review context provides no product retry, cancel or refund action.");
+        }
+        finally {if(System.IO.Directory.Exists(inboxRoot))System.IO.Directory.Delete(inboxRoot,true);}
         main=false;bool denied=false;try{api.Capture();}catch(InvalidOperationException){denied=true;}
         Assert(denied,"Recovery reads enforce main-thread access.");main=true;
         ((IDisposable)instance).Dispose();

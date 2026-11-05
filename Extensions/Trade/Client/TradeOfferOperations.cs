@@ -94,6 +94,12 @@ namespace Phinix.TradeExtension.Client
             // A matching known result may resolve a send exception; closure/timeouts never do.
             p.Accepted=accepted;p.Message=accepted?null:args.FailureMessage;Settle(p);
         }
+        internal void ApplyDurableResult(string trade,string token,bool success)
+        {
+            MainThread();if(!active||!pending.TryGetValue(token??"",out var p)||p.TradeId!=trade||!p.Attempted)return;
+            if(p.Accepted.HasValue){if(p.Accepted.Value!=success)throw new InvalidOperationException("Durable result conflicts with live operation.");return;}
+            p.Accepted=success;Settle(p);
+        }
         private void Finished(object sender,TradeCompletionEventArgs args)
         {
             if(!active||args==null)return;int ticket=generation;

@@ -20,7 +20,7 @@ namespace Phinix.InventoryExtension.Client
     [PhinixExtension("builtin.inventory")]
     public sealed partial class BuiltInInventoryClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule,
         IInventoryApi, IInventoryRegistrationApi, IInventoryDepositApi, IInventoryReadApi, IInventoryExtractionApi,
-        IInventoryBatchExtractionApi, IInventoryReservationApi
+        IInventoryBatchExtractionApi, IInventoryReservationApi, IInventoryReceiveScopeApi, IInventorySavedReceiptApi
     {
         private static BuiltInInventoryClientExtension active;
         private IClientCompositionScope composition;
@@ -34,6 +34,7 @@ namespace Phinix.InventoryExtension.Client
         private InventoryJournal journal;
         private InventoryGameComponent attachedSave;
         private string attachedIdentity;
+        private ReceiveScope publishedReceiveScope;
         private ExtensionHostContext host;
         private IClientSettingsContext settings;
         private IClientMainThreadDispatcher dispatcher;
@@ -82,6 +83,8 @@ namespace Phinix.InventoryExtension.Client
             builder.RegisterApi<IInventoryRegistrationApi>(this);
             builder.RegisterApi<IInventoryDepositApi>(this);
             builder.RegisterApi<IInventoryReadApi>(this);
+            builder.RegisterApi<IInventoryReceiveScopeApi>(this);
+            builder.RegisterApi<IInventorySavedReceiptApi>(this);
             builder.RegisterApi<IInventoryExtractionApi>(this);
             builder.RegisterApi<IInventoryBatchExtractionApi>(this);
             builder.RegisterApi<IInventoryReservationApi>(this);
@@ -117,6 +120,7 @@ namespace Phinix.InventoryExtension.Client
         {
             StopBatchExtraction();
             extractionBatch = null; ReleaseBatchContext();
+            InvalidateReceiveScope();
             // Invalidate queued work before releasing any owned resource.
             Interlocked.Increment(ref activationGeneration);
             if (active == this) active = null;
@@ -198,8 +202,25 @@ namespace Phinix.InventoryExtension.Client
 
         internal static void RefreshAfterSave()
         {
-            if (active != null && InventoryGameComponent.Current != null)
-                active.QueueAttach(InventoryGameComponent.Current);
+            var module = active;
+            var component = InventoryGameComponent.Current;
+            if (module == null || component == null || module.dispatcher == null) return;
+            string savedPath = InventorySaveIdentityPatch.CurrentPath;
+            int generation = module.activationGeneration;
+            module.dispatcher.Enqueue(() =>
+            {
+                if (!ReferenceEquals(active, module) || generation != module.activationGeneration ||
+                    savedPath != InventorySaveIdentityPatch.CurrentPath ||
+                    !InventoryGameComponent.BelongsTo(component, Current.Game)) return;
+                module.BindGameMainThread();
+                // SaveGame may swallow a write failure. Verify the actual file before changing attachment.
+                try { using (InventorySaveCheckpoint.Open(savedPath, component.SaveId, component.ReadSnapshot())) { } }
+                catch (Exception error)
+                { module.host?.Log?.Invoke("[Inventory] Save checkpoint unavailable: " + error.GetType().Name, LogLevel.WARNING); return; }
+                module.Attach(component);
+                module.CheckpointJournal(component);
+                module.RaiseEvent(module.SavedCheckpoint);
+            });
         }
 
         private void QueueAttach(InventoryGameComponent component)
@@ -229,12 +250,14 @@ namespace Phinix.InventoryExtension.Client
             InventoryGameComponent component = InventoryGameComponent.Current;
             if (module.attachedSave == null && component != null && component.Initialized &&
                 InventoryGameComponent.BelongsTo(component, game)) module.Attach(component);
+            module.PublishReceiveScope();
             module.AdvanceBatchExtraction();
         }
 
         private void SynchronizeGame(Game game)
         {
             if (attachedSave == null || InventoryGameComponent.BelongsTo(attachedSave, game)) return;
+            InvalidateReceiveScope();
             StopBatchExtraction();
             extractionBatch = null; ReleaseBatchContext();
             InventoryJournal oldJournal = journal;
@@ -263,7 +286,9 @@ namespace Phinix.InventoryExtension.Client
             if (!ReferenceEquals(active, this) || !InventoryGameComponent.BelongsTo(component, Current.Game)) return;
             string identity = ResolveSaveIdentity();
             if (component == null || (component == attachedSave && identity == attachedIdentity && journal != null)) return;
-            journal?.Dispose();
+            InvalidateReceiveScope();
+            InventoryJournal previousJournal = journal;
+            bool sameGameNewPath = component == attachedSave && identity != attachedIdentity;
             journal = null;
             attachedSave = component;
             attachedIdentity = identity;
@@ -279,7 +304,12 @@ namespace Phinix.InventoryExtension.Client
                 }
                 string key = Hash(component.SaveId + "|" + attachedIdentity);
                 string path = host.GetStoragePath(ExtensionId, key + ".journal");
-                journal = new InventoryJournal(path, ledger.Export());
+                Action<string> report = message => host?.Log?.Invoke("[Inventory] " + message, LogLevel.ERROR);
+                journal = sameGameNewPath && previousJournal != null
+                    ? previousJournal.OpenSavedBranch(path, ledger.Export(), attachedIdentity, component.SaveId,
+                        component.JournalIdentity, report)
+                    : new InventoryJournal(path, ledger.Export(), component.JournalIdentity, report);
+                if (!journal.Faulted) { component.JournalIdentity = journal.Identity; CheckpointJournal(component); }
                 if (journal.Faulted)
                 {
                     fault = (journal.FaultReason ?? "Inventory journal is damaged or locked.") + " Inventory is read only.";
@@ -294,8 +324,25 @@ namespace Phinix.InventoryExtension.Client
             }
             finally
             {
+                previousJournal?.Dispose();
+                PublishReceiveScope();
                 RaiseAvailabilityChanged();
             }
+        }
+
+        private void CheckpointJournal(InventoryGameComponent component)
+        {
+            if (journal == null || component != attachedSave || attachedIdentity != InventorySaveIdentityPatch.CurrentPath) return;
+            InventoryJournalCompatibility.TryMaintain(journal, attachedIdentity, component.SaveId, component.ReadSnapshot(),
+                (message, warning) => host?.Log?.Invoke(message, warning ? LogLevel.WARNING : LogLevel.INFO));
+            RaiseAvailabilityChanged();
+        }
+
+        private bool AppendJournal(InventoryState state)
+        {
+            bool appended = journal.TryAppend(state);
+            if (!appended) RaiseAvailabilityChanged();
+            return appended;
         }
 
         public void RegisterCodec(IInventoryCodec codec)
@@ -362,7 +409,7 @@ namespace Phinix.InventoryExtension.Client
             {
                 InventoryDepositResult result = ledger.PrepareDeposit(deposit, codecs, out InventoryState proposed);
                 if (result.Status != InventoryDepositStatus.Committed) return result;
-                if (!journal.TryAppend(proposed))
+                if (!AppendJournal(proposed))
                     return new InventoryDepositResult { Status = InventoryDepositStatus.Unavailable, FailureCode = InventoryFailureCode.PersistenceFailed, Reason = "Inventory journal did not commit." };
                 ledger.Publish(proposed);
                 RaiseInventoryChanged();
@@ -415,7 +462,7 @@ namespace Phinix.InventoryExtension.Client
             {
                 InventoryReservationResult result = ledger.PrepareReservation(request, out InventoryState proposed);
                 if (result.Status != InventoryReservationResultStatus.Reserved) return result;
-                if (!journal.TryAppend(proposed))
+                if (!AppendJournal(proposed))
                     return new InventoryReservationResult
                     {
                         Status = InventoryReservationResultStatus.Unavailable,
@@ -536,7 +583,7 @@ namespace Phinix.InventoryExtension.Client
                 InventoryReservationResolutionResult result = ledger.PrepareReservationResolution(
                     reservationId, resolution, evidence, out InventoryState proposed);
                 if (!result.Succeeded || proposed == null) return result;
-                if (!journal.TryAppend(proposed))
+                if (!AppendJournal(proposed))
                     return new InventoryReservationResolutionResult
                     {
                         Succeeded = false,
@@ -647,10 +694,10 @@ namespace Phinix.InventoryExtension.Client
                 reason = "Item codec returned an invalid object.";
                 return false;
             }
-            if (!journal.TryAppend(reserved))
+            if (!AppendJournal(reserved))
             {
                 DiscardUnclaimed(thing);
-                reason = "Inventory journal did not reserve the extraction.";
+                reason = "Inventory journal did not reserve the extraction. " + journal.LastError;
                 return false;
             }
             ledger.Publish(reserved);
@@ -667,7 +714,7 @@ namespace Phinix.InventoryExtension.Client
                     return RestoreRejectedDelivery(thing, delivery.Reason, out reason);
 
                 InventoryState completed = ledger.PrepareExtractionResolution(true);
-                if (!journal.TryAppend(completed))
+                if (!AppendJournal(completed))
                 {
                     reason = "Delivery needs reconciliation; its inventory balance is locked.";
                     return false;
@@ -691,7 +738,7 @@ namespace Phinix.InventoryExtension.Client
         private bool RestoreRejectedDelivery(Thing thing, string deliveryReason, out string reason)
         {
             InventoryState restored = ledger.PrepareExtractionResolution(false);
-            if (restored == null || !journal.TryAppend(restored))
+            if (restored == null || !AppendJournal(restored))
             {
                 DiscardUnclaimed(thing);
                 reason = "Delivery failed and its inventory reservation needs reconciliation.";
@@ -745,7 +792,7 @@ namespace Phinix.InventoryExtension.Client
         {
             if (!CanSetDailySchedule(entryId, quantityPerRun, dayTick, out reason)) return false;
             InventoryState proposed = ledger.PrepareSchedule(entryId, quantityPerRun, dayTick, false);
-            if (proposed == null || !journal.TryAppend(proposed))
+            if (proposed == null || !AppendJournal(proposed))
             {
                 reason = "Phinix_inventory_planSaveFailed".Translate().ToString();
                 return false;
@@ -760,7 +807,7 @@ namespace Phinix.InventoryExtension.Client
             if (!Ready(out _)) return false;
             if (!ledger.ScheduleSnapshot().Any(schedule => schedule.EntryId == entryId)) return true;
             InventoryState proposed = ledger.PrepareSchedule(entryId, 0, 0, true);
-            if (proposed == null || !journal.TryAppend(proposed)) return false;
+            if (proposed == null || !AppendJournal(proposed)) return false;
             ledger.Publish(proposed);
             RaiseInventoryChanged();
             return true;
@@ -783,7 +830,7 @@ namespace Phinix.InventoryExtension.Client
                     schedule.LastTriggeredDay < day)
                 {
                     InventoryState due = ledger.PrepareScheduleDue(schedule.EntryId, day);
-                    if (due == null || !journal.TryAppend(due)) return;
+                    if (due == null || !AppendJournal(due)) return;
                     ledger.Publish(due);
                     RaiseInventoryChanged();
                     schedule.PendingDueDay = day;
@@ -841,7 +888,7 @@ namespace Phinix.InventoryExtension.Client
         {
             if (!ReadyWithoutPending(out _)) return false;
             InventoryState resolved = ledger.PrepareExtractionResolution(delivered);
-            if (resolved == null || !journal.TryAppend(resolved)) return false;
+            if (resolved == null || !AppendJournal(resolved)) return false;
             ledger.Publish(resolved);
             RaiseInventoryChanged();
             RaiseAvailabilityChanged();
@@ -867,6 +914,54 @@ namespace Phinix.InventoryExtension.Client
             };
         }
 
+        public IInventoryReceiveScope CaptureReceiveScope() => Volatile.Read(ref publishedReceiveScope);
+
+        private void InvalidateReceiveScope()
+        { Interlocked.Exchange(ref publishedReceiveScope,null)?.Invalidate(); }
+
+        private void PublishReceiveScope()
+        {
+            if(mainThreadId==0) { InvalidateReceiveScope();return; }
+            if(Thread.CurrentThread.ManagedThreadId!=mainThreadId)
+                throw new InvalidOperationException("Inventory receive scope publication requires the main thread.");
+            var previous=Volatile.Read(ref publishedReceiveScope);
+            // Stable frames compare in-memory ownership only; disk/hash validation belongs to actual use.
+            if(previous!=null && previous.MatchesLive()) return;
+            int epoch=InventorySaveIdentityPatch.Generation;
+            string identity=GetStatus().SaveIdentity;
+            if(identity==null || InventorySaveIdentityPatch.ReceiveScopeSuspended || epoch!=InventorySaveIdentityPatch.Generation) { InvalidateReceiveScope();return; }
+            InvalidateReceiveScope();
+            Volatile.Write(ref publishedReceiveScope,new ReceiveScope(this,Current.Game,attachedSave,identity,epoch));
+        }
+
+        private sealed class ReceiveScope : IInventoryReceiveScope
+        {
+            private readonly BuiltInInventoryClientExtension owner;
+            private readonly Game game;
+            private readonly InventoryGameComponent component;
+            private readonly int epoch,mainThread;
+            private readonly string path,lineage;
+            private int invalid;
+            public string SaveIdentity { get; }
+            internal ReceiveScope(BuiltInInventoryClientExtension owner,Game game,InventoryGameComponent component,string identity,int epoch)
+            {this.owner=owner;this.game=game;this.component=component;SaveIdentity=identity;this.epoch=epoch;mainThread=owner.mainThreadId;path=owner.attachedIdentity;lineage=component.SaveId;}
+            internal void Invalidate() { Interlocked.Exchange(ref invalid,1); }
+            internal bool MatchesLive() => Volatile.Read(ref invalid)==0 && owner.mainThreadId==mainThread &&
+                ReferenceEquals(active,owner) && ReferenceEquals(this,Volatile.Read(ref owner.publishedReceiveScope)) &&
+                ReferenceEquals(game,Current.Game) && ReferenceEquals(component,owner.attachedSave) &&
+                InventoryGameComponent.BelongsTo(component,game) && component.SaveId==lineage &&
+                epoch==InventorySaveIdentityPatch.Generation && !InventorySaveIdentityPatch.ReceiveScopeSuspended &&
+                string.Equals(path,owner.attachedIdentity,StringComparison.Ordinal) &&
+                string.Equals(path,InventorySaveIdentityPatch.CurrentPath,StringComparison.Ordinal);
+            public bool IsCurrent()
+            {
+                if(Thread.CurrentThread.ManagedThreadId!=mainThread)
+                    throw new InvalidOperationException("Inventory receive scope validation requires the main thread.");
+                if(!MatchesLive() || owner.GetStatus().SaveIdentity!=SaveIdentity || !MatchesLive()) Invalidate();
+                return Volatile.Read(ref invalid)==0;
+            }
+        }
+
         public InventoryStatus GetStatus()
         {
             InventoryStatus status = new InventoryStatus();
@@ -885,6 +980,10 @@ namespace Phinix.InventoryExtension.Client
                 status.Availability = InventoryAvailability.Ready;
             Ready(out string reason);
             status.Reason = reason;
+            status.JournalIdentity=journal!=null&&!journal.Faulted?journal.Identity:null;
+            if(status.Availability!=InventoryAvailability.Inactive && status.Availability!=InventoryAvailability.UnsavedGame &&
+                !string.IsNullOrEmpty(attachedSave?.SaveId) && string.Equals(attachedIdentity,ResolveSaveIdentity(),StringComparison.Ordinal))
+                status.SaveIdentity=Hash(attachedSave.SaveId+"|"+attachedIdentity);
             return status;
         }
 
@@ -965,7 +1064,7 @@ namespace Phinix.InventoryExtension.Client
             else if (journal == null || journal.Faulted)
                 reason = "Inventory journal is unavailable.";
             else if (journal.HasPendingRecovery)
-                reason = "Journal recovery requires your approval.";
+                reason = journal.CanRejectRecovery?"Journal recovery requires your approval.":"Committed ownership changes require journal recovery; the durable branch cannot be discarded.";
             return reason == null;
         }
 

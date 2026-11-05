@@ -10,6 +10,7 @@ namespace Phinix.InventoryExtension.Client
     {
         private string saveId;
         private string snapshotJson;
+        internal string JournalIdentity {get;set;}
         internal bool Initialized { get; private set; }
 
         public static InventoryGameComponent Current { get; private set; }
@@ -48,6 +49,7 @@ namespace Phinix.InventoryExtension.Client
             if (string.IsNullOrEmpty(saveId)) saveId = Guid.NewGuid().ToString("N");
             Current = this;
             Initialized = true;
+            if (BelongsTo(this, Verse.Current.Game)) InventorySaveIdentityPatch.CompleteLoad();
             BuiltInInventoryClientExtension.AttachSave(this);
         }
 
@@ -63,6 +65,7 @@ namespace Phinix.InventoryExtension.Client
                 snapshotJson = BuiltInInventoryClientExtension.ExportSnapshot();
             Scribe_Values.Look(ref saveId, "phinixInventorySaveId", null);
             Scribe_Values.Look(ref snapshotJson, "phinixInventorySnapshot", null);
+            string journalIdentity=JournalIdentity;Scribe_Values.Look(ref journalIdentity,"phinixInventoryJournalIdentity",null);JournalIdentity=journalIdentity;
         }
 
         public override void GameComponentTick()

@@ -17,7 +17,9 @@ internal static class Program
     { var value=(Delegate)module.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).GetValue(module); return value?.GetInvocationList().Length??0; }
     private static void AssertPresentationOwnership(Type moduleType)
     {
-        var hostAssembly = Assembly.LoadFrom(Path.GetFullPath("Output/phinix-rework/1.6/Assemblies/13-PhinixClient.dll"));
+        string hostFile=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"PhinixClient.dll");
+        if(!File.Exists(hostFile)) hostFile=Path.GetFullPath("Output/phinix-rework/1.6/Assemblies/13-PhinixClient.dll");
+        var hostAssembly = Assembly.LoadFrom(hostFile);
         var serviceType = hostAssembly.GetType("PhinixClient.Framework.ClientExtensionPointService", true);
         var service = (IClientExtensionPointService)Activator.CreateInstance(serviceType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             null, new object[] { (Func<bool>)(() => true), (Action<string>)(_ => {}) }, null);
@@ -69,9 +71,9 @@ internal static class Program
                     Assert(services.Subscribers==0,"Shell subscription still belongs to activation.");
                     if(scenario=="success")
                     {
-                        Type[] apiTypes={typeof(IInventoryApi),typeof(IInventoryRegistrationApi),typeof(IInventoryDepositApi),typeof(IInventoryReadApi),typeof(IInventoryExtractionApi),typeof(IInventoryReservationApi)};
+                        Type[] apiTypes={typeof(IInventoryApi),typeof(IInventoryRegistrationApi),typeof(IInventoryDepositApi),typeof(IInventoryReadApi),typeof(IInventoryReceiveScopeApi),typeof(IInventoryExtractionApi),typeof(IInventoryReservationApi)};
                         foreach(Type api in apiTypes) Assert(ReferenceEquals(builder.Items[api],module),"Facade identity preserved: "+api.Name);
-                        Assert(builder.Items.Count==(legacy?9:10),"Original nine registrations plus the additive batch API.");
+                        Assert(builder.Items.Count==(legacy?9:12),"Ordinary Inventory facade includes additive batch and receive-scope APIs.");
                         Assert(ReferenceEquals(builder.Items[typeof(IClientSettingsPanelProvider)],builder.Items[typeof(IClientQuickSettingsPanelProvider)]),"Settings and quick settings use one provider.");
                         Assert(Subscribers(module,"InventoryChanged")==1 && Subscribers(module,"AvailabilityChanged")==1,"Tab invalidation subscriptions installed once.");
                         if (!legacy)

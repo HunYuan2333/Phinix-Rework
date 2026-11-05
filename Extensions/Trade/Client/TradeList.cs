@@ -25,12 +25,8 @@ namespace Phinix.TradeExtension.Client
         private readonly Dictionary<string,string> rows=new Dictionary<string,string>();
         private long changed,shown=-1,revision,themeVersion=-1,pointVersion=-1,operationVersion=-1;
         private ITradeOfferOperationApi operations;
-        private ITradeInventoryRecoveryApi recovery;
-        private long recoveryVersion=-1;
         private const int BrowsePageSize=100;
         private int browsePage,browsePages=1;
-        private string selectedRecovery;
-        private readonly Dictionary<string,string> recoveryRows=new Dictionary<string,string>();
         private string selectedOperation;
         private readonly Dictionary<string,string> operationRows=new Dictionary<string,string>();
         private string selected,search="",notice="",noticeKey;
@@ -56,7 +52,7 @@ namespace Phinix.TradeExtension.Client
         internal void Start(IPhinixExtensionModule module,IClientPresentationService renderer,IClientExtensionPointService points,IClientTheme theme,ITradeOfferOperationApi operations=null,ITradeInventoryRecoveryApi recovery=null)
         {
             if(disposed||scope!=null)throw new InvalidOperationException("TradePresentationAlreadyStarted");
-            owner=module;this.renderer=renderer;this.points=points;this.theme=theme;this.operations=operations;this.recovery=recovery;
+            owner=module;this.renderer=renderer;this.points=points;this.theme=theme;this.operations=operations;
             scope=points.ForModule(module);
             point=scope.DefineActions<TradePresentationActionContext>(TradePresentationActionContext.PointId);
             scope.ContributeActions<TradePresentationActionContext>(TradePresentationActionContext.PointId,Actions);
@@ -78,9 +74,8 @@ namespace Phinix.TradeExtension.Client
             {
                 if(input.Revision!=revision)continue;
                 if(input.Id=="search"){search=input.Value;browsePage=0;}
-                else if(input.Id=="trades"&&recoveryRows.TryGetValue(input.Value,out var reservationId)){selectedRecovery=reservationId;selected=null;selectedOperation=null;}
-                else if(input.Id=="trades"&&operationRows.TryGetValue(input.Value,out var token)){selectedOperation=token;selected=null;selectedRecovery=null;}
-                else if(input.Id=="trades"&&rows.TryGetValue(input.Value,out var id)){selected=id;selectedOperation=null;selectedRecovery=null;}
+                else if(input.Id=="trades"&&operationRows.TryGetValue(input.Value,out var token)){selectedOperation=token;selected=null;}
+                else if(input.Id=="trades"&&rows.TryGetValue(input.Value,out var id)){selected=id;selectedOperation=null;}
                 dirty=true;
             }
             Refresh();
@@ -134,7 +129,7 @@ namespace Phinix.TradeExtension.Client
             return actions;
         }
         private void ChangeBrowsePage(int delta)
-        {browsePage=Math.Max(0,Math.Min(browsePages-1,browsePage+delta));selected=null;selectedOperation=null;selectedRecovery=null;dirty=true;}
+        {browsePage=Math.Max(0,Math.Min(browsePages-1,browsePage+delta));selected=null;selectedOperation=null;dirty=true;}
         private bool BrowseAction(ClientPresentationAction binding)=>binding.Action.OwnerId==owner.ExtensionId&&(binding.Action.Id=="browse-next"||binding.Action.Id=="browse-previous");
 
         private void Cancel(string id)
@@ -142,22 +137,19 @@ namespace Phinix.TradeExtension.Client
             lock(sync){waiting.Add(id);noticeKey=null;notice=L("listCancelPending");changed++;}dirty=true;
             // A callback result is only command submission; completion/return stays with Trade owner.
             try {service.CancelTrade(id);}
-            catch(Exception error){lock(sync){notice=Safe(L("listCancelUncertain")+"\n"+Safe(error.Message,2048));changed++;}host.Log(new Utils.LogEventArgs("Trade cancel submission failed: "+error,Utils.LogLevel.ERROR));}
+            catch(Exception error){lock(sync){notice=L("listCancelUncertain");changed++;}host.Log(new Utils.LogEventArgs("Trade cancel submission failed: "+error,Utils.LogLevel.ERROR));}
         }
         private void Refresh()
         {
             long epoch;ClientTradeSnapshot[] snapshot;HashSet<string> pending;string message,messageKey;
-            long ov=operations?.Revision??0,rv=recovery?.Revision??0;
-            lock(sync){epoch=changed;if(!dirty&&operationVersion==ov&&recoveryVersion==rv&&shown==epoch&&themeVersion==theme.Version&&pointVersion==points.Revision&&ReferenceEquals(language,LanguageDatabase.activeLanguage)&&ReferenceEquals(result,view.LastActionResult))return;snapshot=trades.Where(t=>t!=null&&!string.IsNullOrWhiteSpace(t.TradeId)).GroupBy(t=>t.TradeId,StringComparer.OrdinalIgnoreCase).Select(g=>g.Last()).ToArray();pending=new HashSet<string>(waiting,StringComparer.OrdinalIgnoreCase);message=notice;messageKey=noticeKey;}
+            long ov=operations?.Revision??0;
+            lock(sync){epoch=changed;if(!dirty&&operationVersion==ov&&shown==epoch&&themeVersion==theme.Version&&pointVersion==points.Revision&&ReferenceEquals(language,LanguageDatabase.activeLanguage)&&ReferenceEquals(result,view.LastActionResult))return;snapshot=trades.Where(t=>t!=null&&!string.IsNullOrWhiteSpace(t.TradeId)).GroupBy(t=>t.TradeId,StringComparer.OrdinalIgnoreCase).Select(g=>g.Last()).ToArray();pending=new HashSet<string>(waiting,StringComparer.OrdinalIgnoreCase);message=notice;messageKey=noticeKey;}
             if(messageKey!=null)message=L(messageKey);
             var picked=snapshot.FirstOrDefault(t=>t.TradeId==selected);if(picked==null)selected=null;
             var operationInfo=operations?.GetPending()??Array.Empty<TradeOfferOperationInfo>();
             var pickedOperation=selectedOperation==null?(picked==null?null:operationInfo.FirstOrDefault(p=>string.Equals(p.TradeId,picked.TradeId,StringComparison.OrdinalIgnoreCase))):operationInfo.FirstOrDefault(p=>p.Token==selectedOperation);
             if(selectedOperation!=null&&pickedOperation==null)selectedOperation=null;
-            var recovered=recovery?.Capture()??Array.Empty<TradeInventoryRecoveryRecord>();
-            var pickedRecovery=recovered.FirstOrDefault(r=>r.ReservationId==selectedRecovery);
-            if(pickedRecovery==null)selectedRecovery=null;
-            rows.Clear();operationRows.Clear();recoveryRows.Clear();var list=new List<ClientPresentationRow>();string selectedRow=null;
+            rows.Clear();operationRows.Clear();var list=new List<ClientPresentationRow>();string selectedRow=null;
             foreach(var trade in snapshot)
             {
                 string name=Safe(PartyName(trade),256);
@@ -174,20 +166,12 @@ namespace Phinix.TradeExtension.Client
                 if(operation.Token==selectedOperation)selectedRow=id;
                 list.Add(new ClientPresentationRow(id,L("listOfferRecovery"),Safe(operation.TradeId)+"\n"+L("listOffer_"+operation.State)).WithBadges(new[]{new ClientPresentationBadge("recovery",L("listOffer_"+operation.State)).WithColor("ui.warning")}));
             }
-            foreach(var record in recovered)
-            {
-                if(search.Length>0&&(record.ReservationId+" "+record.OperationId).IndexOf(search,StringComparison.OrdinalIgnoreCase)<0)continue;
-                string id=RowId("inventory:"+record.ReservationId);recoveryRows[id]=record.ReservationId;
-                if(record.ReservationId==selectedRecovery)selectedRow=id;
-                list.Add(new ClientPresentationRow(id,L("inventoryRecoveryTitle"),Safe(record.TradeId??record.OperationId)+"\n"+L("inventoryRecovery_"+record.State))
-                    .WithBadges(new[]{new ClientPresentationBadge("journal",L("inventoryRecoveryJournal")).WithColor("ui.warning")}));
-            }
             browsePages=Math.Max(1,(list.Count+BrowsePageSize-1)/BrowsePageSize);browsePage=Math.Min(browsePage,browsePages-1);
             var pageRows=list.Skip(browsePage*BrowsePageSize).Take(BrowsePageSize).ToArray();
             if(!pageRows.Any(row=>row.Id==selectedRow))selectedRow=null;
-            long ticket=++revision,tv=theme.Version,pv=points.Revision;var lang=LanguageDatabase.activeLanguage;var expectedResult=view.LastActionResult;string expectedSelection=selected,expectedOperation=selectedOperation,expectedRecovery=selectedRecovery;
-            Func<bool> current=()=>!disposed&&view!=null&&!view.IsClosed&&!dirty&&ticket==revision&&epoch==Interlocked.Read(ref changed)&&tv==theme.Version&&pv==points.Revision&&ReferenceEquals(lang,LanguageDatabase.activeLanguage)&&ReferenceEquals(expectedResult,view.LastActionResult)&&selected==expectedSelection&&selectedOperation==expectedOperation&&selectedRecovery==expectedRecovery&&rv==(recovery?.Revision??0)&&ov==(operations?.Revision??0);
-            var context=new TradePresentationActionContext(pickedRecovery==null?"trade-list":"trade-inventory-recovery",ticket,picked?.TradeId??pickedOperation?.TradeId??pickedRecovery?.TradeId,picked?.Accepted??false,picked?.OtherPartyAccepted??false,picked?.ItemsOnOffer.Length??0,picked?.OtherPartyItemsOnOffer.Length??0,pickedOperation?.Token,pickedOperation?.State.ToString(),pickedOperation?.CanRetry??false,picked!=null,pickedRecovery?.ReservationId,pickedRecovery?.OperationId);
+            long ticket=++revision,tv=theme.Version,pv=points.Revision;var lang=LanguageDatabase.activeLanguage;var expectedResult=view.LastActionResult;string expectedSelection=selected,expectedOperation=selectedOperation;
+            Func<bool> current=()=>!disposed&&view!=null&&!view.IsClosed&&!dirty&&ticket==revision&&epoch==Interlocked.Read(ref changed)&&tv==theme.Version&&pv==points.Revision&&ReferenceEquals(lang,LanguageDatabase.activeLanguage)&&ReferenceEquals(expectedResult,view.LastActionResult)&&selected==expectedSelection&&selectedOperation==expectedOperation&&ov==(operations?.Revision??0);
+            var context=new TradePresentationActionContext("trade-list",ticket,picked?.TradeId??pickedOperation?.TradeId,picked?.Accepted??false,picked?.OtherPartyAccepted??false,picked?.ItemsOnOffer.Length??0,picked?.OtherPartyItemsOnOffer.Length??0,pickedOperation?.Token,pickedOperation?.State.ToString(),pickedOperation?.CanRetry??false,picked!=null);
             var owned=new RowActionSets();
             try
             {
@@ -209,18 +193,12 @@ namespace Phinix.TradeExtension.Client
                     a.OwnerId==owner.ExtensionId&&a.Id=="cancel"?ClientButtonKind.Danger:a.OwnerId==owner.ExtensionId&&a.Id=="open"?ClientButtonKind.Primary:ClientButtonKind.Normal,
                     a.OwnerId==owner.ExtensionId&&a.Id=="retry-settlement"?new ClientPresentationConfirmation(L("listRetrySettlement"),L("listRetrySettlementConfirm"),L("listRetrySettlement"),L("listKeepTrade")):a.OwnerId==owner.ExtensionId&&a.Id=="cancel"?new ClientPresentationConfirmation(L("activeTrade_cancelButton"),string.Format(L("listCancelConfirmation"),Safe(PartyName(picked),256)),L("activeTrade_cancelButton"),L("listKeepTrade")):null)).ToArray();
                 string details=picked==null?(pickedOperation==null?L("listSelectTrade"):Safe(pickedOperation.TradeId)+"\n"+L("listOffer_"+pickedOperation.State)+"\n"+OperationMessage(pickedOperation)):string.Format(L("listStackCounts"),picked.ItemsOnOffer.Length,picked.OtherPartyItemsOnOffer.Length)+"\n"+L(picked.Accepted?"confirmOurTradeCheckboxChecked":"confirmOurTradeCheckboxUnchecked")+"\n"+string.Format(L(picked.OtherPartyAccepted?"confirmTheirTradeCheckboxChecked":"confirmTheirTradeCheckboxUnchecked"),Safe(PartyName(picked),256))+"\n"+Safe(picked.TradeId);
-                if(pickedRecovery!=null)details=L("inventoryRecoveryReservation")+": "+Safe(pickedRecovery.ReservationId)+"\n"+L("inventoryRecoveryOperation")+": "+Safe(pickedRecovery.OperationId)+"\n"+L("inventoryRecovery_"+pickedRecovery.State)+"\n"+L("inventoryRecoveryEvidence")+": "+Safe(pickedRecovery.Evidence);
                 var sections=new List<ClientPresentationSection>{
                     new ClientPresentationSection("tools",TabTitle(),browsePages>1?string.Format(L("browsePage"),browsePage+1,browsePages):"",bindings.Where(BrowseAction),status:new ClientPresentationStatus(message),fields:new[]{new ClientPresentationTextField("search","",search,placeholder:L("listSearch"),maxLength:256)}).WithPlainLayout().WithInlineToolbar(),
-                    new ClientPresentationSection("list",string.Format(L("listEntryCounts"),snapshot.Length,operationInfo.Count)+" · "+string.Format(L("inventoryRecoveryCount"),recovered.Count),"",list:new ClientPresentationList("trades",pageRows,L("noActiveTradesPlaceholder"),selectedRow).WithCompactRows()).WithPlainLayout(),
-                    new ClientPresentationSection("selection",pickedRecovery!=null?L("inventoryRecoveryTitle"):picked==null?(pickedOperation==null?L("listDetails"):L("listOfferRecovery")):string.Format(L("activeTrade_tradeWithLabel"),Safe(PartyName(picked),256)),"",bindings.Where(b=>!BrowseAction(b))).WithWrappedActions().WithPlainLayout(),
-                    new ClientPresentationSection("details","",details,status:new ClientPresentationStatus(pickedRecovery!=null?L("inventoryRecoveryNote"):pickedOperation!=null?OperationStatus(pickedOperation):picked!=null&&pending.Contains(picked.TradeId)?L("listCancelPending"):L("listAuthorityNote"),pickedRecovery!=null||pickedOperation!=null||picked!=null&&pending.Contains(picked.TradeId)?ClientPresentationTone.Warning:ClientPresentationTone.Neutral)).WithPlainLayout()
+                    new ClientPresentationSection("list",string.Format(L("listEntryCounts"),snapshot.Length,operationInfo.Count),"",list:new ClientPresentationList("trades",pageRows,L("noActiveTradesPlaceholder"),selectedRow).WithCompactRows()).WithPlainLayout(),
+                    new ClientPresentationSection("selection",picked==null?(pickedOperation==null?L("listDetails"):L("listOfferRecovery")):string.Format(L("activeTrade_tradeWithLabel"),Safe(PartyName(picked),256)),"",bindings.Where(b=>!BrowseAction(b))).WithWrappedActions().WithPlainLayout(),
+                    new ClientPresentationSection("details","",details,status:new ClientPresentationStatus(pickedOperation!=null?OperationStatus(pickedOperation):picked!=null&&pending.Contains(picked.TradeId)?L("listCancelPending"):L("listAuthorityNote"),pickedOperation!=null||picked!=null&&pending.Contains(picked.TradeId)?ClientPresentationTone.Warning:ClientPresentationTone.Neutral)).WithPlainLayout()
                 };
-                if(pickedRecovery!=null)
-                {
-                    var entries=pickedRecovery.Lines.Select((line,index)=>new ClientPresentationRow("entry."+index,Safe(line.EntryId),string.Format(L("inventoryRecoveryUnits"),line.Units)));
-                    sections.Add(new ClientPresentationSection("reserved-lines",L("inventoryRecoveryLines"),"",list:new ClientPresentationList("reserved-lines",entries,L("inventoryRecoveryNoLines")).WithReadOnly()).WithPlainLayout());
-                }
                 if(picked!=null)
                 {
                     Func<string,string> label=id=>string.IsNullOrEmpty(id)?null:DefDatabase<ThingDef>.GetNamedSilentFail(id)?.label;
@@ -229,11 +207,11 @@ namespace Phinix.TradeExtension.Client
                     sections.Add(new ClientPresentationSection("their-quote",L("theirOfferLabel"),"",
                         list:new ClientPresentationList("their-quote-items",TradeQuoteRows.Build(picked.OtherPartyItemsOnOffer,label,L,TradeQuoteRows.IconFromDef),L("quoteEmpty")).WithReadOnly().WithCompactRows()).WithPlainLayout());
                 }
-                if(picked==null&&pickedOperation==null&&pickedRecovery==null)sections.RemoveRange(2,sections.Count-2);
+                if(picked==null&&pickedOperation==null)sections.RemoveRange(2,sections.Count-2);
                 dirty=false;view.Publish(new ClientPresentationPage("trade-list","",ticket,sections).WithFixedHeaderSections(1),owned,current);
             }
             catch {dirty=true;owned.Dispose();throw;}
-            shown=epoch;operationVersion=ov;recoveryVersion=rv;themeVersion=tv;pointVersion=pv;language=lang;result=expectedResult;
+            shown=epoch;operationVersion=ov;themeVersion=tv;pointVersion=pv;language=lang;result=expectedResult;
         }
         private sealed class RowActionSets:IClientActionSet
         {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Utils
 {
     public static class TextHelper {public static string StripRichText(string text)=>System.Text.RegularExpressions.Regex.Replace(text,"<.*?>","");}
-    public enum LogLevel {ERROR}
+    public enum LogLevel {ERROR,WARNING}
     public sealed class LogEventArgs {public LogEventArgs(string text,LogLevel level) {}}
 }
 namespace Utils.Framework.ManagedExtensions

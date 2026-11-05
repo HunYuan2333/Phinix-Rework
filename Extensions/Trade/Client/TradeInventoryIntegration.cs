@@ -122,59 +122,25 @@ namespace Phinix.TradeExtension.Client
             this.localUuidProvider = localUuidProvider ?? throw new ArgumentNullException(nameof(localUuidProvider));
         }
 
-        public InventoryDepositResult Deposit(TradeCompletionEventArgs args, string otherPartyDisplayName)
+        public InventoryDepositResult Deposit(TradeCompletionEventArgs args,string display)
         {
-            if (args == null || string.IsNullOrWhiteSpace(args.TradeId))
-                return new InventoryDepositResult
-                {
-                    Status = InventoryDepositStatus.Rejected,
-                    FailureCode = InventoryFailureCode.InvalidRequest,
-                    Reason = "Trade completion has no stable ID."
-                };
-
-            FrameworkItemPayload[] payloads = args.ItemPayloads != null && args.ItemPayloads.Length > 0
-                ? args.ItemPayloads
-                : itemPipeline.EncodeTradeItems(args.Items);
-            TradeItemSnapshot[] snapshots = args.Items ?? Array.Empty<TradeItemSnapshot>();
-            List<InventoryItem> items = new List<InventoryItem>(payloads.Length);
-            for (int i = 0; i < payloads.Length; i++)
-            {
-                FrameworkItemPayload payload = payloads[i];
-                if (payload == null || !itemPipeline.CanDecodeItemExactly(payload))
-                    return new InventoryDepositResult
-                    {
-                        Status = InventoryDepositStatus.Rejected,
-                        FailureCode = InventoryFailureCode.CodecUnavailable,
-                        Reason = "A trade item codec is unavailable."
-                    };
-                TradeItemSnapshot snapshot = i < snapshots.Length ? snapshots[i] : null;
-                items.Add(new InventoryItem
-                {
-                    CodecId = TradeInventoryCodec.Id,
-                    CodecVersion = 1,
-                    Payload = TradeInventoryCodec.Encode(payload),
-                    Quantity = 1,
-                    Label = BuildLabel(snapshot, payload)
-                });
-            }
-
-            if (items.Count == 0)
-                return new InventoryDepositResult { Status = InventoryDepositStatus.AlreadyCommitted };
-
-            string outcome = args.Success ? "completed" : "cancelled";
-            string localUuid = localUuidProvider() ?? string.Empty;
-            return inventory.TryDeposit(new InventoryDeposit
-            {
-                DepositId = "trade-delivery:" + outcome + ":" + args.TradeId + ":" + localUuid,
-                Source = FrameworkTradeProtocol.Capability,
-                OriginKind = args.Success ? "trade-completed" : "trade-return",
-                OriginId = args.TradeId,
-                OriginUserId = Limit(args.OtherPartyUuid, 100),
-                OriginDisplayName = Limit(string.IsNullOrWhiteSpace(otherPartyDisplayName)
-                    ? null : TextHelper.StripRichText(otherPartyDisplayName).Trim(), 200),
-                Items = items
-            });
+            try {var deposit=CreateDeposit(args,display);return deposit==null?new InventoryDepositResult {Status=InventoryDepositStatus.AlreadyCommitted}:inventory.TryDeposit(deposit);}
+            catch(Exception error){return new InventoryDepositResult {Status=InventoryDepositStatus.Rejected,FailureCode=InventoryFailureCode.CodecUnavailable,Reason=error.Message};}
         }
+        internal InventoryDeposit CreateDeposit(TradeCompletionEventArgs args,string display,string deliveryId=null)
+        {
+            if(string.IsNullOrWhiteSpace(args?.TradeId))throw new InvalidOperationException("Trade completion has no stable ID.");
+            var payloads=args.ItemPayloads?.Length>0?args.ItemPayloads:itemPipeline.EncodeTradeItems(args.Items);
+            var items=new List<InventoryItem>();var snapshots=args.Items??Array.Empty<TradeItemSnapshot>();
+            for(int i=0;i<payloads.Length;i++)
+            {var p=payloads[i];if(p==null||!itemPipeline.CanDecodeItemExactly(p))throw new InvalidOperationException("A trade item codec is unavailable.");
+                items.Add(new InventoryItem {CodecId=TradeInventoryCodec.Id,CodecVersion=1,Payload=TradeInventoryCodec.Encode(p),Quantity=1,Label=BuildLabel(i<snapshots.Length?snapshots[i]:null,p)});}
+            if(items.Count==0)return null;
+            return new InventoryDeposit {DepositId=deliveryId==null?"trade-delivery:"+(args.Success?"completed":"cancelled")+":"+args.TradeId+":"+(localUuidProvider()??""):"trade-delivery-v1:"+deliveryId,
+                Source=FrameworkTradeProtocol.Capability,OriginKind=args.Success?"trade-completed":"trade-return",OriginId=args.TradeId,OriginUserId=Limit(args.OtherPartyUuid,100),
+                OriginDisplayName=Limit(string.IsNullOrWhiteSpace(display)?null:TextHelper.StripRichText(display).Trim(),200),Items=items};
+        }
+        internal InventoryDepositResult DepositFrozen(InventoryDeposit deposit)=>inventory.TryDeposit(deposit);
 
         public InventoryDeliveryResult DeliverDirect(TradeCompletionEventArgs args, bool dropCurrentMap)
         {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Timers;
@@ -71,6 +71,16 @@ namespace Authentication
         /// Whether the client has authenticated with the server.
         /// </summary>
         public bool Authenticated { get; private set; }
+        public event Action<string, string> SessionRenewed;
+        public bool RequiresModernIdentity {
+            get {
+#if PHINIX_RIMWORLD_17
+                return modernIdentity != null && modernIdentity.Required;
+#else
+                return false;
+#endif
+            }
+        }
 
         /// <summary>
         /// Session identifier used by the server to confirm we are allowed to speak to it.
@@ -99,7 +109,40 @@ namespace Authentication
         /// <summary>
         /// <see cref="NetClient"/> to send packets and bind events to.
         /// </summary>
-        private NetClient netClient;
+        private IClientTransport netClient;
+        private volatile bool disposed;
+#if PHINIX_RIMWORLD_17
+        private PasswordlessIdentityClient modernIdentity;
+        private string boundModernSession;
+        public void RotateIdentityCredential() { if (modernIdentity == null) throw new InvalidOperationException("Modern identity is not configured."); modernIdentity.RotateCredential(); }
+        public void RevokeIdentityCredential() { if (modernIdentity == null) throw new InvalidOperationException("Modern identity is not configured."); modernIdentity.RevokeCredential(); }
+        public void ConfigureModernIdentity(Func<bool> enabled, string userDirectory)
+        {
+            if (disposed) throw new ObjectDisposedException(nameof(ClientAuthenticator));
+            if (modernIdentity != null) throw new InvalidOperationException("Identity configuration is already bound.");
+            modernIdentity = new PasswordlessIdentityClient(netClient, enabled, userDirectory,
+                serverName => { lock (credentialStoreLock) {
+                    if (credentialStore == null && !File.Exists(CredentialStorePath)) return "";
+                    if (credentialStore == null) credentialStore = getCredentialStore();
+                    return LegacyClientIdentityAdapter.PreviousProof(credentialStore, serverName);
+                } },
+                (id, first) => {
+                    SessionId = string.IsNullOrEmpty(id) ? null : id;
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        if (boundModernSession != null && boundModernSession != id) SessionRenewed?.Invoke(boundModernSession, id);
+                        boundModernSession = id;
+                    }
+                    Authenticated = !string.IsNullOrEmpty(id);
+                    if (first) OnAuthenticationSuccess?.Invoke(this, new AuthenticationEventArgs()); },
+                message => { Authenticated = false; SessionId = null; OnAuthenticationFailure?.Invoke(this, new AuthenticationEventArgs(AuthFailureReason.Credentials, message)); },
+                serverName => { lock (credentialStoreLock) {
+                    if (credentialStore == null && !File.Exists(CredentialStorePath)) return false;
+                    if (credentialStore == null) credentialStore = getCredentialStore();
+                    return credentialStore.Credentials.ContainsKey(serverName);
+                } });
+        }
+#endif
 
         /// <summary>
         /// Creates a new <see cref="ClientAuthenticator"/> bound to the given <see cref="NetClient"/> with credentials stored in <see cref="CredentialStorePath"/>.
@@ -108,12 +151,14 @@ namespace Authentication
         /// <param name="netClient"><see cref="NetClient"/> to bind to</param>
         /// <param name="getCredentialsDelegate"><see cref="GetCredentialsDelegate"/> to call when credentials are required from the user</param>
         /// <param name="credentialStorePath">Path to the credential store file</param>
-        public ClientAuthenticator(NetClient netClient, GetCredentialsDelegate getCredentialsDelegate, string credentialStorePath = "PhinixCredentials.bin")
+        public ClientAuthenticator(IClientTransport netClient, GetCredentialsDelegate getCredentialsDelegate, string credentialStorePath = "PhinixCredentials.bin")
+            : this(netClient, getCredentialsDelegate, credentialStorePath, false) { }
+        public ClientAuthenticator(IClientTransport netClient, GetCredentialsDelegate getCredentialsDelegate, string credentialStorePath, bool deferHistoricalCredentials)
         {
             this.netClient = netClient;
             this.getCredentials = getCredentialsDelegate;
             this.CredentialStorePath = credentialStorePath;
-            this.credentialStore = getCredentialStore();
+            this.credentialStore = deferHistoricalCredentials ? null : getCredentialStore();
 
             // Set up the session extension timer
             sessionExtendTimer = new Timer
@@ -144,6 +189,7 @@ namespace Authentication
             // Prevent other threads from modifying the credential store while we're using it
             lock (credentialStoreLock)
             {
+                if (credentialStore == null) credentialStore = getCredentialStore();
                 // Check if the server already has a credential
                 if (credentialStore.Credentials.ContainsKey(serverAddress))
                 {
@@ -176,6 +222,7 @@ namespace Authentication
             // Prevent other threads from modifying the credential store while we're using it
             lock (credentialStoreLock)
             {
+                if (credentialStore == null) credentialStore = getCredentialStore();
                 if (credentialStore.Credentials.ContainsKey(serverAddress))
                 {
                     // Set the output to the desired credential and return successfully
@@ -237,16 +284,37 @@ namespace Authentication
             // Prevent other threads from modifying the credential store while we're using it
             lock (credentialStoreLock)
             {
-                // Create or truncate the credentials file
-                using (FileStream fs = File.Open(CredentialStorePath, FileMode.Create, FileAccess.Write))
+                WriteCredentialSnapshot(CredentialStorePath, fs =>
                 {
-                    using (CodedOutputStream cos = new CodedOutputStream(fs))
-                    {
-                        // Write the credential store to disk.
-                        credentialStore.WriteTo(cos);
-                    }
-                }
+                    using (CodedOutputStream cos = new CodedOutputStream(fs, true))
+                    { credentialStore.WriteTo(cos); cos.Flush(); }
+                });
             }
+        }
+
+        [System.Runtime.InteropServices.DllImport("libc", SetLastError = true)]
+        private static extern int chmod(string path, uint mode);
+
+        // A serialization or I/O failure cannot truncate the current identity snapshot.
+        internal static void WriteCredentialSnapshot(string path, Action<Stream> serialize)
+        {
+            string target = Path.GetFullPath(path);
+            if (File.Exists(target) && (File.GetAttributes(target) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("Credential snapshot links are unsupported.");
+            string temporary = Path.Combine(Path.GetDirectoryName(target), "." + Path.GetFileName(target) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    if (Path.DirectorySeparatorChar == '/' && chmod(temporary, 384) != 0)
+                        throw new IOException("Cannot protect credential snapshot.");
+                    serialize(stream);
+                    stream.Flush(true);
+                }
+                if (File.Exists(target)) File.Replace(temporary, target, null);
+                else File.Move(temporary, target);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
 
         /// <summary>
@@ -267,6 +335,7 @@ namespace Authentication
         /// <inheritdoc />
         protected override void packetHandler(string module, string connectionId, byte[] data)
         {
+            if (disposed) return;
             // Validate the incoming packet and discard it if validation fails
             if (!ProtobufPacketHelper.ValidatePacket(typeof(ClientAuthenticator).Namespace, MODULE_NAME, module, data, out Any message, out TypeUrl typeUrl)) return;
 
@@ -299,6 +368,9 @@ namespace Authentication
         /// <param name="packet">Incoming <see cref="HelloPacket"/></param>
         private void helloPacketHandler(string connectionId, HelloPacket packet)
         {
+#if PHINIX_RIMWORLD_17
+            if (modernIdentity != null && modernIdentity.Required) { Authenticated = false; SessionId = null; modernIdentity.RejectPreviousGreeting(); return; }
+#endif
             // Nullify authenticated state
             Authenticated = false;
             SessionId = null;
@@ -484,6 +556,9 @@ namespace Authentication
         /// <param name="e"></param>
         private void disconnectHandler(object sender, EventArgs e)
         {
+#if PHINIX_RIMWORLD_17
+            boundModernSession = null;
+#endif
             Authenticated = false;
             SessionId = null;
             sessionExtendTimer.Stop();
@@ -494,11 +569,18 @@ namespace Authentication
         /// </summary>
         public void Dispose()
         {
+            if (disposed) return;
+            disposed = true;
+#if PHINIX_RIMWORLD_17
+            modernIdentity?.Dispose();
+#endif
+            Authenticated = false; SessionId = null;
             sessionExtendTimer?.Stop();
             sessionExtendTimer?.Dispose();
             if (netClient != null)
             {
                 netClient.OnDisconnect -= disconnectHandler;
+                netClient.UnregisterPacketHandler(MODULE_NAME);
             }
         }
     }

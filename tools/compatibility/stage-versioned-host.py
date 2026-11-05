@@ -116,7 +116,7 @@ def main():
             if dependency in by17 and dependency not in selected17:
                 selected17.add(dependency)
                 pending.append(dependency)
-    if selected17 & (source_names - host_names):
+    if selected17 & (source_names - host_names - {"ServerTransport"}):
         raise ValueError('Host closure acquired independent plugin dependency.')
     for version, game, selected in [('1.6', args.game16, set(by16)),
                                      ('1.7', args.game17, selected17)]:

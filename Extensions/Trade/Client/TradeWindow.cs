@@ -119,6 +119,7 @@ namespace Phinix.TradeExtension.Client
                 {
                     inventoryChangedHandler = (_, __) => hostContext.RunOnMainThread(()=>{if(!closed&&(gameScope==null||gameScope.IsValid()))refreshAvailableItems();});
                     clientHostContext.InventoryReadApi.InventoryChanged += inventoryChangedHandler;
+                    clientHostContext.InventoryReadApi.AvailabilityChanged += inventoryChangedHandler;
                 }
                 refreshAvailableItems();
                 OpenPresentation();
@@ -136,16 +137,30 @@ namespace Phinix.TradeExtension.Client
             tradeService.OnTradeCompleted -= OnTradeFinished;
             tradeService.OnTradeCancelled -= OnTradeFinished;
             if (clientHostContext?.InventoryReadApi != null && inventoryChangedHandler != null)
+            {
                 clientHostContext.InventoryReadApi.InventoryChanged -= inventoryChangedHandler;
+                clientHostContext.InventoryReadApi.AvailabilityChanged -= inventoryChangedHandler;
+            }
             inventoryChangedHandler = null;
             DisposeAvailableItems();
             UnsubscribeTradeUpdates();
         }
 
         private bool OfferBusy=>gameScope!=null&&!gameScope.IsValid()||clientHostContext?.OfferOperations?.IsBusy(trade.TradeId)==true;
+        private string SaveBlockMessage
+        {
+            get
+            {
+                string key=TradeSaveReadiness.BlockReason(clientHostContext?.InventoryReadApi?.GetStatus());
+                return key==null?null:(string)key.Translate();
+            }
+        }
+        private bool RequireSavedGame()
+        {string message=SaveBlockMessage;if(message==null)return true;editorNotice=message;presentationDirty=true;return false;}
 
         private void UpdateTradeItems()
         {
+            if(!RequireSavedGame())return; // Before escrow, reservations, decoding or physical despawn.
             string token=null;TradeOfferEscrow escrow=null;
             try
             {
@@ -190,6 +205,7 @@ namespace Phinix.TradeExtension.Client
 
         private void ResetTradeItems()
         {
+            if(!RequireSavedGame())return;
             try
             {
                 if(clientHostContext?.OfferOperations==null)throw new InvalidOperationException("TradeOfferOwnerUnavailable");
@@ -234,12 +250,19 @@ namespace Phinix.TradeExtension.Client
 
         private void sendTradeStatusUpdate(bool accepted)
         {
+            if(accepted&&!RequireSavedGame())return;
             if(OfferBusy)return;
-            hostContext.Log(new LogEventArgs($"[TradeWindow] Accept toggled: tradeId={trade.TradeId}, accepted={accepted}", LogLevel.DEBUG));
+
             setPendingAccepted(accepted);
             try
             {
-                tradeService.UpdateTradeStatus(trade.TradeId, accepted: accepted);
+                if (accepted)
+                {
+                    IObservedTradeConsentService observedService = tradeService as IObservedTradeConsentService;
+                    if (observedService == null) throw new InvalidOperationException("Trade confirmation is unavailable for this service.");
+                    observedService.AcceptObservedTrade(trade);
+                }
+                else tradeService.UpdateTradeStatus(trade.TradeId, accepted: false);
             }
             catch (Exception exception)
             {
@@ -251,7 +274,7 @@ namespace Phinix.TradeExtension.Client
         private void sendCancelTradeRequest()
         {
             if(OfferBusy)return;
-            hostContext.Log(new LogEventArgs($"[TradeWindow] Cancel clicked: tradeId={trade.TradeId}", LogLevel.DEBUG));
+
             try
             {
                 tradeService.CancelTrade(trade.TradeId);
@@ -301,7 +324,7 @@ namespace Phinix.TradeExtension.Client
                 .Where(stack => stack.Count > 0 && stack.Label.IndexOf(searchText, StringComparison.InvariantCultureIgnoreCase) > -1)
                 .ToList();
 
-            hostContext.Log(new LogEventArgs($"[TradeWindow] refreshAvailableItems: homeMaps={homeMaps.Count()}, allItemsTradable={hostContext.AllItemsTradable}, rawThings={rawThings.Count}, groupedStacks={availableItems.Count}, filteredStacks={filteredAvailableItems.Count}, searchText='{searchText}'", LogLevel.DEBUG));
+
         }
 
         private void DisposeAvailableItems()
@@ -324,7 +347,7 @@ namespace Phinix.TradeExtension.Client
         private void applyTradeUpdated(TradeUpdateEventArgs args)
         {
             if(closed||args==null)return;
-            hostContext.Log(new LogEventArgs($"[TradeWindow] OnTradeUpdated: tradeId={args.Trade?.TradeId}, failure={args.FailureReason}, token={args.Token ?? "null"}", LogLevel.DEBUG));
+
             bool matchingTrade = args.Trade != null &&
                 string.Equals(args.Trade.TradeId, trade.TradeId, StringComparison.OrdinalIgnoreCase);
             if (matchingTrade)

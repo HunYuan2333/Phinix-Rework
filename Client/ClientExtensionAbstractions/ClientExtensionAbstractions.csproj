@@ -76,6 +76,7 @@
     <Compile Include="Framework\IClientExtensionAbstractions.cs" />
     <Compile Include="Framework\IClientComposition.cs" />
     <Compile Include="Framework\IClientTaskService.cs" />
+    <Compile Include="Framework\IClientGameScopeService.cs" />
     <Compile Include="Framework\IClientApiDirectory.cs" />
     <Compile Include="Framework\IClientLifetimeService.cs" />
     <Compile Include="Framework\IClientExtensionManagementWindowService.cs" />

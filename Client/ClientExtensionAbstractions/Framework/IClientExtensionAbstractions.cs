@@ -85,6 +85,11 @@ namespace PhinixClient.Framework
         event EventHandler<FrameworkCompatibilityModeChangedEventArgs> CompatibilityModeChanged;
     }
 
+    public interface IClientConnectionIdentity
+    {
+        string RemoteEndpoint { get; }
+    }
+
     public interface IClientSessionContext
     {
         bool Authenticated { get; }

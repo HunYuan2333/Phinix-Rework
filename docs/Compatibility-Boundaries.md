@@ -1,5 +1,8 @@
 # 客户端兼容边界与故障恢复约束
 
+> 2026-11-04 P3 业务分支：服务端可按用户授权对含原版对端的交易选择基础物品/当前报价条款。客户端读取已认证 Framework 快照附带的 `trade_basic_terms_v1`，每次连接首次遇到该条款时在游戏主线程提示属性损失和原版交付限制；提示不切换协议、不确认交易、不消费或退回资产。普通双方 Rework 仍按原有严格规则。此改动不合并到 UI/工坊分支；服务端原版入口需显式开启，真实游戏验收尚未执行。
+
+
 本文件约束 Rework 客户端连接原版服务端及 Framework 服务端时的实现。原版协议以同级 `Phinix/Common/Trading/ClientTrading.cs` 和 `ServerTrading.cs` 为本轮核对依据；其他服务端变种须提供独立证据，不得以猜测改变通用业务语义。
 
 ## 职责边界
@@ -120,3 +123,25 @@ Bounds/RGBA 仅数值契约首切片；整个 Abstractions 仍有引擎依赖，
 ## 2026-10-14 中立呈现程序集首切片
 
 迁移源码的普通 presentation/theme/image/action 合同现属 ClientPresentation.Contracts；原 namespace/owner/renderer 不变，旧 Abstractions 经项目引用消费它。Game bridge、widgets、原生 shell 和 UnknownItem 仍有引擎依赖，未搬存档类型。类型跨程序集是 API 3.0 联合 ABI 变更，正式身份/范围/pin 未闭合。两插件反射绑定按真实类型归属同步，不依赖“所有 SDK 类型在同一 DLL”的假设；真实联合 DLL 白盒不等于游戏加载或原生 UI 验收。完整 restore/锁图、两版加载布局与 backend 后续实施，记录见 R17-23-Presentation-Assembly 文档。
+
+## 2026-10-18 交易接收日志边界
+
+正式交易插件在交付回调前将完整终态事件持久保存于用户 ExtensionData，按远端 endpoint/接收主体/交易核对；重复不再次发布，内容或终态冲突拒绝。endpoint 仅是路由边界，不能代替可信服务器身份。同一交易换 endpoint 不自动迁移或再次交付。日志不是游戏保存回执，不授予退款、物化成功或重放许可。
+
+Host 通过中立 IClientConnectionIdentity 和 ClientEnvironmentPaths 向所有插件提供同等事实；不加入业务专属恢复分支。不存 session/凭据，不修改固定 Common/vendor。重启后的记录保留供核对，自动恢复与存档授权、现代 receipt 尚未实现。详见 [本轮验证](branch-local/dev/Trade-Completion-Inbox-2026-10-18.md)。
+
+## 2026-10-21 交付尝试证据边界
+
+Trade 在实际交付调用前持久追加 Attempted，API 返回后记录 ReturnedSuccess/ReturnedFailure；本地返回不能代替游戏保存 ACK。已有尝试不因事件重放、设置/可用性变化或换交付方式再次执行，未知保留核对、不退款。首次主线程处理绑定当前 Game 实例和接收 UUID/endpoint，失效后不能重绑；空批次保持无需游戏实例。此 guard 不提供跨重启稳定存档身份，入队到首次处理的切换及历史记录仍待核对。详见 [实施及限制](branch-local/dev/Trade-Delivery-Attempt-Journal-2026-10-21.md)。
+
+## 2026-10-21 存档绑定与只读核对
+
+InventoryStatus 投影既有 journal 的存档谱系/路径摘要，Trade 只经公开合同读取。非空交付前将摘要与 receipt fingerprint 绑定，旧尝试无绑定时不追认，不把不同存档自动合并；原始路径和凭据不进入绑定记录。交易列表通过普通呈现显示同主体/endpoint 的本地交付证据、存档关系，不提供产品资产动作。它不是到账或保存 ACK、退款或重投许可；同路径回滚、接收排队期间切存档、权威结果查询仍待完成。完整范围见 [本轮记录](branch-local/dev/Trade-Save-Binding-and-Review-2026-10-21.md)。
+
+## 2026-10-22 P3 接收时游戏范围
+
+Trade 完成/取消在统一接收入口枚举载荷、落盘和解码之前捕获中立 Host 游戏范围，内部事件携带原令牌到主线程交付 owner。Host 主线程发布、网络线程只读取令牌；验证在绑定存档/持久 attempt 之前进行。入队期间切换 Game、回菜单、宿主停止或缺少令牌时保留 inbox，不向后来游戏绑定/交付或发 ACK。空批次仍只核验主体与 endpoint。令牌不是持久 save identity 或保存成功 receipt，不授予重启重投/退款；同 Game 的路径/旧存档回滚仍未解决。见 [实现与证据](branch-local/dev/P3-Receive-Game-Scope-2026-10-22.md)。
+
+## 2026-10-22 P3 接收时库存范围
+
+库存通过普通附加 API 发布只读接收范围，Trade 在统一入口枚举/IO 前捕获并随事件携带。实际交付前同时校验原 Game、原库存范围及当前库存身份，binding 使用原身份；不采用执行时新打开/另存为的存档。路径代数与加载暂停阻止旧令牌复活，同路径保存不使正常令牌失效。接收时无范围、API 缺失或范围变化均保留核对，不能在稍后保存或 availability 回调中补造接收归属。空批次原规则保持。令牌不是持久游戏 receipt，崩溃前未绑定记录仍不自动恢复，详见 [实施与限制](branch-local/dev/P3-Receive-Save-Scope-2026-10-22.md)。

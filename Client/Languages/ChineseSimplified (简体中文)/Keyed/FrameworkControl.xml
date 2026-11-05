@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_framework_controlNegotiationRejected>服务器拒绝了连接协商。请检查客户端与服务端版本后重新连接。</Phinix_framework_controlNegotiationRejected>
+  <Phinix_framework_controlAdmissionRejected>服务器拒绝了此请求。已有交易的结果仍需核对，请勿重复提交或手动返还物品。</Phinix_framework_controlAdmissionRejected>
+  <Phinix_framework_controlMalformed>服务器协商响应无法验证。请检查版本后重新连接。</Phinix_framework_controlMalformed>
+</LanguageData>
