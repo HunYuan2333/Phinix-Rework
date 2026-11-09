@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <AssemblyName>CommandRelay.Sample</AssemblyName>
+    <PhinixPackage Condition="'$(PhinixPackage)' == ''">../../Output/phinix-rework</PhinixPackage>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Utils"><HintPath>$(PhinixPackage)/Common/Assemblies/03-Utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ClientExtensionAbstractions"><HintPath>$(PhinixPackage)/Common/Assemblies/10-ClientExtensionAbstractions.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

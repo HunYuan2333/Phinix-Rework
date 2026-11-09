@@ -20,6 +20,7 @@ internal static class Program
         try
         {
             AssertCompatibilitySubscriberIsolation();
+            AssertCommandHandlerIsolation();
             AssertRegistrationRequiresPreparedHost();
             AssertChatContributionOwnership();
             AssertMessageActionSnapshot();
@@ -32,13 +33,44 @@ internal static class Program
             AssertAutocompleteRequiresNewOwnedInput();
             AssertCompletionPreservesMessagePrefix();
             ChatImageDownloadScenarios.Run();
-            Console.WriteLine("All 19 chat regression scenarios passed.");
+            Console.WriteLine("All 20 chat regression scenarios passed.");
             return 0;
         }
         catch (Exception exception)
         {
             Console.Error.WriteLine(exception);
             return 1;
+        }
+    }
+
+    private sealed class CommandIsolationHandler : IClientCommandHandler
+    {
+        public int Priority => 0;
+        public Func<bool> Match;
+        public Action Execute;
+        public bool CanHandleIncomingCommand(FrameworkPacket packet) => Match();
+        public ClientIncomingCommandResult HandleIncomingCommand(FrameworkPacket packet, ClientFrameworkContext context)
+        { Execute(); return new ClientIncomingCommandResult { Action = MessageHandlingResultAction.Handled }; }
+    }
+    private static void AssertCommandHandlerIsolation()
+    {
+        using (var net = new Connections.NetClient())
+        using (var auth = new Authentication.ClientAuthenticator(net, null,
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "relay-test-" + Guid.NewGuid().ToString("N"))))
+        {
+            var users = new ClientUserManager(net, auth);
+            using (var client = new PhinixFrameworkClient(net, auth, users))
+            {
+                var runtime = typeof(PhinixFrameworkClient).GetField("extensionRuntime", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(client);
+                var extensions = (DiscoveredPhinixExtensions)runtime.GetType().GetProperty("Extensions", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(runtime);
+                int handled = 0;
+                extensions.ClientCommandHandlers.Add(new CommandIsolationHandler { Match = () => throw new Exception("predicate"), Execute = () => { } });
+                extensions.ClientCommandHandlers.Add(new CommandIsolationHandler { Match = () => true, Execute = () => throw new Exception("handler") });
+                extensions.ClientCommandHandlers.Add(new CommandIsolationHandler { Match = () => true, Execute = () => handled++ });
+                typeof(PhinixFrameworkClient).GetMethod("handleCommand", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(client, new object[] { new FrameworkPacket { Kind = "command", MessageType = "request" } });
+                Assert(handled == 1, "Command predicate and handler failures must preserve later handler dispatch.");
+            }
         }
     }
 

@@ -239,10 +239,11 @@ internal static partial class Program
     }
 
     [PhinixExtension("tests.disabled-probe")]
-    public sealed class DisabledProbeModule : IPhinixExtensionModule
+    public sealed class DisabledProbeModule : IClientExtensionModule
     {
         public static int ConstructorCount;
         public DisabledProbeModule() { ConstructorCount++; }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
         public string ExtensionId => "tests.disabled-probe";
         public void Register(IExtensionBuilder builder) { }
     }

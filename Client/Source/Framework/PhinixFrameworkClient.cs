@@ -37,6 +37,9 @@ namespace PhinixClient.Framework
 
         public FrameworkCompatibilityMode CompatibilityMode { get; private set; } = FrameworkCompatibilityMode.Unknown;
 
+        private readonly ClientCommandCapabilities commandCapabilities = new ClientCommandCapabilities();
+        private readonly ClientCommandRelay commandRelay;
+        private Timer relayTimer;
         private readonly NetClient netClient;
         private readonly ClientAuthenticator authenticator;
         private readonly ClientUserManager userManager;
@@ -67,6 +70,7 @@ namespace PhinixClient.Framework
         public PhinixFrameworkClient(NetClient netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
         {
             this.netClient = netClient;
+            commandRelay = new ClientCommandRelay(commandCapabilities, sendRelayPacket);
             this.authenticator = authenticator;
             this.userManager = userManager;
             this.extensionHostContext = extensionHostContext ?? new ExtensionHostContext();
@@ -106,6 +110,8 @@ namespace PhinixClient.Framework
                 this.extensionHostContext.AddService<IFrameworkClientTransport>(this);
                 this.extensionHostContext.AddService<IClientMessageSubmission>(this);
                 this.extensionHostContext.AddService<IFrameworkClientCommandTransport>(this);
+                this.extensionHostContext.AddService<IClientCommandCapabilities>(commandCapabilities);
+                this.extensionHostContext.AddService<IClientCommandRelay>(commandRelay);
                 this.extensionHostContext.AddService<IFrameworkClientLifecycle>(this);
                 this.extensionHostContext.AddService<IClientDisplayMessageStore>(this);
                 this.extensionHostContext.AddService<IClientDisplayMessageFeed>(this);
@@ -129,6 +135,9 @@ namespace PhinixClient.Framework
                 netClient.RegisterPacketHandler(FrameworkProtocol.ModuleName, packetHandler);
                 netClient.OnDisconnect += disconnectHandler;
                 started = true;
+                relayTimer = new Timer(500) { AutoReset = true };
+                relayTimer.Elapsed += (_, __) => commandRelay.Pulse();
+                relayTimer.Start();
 
                 string summary = $"Discovered {discoveredExtensions.Extensions.Count} framework extension(s) and {capabilities.Length} capability/capabilities.";
                 this.extensionHostContext.Log?.Invoke(summary, LogLevel.INFO);
@@ -363,6 +372,7 @@ namespace PhinixClient.Framework
         {
             if (disposed) return false;
             if (command == null) return false;
+            if (command.CommandRoute?.Mode == CommandProcessingMode.Relay) return false;
 
             RaiseLogEntry(new LogEventArgs(
                 $"[Phinix] TryHandleOutgoingCommand: msgType={command.MessageType}, mode={CompatibilityMode}",
@@ -396,7 +406,9 @@ namespace PhinixClient.Framework
             bool anyHandlerTried = false;
             foreach (IClientOutgoingCommandHandler handler in handlers)
             {
-                bool canHandle = handler.CanHandleOutgoingCommand(command);
+                bool canHandle;
+                try { canHandle = handler.CanHandleOutgoingCommand(command); }
+                catch (Exception error) { reportShutdownWarning("Outgoing command matching failed: " + error.GetType().Name); continue; }
                 RaiseLogEntry(new LogEventArgs(
                     $"[Phinix]   {handler.GetType().Name}(P={handler.Priority}).CanHandle → {canHandle}",
                     LogLevel.DEBUG));
@@ -664,6 +676,7 @@ namespace PhinixClient.Framework
         private void packetHandler(string module, string connectionId, byte[] data)
         {
             if (disposed) return;
+            if (data == null) return;
 
             FrameworkPacket packet;
             try
@@ -675,6 +688,24 @@ namespace PhinixClient.Framework
                 RaiseLogEntry(new LogEventArgs($"Failed to deserialize framework packet: {exception.Message}", LogLevel.WARNING));
                 return;
             }
+
+            if (packet == null) return;
+            if (packet.Kind == CommandRelayProtocol.AckKind || packet.Kind == CommandRelayProtocol.ResultKind)
+            {
+                if (data.Length > CommandRelayProtocol.MaxPacketBytes || !hasRemoteCapability(CommandRelayProtocol.Capability) ||
+                    packet.SessionId != authenticator.SessionId || packet.SenderUuid != FrameworkProtocol.SystemSenderUuid) return;
+                try
+                {
+                    if (packet.Kind == CommandRelayProtocol.AckKind)
+                        commandRelay.Acknowledge(FrameworkSerialization.DeserializePayload<CommandCapabilityAck>(packet.PayloadJson));
+                    else commandRelay.Complete(FrameworkSerialization.DeserializePayload<RelayResult>(packet.PayloadJson));
+                }
+                catch (Exception error) { reportShutdownWarning("Invalid Relay control packet: " + error.GetType().Name); }
+                return;
+            }
+            if (packet.CommandRoute?.Mode == CommandProcessingMode.Relay &&
+                (data.Length > CommandRelayProtocol.MaxPacketBytes || packet.SessionId != authenticator.SessionId ||
+                 !hasRemoteCapability(CommandRelayProtocol.Capability) || CommandRelayProtocol.Validate(packet) != null)) return;
 
             // 管线消息路由细节 → DEBUG（设计哲学 §3.8）：聊天等高频消息在 Release 构建下被过滤，
             // 避免每条消息都刷 RimWorld 日志（社区反馈"constant log spam from chatting"）
@@ -695,6 +726,8 @@ namespace PhinixClient.Framework
                     }
 
                     negotiationTimer.Stop();
+                    if (hasRemoteCapability(CommandRelayProtocol.Capability) &&
+                        packet.TryGetMetadataValue(CommandRelayProtocol.EpochMetadata, out string relayEpoch)) commandRelay.Begin(relayEpoch);
                     RaiseLogEntry(new LogEventArgs($"[Phinix] KindCapabilities processed: {remoteCapabilities.Count} capabilities, setting FrameworkV2 mode.", LogLevel.INFO));
                     setCompatibilityMode(
                         FrameworkCompatibilityMode.FrameworkV2,
@@ -825,8 +858,10 @@ namespace PhinixClient.Framework
                 Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
             };
 
-            foreach (IClientCommandHandler handler in discoveredExtensions.ClientCommandHandlers.Where(handler => handler.CanHandleIncomingCommand(currentCommand)))
+            foreach (IClientCommandHandler handler in discoveredExtensions.ClientCommandHandlers)
             {
+                try { if (!handler.CanHandleIncomingCommand(currentCommand)) continue; }
+                catch (Exception error) { reportShutdownWarning("Command handler matching failed: " + error.GetType().Name); continue; }
                 matchedHandler = true;
                 ClientIncomingCommandResult result = null;
                 try
@@ -994,6 +1029,17 @@ namespace PhinixClient.Framework
             return false;
         }
 
+        private bool sendRelayPacket(FrameworkPacket packet)
+        {
+            if (disposed || !netClient.Connected || !authenticator.Authenticated || !userManager.LoggedIn ||
+                !hasRemoteCapability(CommandRelayProtocol.Capability)) return false;
+            packet.SessionId = authenticator.SessionId;
+            packet.SenderUuid = userManager.Uuid;
+            byte[] bytes = FrameworkSerialization.SerializePacket(packet);
+            if (bytes.Length > CommandRelayProtocol.MaxPacketBytes) return false;
+            return netClient.TrySendRelay(FrameworkProtocol.ModuleName, bytes);
+        }
+
         private void sendPacket(FrameworkPacket packet)
         {
             if (disposed || packet == null) return;
@@ -1050,6 +1096,7 @@ namespace PhinixClient.Framework
         {
             if (disposed) return;
 
+            commandRelay.Disconnect();
             negotiationTimer.Stop();
             lock (remoteCapabilities)
             {
@@ -1169,6 +1216,11 @@ namespace PhinixClient.Framework
                 compositionFactory = null;
             }
             extensionHostContext.RemoveService<IFrameworkClientTransport>(this);
+            relayTimer?.Stop();
+            relayTimer?.Dispose();
+            commandRelay.Dispose();
+            extensionHostContext.RemoveService<IClientCommandCapabilities>(commandCapabilities);
+            extensionHostContext.RemoveService<IClientCommandRelay>(commandRelay);
             extensionHostContext.RemoveService<IFrameworkClientCommandTransport>(this);
             extensionHostContext.RemoveService<IFrameworkClientLifecycle>(this);
             extensionHostContext.RemoveService<IClientDisplayMessageStore>(this);

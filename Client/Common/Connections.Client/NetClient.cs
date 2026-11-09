@@ -35,6 +35,8 @@ namespace Connections
         /// Client that piggy-backs the listener and communicates with the server.
         /// </summary>
         private NetManager clientNetManager;
+        private readonly PinnedClientUdpReceiveGuard receiveGuard;
+        private Exception transportFailure;
         /// <summary>
         /// Peer representing the server's side of the connection.
         /// </summary>
@@ -82,6 +84,8 @@ namespace Connections
                 DisconnectTimeout = timeout
             };
 
+            receiveGuard = PinnedClientUdpReceiveGuard.Install(clientNetManager, QueueTransportFailure);
+
             // Forward events
             listener.PeerConnectedEvent += (peer) => { OnConnecting?.Invoke(this, EventArgs.Empty); };
             listener.PeerDisconnectedEvent += (peer, info) =>
@@ -99,10 +103,13 @@ namespace Connections
         /// <param name="endpoint">Endpoint to connect to</param>
         public void Connect(IPEndPoint endpoint)
         {
+            RequireExternalWorker();
             // Close the active connection before we make a new one.
             Disconnect();
 
             // Try to connect
+            receiveGuard.Reset();
+            Interlocked.Exchange(ref transportFailure, null);
             clientNetManager.Start();
             serverPeer = clientNetManager.Connect(endpoint.Address.ToString(), endpoint.Port);
 
@@ -118,10 +125,13 @@ namespace Connections
         /// <param name="endpoints">Endpoints to try connect to</param>
         public void Connect(IEnumerable<IPEndPoint> endpoints)
         {
+            RequireExternalWorker();
             // Close the active connection before we make a new one
             Disconnect();
 
             // Start the client
+            receiveGuard.Reset();
+            Interlocked.Exchange(ref transportFailure, null);
             clientNetManager.Start();
 
             // Iterate over the endpoints we've been given and try to connect to them
@@ -253,6 +263,7 @@ namespace Connections
         /// </summary>
         public void Disconnect()
         {
+            if (clientNetManager == null) return;
             stopProbeThread();
             clearProbePeers();
             serverPeer = null;
@@ -275,8 +286,32 @@ namespace Connections
         /// </summary>
         public void Dispose()
         {
+            if (clientNetManager == null) return;
+            RequireExternalWorker();
             Disconnect();
             clientNetManager = null;
+        }
+
+        private void RequireExternalWorker()
+        {
+            if (clientNetManager == null) throw new ObjectDisposedException(nameof(NetClient));
+            if (Thread.CurrentThread == pollThread || Thread.CurrentThread == probeThread)
+                throw new InvalidOperationException("Connect/Dispose must be dispatched outside the client transport workers.");
+        }
+
+        private void QueueTransportFailure(Exception error)
+        {
+            Interlocked.CompareExchange(ref transportFailure, error, null);
+        }
+
+        private void StopFailedTransport(Exception error)
+        {
+            // Runs on the current poll worker. Reconnect joins this worker before restarting the manager.
+            pollThreadStopRequested = true;
+            clientNetManager.Stop();
+            serverPeer = null;
+            OnDisconnect?.Invoke(this, EventArgs.Empty);
+            RaiseLogEntry(new LogEventArgs("Client transport failed: " + error.GetType().Name, LogLevel.ERROR));
         }
 
         private void startPollThread()
@@ -287,7 +322,11 @@ namespace Connections
             {
                 while (!pollThreadStopRequested)
                 {
-                    clientNetManager.PollEvents();
+                    var failure = Interlocked.Exchange(ref transportFailure, null);
+                    if (failure != null) { StopFailedTransport(failure); return; }
+                    try { clientNetManager.PollEvents(); }
+                    catch (Exception error) when (!(error is OutOfMemoryException))
+                    { StopFailedTransport(error); return; }
                     Thread.Sleep(10);
                 }
             });
@@ -299,24 +338,22 @@ namespace Connections
         {
             pollThreadStopRequested = true;
             Thread activePollThread = pollThread;
+            // Self-disconnect may request stop, but only an external caller can confirm exit.
+            if (activePollThread == Thread.CurrentThread) return;
+            if (activePollThread != null && !activePollThread.Join(1000))
+                throw new TimeoutException("Client poll worker did not stop within the shutdown deadline.");
             pollThread = null;
-
-            if (activePollThread != null && activePollThread != Thread.CurrentThread)
-            {
-                activePollThread.Join(1000);
-            }
         }
 
         private void stopProbeThread()
         {
             probeThreadStopRequested = true;
             Thread activeProbeThread = probeThread;
+            // Self-disconnect may request stop, but only an external caller can confirm exit.
+            if (activeProbeThread == Thread.CurrentThread) return;
+            if (activeProbeThread != null && !activeProbeThread.Join(1000))
+                throw new TimeoutException("Client probe worker did not stop within the shutdown deadline.");
             probeThread = null;
-
-            if (activeProbeThread != null && activeProbeThread != Thread.CurrentThread)
-            {
-                activeProbeThread.Join(1000);
-            }
         }
 
         /// <summary>
@@ -347,6 +384,20 @@ namespace Connections
             lock (sendLock)
             {
                 serverPeer.Send(writer, SendOptions.ReliableOrdered);
+            }
+        }
+
+        public bool TrySendRelay(string module, byte[] payload)
+        {
+            if (payload == null || payload.Length > 64 * 1024 || !Connected) return false;
+            var writer = new NetDataWriter();
+            writer.Put(module);
+            writer.Put(payload);
+            lock (sendLock)
+            {
+                if (!Connected || serverPeer.PacketsCountInReliableOrderedQueue >= 2048) return false;
+                serverPeer.Send(writer, SendOptions.ReliableOrdered);
+                return true;
             }
         }
 
