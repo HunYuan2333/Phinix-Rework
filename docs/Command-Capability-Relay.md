@@ -76,7 +76,7 @@ Task 完成提供本地拒绝或服务端路由结果。Status 为 Submitted 时
 
 Hello 协商 core.command-relay.v1，服务端返回当前连接的 relay_epoch。客户端随后发送带 epoch、revision 的完整声明快照。完整验证后服务端原子替换索引并 ACK。
 
-相同版本相同内容可重发，相同版本内容冲突拒绝，较旧版本不会覆盖较新状态。失败保留上一份有效快照。客户端重试最新快照，间隔逐步增长至 10 秒，持续失败通过 SyncState 与 SyncError 暴露。声明变化由 500 ms 周期合并发送。
+相同 revision 相同内容可重发，相同 revision 内容冲突拒绝，较旧 revision 不会覆盖较新状态。失败保留上一份有效快照。客户端重试最新快照，间隔逐步增长至 10 秒，持续失败通过 SyncState 与 SyncError 暴露。声明变化由 500 ms 周期合并发送。
 
 IClientCommandRelay.SyncState 提供 Disconnected、Pending、Synced、Failed，SyncError 提供发送、ACK 超时或服务端拒绝原因。初次快照确认前 SendRelay 返回 CapabilitiesNotSynced。断线保留本地声明并终结待决请求为 Unknown，重连获取新 epoch 后全量恢复。会话令牌轮换沿用连接 epoch。
 
@@ -113,7 +113,7 @@ UDP 队列水位在新增 Relay 之前检查，最后一次提交和可靠窗口
 
 服务端既有固定 LiteNetLib 收包保护继续生效，包含分片重组与事件队列水位。客户端现已接入相同的共享收包预算，在原始 UDP 回调进入重组前检查分片与合包，并限制不完整分片组和事件队列。两个固定 DLL 分别校验哈希与反射布局。64 KiB 校验发生在重组后，收包预算负责重组前保护。队列水位仍允许最后一次重组与可靠窗口带来的短时额外占用。UDP/ClientKey 的既有身份与链路安全边界也继续适用。
 
-本次测试覆盖组件和本机网络，游戏内联机、长期洪峰、慢接收者压力和真实新旧发行版交叉部署仍需独立验收。Common 的协议改动存在客户端、服务端两个子模块工作树，发布时需提交共享改动并统一精确 gitlink。
+2026-11-10 用户反馈黑盒全部通过，并授权交叉兼容与压力采用白盒验收。最终通过 21 组、628 条 Pipeline 断言和 50 项服务端阶段检查，包含冻结旧组件矩阵、虚拟持续路由、慢接收者及实际 UDP/TLS 队列边界。两端 Common 精确引用已统一为 `911047cf8a6dd34e661e107e182e9c921b8e9586`。具体证据与测试边界见 [R5 最终核对](roadmaps/Command-Capability-Relay-R5-Final-Verification.md)；虚拟时钟与冻结组件不代表真实旧发行进程部署或实机长时 RSS 测量。
 
 ## 客户端收包保护与示例验证
 
@@ -122,3 +122,18 @@ UDP 队列水位在新增 Relay 之前检查，最后一次提交和可靠窗口
 实际 net35 DLL 的客户端测试已验证有效 1 MiB 可靠载荷、直接及合包异常分片、未完成分片组预算、512 事件水位、32 MiB 载荷水位、排空恢复、轮询故障和再次重连。服务端固定 netstandard DLL 的既有分片与队列测试通过。两端共享预算内容保持一致。
 
 可编译独立插件见 [Command Relay 示例](../Samples/CommandRelay/README.md)。示例编译通过，展示当前 ClientExtensionModule、声明生命周期、单播与广播、异步路由结果和主线程接收。
+
+## 构建配套与诊断
+
+完整客户端、共享契约和插件必须成套对应。协议协商 `core.command-relay.v1` 处理的是网络端点兼容，无法修复 CLR 加载插件时缺失的公共类型。仅升级插件、沿用旧 Host，或混入旧 `Utils.dll`，均可能在网络协商前触发 `ReflectionTypeLoadException`/`TypeLoadException`。程序集版本或 API 主版本相同也不证明包含 Relay 新契约；核对实际加载目录、所选 1.6/1.7 variant 与构建指纹。
+
+| 现象 | 判断与处理 |
+| --- | --- |
+| `Could not load type 'Utils.Framework.RelayResult'` | 实际 Host/Common 缺少契约；完全退出游戏、完整替换配套候选客户端、排除重复安装后重启 |
+| `UnsupportedRelay` | 公共类型已能加载，但当前网络协商未启用 Relay；检查两端支持情况 |
+| `CapabilitiesNotSynced`、Pending/Failed | 检查连接、SyncError 与快照 ACK；声明重试由 Framework 负责 |
+| `NoRecipients`、`NoCapability` | 检查接收方实际声明、精确版本及 Ready 状态；Handler 注册本身不产生声明 |
+| `Example Relay handler fault injection.` | Example 主动选择抛错模式产生的测试异常；应验证后续正常消息仍可处理 |
+| 旧红包 `RedPacketRelay` 的 HTTP 轮询超时 | 属于红包自己的 HTTP 中继，不是 Command Capability Relay 的路由结果 |
+
+可视测试面板由独立 Example 仓库的 `codex/command-relay-test-panel` 分支提供（“示例 → 客户端通信测试”）；服务端无需安装该业务插件。开窗不自动声明接收能力。测试时双方使用同一候选 Host 和 Example，先声明并等到 Synced，再检查发送端路由结果与接收端业务记录。

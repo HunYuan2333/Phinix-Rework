@@ -62,6 +62,39 @@ Available in namespace `PhinixClient` (sources under `Client/ClientExtensionAbst
 - `ResponsiveToolbarLayout`: Computes visible-action and overflow-button geometry; the caller draws controls and creates the FloatMenu.
 - `VirtualListLayout`: Viewport virtualization for high-volume scroll lists.
 
+### 2.4 Command Execution and Client Relay
+
+Use server Commands when the server owns authoritative state, storage, or business validation. Trade creation/offers/confirmation/cancellation and Chat history requests remain server operations. Use explicit Relay when the target client plugin executes the operation. An absent `CommandRoute` defaults to `Server`; unknown ordinary Commands are never automatically relayed.
+
+| Public service | Namespace | Purpose |
+| --- | --- | --- |
+| `IClientCommandCapabilities` | `Utils.Framework` | `Declare(ownerId, pluginId, commandType, version)` returns an independently owned disposable handle |
+| `IClientCommandRelay` | `Utils.Framework` | `SendRelay` returns `Task<RelayResult>`; exposes `SyncState` and `SyncError` |
+
+Register the receiver with `builder.AddClientCommandHandler(this)` during `Compose`. Borrow services and declare capabilities during `Activate`; dispose owned declaration handles during `Shutdown`. Use the module's `ExtensionId` as ownerId. Declarations and Handlers are independent: registering a Handler does not declare a capability, and missing/throwing Handlers do not automatically revoke declarations.
+
+```csharp
+// Activate: retain the handle. Shutdown: dispose it, not the borrowed Host services.
+declaration = host.GetRequiredService<IClientCommandCapabilities>()
+    .Declare(ExtensionId, "author.research", "request", version: 1);
+var relay = host.GetRequiredService<IClientCommandRelay>();
+
+// From an async operation; the receiver declares this exact namespace/type/version.
+RelayResult result = await relay.SendRelay(
+    "author.research", "request", payloadJson,
+    targetPlayerUuid: targetUuid, version: 1);
+```
+
+An omitted/null target broadcasts to matching capabilities and excludes the sending connection. Player unicast reaches each eligible connection of that player once. Declare `request` and `announcement` separately; versions are positive integers matched exactly. PluginId/CommandType use lowercase ASCII letters, digits, dots, underscores and hyphens, start with a letter or digit, and are limited to 128 characters each. `core`, `builtin`, `framework` and their dotted subnamespaces are reserved. PluginId is a routing namespace, not authentication.
+
+Wait for the first snapshot ACK (`Synced`) before sending; otherwise the initial send returns `CapabilitiesNotSynced`. Declaration changes resynchronize, disconnect preserves local handles, and reconnect restores the full snapshot under a new epoch. Duplicate declarations have independent ownership; only releasing the final handle revokes reception. Module rollback/shutdown also revokes its declarations.
+
+Inspect `Status`, `Error`, and every entry in `Deliveries`. `Submitted` means network submission; define a plugin business ACK for actual success. Empty broadcasts return `NoRecipients`; unicast may return `NoCapability`, `TargetOffline`, or `UnsupportedRelay`. Limits produce `RateLimited`/`PayloadTooLarge`. Disconnect, result timeout, or uncertain handoff may yield `Unknown`; Framework never automatically replays business commands. Operations affecting items/assets need business idempotency and deduplication; routing results cannot authorize item delivery.
+
+Dispatch Task continuations and incoming business callbacks through `IClientMainThreadDispatcher.Enqueue` before accessing Verse/Unity objects. Reject late callbacks with a module generation or stopped flag. Use `SendRelay` rather than stamping authentication fields or bypassing it through the ordinary Command transport.
+
+See the [compilable lifecycle sample](../Samples/CommandRelay/README.md) and [Relay API/protocol reference](Command-Capability-Relay.md) for limits, errors, and compatibility. Build against a Host containing these new contracts and install the matching full client, with only one Host enabled. An API major range alone does not prove that additive types exist. `Could not load type 'Utils.Framework.RelayResult'` indicates missing/mismatched loaded Host contracts, not the sample's deliberate Handler fault injection. Do not bundle Host/Common, game, or Harmony DLLs in the plugin.
+
 ---
 
 ## 3. Lifecycle & Dependency Injection (DI)
@@ -223,38 +256,34 @@ If your plugin uses Harmony to patch RimWorld methods:
 ## 5. Build & Packaging
 
 ### 5.1 Environment Prerequisites
-- **.NET 10 SDK** (build runner and toolchain).
-- **.NET Framework 4.7.2** targeting pack (via `Microsoft.NETFramework.ReferenceAssemblies`).
-- **RimWorld 1.6 Managed Assemblies** (`Assembly-CSharp.dll`, `UnityEngine*.dll`) for compile-time references.
+
+This Relay branch uses API 3 contracts and supports RimWorld 1.6/net472 and 1.7/net10.0. Provide the .NET 10 SDK, restored net472 targeting pack, and verified private game/Harmony compile references for both versions. Pin Host/Common source; do not follow moving branches or edit vendored protobuf SDK pins.
 
 ### 5.2 Packaging
-For the exercised local build, preflight, developer-mode ZIP import and restart loop, see [Local Plugin Quickstart](Local-Plugin-Quickstart.md). The Example builds against prepared public host DLLs and supports `--host-assemblies`; `example/package-config.json` configures compatibility/dependencies/external mods. `ManagedPackageTool --validate ZIP` uses the same static ZIP inspector as installation.
 
-Managed ZIP manifests use schema 1; the Store catalog uses schema 3. Use the pack.py belonging to your plugin repository. The following arguments are for the Example repository; the two legacy plugins use --phinix-package and --packager instead.
-
-Package release ZIPs using `pack.py` and `ManagedPackageTool`:
+The current Example `pack.py` builds both variants in isolation and produces one schema 2 variants ZIP. The Store catalog remains schema 3. Older `--host-assemblies`/`--packager` switches do not apply to this entry point. Other plugins own their build entry points; do not assume identical CLIs across arbitrary repositories. See [dual-runtime Host builds](Building-Dual-RimWorld.md).
 
 ```bash
 python3 pack.py \
-  --phinix-root <path-to-Phinix-Rework> \
-  --game-references <path-to-RimWorld-Managed> \
-  --output <path-to-output>/your-package-1.0.0.zip
+  --phinix-root <Phinix-Rework-containing-Relay-contracts> \
+  --game-references <RimWorld-1.6-compile-references> \
+  --game17-references <RimWorld-1.7-compile-references> \
+  --harmony17 <matching-RimWorld-1.7-0Harmony.dll> \
+  --version 0.0.1 \
+  --output <fresh-output-directory>/your-package-relay-local.zip
 ```
 
-#### Package Layout
+`0.0.1` is a local test version, not an official release replacement. If a higher version is installed, uninstall it through plugin management and restart as requested before importing the local candidate. A candidate branch is not an automatic formal release. Validate both variants' reference closure, resources, and ZIP CRC.
+
 ```text
-your-package-1.0.0.zip
-├── manifest.json                  # Metadata, declared assemblies, dependencies, Phinix version range
-├── Assemblies/
-│   └── YourPlugin.dll             # Only the plugin's own compiled assemblies
-└── Resources/
-    └── Localization/              # Package-scoped translation dictionaries
-        ├── en-US.json
-        └── zh-CN.json
+manifest.json
+1.6/Assemblies/YourPlugin.dll
+1.6/Resources/Localization/{en-US,zh-CN}.json
+1.7/Assemblies/YourPlugin.dll
+1.7/Resources/Localization/{en-US,zh-CN}.json
 ```
 
-> [!CAUTION]
-> **Strict Rejection Rule**: Release packages must **never** bundle RimWorld game assemblies (`Assembly-CSharp.dll`, `UnityEngine*.dll`), host assemblies (`Utils.dll`, `ClientExtensionAbstractions.dll`), or Harmony. Bundling foreign DLLs causes runtime type clashes and triggers automated rejection by the index validator.
+Package only owned plugin assemblies/resources. Never bundle game, Host/Common, or Harmony DLLs. Import through developer-mode **Install local plugin ZIP** and restart; extraction alone does not register a managed plugin. See [Local Plugin Quickstart](Local-Plugin-Quickstart.md) for installation and digest checks.
 
 ---
 
