@@ -13,7 +13,7 @@ using ServerTransport;
 using Utils;
 namespace Connections
 {
-    public sealed class TlsNetClient : IClientTransport, IValidatedClientTransport
+    public sealed class TlsNetClient : IClientTransport, IValidatedClientTransport, IClientRelayTransport
     {
         private readonly object gate=new(),lifecycle=new();
         private readonly Dictionary<string,NetCommon.PacketHandlerDelegate> handlers=new();
@@ -188,6 +188,19 @@ namespace Connections
                 var state=current;if(state==null||state.Closed)throw new NotConnectedException();
                 if(state.Bytes>QueueBytes-body.Length||!state.Outgoing.Writer.TryWrite(body))throw new IOException("TLS send queue is full; packet was not admitted.");
                 state.Bytes+=body.Length;
+            }
+        }
+        public bool TrySendRelay(string module,byte[] payload)
+        {
+            if(payload==null||payload.Length>64*1024)return false;
+            byte[] body;
+            try{body=TlsModulePacket.Encode(module,payload,Maximum);}
+            catch(Exception error){diagnostics.Report("TlsRelayPreparationFailed",error);return false;}
+            lock(gate)
+            {
+                var state=current;if(state==null||state.Closed)return false;
+                if(state.Bytes>QueueBytes-body.Length||!state.Outgoing.Writer.TryWrite(body))return false;
+                state.Bytes+=body.Length;return true;
             }
         }
         public void Dispose(){if(dispatching)throw new InvalidOperationException("Dispose must run outside a packet callback.");lock(lifecycle){CloseAndWait();disposed=true;}}

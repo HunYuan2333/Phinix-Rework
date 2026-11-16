@@ -4,7 +4,7 @@ using Utils;
 namespace Connections
 {
     // Select exactly one transport per explicit connection. Configuration/trust errors never select another.
-    public sealed class ConfiguredClientTransport : IClientTransport
+    public sealed class ConfiguredClientTransport : IClientTransport, IClientRelayTransport
 #if PHINIX_RIMWORLD_17
         , IValidatedClientTransport
 #endif
@@ -73,6 +73,8 @@ namespace Connections
         public void Disconnect() { IClientTransport selected;lock(gate)selected=active;selected?.Disconnect(); }
         public void Send(string module,byte[] payload)
         { IClientTransport selected;lock(gate)selected=active;if(selected==null)throw new NotConnectedException();selected.Send(module,payload); }
+        public bool TrySendRelay(string module,byte[] payload)
+        { IClientTransport selected;lock(gate)selected=active;return selected is IClientRelayTransport relay && relay.TrySendRelay(module,payload); }
         private void Release()
         {
             try {ReleaseCore();}

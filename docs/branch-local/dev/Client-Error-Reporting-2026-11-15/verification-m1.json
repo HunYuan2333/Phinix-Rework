@@ -1,0 +1,582 @@
+{
+  "date": "2026-11-16",
+  "status": "M1 local integration and automated verification complete; E5 real game/network/release acceptance remains",
+  "client_checkpoint": "e00872e57aeb25c7e72d9071920a1c6452734e28",
+  "relay_client": "311fdd64479a36d5244aa656cc9ac765c53cd6d6",
+  "client_merge_binding": "The merge commit containing this source/evidence, with the two parent commits above.",
+  "common_merge": "ff0593e81ef44250669d0ff81df1389ccc056d87",
+  "common_parents": [
+    "a269cdf4eecba6f8c43ad246661dd4c417fd711e",
+    "911047cf8a6dd34e661e107e182e9c921b8e9586"
+  ],
+  "server": {
+    "server_head": "5744a0e1cfad3d0fc745baf8b3ed2a7014e328ef",
+    "source": "Immutable server HEAD export; existing dirty server work excluded and untouched. Shared overlay is current merged client Common source."
+  },
+  "example": "ef3b20cf3c1a664c7393c62ed94761fe01077d36",
+  "sources": {
+    "Client/Common/Connections.Client/ConfiguredClientTransport.cs": "4f44efe26bdd35090b8a47fba1fbb1ca729aacb8ca85e138511e4a7f6f8841bf",
+    "Client/Common/Connections.Client/IClientTransport.cs": "fcd2bbb4d35176c0d26d8fdee76aabfad3ecb56377cf7e531416b9bea31f571a",
+    "Client/Common/Connections.Client/NetClient.cs": "8b5934ea78d8f9c33735eeb4abfe892c248317b8a3e9209aee50be4550af20a8",
+    "Client/Common/Connections.Client/PinnedClientUdpReceiveGuard.cs": "a62f0d0d66e6466bcd2f5c0d960d543735383cf98436feca6d0ceffe956844ee",
+    "Client/Common/Connections.Client/TlsNetClient.cs": "e65ac5b2d011076d802396b1b56a02b34273ba18c21a4a35d5651c5f88b90b75",
+    "Client/Source/Framework/PhinixFrameworkClient.cs": "1c67f40d4fe178e46d874889b28f49bb7f429a31efec40fbea269531425b92b5",
+    "Samples/CommandRelay/CommandRelay.Sample.csproj": "504037e6340a9fc15e8d234b86959bb1c89d15606add92ed8956a6ce8e0601a1",
+    "Samples/CommandRelay/README.md": "60ea999598b0aef75d17c46dcf8217f706734a6d7bdeb5b0038fef237fe21444",
+    "Samples/CommandRelay/ResearchRelayModule.cs": "5f6371cdff62fa9efa03603c8c7321e20b08852a96052cd683319e8c8a55cf9e",
+    "Tests/ChatRegressionTests/Program.cs": "1b3ce44108948a745590158b38edef2b3893e42732b090de959c161e08633b3d",
+    "Tests/ClientTransportLifetimeTests/Program.cs": "b5d3b1b787978d88d598f5b0a1f74ca1c5fc95ea2dd1047d2399e5254741ac66",
+    "Tests/ClientTransportLifetimeTests/ReceiveBudgetTests.cs": "068cd551f30aacfd76eacd776d6ada476000beebbe7579dc8ecd40b93bd77a8d",
+    "Tests/Phase35ClientRuntimeTests/Phase35ClientRuntimeTests.csproj": "b77e5398a0bc498621037d985b1df57323eb1984a83cdc962c19955194a24b13",
+    "Tests/RelayIntegrationRuntimeTests/Program.cs": "c34efc20d2352f7dc857428b2d2f6215c9dfb7f28bca5ad27f79414d6e7afefe",
+    "docs/Command-Capability-Relay.md": "a74dc5e8cdea6f2b9d3c9733b13a44dd3f278491589f55f0a23ba564fbe5d23f",
+    "docs/Plugin-Development.md": "0c69003fe5925fce9b48689521f91c09e2aaa1f2667a03d321b3f0907e9c557a",
+    "docs/branch-local/dev/Client-Error-Reporting-2026-11-15/RELAY-INTEGRATION.md": "a54bc58d4a58bdab5b0ace5df17aa40f2e71bdd71374aa7d58d312f379cad8df",
+    "docs/branch-local/dev/Client-Error-Reporting-Roadmap-2026-11-15.md": "a03d1120618e7911c344f1350771ef9d2a6cffc8e436587d5a2b1c0b1640f9f8",
+    "docs/roadmaps/Command-Capability-Relay-2026-11-09.md": "29a59130f932b64044b4fe30b1a8e8575aaf949501aeda6a7d2563c2a674b9e5",
+    "docs/roadmaps/Command-Capability-Relay-R0-R4-Closeout.md": "20476b97f14b50429c2243065df921e35ef66302f81ca6c353d3424a020af841",
+    "docs/roadmaps/Command-Capability-Relay-R5-Delivery.json": "2ca4a344c9f80929d015a6c774458c4777e4a6afcf2f206ca336d2cc3c165179",
+    "docs/roadmaps/Command-Capability-Relay-R5-Final-Verification.md": "b708f830bb4e17277d72e7457e4ff5c3fd8c01fbe6cfb31a6551fbfa82656800",
+    "docs/roadmaps/Command-Capability-Relay-R5-Tests.md": "0946f0cbe5f29b3ae530153c0693d54dedb796014ba3188e7cca2906a2879df0",
+    "docs/roadmaps/Command-Capability-Relay-R5-WhiteBox-Report.md": "0b2b5e9d8fd1712f200c6223ef4ffc2e7f4c2c861ec9b4f72155bab5b06cbcfc",
+    "docs/roadmaps/Command-Capability-Relay-Source-Baseline.json": "b01ddefebbfe03bc309f8223097567e206c088bd1ee53c38c44ee8b4c8f8966b",
+    "docs/插件开发指南.md": "23b9424a945645d40b8dfa80cbea5a92c63894212a6347f414753f42653da83c",
+    "tools/quality/run-client-component-probes.py": "6942e36498f02444d2004d3fef02288360255238635b987f5b38fb3e96fcf847",
+    "tools/quality/run-relay-integration-tests.py": "d18d3df7c8c40ed9df9a96eabcfc71e309b45b0655888b82c0f4ddea4791a3ac",
+    "docs/branch-local/dev/Client-Error-Reporting-2026-11-15/M1-CLOSEOUT.md": "1d4f8e34a115c3ccff50e825ffa3df622d44978b315fdef1522df5d7c3e444b8",
+    "docs/branch-local/dev/Client-Error-Reporting-2026-11-15/M1-PREMERGE.json": "1f4662dfe01d2c735964cbd6d467ae318b81b3bbb244980c212565dae1a21f53"
+  },
+  "common_sources": {
+    "Common/Connections/PinnedUdpReceiveBudget.cs": "6a8409bde68b3fa0d8961a55addaced6fa76f51ff11608854d15ca451dc18a2a",
+    "Common/Utils/Framework/ClientCommandRelay.cs": "9c2cab0253390060eb87d812f86dc2eee58eaf1c1d0fc41700bd542d40850b8e",
+    "Common/Utils/Framework/CommandRelay.cs": "203aef6ccfbfd1a526e6fa821e88e4f84ba3cffeda9fa8df52898dd7ca843cd6",
+    "Common/Utils/Framework/FrameworkPacket.cs": "8d7c7ca50d53e9ba07434c68e07a914e645a080c487b67da38fea200e28d9014",
+    "Common/Utils/Framework/FrameworkTypes.cs": "b5793924f1bcb13b163df97b5c728cf5e007f49e47b3a7f5ec47ec399ff368ac",
+    "Common/Utils/Framework/PhinixExtensionRegistry.cs": "10ac4cee7701e08b477e6eb38685627879a53d18dfbafdb761d873ea6218dc17"
+  },
+  "results": {
+    "build16": [
+      {
+        "phase": "restore",
+        "command": [
+          "dotnet",
+          "restore",
+          "PhinixClient.sln",
+          "-p:Configuration=Release 1.6",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:MSBuildEnableWorkloadResolver=false",
+          "-m:1",
+          "-p:RestoreLockedMode=true"
+        ],
+        "exit": 0
+      },
+      {
+        "phase": "build",
+        "command": [
+          "dotnet",
+          "build",
+          "PhinixClient.sln",
+          "--no-restore",
+          "-p:Configuration=Release 1.6",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:MSBuildEnableWorkloadResolver=false",
+          "-m:1"
+        ],
+        "exit": 0
+      },
+      {
+        "phase": "build-Phinix-Legacy-RedPacket",
+        "command": [
+          "dotnet",
+          "build",
+          "/tmp/phinix-m1-16/Phinix-Legacy-RedPacket/Client/LegacyRedPacketExtension.Client.csproj",
+          "-c",
+          "Release",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:PhinixRoot=/tmp/phinix-m1-16/Phinix-Rework",
+          "-p:PhinixPackage=/tmp/phinix-m1-16/Phinix-Rework/Output/phinix-rework",
+          "-p:GameReferences=/home/hunyuan2333/Phinix/Phinix-Rework/GameDlls",
+          "-p:HarmonyReferences=/home/hunyuan2333/Phinix/Phinix-Rework/.nuget/Lib.Harmony.2.3.6/lib/net472",
+          "-m:1"
+        ],
+        "exit": 0
+      },
+      {
+        "phase": "build-Phinix-Legacy-TalentTrade",
+        "command": [
+          "dotnet",
+          "build",
+          "/tmp/phinix-m1-16/Phinix-Legacy-TalentTrade/Client/LegacyTalentTradeExtension.Client.csproj",
+          "-c",
+          "Release",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:PhinixRoot=/tmp/phinix-m1-16/Phinix-Rework",
+          "-p:PhinixPackage=/tmp/phinix-m1-16/Phinix-Rework/Output/phinix-rework",
+          "-p:GameReferences=/home/hunyuan2333/Phinix/Phinix-Rework/GameDlls",
+          "-p:HarmonyReferences=/home/hunyuan2333/Phinix/Phinix-Rework/.nuget/Lib.Harmony.2.3.6/lib/net472",
+          "-m:1"
+        ],
+        "exit": 0
+      },
+      {
+        "phase": "build-Phinix-Example-Plugin",
+        "command": [
+          "dotnet",
+          "build",
+          "/tmp/phinix-m1-16/Phinix-Example-Plugin/example/Example.csproj",
+          "-c",
+          "Release",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:PhinixRoot=/tmp/phinix-m1-16/Phinix-Rework",
+          "-p:PhinixPackage=/tmp/phinix-m1-16/Phinix-Rework/Output/phinix-rework",
+          "-p:GameReferences=/home/hunyuan2333/Phinix/Phinix-Rework/GameDlls",
+          "-p:HarmonyReferences=/home/hunyuan2333/Phinix/Phinix-Rework/.nuget/Lib.Harmony.2.3.6/lib/net472",
+          "-m:1"
+        ],
+        "exit": 0
+      }
+    ],
+    "build17": {
+      "exit": 0,
+      "source_projects": 29,
+      "scope": "Complete source dependency graph in generated net10 projects; original targets/packaging are not executed."
+    },
+    "relay": [
+      {
+        "suite": "sample16",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "sample17",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "example",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "example",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "suite": "integration",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "integration",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "suite": "udp-lifetime",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "udp-lifetime",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "errors": [
+      {
+        "framework": "net10.0",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net10.0",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "boundaries": [
+      {
+        "framework": "net10.0",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net10.0",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "business": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "presentation": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "managed": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "store": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "builtins": [
+      {
+        "suite": "LegacyTradeRuntimeTests",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "LegacyTradeRuntimeTests",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "suite": "ChatRegressionTests",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "ChatRegressionTests",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "suite": "TradeOfferWireTests",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "TradeOfferWireTests",
+        "phase": "test",
+        "exit": 0
+      }
+    ]
+  },
+  "extra_checks": {
+    "server_full_build": 0,
+    "server_phase35": 628,
+    "client_phase35": 97,
+    "final16_build": 0,
+    "final17_build": 0
+  },
+  "checks": {
+    "relay_fault_and_admission": 29,
+    "udp_lifecycle": 18,
+    "example_lifecycle": 140,
+    "errors_each_runtime": 92,
+    "boundaries_net10": 82,
+    "boundaries_net472": 76,
+    "sqlite_business": 89,
+    "presentation": 535,
+    "managed": 3436,
+    "complete_store": 1042,
+    "legacy": 89,
+    "chat_scenarios": 20,
+    "wire": 28
+  },
+  "artifacts": {
+    "net10/PhinixClient": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/PhinixClient.dll",
+      "sha256": "59a349d487b7e51b2203292e42b736de4ec75fc27dd9d3d31a80b03f35aefb03"
+    },
+    "net472/PhinixClient": {
+      "path": "/tmp/phinix-m1-16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll",
+      "sha256": "c331b15e3cb13a3fff0a53e813d9e630bfc90453d5dd969da2889884d41e6059"
+    },
+    "net10/Utils": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/Utils.dll",
+      "sha256": "19efc5a35b527ddb0aff4406627767e99e332c8e579db7746ff9d364ed82e7c7"
+    },
+    "net472/Utils": {
+      "path": "/tmp/phinix-m1-16/Phinix-Rework/Client/Source/bin/Release/Utils.dll",
+      "sha256": "14803f743ca3090b4005ca8e5f52d6586999f21618487a4d1c08b628b3b5ed60"
+    },
+    "net10/Connections.Client": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/Connections.Client.dll",
+      "sha256": "7e396aa3c670c5ddef9abbb967d4e9a40e4123c4e5c0896bed21d920e27d5c97"
+    },
+    "net472/Connections.Client": {
+      "path": "/tmp/phinix-m1-16/Phinix-Rework/Client/Source/bin/Release/Connections.Client.dll",
+      "sha256": "e600b2eeb51665c60619c04dc29671ec3f1db71474ff396e08bae7157daa75b9"
+    },
+    "net10/Connections": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/Connections.dll",
+      "sha256": "ca098dca78ccd93b800ba88c66027f590e64aba6f04ad036ea62785476fc983b"
+    },
+    "net472/Connections": {
+      "path": "/tmp/phinix-m1-16/Phinix-Rework/Client/Source/bin/Release/Connections.dll",
+      "sha256": "8479344faeca906c9f37aa242751b40ea4204f519e2bc04b4653913ac1353a37"
+    },
+    "net10/ClientExtensionAbstractions": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/ClientExtensionAbstractions.dll",
+      "sha256": "074b9d9175ab900cb5a6bf4d6c207dfd2fb4f152ff3c3712f2b655c50b97815a"
+    },
+    "net472/ClientExtensionAbstractions": {
+      "path": "/tmp/phinix-m1-16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll",
+      "sha256": "9c063f76ae9c562474628e6597416488e8cb0fd1d0a1b7f28a0c62fe7bc3ee65"
+    },
+    "net10/Phinix.Example.Basic": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/Phinix.Example.Basic.dll",
+      "sha256": "bc97c06ccd532ae915cf697c85faf7c708a496f9d22479f2092b20b0cc0be1ce"
+    },
+    "net10/LegacyRedPacketExtension.Client": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/LegacyRedPacketExtension.Client.dll",
+      "sha256": "a3b929e3b6b26e565ea2153bcc9ed3dc5d2c03e31c485a0964a2c7d9fe2e8caa"
+    },
+    "net10/LegacyTalentTradeExtension.Client": {
+      "path": "/tmp/phinix-m1-17/bin/Release/net10.0/LegacyTalentTradeExtension.Client.dll",
+      "sha256": "9c9bf8bced2302af70c731e25276773f203bad1c20485295ecafd9d6699ef72f"
+    },
+    "sample/sample16/obj/Release/net472/sample16.dll": {
+      "path": "/tmp/phinix-m1-verified-relay/sample16/obj/Release/net472/sample16.dll",
+      "sha256": "1566ad92a64504cfb311ae4397915bb1562e7fd5723fb7eb81af37cf500f23c2"
+    },
+    "sample/sample16/bin/Release/net472/sample16.dll": {
+      "path": "/tmp/phinix-m1-verified-relay/sample16/bin/Release/net472/sample16.dll",
+      "sha256": "1566ad92a64504cfb311ae4397915bb1562e7fd5723fb7eb81af37cf500f23c2"
+    },
+    "sample/sample17/obj/Release/net10.0/sample17.dll": {
+      "path": "/tmp/phinix-m1-verified-relay/sample17/obj/Release/net10.0/sample17.dll",
+      "sha256": "de8767ad9857803e4ee9ecd32dff02213fa9cf8c04c3a7290593f57e83b392a2"
+    },
+    "sample/sample17/obj/Release/net10.0/ref/sample17.dll": {
+      "path": "/tmp/phinix-m1-verified-relay/sample17/obj/Release/net10.0/ref/sample17.dll",
+      "sha256": "d8fa5346bf6ed0267ec24023f419c935840d681150471ae2d1852e46d8a9667d"
+    },
+    "sample/sample17/obj/Release/net10.0/refint/sample17.dll": {
+      "path": "/tmp/phinix-m1-verified-relay/sample17/obj/Release/net10.0/refint/sample17.dll",
+      "sha256": "d8fa5346bf6ed0267ec24023f419c935840d681150471ae2d1852e46d8a9667d"
+    },
+    "sample/sample17/bin/Release/net10.0/sample17.dll": {
+      "path": "/tmp/phinix-m1-verified-relay/sample17/bin/Release/net10.0/sample17.dll",
+      "sha256": "de8767ad9857803e4ee9ecd32dff02213fa9cf8c04c3a7290593f57e83b392a2"
+    },
+    "server/ServerRuntime": {
+      "path": "/tmp/phinix-m1-server/source/Tests/Phase35ServerRuntimeTests/bin/Release/net10.0/ServerRuntime.dll",
+      "sha256": "b786a9ef1eb9fbe27b2996f1b65e784b490a80d8ac977af104331801e253cf1b"
+    },
+    "server/Connections.Server": {
+      "path": "/tmp/phinix-m1-server/source/Tests/Phase35ServerRuntimeTests/bin/Release/net10.0/Connections.Server.dll",
+      "sha256": "2675eebcaca4c22e9b3dfd74ff180d6eb6054f16d650f3241c1b6a4b5866bae5"
+    },
+    "server/Utils": {
+      "path": "/tmp/phinix-m1-server/source/Tests/Phase35ServerRuntimeTests/bin/Release/net10.0/Utils.dll",
+      "sha256": "6227560bd07fd2171dafe84914eec7c12f0288b05bd5c967469b4d154d8ce9d7"
+    }
+  },
+  "logs": {
+    "server_build": {
+      "path": "/tmp/phinix-m1-server/build.log",
+      "sha256": "1f81b1c2807976812b955205c5e10e249a6370e8e5e27081dd24bcdced1d2534"
+    },
+    "server_full_build": {
+      "path": "/tmp/phinix-m1-server/full-build.log",
+      "sha256": "751d252e6c1816d54909fd928b5eb48ad5f5381d5d6bf45be197fa80434e420f"
+    },
+    "server_tests": {
+      "path": "/tmp/phinix-m1-server/test.log",
+      "sha256": "ea702a3fafbde4a1c7d69d688ce89ad9a50853a1347e95b5128d9521e1a959ad"
+    },
+    "phase35": {
+      "path": "/tmp/phinix-m1-phase35-v2/test.log",
+      "sha256": "6f17db66e05fb15df0a340fe2d69df50160408aa30f108491c14c7dc2502fa74"
+    },
+    "final16": {
+      "path": "/tmp/m1-final16.log",
+      "sha256": "e12c671571cfb9297f114eb08554c15d613779c0f3419c7a94b2c91a1b0f07d0"
+    },
+    "final17": {
+      "path": "/tmp/m1-final17.log",
+      "sha256": "f24f21ab55beb83a7a32c46d82699f296489e31a2afd1ca48d8ca9964d3d91fc"
+    },
+    "build16/build.log": {
+      "path": "/tmp/phinix-m1-16/build.log",
+      "sha256": "cf70b8e167f48571c2753c3033a337fd108f8bd279bcda4f69ec427a751a6b2b"
+    },
+    "build17/build.log": {
+      "path": "/tmp/phinix-m1-17/build.log",
+      "sha256": "8f7d4bc3eb7aad01d6dc55804b381364222327dee89d93b9c1fa09fd006331c2"
+    },
+    "relay/udp-lifetime/test.log": {
+      "path": "/tmp/phinix-m1-verified-relay/udp-lifetime/test.log",
+      "sha256": "6e78a1444e4213d4dd664d84bc8a4f66ecfea025cdb420ae5762621020908c45"
+    },
+    "relay/udp-lifetime/build.log": {
+      "path": "/tmp/phinix-m1-verified-relay/udp-lifetime/build.log",
+      "sha256": "1e2f84d649d52a635f668bbad67ada783da68b70c4571c0ae48761ef6bb832bd"
+    },
+    "relay/integration/test.log": {
+      "path": "/tmp/phinix-m1-verified-relay/integration/test.log",
+      "sha256": "56f21e62470d14f23c35bc56d01500a78f44235abce00e3e0a274124b73c86d3"
+    },
+    "relay/integration/build.log": {
+      "path": "/tmp/phinix-m1-verified-relay/integration/build.log",
+      "sha256": "d33371bcd88471ccd335800ecb7d7899047fbb533fcc1db6030dc34df8bda62f"
+    },
+    "relay/example/test.log": {
+      "path": "/tmp/phinix-m1-verified-relay/example/test.log",
+      "sha256": "06b40f2289be516f243caab675612329d80cb0976223d48fca093bba5cc16e47"
+    },
+    "relay/example/build.log": {
+      "path": "/tmp/phinix-m1-verified-relay/example/build.log",
+      "sha256": "9102604d177468063f9eaf3704846a336da011bfdf13a4db4c7253e89d6d4c47"
+    },
+    "relay/sample17/build.log": {
+      "path": "/tmp/phinix-m1-verified-relay/sample17/build.log",
+      "sha256": "12ab239dd762f34679d0384c82abedfd1efc82024ec729b86162aac187d77ae1"
+    },
+    "relay/sample16/build.log": {
+      "path": "/tmp/phinix-m1-verified-relay/sample16/build.log",
+      "sha256": "537661cefb7e0eeef78c696ae5d9e6302e85ceb5c1d097b90470b1454ee8b79d"
+    },
+    "errors/net472/test.log": {
+      "path": "/tmp/phinix-m1-errors/net472/test.log",
+      "sha256": "21e53dd62f179f268c37ce2d0c26f97a336db9cae0c68f68961b3a4d295d4ee8"
+    },
+    "errors/net472/build.log": {
+      "path": "/tmp/phinix-m1-errors/net472/build.log",
+      "sha256": "bb36c207570637d8e1b33e672c4be596b0466ff30b627a47b95b8783d3209714"
+    },
+    "errors/net10.0/test.log": {
+      "path": "/tmp/phinix-m1-errors/net10.0/test.log",
+      "sha256": "21e53dd62f179f268c37ce2d0c26f97a336db9cae0c68f68961b3a4d295d4ee8"
+    },
+    "errors/net10.0/build.log": {
+      "path": "/tmp/phinix-m1-errors/net10.0/build.log",
+      "sha256": "384ee5fda901a9d91a914f4aec6297396635f01b5c583751692477d7713945a0"
+    },
+    "boundaries/net472/test.log": {
+      "path": "/tmp/phinix-m1-boundaries/net472/test.log",
+      "sha256": "c2572c22c186ffb7cd10d62ca46022e1641deb7555b9eba26cd84cc4efd9fdfa"
+    },
+    "boundaries/net472/build.log": {
+      "path": "/tmp/phinix-m1-boundaries/net472/build.log",
+      "sha256": "ba0cf9dfa892b69452e1b759621530e5fc2216ce85e7b4b510056c19f4c15c3c"
+    },
+    "boundaries/net10.0/test.log": {
+      "path": "/tmp/phinix-m1-boundaries/net10.0/test.log",
+      "sha256": "02a27de979eb8c4f04785aab72aae2b1f69a48a9d0643df2627089b704039211"
+    },
+    "boundaries/net10.0/build.log": {
+      "path": "/tmp/phinix-m1-boundaries/net10.0/build.log",
+      "sha256": "aa4eb74c59cd3c0d42593ac786fde899060e3ccc6de434aea80c6e2d4e11c8bb"
+    },
+    "business/test.log": {
+      "path": "/tmp/phinix-m1-business/test.log",
+      "sha256": "a7fe1ee8fd50fa621b775b53999b1e343865e4fefa9796e7ac190ed1d8821b7e"
+    },
+    "business/build.log": {
+      "path": "/tmp/phinix-m1-business/build.log",
+      "sha256": "664bc4ee33e62cf00ae6f8f0f81b532652b3ed747c29572c19c5b0b2bf7a6479"
+    },
+    "presentation/test.log": {
+      "path": "/tmp/phinix-m1-presentation/test.log",
+      "sha256": "d5c256b7a9ca899f3d1bdd26959371c6b081438839438ec708c042398d7a9b1a"
+    },
+    "presentation/build.log": {
+      "path": "/tmp/phinix-m1-presentation/build.log",
+      "sha256": "57efa118f2b40a565018fbe0e1b5686f99fd73a3057c1271b3b340be2b1b6079"
+    },
+    "managed/test.log": {
+      "path": "/tmp/phinix-m1-managed/test.log",
+      "sha256": "2c947e58550181f54d115ec9b4475c86dc5e1c6b0920a191d7f0d65bf179a320"
+    },
+    "managed/build.log": {
+      "path": "/tmp/phinix-m1-managed/build.log",
+      "sha256": "a0a548fa7d4f9ec84c36bdd710525727f0f21585ee5f04af865d5e1d9e1b54ed"
+    },
+    "store/test.log": {
+      "path": "/tmp/phinix-m1-store/test.log",
+      "sha256": "d28133f55bcce29b61a172dde5881dda4505fed3bc5fa0298ea6beb7b8f43917"
+    },
+    "store/build.log": {
+      "path": "/tmp/phinix-m1-store/build.log",
+      "sha256": "3e427092ceca90036e6dddcecb7577faa5e7496657c015869af0fa608e474a2c"
+    },
+    "builtins/TradeOfferWireTests/test.log": {
+      "path": "/tmp/phinix-m1-builtins/TradeOfferWireTests/test.log",
+      "sha256": "68ddb230cdde12f833bd986cb1fcb639ef6df69d8fb68fba951c94cc7c93bfa8"
+    },
+    "builtins/TradeOfferWireTests/build.log": {
+      "path": "/tmp/phinix-m1-builtins/TradeOfferWireTests/build.log",
+      "sha256": "3209042a21c6f28033e7eff4ae6d3b6a4756a8345ecb1987cd125a696d329e2b"
+    },
+    "builtins/ChatRegressionTests/test.log": {
+      "path": "/tmp/phinix-m1-builtins/ChatRegressionTests/test.log",
+      "sha256": "5403742f0b8764ca24c04239d18f5ee6fb21d431fbb0047ed0996fb896551b05"
+    },
+    "builtins/ChatRegressionTests/build.log": {
+      "path": "/tmp/phinix-m1-builtins/ChatRegressionTests/build.log",
+      "sha256": "c95003d00027407f2db0de12989748bc8d8bf23ed3737596f316aad2727e34ec"
+    },
+    "builtins/LegacyTradeRuntimeTests/test.log": {
+      "path": "/tmp/phinix-m1-builtins/LegacyTradeRuntimeTests/test.log",
+      "sha256": "55f26444131d2f5e84ef4c8e0dec4b87bae8ac5d81c2cf946de4f01b70563c29"
+    },
+    "builtins/LegacyTradeRuntimeTests/build.log": {
+      "path": "/tmp/phinix-m1-builtins/LegacyTradeRuntimeTests/build.log",
+      "sha256": "0c6ceafe810a2cc767b5aa54bafbcc47a7c8a638b0a03226269f7d2b79223303"
+    }
+  },
+  "limitations": [
+    "Local refs only; no remote writes, push, main/dev update or deployment.",
+    "Frozen server HEAD export excludes existing unrelated dirty server files; its worktree/pin was not changed.",
+    "Socket tests create only local test endpoints. TLS admission uses a synthetic lifetime and actual production Channel; it is not actual TLS network acceptance.",
+    "E5 real game popup/clipboard/final RimWorld propagation and final release layout still pending.",
+    "Existing Mono Unity.Burst metadata and compiler obsolescence warnings remain; no game DLL substitution or vendored protobuf edit.",
+    "Temporary logs may disappear; hashes and outcomes persist here."
+  ]
+}

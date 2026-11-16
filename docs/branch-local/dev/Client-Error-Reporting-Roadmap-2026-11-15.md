@@ -1,6 +1,6 @@
 # Rework Client 统一错误窗口与堆栈保留 Roadmap
 
-日期：2026-11-15。状态：E0 已完成；E1/E2/E3 代码及自动验证已完成，真实游戏交互和发行验收待 E5；E4 代码迁移、逐位置审阅及自动验证已完成；M1、E5 待实施。详见 [E0/E1 实施记录](Client-Error-Reporting-2026-11-15/IMPLEMENTATION.md)与 [E2 实施记录](Client-Error-Reporting-2026-11-15/E2-IMPLEMENTATION.md)。
+日期：2026-11-15。状态：E0 已完成；E1/E2/E3 代码及自动验证已完成，真实游戏交互和发行验收待 E5；E4 代码迁移、逐位置审阅及自动验证已完成；M1 本地整合与自动验证已完成；E5 待实施。详见 [E0/E1 实施记录](Client-Error-Reporting-2026-11-15/IMPLEMENTATION.md)与 [E2 实施记录](Client-Error-Reporting-2026-11-15/E2-IMPLEMENTATION.md)。
 
 依据：[源码评估报告](../audits/Client-Error-Observability-2026-11-15/REPORT.md)及其错误位置清单。当前用户决定优先于报告中较宽泛的首版恢复系统建议。
 
@@ -133,7 +133,7 @@ Inventory 切片同步更新 PresentationRuntimeTests 的库存替身，补齐�
 
 ### M1：整合 Relay，再进行联合验收
 
-依赖：E3/E4 错误迁移完成。状态：前置代码迁移门槛已满足，待执行整合；2026-11-16 已完成本地分支重叠评估。
+依赖：E3/E4 错误迁移完成。状态：本地整合与合并后自动验证已完成。见 [M1 完成记录](Client-Error-Reporting-2026-11-15/M1-CLOSEOUT.md)。Common 精确 pin 为 `ff0593e81ef44250669d0ff81df1389ccc056d87`，尚未推送或发布。
 
 用户授权错误处理完成后合并 `codex/command-capability-relay`。实际合并起点设为 **E4 后、E5 前**；先整合 Common 并产生新精确 pin，再解决 Host、传输、测试和示例冲突。Relay 新增的错误处理必须纳入统一出口，保留双方发送结果、线程寿命和接收/积压预算。
 
@@ -194,3 +194,5 @@ E0–E5 加 M1 联合整合门槛构成首版。E1 是第一个可体验里程�
 | 2026-11-16 | E4 Inventory/Trade 核心路径及完整呈现回归 | 敏感插件出口保留原接口；32 个历史位置有明确处置；SQLite 89 项、呈现 535 项、错误服务双运行时各 66 项、边界 82/76 项、managed 3435 项通过。E4 实施中，M1 尚未开始 |
 
 | 2026-11-16 | E4 五个内置插件代码迁移及自动验证完成 | 1108 个历史位置零待审；两版构建通过，错误服务各 92 项，SQLite 89、呈现 535、managed 3436、完整商店 1042、Legacy 89、Chat 19 场景、wire 28 项通过。见 E4-CLOSEOUT.md；M1 门槛已满足，实际合并与 E5 尚未执行 |
+
+| 2026-11-16 | M1 Relay 本地整合和联合自动验证完成 | Common 合并并固定 ff0593e；两版消费者及 Sample 构建、Example 140、Relay 故障/准入 29、实际 UDP、服务端冻结副本 628、E4 业务/错误回归通过。见 M1-CLOSEOUT.md；E5 实机与发行待验收 |

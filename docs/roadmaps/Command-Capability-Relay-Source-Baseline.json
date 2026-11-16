@@ -1,0 +1,103 @@
+{
+  "scope": "R0-R4 key source baseline, working-tree contents",
+  "repositories": {
+    "client": {
+      "head": "6fe404e1d11f91b2fb7eea7433ad8385c9d3fced",
+      "branch": "codex/command-capability-relay",
+      "statusEntryCount": 275,
+      "statusSha256": "31bf5527794f9b08794578beb9cc97bb32f74e9819b3b1ead682e49a943c9bcb"
+    },
+    "server": {
+      "head": "360e716c78b1f39143291b2753f6300a2740e04a",
+      "branch": "codex/command-capability-relay",
+      "statusEntryCount": 24,
+      "statusSha256": "14e2e510538031e52e9f42557a9c5c29f7a376b9b56fc57ac29516fbb2840d4b"
+    },
+    "clientCommon": {
+      "head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+      "branch": "",
+      "statusEntryCount": 6,
+      "statusSha256": "4d8a0722e78ab78b53a93b79f0b7bfd9dc787674b45ed4434211d23b50f5705a"
+    },
+    "serverCommon": {
+      "head": "67f243d9edced77dc3fe669f8a435b1f14b59199",
+      "branch": "",
+      "statusEntryCount": 6,
+      "statusSha256": "4d8a0722e78ab78b53a93b79f0b7bfd9dc787674b45ed4434211d23b50f5705a"
+    }
+  },
+  "files": {
+    "client": {
+      "Client/Source/Framework/PhinixFrameworkClient.cs": "45519f0d9a87732940707fe218165decf3077d98c2370f7c71327861e57df399",
+      "Client/Common/Connections.Client/NetClient.cs": "335d348f29695ccaee6c86273f2df0764819ff330b03b355b904d6de8ef1ba24",
+      "Client/Common/Connections.Client/PinnedClientUdpReceiveGuard.cs": "a62f0d0d66e6466bcd2f5c0d960d543735383cf98436feca6d0ceffe956844ee",
+      "Tests/Phase35ClientRuntimeTests/Program.cs": "5e10db7b6bc771cba5a48cda70e8d132eb0bb167f0000035b8697fd4107ac87e",
+      "Tests/Phase35ClientRuntimeTests/ClientExtensionRuntimeTests.cs": "60ac2380f0cfcd68a8a14f13cc2cbed8e83104481a39826535f2d1455bf6bbaa",
+      "Tests/ClientTransportLifetimeTests/ReceiveBudgetTests.cs": "068cd551f30aacfd76eacd776d6ada476000beebbe7579dc8ecd40b93bd77a8d",
+      "Tests/ChatRegressionTests/Program.cs": "8bbe85fbc66178d192cee070f466fb8918489c3d96695edf26beaf2b7abbecdc",
+      "Samples/CommandRelay/ResearchRelayModule.cs": "5f6371cdff62fa9efa03603c8c7321e20b08852a96052cd683319e8c8a55cf9e",
+      "Samples/CommandRelay/CommandRelay.Sample.csproj": "504037e6340a9fc15e8d234b86959bb1c89d15606add92ed8956a6ce8e0601a1"
+    },
+    "server": {
+      "Server/Framework/PhinixFrameworkServer.cs": "bad8761681318936f026a5d58a24af28643b91609e370289ccc399f4384c6a1c",
+      "Server/ServerRuntime/ServerPipelineRunner.cs": "92e61610667bb9717b6f2b849a88697e9d8f0ce7c08c32d3a587d6ad6796b517",
+      "Server/ServerRuntime/CommandCapabilityRouter.cs": "e6e1fd67828067e898dbc224f31edd81b05d19b5728aefd53e3628799e3702a1",
+      "Server/ServerRuntime/CommandProcessingResult.cs": "fd00f9ef9460ed076cd2ab55a977571eb790e9dbbc0799f11f183844cdbaf283",
+      "Server/Connections.Server/NetServer.cs": "1268da9e33066b6ba8646b8bfd933d373e63833658d82075e5058b060e4ceaa6",
+      "Server/Connections.Server/TlsNetServer.cs": "7a6c5687c1ccfd0282b2074f4f71f884fc777134906e71a228d6ad0b07ed5475",
+      "Server/Connections.Server/PinnedUdpPeerSynchronization.cs": "b2b4e4939fb9969fbb15d44e24bf02706856d10a8d5e3bc89179914e9fcf5a8f",
+      "Tests/Phase35ServerRuntimeTests/RelayTests.cs": "0685d23cf74b81a113b9fb06daa75eb61284a9ed6c47722debdd7026d930047c",
+      "Tests/Phase35ServerRuntimeTests/RelayWhiteBoxTests.cs": "e53519a00c56d6e59058fb67cb8c5e2cd042e55040b0a55fd6dd2aecc31404e3",
+      "Tests/Phase35ServerRuntimeTests/Fixtures/LegacyFrameworkPacket.cs": "bae5b9f9c4c00cc4fb6ff034fd1c2e1458d8fd251cf6b9e2d5e80ddd6ce8348c",
+      "Tests/ServerLifecycleTests/RelayNetworkTests.cs": "ce1995b8315740d463d982f0780d329ddbdca29f968d711d971af219581e611a",
+      "tools/quality/check.py": "6ed51c79c34c6158a0e49fdd8f9973d36e6ae8ed872ac878032856444955a791"
+    },
+    "clientCommon": {
+      "Common/Utils/Framework/CommandRelay.cs": "befdee67a44e80887b0acf76bd7432077511712a4f3ab4b51ad06cfb04472c12",
+      "Common/Utils/Framework/ClientCommandRelay.cs": "7dccc4c465211f0b130b9df821ec52a8b505fc7fafdbb1de31ede6ae40601666",
+      "Common/Utils/Framework/FrameworkPacket.cs": "d98d7426e39bb3278d7695fb6b67db2b79c55bfcfeb8391270f9dd13ca7b8b51",
+      "Common/Utils/Framework/FrameworkTypes.cs": "8a9cff393ca77a16cd197813b44ef4586d539a4267bd20b8437545ed011fcf76",
+      "Common/Utils/Framework/PhinixExtensionRegistry.cs": "325c3ddda307546cb0ea4a08316d77cb895eb550575729fb43a7b46669e94fba",
+      "Common/Connections/PinnedUdpReceiveBudget.cs": "6a8409bde68b3fa0d8961a55addaced6fa76f51ff11608854d15ca451dc18a2a"
+    },
+    "serverCommon": {
+      "Common/Utils/Framework/CommandRelay.cs": "befdee67a44e80887b0acf76bd7432077511712a4f3ab4b51ad06cfb04472c12",
+      "Common/Utils/Framework/ClientCommandRelay.cs": "7dccc4c465211f0b130b9df821ec52a8b505fc7fafdbb1de31ede6ae40601666",
+      "Common/Utils/Framework/FrameworkPacket.cs": "d98d7426e39bb3278d7695fb6b67db2b79c55bfcfeb8391270f9dd13ca7b8b51",
+      "Common/Utils/Framework/FrameworkTypes.cs": "01a3c5de108f377dd8649c18fb2d7a94ded1d1c8af04b60abfc658eb631c2e63",
+      "Common/Utils/Framework/PhinixExtensionRegistry.cs": "325c3ddda307546cb0ea4a08316d77cb895eb550575729fb43a7b46669e94fba",
+      "Common/Connections/PinnedUdpReceiveBudget.cs": "6a8409bde68b3fa0d8961a55addaced6fa76f51ff11608854d15ca451dc18a2a"
+    }
+  },
+  "commonDifferences": [
+    "Common/Utils/Framework/FrameworkTypes.cs",
+    "Common/Utils/Framework/ManagedExtensionInstallationRuntime.cs",
+    "Common/Utils/Framework/ManagedExtensionManagementRuntime.cs",
+    "Common/Utils/Framework/ManagedExtensionRuntime.cs",
+    "Common/Utils/Framework/ManagedExtensions/ExtensionLocalization.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionCandidatePlanner.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionInstallation.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionInstallationRecovery.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionInventory.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionManagement.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionManifest.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionManifestReader.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionMetadata.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionPayloadInspector.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionRemovalRecovery.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionZip.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedExtensionZipInstallation.cs",
+    "Common/Utils/Framework/ManagedExtensions/ManagedPackageStorageRecord.cs",
+    "Common/Utils/Framework/Themes/ManagedThemePackageStore.cs",
+    "Common/Utils/Framework/Themes/ThemePackage.cs",
+    "Common/Utils/Framework/Themes/ThemePackageBuilder.cs",
+    "Common/Utils/Utils.csproj"
+  ],
+  "identicalRelayFiles": [
+    "Common/Utils/Framework/CommandRelay.cs",
+    "Common/Utils/Framework/ClientCommandRelay.cs",
+    "Common/Utils/Framework/FrameworkPacket.cs",
+    "Common/Utils/Framework/PhinixExtensionRegistry.cs",
+    "Common/Connections/PinnedUdpReceiveBudget.cs"
+  ]
+}

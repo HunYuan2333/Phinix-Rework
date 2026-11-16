@@ -14,4 +14,10 @@ namespace Connections
         void RegisterPacketHandler(string module, NetCommon.PacketHandlerDelegate handler);
         void UnregisterPacketHandler(string module);
     }
+    public interface IClientRelayTransport
+    {
+        // false means no admission; an exception after dispatch has an unknown outcome.
+        bool TrySendRelay(string module,byte[] payload);
+    }
+
 }
