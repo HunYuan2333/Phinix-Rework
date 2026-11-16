@@ -1,5 +1,20 @@
 # Client inventory and recovery boundaries
 
+> **中文版**：[客户端库存与恢复边界.md](./客户端库存与恢复边界.md)
+
+## Current dev: shared SQLite inventory (2026-11-10)
+
+Inventory contract v7 uses the local shared database under the framework user-data directory: `Phinix/ExtensionData/builtin.inventory/databases/inventory.sqlite3`. Trade owns a separate `builtin.trade/databases/trade.sqlite3`, using the same neutral infrastructure. The host does not own either business schema. Stored item payloads are BLOBs and unchanged entries are not rewritten on every balance change.
+
+Loading/renaming/copying a world does not roll back this balance. Game saves retain only upgrade markers after a successful one-time import. Old branch balances are not imported repeatedly. Overlapping independent sources retain their old fields and produce a warning; unknown journal changes are not automatically restored. A changed/missing local database identity is visibly reported; the save cannot recreate that old global balance. A copied world's marker does not select or freeze another local database.
+
+Physical callbacks still require their original Game. Interrupted extractions can be abandoned; this consumes their reserved quantity and warns about possible loss. Uncertain reservations can be explicitly abandoned through a confirmation, reaching Abandoned rather than Committed or Restored. Unrelated available inventory remains usable. Malformed legacy data cannot silently clear the old snapshot, and an unavailable database is never reported as a successful write.
+
+Trade pre-send preparation failures restore local custody instead of becoming Unknown. Known terminal operations compact large payloads while keeping a small dedup record. This is finite game-mod recovery, not a promise of atomic commit across SQLite, the remote server and the game's world save. See [implementation/checks](branch-local/dev/SQLite-Implementation-2026-11-10.md) and [generic storage design](branch-local/dev/Client-SQLite-Storage-Design-2026-11-10.md).
+
+The save-scoped journal description below documents the legacy format and historical behavior; it is not the current writer.
+
+
 Creation and restoration are separate boundaries. RimWorld 1.6 `GenTypes.AllActiveAssemblies` enumerates the game assembly and each active mod's `ModAssemblyHandler.loadedAssemblies`, not every assembly loaded into the AppDomain. Therefore the FillComponents attachment patch alone cannot resolve the saved inventory `Class` node. While inventory is active, an exact-name Harmony prefix on `GenTypes.GetTypeInAnyAssembly(string, string)` supplies `InventoryGameComponent` before native lookup, including when a previous lookup cached null. It leaves every other type lookup unchanged and is removed with the extension's other patches at shutdown. The saved class name, lineage ID and snapshot fields remain unchanged; no inventory reset or automatic relay reward replay is used as a recovery substitute. Reopen an intact original save after updating; a save overwritten after failed restoration may require its backup.
 
 When replaying a local claim/assignment, an unavailable inventory receipt lookup holds the relay cursor and emits the existing throttled recovery message. It must not also emit an unsolicited-claim warning on each tick. Once the exact receipt is available, history updates the displayed claim balance without depositing the reward again; a truly unrequested result still cannot authorize a new reward.
@@ -30,12 +45,10 @@ Sender records use the extension's general storage service and are keyed by a re
 
 Rework red packets retain the legacy `create` preview for old clients and send an additive, bounded sequence of `state` parts before it. The state payload is the same compressed Scribe payload used by Trade, is SHA-256 verified, and may be claimed by a Rework client only after every part arrives. Stateful stacks may be divided among recipients by restoring the original state and reducing only `stackCount`; the deterministic claims still sum to the original count. Old Phi clients ignore the additive parts and therefore retain legacy preview-only behavior. State that references an external Pawn or that a third-party component does not expose through Scribe still cannot be reconstructed across saves.
 
-## 同类记录批量提取（B37）
+## Batch extraction of matching records
 
-新增独立 `IInventoryBatchExtractionApi`，由同一个 Inventory module 注册；现有 IInventoryExtractionApi 保持。`StartBatchExtraction(IReadOnlyList<InventoryBatchItem>, expectedVersion, out reason)` 只启动运行期队列：整个请求预检版本、非空/唯一 entry ID、可用数量、codec/version/stack limit、最多10000记录及单位总数溢出，冻结原 Game/save/map。必须游戏主线程调用；BatchProgress 为不可变进度快照。
+`IInventoryBatchExtractionApi` is registered by the same inventory module alongside `IInventoryExtractionApi`. `StartBatchExtraction(IReadOnlyList<InventoryBatchItem>, expectedVersion, out reason)` starts an in-memory runtime queue after pre-validating the version, non-empty unique entry IDs, available quantities, codec/version/stack limits, a cap of 10,000 records, and total unit overflow, while freezing the originating Game, save, and delivery map. It must be called on the game main thread; `BatchProgress` exposes an immutable progress snapshot.
 
-每帧原 Root.Update 生命周期观察执行一个合法堆，复用 TryExtractSingleStack 的 journal reserve → DeliverVerified → journal completion，不合并不透明 payload，不绕过挂起恢复。逐堆原子、整批允许部分完成；无自动重试/退款。任一失败、外部账本变化、存档/投放地图变化停止后续工作；未执行部分仍在库存，已交付部分保持，uncertain 仍走原 reconcile。关闭视图不停止；StopBatchExtraction 只停止剩余工作。队列不持久化、不自动重启恢复，无新保存 schema 或协议；原逐堆日志持久化不变。
+Each tick on the `Root.Update` lifecycle observer processes one legal stack via `TryExtractSingleStack` (`journal reserve -> DeliverVerified -> journal completion`), without merging opaque payloads or bypassing pending recovery. Each stack is atomic and a batch may complete partially without automatic retry or refund. Any failure, external ledger change, or save/delivery-map change stops remaining work; untouched entries remain in inventory, delivered stacks stay delivered, and uncertain deliveries follow standard reconciliation. Closing the view does not stop the batch; `StopBatchExtraction` stops only the remaining queue. The queue is not persisted across restarts and introduces no new save schema or protocol.
 
-主视图点分组标题仍展开/折叠，同时选择类别；可输入本批记录数，选“提取一批”或“提取本类全部”。每个原 entry 提取当前全部可用 codec units（whole-stack记录仍按其单位交付）。分组遵守原 codec/source/origin 边界，各自品质/耐久/状态独立；锁定量排除。公共 Host confirmation 显示记录数；≥100记录或≥1000单位提示大量还原/落地/日志可能卡顿。复杂物品单堆也可能慢，这不是帧预算保证。
-
-InventoryPresentationActionContext 增加可选 GroupKey/GroupRecords，group 模式 QuantityText 是记录数；batch 模式只有停止及普通贡献动作。共享 Host renderer/theme/action实现不变，Example1.0.34不用重包。编译/离线通过，游戏批量交付和复杂物品性能待测。
+Clicking a group header in the inventory tab toggles expansion and selects the group for batch extraction (`Extract batch` or `Extract whole group`). Each entry extracts all currently available units (whole-record entries still deliver in their native units), respecting codec, source, and origin boundaries while excluding locked quantities. Confirmations display the record count and warn about potential stalls for batches of 100+ records or 1,000+ units. `InventoryPresentationActionContext` optionally provides `GroupKey` and `GroupRecords` for group and batch actions.

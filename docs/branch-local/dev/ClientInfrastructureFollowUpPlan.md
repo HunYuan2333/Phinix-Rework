@@ -1,6 +1,6 @@
 # Client Infrastructure and Follow-up Implementation Plan
 
-Updated: 2026-10-10. Current branch: `dev`. [中文](后续实施计划.md).
+Updated: 2026-11-17 (aggregated through `6c30256`). [中文](后续实施计划.md) | [Completed Milestones Summary](Completed-Milestones-Summary.md).
 
 This document is the baseline schedule and technical record for Phinix Rework infrastructure refactoring, physical repository separation, and follow-up deliverables.
 
@@ -14,13 +14,16 @@ This document is the baseline schedule and technical record for Phinix Rework in
 | **F1** | Lifecycle and Contract Decoupling | ✅ **Accepted**. Delivered `ClientExtensionRuntime`, separated side-effect-free construction from explicit main-thread `Start`, enforced reverse teardown order and exception safety. |
 | **F2** | DI Environment and Chat Pilot | ✅ **Accepted**. Pinned Autofac 8.4.0 in client composition layer, migrated Chat to constructor injection and protected scope disposal, game acceptance passed. |
 | **F3** | Stateless Operation Flow Pilot | ✅ **Accepted**. Pinned Stateless 5.20.1, migrated Store asynchronous operation transitions while preserving original transaction and recovery boundaries. |
-| **F4** | DI Adoption and Old Entry Deprecation | ✅ **Accepted**. Built-in modules (Chat, Inventory, Trade, Store, LegacyAdapter) and bundled test samples (not the standalone Example repository) migrated to `ClientExtensionModule.Compose`. Legacy client entry marked `[Obsolete]`, removal targets host 1.0 / abstractions 2.0 only after migration/rollback acceptance gates. |
+| **F4** | DI Adoption and Old Entry Deprecation | ✅ **Accepted**. Built-in modules (Chat, Inventory, Trade, Store, LegacyAdapter) and bundled test samples migrated to `ClientExtensionModule.Compose`. Legacy client entries were subsequently removed in F8. |
 | **F5** | Shared Source Consumption Rehearsal | ✅ **Accepted**. Verified shared layer extraction in clean checkouts; both endpoints pinned the same gitlink, multi-targeting builds and nested protobuf tests passed. |
 | **F6** | Physical Three-Repository Split & Delivery | ✅ **Accepted**. Completed independent publication and acquisition verification; Server Docker image published to `hunyuan2333/phinix-rework:dev`; Index and Example branches merged to main. |
 | **F6-M** | Management and Store State Synchronization | ✅ **Accepted**. Introduced `IClientExtensionControlService`, separated package intent from module settings commands, revision-driven bidirectional refresh, passed 1000 runtime assertions and game acceptance. |
 | **F6-S** | Mandatory Plugin Signing Admission | ❌ **Canceled**. Explicitly canceled by the user on 2026-10-08; mandatory signature gating is not implemented, retaining existing hash and integrity checks. |
-| **F7** | Author Experience & Automated Builds | 🔄 **Developer foundations first**. Plugin/Index Actions are live and verified. Local sideloading leads the next batch; skills and new author tooling are blocked until the minimum development loop passes acceptance. |
-| **F8** | Theme System & Public Plugin APIs | 📝 **Design draft**. Theme settings, public themed UI, Store themes and API boundary remediation. New business uses one current contract; old interfaces are adapted at boundaries and removed after maintained consumers migrate. See the [stage plan](Theme-and-Plugin-Api-Stage-Plan.md) and [boundary audit](Compatibility-Interface-Boundary-Audit.md); documentation only. |
+| **F7** | Author Experience & Automated Builds | ✅ **Completed** (`fa17ae4` / `c63688c` / `5366dc7`). Delivered developer-mode local sideloading, copyable diagnostics, configurable packaging/offline preflight, and bilingual plugin guides/skills; plugin and Index Actions are live. |
+| **F8** | Theme System, Shared UI & API 3 | ✅ **Completed** (`c51f8a6` / `783fcb0` / `2c228fe` / `81059c4` / `53c92ce` / `6fe404e`). Delivered local & online theme stores, shared presentation contracts, RimWorld 1.6 UX rework, API 3 migration, and 1.6/1.7 dual-runtime support. |
+| **P3–P6** | Paired Server Transactions, Receipts & Legacy | ✅ **Completed** (`99bcef8` / `57e6d1c` / `b00862a` / `750a91a` / `075c929`). Delivered Trade/Inventory journaling, recovery choices, P4/P5 credentials & diagnostics, and Legacy integration fixes. |
+| **Relay** | Command Capability Relay (R0–R5) | ✅ **Completed** (`9c0c5ae` / `5b2bbb3` / `311fdd6`). Delivered client capability Relay APIs, receive guards, R5 delivery, and verified runtime/plugin tests. |
+| **SQLite / E0–E4** | SQLite Infrastructure & Error Reporting | ✅ **Completed** (`e00872e` / `6c30256`). Delivered reusable client SQLite storage and E0–E4 client error reporting pipeline (E5 verification & SQLite inventory migration tracked in their active docs). |
 
 ---
 
@@ -87,25 +90,19 @@ The user explicitly scheduled branch management and automated compilation for `P
 
 Keep the current system running. A future GitHub App may add immediate stable Release discovery while preserving existing main release Actions, post-release notification Actions, manual entry points, admission/controlled publication and scheduled scanning. Authors need not replace their publishing tools or install the App to qualify. Multiple channels must deduplicate work and retain approval/identity boundaries. See [the event discovery enhancement plan](plugin-store/Release-Event-Discovery-Enhancement-Plan.md). This entry records the plan only.
 
-## 4. Pending Deliverables & Known Issues
+## 4. Remaining Follow-ups & Known Constraints
 
-The following items remain open work and are not considered closed by this documentation round:
+Items below reflect remaining constraints or active tracks as of 2026-11-17 (completed F7, F8, UI/UX, P3–P6, and Relay items are summarized in [Completed Milestones Summary](Completed-Milestones-Summary.md)):
 
-1. **Developer Foundation Delivery**: Local sideloading, a modern DI example, configurable packaging/offline validation, copyable diagnostics and an end-to-end acceptance run. Plugin Actions have passed cloud verification; see [the delivery plan](Developer-Foundation-Delivery-Plan.md).
-2. **Red Packet Defect Repairs** (see [RedPacket Repair Plan](plugin-store/RedPacket-Stack-Selection-Optimization-Plan.md)):
-   - Sending 200 steel across multiple physical stacks triggers an incompatible-stacks exception (unifying grouping and send validation).
-   - A claim summary NullReferenceException was observed in a Root_Entry call chain; its root cause remains unconfirmed (decoupling notification scheduling from domain commits).
-   - Repairs are on RedPacket dev `ae5d95f`; 17 algorithm cases and production compilation/packaging passed. Game acceptance and official 1.0.2 publication remain pending.
+1. **Active Recent Tracks** (tracked in their own recent docs, unmodified here):
+   - **Client Error Reporting E5**: Candidate packaging and end-to-end verification (`Client-Error-Reporting-Roadmap-2026-11-15.md`).
+   - **Inventory SQLite Migration**: Migrating legacy XML/Journal inventory storage to shared SQLite (`Inventory-SQLite-Migration-Roadmap-2026-11-10.md`).
+2. **Red Packet Independent Defect & Release Tracking** (see [RedPacket Repair Plan](plugin-store/RedPacket-Stack-Selection-Optimization-Plan.md)):
+   - In-game acceptance and store publication status are tracked in the standalone RedPacket repository.
 3. **Talent Trade Known Constraints**:
    - Relies on Harmony patches for pawn lifecycle interception.
    - Active marketplace listings and rental records are tracked in a save-local `GameComponent`. Uninstalling while transactions are in-flight can corrupt save data.
-4. **Standalone Plugin DI Migration**: Example, Red Packet, and Talent Trade currently run via legacy `IPhinixExtensionModule.Register`. The Example migration belongs to the developer baseline; RedPacket/TalentTrade migration is separate from defect repair.
-5. **Client Legacy Entry Removal Gate**: The 2026-10-10 F8 decision requires one current contract. Remove old client entries after maintained consumers, pinned release inputs and game acceptance are complete; do not wait for the previous 1.0/2.0 milestone solely to support nonexistent third-party callers. Shared/Server registration and historical data readers have separate gates; see the [boundary audit](Compatibility-Interface-Boundary-Audit.md).
+4. **Remaining Legacy Interface / Adapter Cleanup**:
+   - Maintained plugins are migrated to API 3 and dual 1.6/1.7 runtimes; remaining boundary cleanups follow the [boundary audit](Compatibility-Interface-Boundary-Audit.md).
 
-## 5. Developer Foundation Implementation Entry
-
-- **Local plugin ZIP import in developer mode**: Gate the Store action with RimWorld's `Verse.Prefs.DevMode` for development and game acceptance. Reuse managed package validation and installation transactions, mark local development provenance, and keep installed packages manageable after developer mode is disabled. Planning only; this now leads the next development batch and blocks skills and other new author tooling. See [Local development package installation plan](plugin-store/Local-Development-Package-Install-Plan.md).
-
-## UI/UX refactor delivery gate
-
-The latest user correction restores local T4/T5 implementation, maintained plugin theme adapters, candidate packaging and author examples. UI/UX refactoring belongs to other work. Online delivery and Index publication remain deferred; formal UI stability is not promised before the refactor settles. Existing online features remain enabled. See [the current delivery boundary](UI-UX-Refactor-Delivery-Gates.md).
+> Note: Developer-mode local plugin ZIP sideloading (former Section 5) was delivered in F7 (`fa17ae4`).

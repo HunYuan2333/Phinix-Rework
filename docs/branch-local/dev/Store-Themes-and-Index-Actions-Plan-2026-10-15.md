@@ -1,5 +1,7 @@
 # 商店主题包与 Index Actions 实施计划
 
+> **状态更新（2026-11-17）**：在线主题商店（独立 `phinix.themes` / catalog schema 4 / `theme-zip`）与统一主题 UI 渲染已于 `81059c4`（2026-10-16）合并交付。
+
 ## 范围与基线
 
 用户授权整理 Actions，并接入在线主题包和组合筛选。基线：Host `23643e1`、Common `9d0710a`、Index `5e1de88`、Gateway `da8ddab`。主题本地导入/选择/导出已经存在；在线目录目前只接受托管 DLL 与 Workshop。当前正式 API3 双版本插件须保持可用，不重发插件来绕过目录问题。

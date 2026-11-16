@@ -1,0 +1,276 @@
+{
+  "date": "2026-11-16",
+  "status": "E4 in progress: Inventory/Trade core slice only; no module-wide completion or Relay merge",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "baseline_inventory_sha256": "2cdc0e9094941eba9ee69191d4fa21af3351b838c6523fc5f6dd511ba8ecb9ee",
+  "sources": {
+    "Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs": "d2b857d244e878826f79bf06219952f42c07960feec2b3306b4a61a6c5b668b7",
+    "Client/Source/Framework/ClientErrorService.cs": "bccdb002e218a44dbcb80e14553cc128b74567b211d1e2327d0cedca034a211f",
+    "Client/Source/UI/ClientPresentationService.cs": "b490bc5e3b272672f4993f8c97d90ccc673fa6e2b5d732b77c08417bf8ae3f5c",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionDiagnostics.cs": "8e2b9218444aa70cceb62035d63353255b761d2c26ef59a71b92ebd715a57f1e",
+    "Extensions/Inventory/Client/InventoryDatabaseStore.cs": "c0d142ced7a50b3a238e141f4b0ae41e05ea19ec0e5946e888a5697f9e3253ef",
+    "Extensions/Inventory/Client/BuiltInInventoryClientExtension.cs": "c22348a08e50ec008b879e92c9175dd93ae83fca4ba37d276c83278053b436b2",
+    "Extensions/Trade/Client/TradeOfferOperations.cs": "f818dd3a4645ffec2bb72e146e301ec13a63c5013e3d7012960c4892dc23ce79",
+    "Extensions/Trade/Client/TradeSqliteRecords.cs": "cf5640e32bfdce5998a00c48a038e90d13c7fb125387b5480c03e794f3b4f40f",
+    "Extensions/Trade/Client/TradeIntentJournal.cs": "3606d4a08035e64a9670781b212197f966eb5b452acb21376e209ef3cee3e612",
+    "Extensions/Trade/Client/TradeCompletionInbox.cs": "a9bd17e587b6ecf2d1fd6c0c63264c7d292429455d76146a854c8cfb9da99f7c",
+    "Extensions/Trade/Client/BuiltInTradeClientExtension.cs": "3b4825b43206ea2de7d774124c303486946a85f29b8b44616813af291dc0041c",
+    "Tests/ClientErrorRuntimeTests/Program.cs": "066602bbb1853c1853ec11e7058525449518d6f2799625d57b1426be2298f4d2",
+    "Tests/SqliteBusinessRuntimeTests/FailureScenarios.cs": "987053c43baa6fdb2ff4bfd5ee95fb6d30aaa697655fdd1186c3de0d771e26fc",
+    "Tests/SqliteBusinessRuntimeTests/ErrorDiagnosticsScenarios.cs": "e372165d3618ebe61bd469c8cad0799a7468559bc37416b426745c218d76a48b",
+    "Tests/PresentationRuntimeTests/InventoryInlineTests.cs": "f729326441227b5c2a783f9b9da529ac86bca0c48d5480e83638486bef2967da",
+    "tools/quality/run-client-presentation-tests.py": "70a72ac591e1fef1dd21a2bbda9ebb7015022685d14c88e3f995f75b5a859039",
+    "tools/quality/run-sqlite-business-tests.py": "c01765b208fa3d8965836b7bf93ef6da3326ae65989c9406cd445116eea60dc9",
+    "tools/quality/run-client-error-tests.py": "e55118eeb65d598679fa3e751db9537e0da576dfe5b3a6cf6db65429f4050066",
+    "tools/quality/run-client-error-boundary-tests.py": "8282151d7788216e9ddbae1f9116de399bd97cb897c21ae117c79608fa3415f6",
+    "tools/quality/run-client-managed-tests.py": "ae474a7377784636e86cf55643e3265143f41e2873cf30c5cf0adcd283edd141",
+    "tools/quality/inventory-client-error-migration.py": "6c00e0942ead4e2362d0cbc3d7ad4fd4ec5764a16c213d0c3ba63b9dff1382b0"
+  },
+  "e4_decisions": {
+    "total": 32,
+    "status_counts": {
+      "implemented": 15,
+      "reviewed-validation": 16,
+      "reviewed-propagation": 1
+    }
+  },
+  "migration_decisions_sha256": "b60c46c0b485f3aecf6bc08db0b84bd0ba7b8f98e0871fc10ce74429cc7ae7f2",
+  "migration_ledger_sha256": "41f1bdc9a723c8879023d3a2bfc1257548f37bac76581ad2a731b41bdbab3280",
+  "results": {
+    "build16": [
+      {
+        "phase": "restore",
+        "command": [
+          "dotnet",
+          "restore",
+          "PhinixClient.sln",
+          "-p:Configuration=Release 1.6",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:MSBuildEnableWorkloadResolver=false",
+          "-m:1",
+          "-p:RestoreLockedMode=true"
+        ],
+        "exit": 0
+      },
+      {
+        "phase": "build",
+        "command": [
+          "dotnet",
+          "build",
+          "PhinixClient.sln",
+          "--no-restore",
+          "-p:Configuration=Release 1.6",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:MSBuildEnableWorkloadResolver=false",
+          "-m:1"
+        ],
+        "exit": 0
+      }
+    ],
+    "build17": {
+      "exit": 0,
+      "source_projects": 28,
+      "scope": "Complete source dependency graph in generated net10 projects; original targets/packaging are not executed."
+    },
+    "errors": [
+      {
+        "framework": "net10.0",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net10.0",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "boundaries": [
+      {
+        "framework": "net10.0",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net10.0",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "business": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "presentation": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "managed": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ]
+  },
+  "final_incremental_builds": {
+    "net472": 0,
+    "net10": 0
+  },
+  "checks": {
+    "error_service_each_runtime": 66,
+    "compiled_boundaries_net10": 82,
+    "compiled_boundaries_net472": 76,
+    "sqlite_business": 89,
+    "presentation": 535,
+    "managed": 3435
+  },
+  "artifacts": {
+    "net472/PhinixClient": {
+      "path": "/tmp/phinix-e4-verify16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll",
+      "sha256": "dcad7a616e531d0e674c25fc199e39039b380dadc850d34931f840a4b6a48204"
+    },
+    "net472/ClientExtensionAbstractions": {
+      "path": "/tmp/phinix-e4-verify16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll",
+      "sha256": "71c0a344a390b928be200b52359108b0c39a7cb1d02fe5979bac801b0b4522f3"
+    },
+    "net472/Utils": {
+      "path": "/tmp/phinix-e4-verify16/Phinix-Rework/Client/Source/bin/Release/Utils.dll",
+      "sha256": "ff1f1c05fefd72e883ae84b30930c48eb79fc815d762e933046881c624d4c707"
+    },
+    "net472/InventoryExtension.Client": {
+      "path": "/tmp/phinix-e4-verify16/Phinix-Rework/Extensions/Inventory/Client/bin/Release/net472/InventoryExtension.Client.dll",
+      "sha256": "b1b8358184eb9eaa3c28529b9821ac6195f4ac0a23a0be2badae9681df374ffc"
+    },
+    "net472/TradeExtension.Client": {
+      "path": "/tmp/phinix-e4-verify16/Phinix-Rework/Extensions/Trade/Client/bin/Release/TradeExtension.Client.dll",
+      "sha256": "2be7390bb0ff9752e4dbf51a319683560b3bc7928e7af61b89390b029e169141"
+    },
+    "net10/PhinixClient": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/PhinixClient.dll",
+      "sha256": "4e4363e0bad33a1a3b7902b50fccfcd37d01ef0e5a0786b925aae0d94b6d4c5c"
+    },
+    "net10/ClientExtensionAbstractions": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/ClientExtensionAbstractions.dll",
+      "sha256": "b80fc5a874313db545649789c3c6c2624cac1f32f4b86da0ff244c4ca3e61911"
+    },
+    "net10/Utils": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/Utils.dll",
+      "sha256": "ff4cae8c25c134858a372ff561afd024a1f81bec2929eba51dfb4c9dc00ba76c"
+    },
+    "net10/InventoryExtension.Client": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/InventoryExtension.Client.dll",
+      "sha256": "70d3a33f652a6a9602657e244a3f92383d8ef72dfb06deb09cefb9bdd00622bd"
+    },
+    "net10/TradeExtension.Client": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/TradeExtension.Client.dll",
+      "sha256": "0fdca645903165520afc1575e098a7d295facc25e0ee92b3b359aa8c8de025b1"
+    },
+    "net10/LegacyRedPacketExtension.Client": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/LegacyRedPacketExtension.Client.dll",
+      "sha256": "bee27fe89ef1416a2d81ccd5e6e974c240677a3377bc37876de62a049f802e4d"
+    },
+    "net10/LegacyTalentTradeExtension.Client": {
+      "path": "/tmp/phinix-e4-verify17/bin/Release/net10.0/LegacyTalentTradeExtension.Client.dll",
+      "sha256": "8d097b18f3c40c80ba5ed972a605d4802d8b69bcc45d57b23341f1d2e72ff468"
+    }
+  },
+  "logs": {
+    "build16_initial": {
+      "path": "/tmp/phinix-e4-verify16/build.log",
+      "sha256": "b8c61bdcac5c9900dd9142c58482af65d6b9ee6ece76d7f65395740540151d22"
+    },
+    "build16_final": {
+      "path": "/tmp/e4-verify16-final.log",
+      "sha256": "536f645a8c18724522ea4f7997ddcbc506304c350a172d2da5d737c910314c25"
+    },
+    "build17_initial": {
+      "path": "/tmp/phinix-e4-verify17/build.log",
+      "sha256": "3e5c981cdadaffeb875d2eb199ec9bc9bacd6e42a645996aebf2bbd1e594b756"
+    },
+    "build17_final": {
+      "path": "/tmp/e4-verify17-final.log",
+      "sha256": "c5c612761211c5c9d8974be1ad1f197d178cfd5dc5eaddd24bba98dcddb58f86"
+    },
+    "errors_net10": {
+      "path": "/tmp/phinix-e4-errors/net10.0/test.log",
+      "sha256": "165849811f2579a767f018e686049992323e38f4188828ea0108b655e25d3e33"
+    },
+    "errors_net472": {
+      "path": "/tmp/phinix-e4-errors/net472/test.log",
+      "sha256": "165849811f2579a767f018e686049992323e38f4188828ea0108b655e25d3e33"
+    },
+    "boundaries_net10": {
+      "path": "/tmp/phinix-e4-boundaries/net10.0/test.log",
+      "sha256": "02a27de979eb8c4f04785aab72aae2b1f69a48a9d0643df2627089b704039211"
+    },
+    "boundaries_net472": {
+      "path": "/tmp/phinix-e4-boundaries/net472/test.log",
+      "sha256": "d453853abe4c27382a373dc8013181bad471acb8db7e5b03d1e492cd2ef98474"
+    },
+    "business": {
+      "path": "/tmp/phinix-e4-business-done/test.log",
+      "sha256": "a7fe1ee8fd50fa621b775b53999b1e343865e4fefa9796e7ac190ed1d8821b7e"
+    },
+    "presentation": {
+      "path": "/tmp/phinix-e4-presentation/test.log",
+      "sha256": "d5c256b7a9ca899f3d1bdd26959371c6b081438839438ec708c042398d7a9b1a"
+    },
+    "managed": {
+      "path": "/tmp/phinix-e4-managed/test.log",
+      "sha256": "c49270348c2d9d8fab94b8f605e1d5e1c97c0b110793aa4ba6fff63bfdb7cfe9"
+    }
+  },
+  "build_manifests": {
+    "/tmp/phinix-e4-verify17/source-fingerprints.json": "26785f3af119e736a2f10faf7107e81b138069627e894c109878403fb8d5bcc9",
+    "/tmp/phinix-e4-verify17/reference-fingerprints.json": "440442912dc974f80d7d491016cabced61381cd8620ec4e7ea355c946d9f9145",
+    "/tmp/phinix-e4-verify17/runtime-assets.json": "214a987d3d6c3d6be1684cc0ea52a232d34110885197a54c40de4cd75a172671",
+    "/tmp/phinix-e4-verify16/source-fingerprints.json": "9337eb42ce6411a4c47dacd628d61b065d08d906669b4aefcebb603edf1ece07",
+    "/tmp/phinix-e4-verify16/reference-fingerprints.json": "c1a3c5e8a0dacc8cfc5883d86f99cc4acbe3d56afd0b713ee148c396b8444452"
+  },
+  "limitations": [
+    "Presentation uses original GUI/game fakes; no actual game loading/clipboard/throw acceptance.",
+    "Native SQLite uses synthetic assets; no game objects modified.",
+    "E4 physical delivery/codec/recovery/window paths and other plugins remain pending.",
+    "M1 Relay merge, Common commit/gitlink advance and E5 release/real network acceptance not performed.",
+    "Mono existing Unity.Burst metadata warning retained; game references not replaced.",
+    "Temporary outputs may be removed by system; hashes persist here."
+  ]
+}

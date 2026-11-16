@@ -1,0 +1,699 @@
+[
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Client/Common/Authentication.Client/ClientAuthenticator.cs",
+    "sha256": "2995e69441ee22ae0754e6951f5fb8a4b4e046ba7e89f3fb30923a7b4a8af9b6",
+    "screening_lines": [
+      307,
+      312,
+      314,
+      315,
+      317
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Client/Common/Authentication.Client/ServerIdentityCredentials.cs",
+    "sha256": "c060a6c65f47f96f5e851c68ac82a6549fab93bb307fab1f4b200caa6b5eae53",
+    "screening_lines": [
+      155,
+      156,
+      163,
+      236,
+      238,
+      244,
+      250,
+      263,
+      264
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Client/Source/Framework/ManagedExtensionManagerView.cs",
+    "sha256": "5411db4a4697a4f516d6bcd3e6e31c4ff1bf6101d79026ec29381edb8fbc4f14",
+    "screening_lines": [
+      177
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Client/Source/Settings.cs",
+    "sha256": "0239a0a4f26f0d932a799f8cfb706958ad14c58b701d6bc7e376e8d8b63d5bd7",
+    "screening_lines": [
+      242,
+      243,
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250,
+      251,
+      255,
+      256,
+      257,
+      258,
+      259,
+      260,
+      261,
+      262,
+      263,
+      264,
+      265,
+      282,
+      283
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Client/Source/UI/ClientThemePackageService.cs",
+    "sha256": "894b17326e66aeb6efb1d494125a162140acbf9ff2aa9b2aef7915c24e7ddcc5",
+    "screening_lines": [
+      63
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Client/Source/UI/ThemeInputAdapter.cs",
+    "sha256": "4408ff8f081efa2a55ea11fda581f4ffd6956f3bc260b80c53087b093be6b51b",
+    "screening_lines": [
+      201,
+      202,
+      203,
+      205
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Client/BuiltInInventoryClientExtension.cs",
+    "sha256": "9c699ca2104f918430b6bfb36046da31e53b0d386af09ce09837e13590ff2306",
+    "screening_lines": [
+      552,
+      728
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryGameComponent.cs",
+    "sha256": "10f2108f20de1fe649497e1b976b9c887a9b0db1036add1225703e55b6e43cdc",
+    "screening_lines": [
+      66,
+      67,
+      68
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryJournal.cs",
+    "sha256": "49ac1cc16c1c710d930e21775ea18ac5a0f0339ce6d2093d262f421ae1b8cfe0",
+    "screening_lines": [
+      52,
+      73,
+      74,
+      75,
+      155,
+      162,
+      163,
+      179,
+      180,
+      256,
+      257,
+      278,
+      298,
+      302,
+      328,
+      329,
+      381,
+      390,
+      393
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryLedger.cs",
+    "sha256": "843b477811cfa1ff172ae28c14d39980e841eb6cc4344ec213d5b8a76eb6fb45",
+    "screening_lines": [
+      167,
+      424,
+      565
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Client/InventorySaveCheckpoint.cs",
+    "sha256": "cdd650cc159e827620d9f8b4774aec62a565135191e2ca1ad3698ca853cb9f59",
+    "screening_lines": [
+      59
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Client/InventoryTab.cs",
+    "sha256": "4ea73835b5339b3b89779fb730113a16498d197d85b30470da51623336ef54b2",
+    "screening_lines": [
+      326,
+      385
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/Contracts/InventoryContracts.cs",
+    "sha256": "04e5b540988a76ad8c4012815c071aa1ebe6594f4e722a046c737688ea7020b5",
+    "screening_lines": [
+      94,
+      231,
+      292,
+      359
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Inventory/GameAdapter/InventoryDropDelivery.cs",
+    "sha256": "cfa46aaba38b8ba7d2971bba33a6a06f524d317270ca98320661365ce87192ee",
+    "screening_lines": [
+      66,
+      123
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedInstallation.cs",
+    "sha256": "9be2b55d59599db50340ca2ec9d1cdcc669f881e51b526da1880388e95715162",
+    "screening_lines": [
+      57,
+      91,
+      195,
+      209,
+      249,
+      284,
+      286,
+      359,
+      386,
+      394,
+      535,
+      539,
+      544,
+      545,
+      565,
+      594,
+      597,
+      599,
+      629
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedLocalImport.cs",
+    "sha256": "e7d7db1a00448ea11c0adb7e5743ec7ba0cd36741f381e6b0be33291857994af",
+    "screening_lines": [
+      98,
+      110,
+      114
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedPayloadTransfer.cs",
+    "sha256": "c7d20397a3bbb294f2bdf7b304bc30405cb653046984ddf7f75bd8297d62675e",
+    "screening_lines": [
+      27
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedRepositoryCache.cs",
+    "sha256": "29e45726b4edffc2820a4525a796ad0145ae2d8d862a315c5040be535ede9acb",
+    "screening_lines": [
+      87,
+      96,
+      103
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedStoreController.cs",
+    "sha256": "9af9260afc530d6017a8437e7205306b3585cca91b203a37c8a892cd90ee4f4f",
+    "screening_lines": [
+      131
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/ManagedStorePlanner.cs",
+    "sha256": "0805a4c90a51ddcc2de3d32503652976b03db1b55fc59289c1b23ac3c2e03797",
+    "screening_lines": [
+      48
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/PackageModels.cs",
+    "sha256": "638d380c605b2ad95f126612f2edfe66f3ffb3212c9ad1f375afe77bc449d0e5",
+    "screening_lines": [
+      75,
+      80,
+      89
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/PayloadValidator.cs",
+    "sha256": "661ad2be369cd474f6f1273e64e5553fc7b3758ed7c022a5538e521ab9e743fd",
+    "screening_lines": [
+      237,
+      250
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/RepositoryCache.cs",
+    "sha256": "646515d2563abf2d3de28caa58feebb62d7d8caf2d3e9464fea0bff5a7e97300",
+    "screening_lines": [
+      94,
+      103,
+      110,
+      148,
+      149,
+      152
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Client/RepositoryPayloadTransport.cs",
+    "sha256": "2ffdefd0d2bb65d62dd3fcc290b64a445709e54eaf46da6d70e030adaf3d1feb",
+    "screening_lines": [
+      101
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Tools/ManagedPackageTool/HostProfileExport.cs",
+    "sha256": "eb6a9d46e01838d1ce958a844c09b67ff80ae76aa9b3ecfcc3eebddcdd69d96d",
+    "screening_lines": [
+      36
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Tools/ManagedPackageTool/Program.cs",
+    "sha256": "c8c4b5bbf18199ffd89037f7c620a4b9966ece04a0d9fd4de0472ae9a8b423ec",
+    "screening_lines": [
+      126,
+      127,
+      128,
+      137,
+      138,
+      141
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/PluginStore/Tools/ManagedPackageTool/VariantPackageCommand.cs",
+    "sha256": "a0a40b25156a001f8924254f16365370968bf581ec1d0f663c55613fa8c04268",
+    "screening_lines": [
+      50
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/DefaultLegacyTradeItemCodec.cs",
+    "sha256": "dfbca506c0f89378148b91b5dc048f773b32ad1c3aa121d5c7fe68d02f1b9b6f",
+    "screening_lines": [
+      52
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeClientItemPipeline.cs",
+    "sha256": "720df5264b3025ad8d13f48d3ed4151b1b5a9bac4a674cfa3e459c42dd25466e",
+    "screening_lines": [
+      130,
+      161
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeCompletionInbox.cs",
+    "sha256": "a076afecf821deaba4de1ffee632daf1a55aa5a7a093e1fe5d8bdd4f775a4465",
+    "screening_lines": [
+      49,
+      124,
+      211,
+      212,
+      213,
+      216,
+      274,
+      279,
+      280,
+      281,
+      285
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeIntentJournal.cs",
+    "sha256": "790d49dfb2c9ecfdbb3e09f36206b71f44d2c13787d682de0890fd9eb91da513",
+    "screening_lines": [
+      57,
+      179,
+      207,
+      217,
+      222,
+      223,
+      224,
+      227,
+      243
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeIntentSettlementCoordinator.cs",
+    "sha256": "b8b097ab57a2fe89ecc357a8b854000ae83ae069cbf438e9d32d261eeedb756b",
+    "screening_lines": [
+      40
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeInventoryRecovery.cs",
+    "sha256": "64612eee983acabd05cfba59750855b2cb6103ae38baab4f540fa8e902218e2b",
+    "screening_lines": [
+      63
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeItemConverter.cs",
+    "sha256": "df08803e9bd46908cd0e4df94327abf0b04955058d948168034fe89bc7a4276c",
+    "screening_lines": [
+      16,
+      22,
+      106,
+      211
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeList.cs",
+    "sha256": "ef1e583b10f4f69fd90059ace44ae0ec11357e1c5ae8e400c0868664806f83d7",
+    "screening_lines": [
+      140
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeOfferEscrow.cs",
+    "sha256": "971193cb3f454a7dd105e2d030a86da533f0132c155f3ae081497f78e79a6c36",
+    "screening_lines": [
+      46,
+      47,
+      58,
+      67,
+      75,
+      82
+    ]
+  },
+  {
+    "area": "client",
+    "path": "Phinix-Rework/Extensions/Trade/Client/TradeOfferOperations.cs",
+    "sha256": "173c80d83b509598f02dea00064540a849cf5276c15f1252d8db223bf83275be",
+    "screening_lines": [
+      9,
+      70,
+      93,
+      107,
+      109,
+      112,
+      122,
+      125,
+      140
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensionInstallationRuntime.cs",
+    "sha256": "9d13c9c1d2a7da691a5a4f036ac102182ee6fbaabb0467284cfaaef5bf457980",
+    "screening_lines": [
+      62,
+      82
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensionManagementRuntime.cs",
+    "sha256": "8e0bd7b71dd601a01f805360ebc61e014d3419be89af1d074e06cc11b9fda818",
+    "screening_lines": [
+      84,
+      94,
+      95,
+      99,
+      115
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensionRuntime.cs",
+    "sha256": "75c3170d2064ecbca9692d51ad3cf0523ee905f37266e7bb0b412b39a00e3e75",
+    "screening_lines": [
+      96
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/ExtensionLocalization.cs",
+    "sha256": "d70aa1ae05014e0eabd348b146abc18ddf498b99e95423179ca92fda08a7d661",
+    "screening_lines": [
+      55,
+      74
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/ManagedExtensionCandidatePlanner.cs",
+    "sha256": "a41a9f8030ad994b6fce3b16c7ad66039d8ff542d251362d84554f6eece74f8a",
+    "screening_lines": [
+      111
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/ManagedExtensionDesiredStateWriter.cs",
+    "sha256": "545d75647314462d11fa15273f430450087fc14d8b9e64ca7ac72e0d96b6180c",
+    "screening_lines": [
+      51,
+      52,
+      61,
+      64,
+      65,
+      72
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/ManagedExtensionInstallationRecovery.cs",
+    "sha256": "48df311f7ef81ebbd0aa69026e051ff61592d901e3f5d20dd00396184a3f5ee8",
+    "screening_lines": [
+      121,
+      203,
+      245,
+      254,
+      269,
+      281,
+      290,
+      293,
+      340
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/ManagedExtensionLease.cs",
+    "sha256": "1a3f171a2e3f821f06ec959e9f030162867ae00aca3ee255716531089dae059b",
+    "screening_lines": [
+      20
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/ManagedExtensions/ManagedExtensionRemovalRecovery.cs",
+    "sha256": "876a624287dbe5abacc968f9db186aecc8360addbe91f151f0500fb07161a9c5",
+    "screening_lines": [
+      67,
+      84,
+      85,
+      146,
+      200,
+      211,
+      212,
+      219
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/Themes/ManagedThemePackageStore.cs",
+    "sha256": "fe21ba52863e20be07dd2b8ebcc28b6efdc6e31d1330aa9898fd1f5344e4629b",
+    "screening_lines": [
+      149,
+      169,
+      218
+    ]
+  },
+  {
+    "area": "common-pinned",
+    "path": "Phinix-Rework/Dependencies/Phinix.Common/Common/Utils/Framework/Themes/ThemePackageBuilder.cs",
+    "sha256": "d37e22dedf57f1aa1cfe3f446a4cc04aaf7c18ef20635bbc9a210141d99307bb",
+    "screening_lines": [
+      58,
+      59,
+      61
+    ]
+  },
+  {
+    "area": "redpacket",
+    "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventorySendStore.cs",
+    "sha256": "9569127722986736f733bcd9b4beccd3e556395aaea6f7e20a0f57d61d03f86f",
+    "screening_lines": [
+      12,
+      45,
+      69,
+      72,
+      75,
+      77,
+      78
+    ]
+  },
+  {
+    "area": "redpacket",
+    "path": "Phinix-Legacy-RedPacket/Client/RedPacketInventorySending.cs",
+    "sha256": "fd254ad49ff2d8c79d9cc28373624cdc36ab2315c445aceb19083cd195be2f68",
+    "screening_lines": [
+      89,
+      206,
+      242,
+      252,
+      254,
+      328
+    ]
+  },
+  {
+    "area": "redpacket",
+    "path": "Phinix-Legacy-RedPacket/Client/RedPacketReceiveRetry.cs",
+    "sha256": "51794a63bc60a8d5ac4598cbaadc65e4ac160650842f8e5c8bb3dd12d09576df",
+    "screening_lines": [
+      18,
+      47,
+      50,
+      53,
+      64,
+      69,
+      75,
+      92,
+      93,
+      94,
+      95,
+      97
+    ]
+  },
+  {
+    "area": "redpacket",
+    "path": "Phinix-Legacy-RedPacket/Client/RedPacketStateMachine.cs",
+    "sha256": "4d73af176afe8f4285aeaa609a1967ac1ec89646f68a8ebeadbf5a219f42b6d4",
+    "screening_lines": [
+      1573,
+      1585
+    ]
+  },
+  {
+    "area": "talent",
+    "path": "Phinix-Legacy-TalentTrade/Client/PendingMarketPurchase.cs",
+    "sha256": "f38d563e895c81dc59837c406ed81bbb38bf2856236774d80bd6022931314ea7",
+    "screening_lines": [
+      13,
+      27,
+      35,
+      39
+    ]
+  },
+  {
+    "area": "talent",
+    "path": "Phinix-Legacy-TalentTrade/Client/PendingPawnReturnLedger.cs",
+    "sha256": "61f1a9b66591214284fb14579bd8d49df124b51abba1e45b8f01cefa6c20ace9",
+    "screening_lines": [
+      7,
+      17,
+      31,
+      44,
+      61,
+      73,
+      81,
+      90
+    ]
+  },
+  {
+    "area": "talent",
+    "path": "Phinix-Legacy-TalentTrade/Client/TalentTradeGameComponent.cs",
+    "sha256": "291e4c8282f49636f7a782816748da3c6b5d64ff4bee62362635d1da583a63fc",
+    "screening_lines": [
+      25,
+      32,
+      71,
+      72,
+      73,
+      74,
+      75,
+      79,
+      102,
+      132,
+      139,
+      140,
+      141,
+      142,
+      148,
+      168,
+      196
+    ]
+  },
+  {
+    "area": "talent",
+    "path": "Phinix-Legacy-TalentTrade/Client/TalentTradeManager.cs",
+    "sha256": "456fb30ecdcba104ee9f37e9dafbe2e83bec77657d5574ffbb7bb4b69e9bc692",
+    "screening_lines": [
+      899,
+      911
+    ]
+  },
+  {
+    "area": "server-comparison",
+    "path": "Phinix-Rework-Server/Server/ServerStorage/AtomicFileSnapshot.cs",
+    "sha256": "e08eb45824ebba01c485e7878d1e63350b6ffd5d97419327e3a07861e5f5e720",
+    "screening_lines": [
+      25,
+      34,
+      39
+    ]
+  },
+  {
+    "area": "server-comparison",
+    "path": "Phinix-Rework-Server/Server/ServerStorage/SqliteOperationJournal.cs",
+    "sha256": "19cc0e46a5721c0619210ab269a8fdf0999c7f64b89e5aab2fc8f6e3dbfb225c",
+    "screening_lines": [
+      272
+    ]
+  },
+  {
+    "area": "server-comparison",
+    "path": "Phinix-Rework-Server/Extensions/Trade/Server/PhinixFrameworkTradePersistence.cs",
+    "sha256": "3b7ccd23d14438e2921c92328c716a4b4566023bfbe0d527a6353a1ea46aca44",
+    "screening_lines": [
+      168
+    ]
+  },
+  {
+    "area": "server-comparison",
+    "path": "Phinix-Rework-Server/Extensions/Trade/Server/TradeOfflineImport.cs",
+    "sha256": "1eb9d7ad55a8004652651a6f8b6ba88859f5e617bfc5c1e0b00f3ee5b8eda11e",
+    "screening_lines": [
+      58
+    ]
+  }
+]

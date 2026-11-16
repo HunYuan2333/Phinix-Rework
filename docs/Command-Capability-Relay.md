@@ -1,18 +1,20 @@
 # Command Capability Relay
 
-本功能为客户端插件提供通过 Framework Server 通信的公共服务。服务端依据显式能力声明选择接收连接，业务处理由目标插件实现。
+> **中文版**：[命令能力Relay.md](./命令能力Relay.md)
 
-## 处理模式与生命周期
+Command Capability Relay provides a shared service for client plugins to communicate through the Framework Server. The server selects eligible receiving connections based on explicit capability declarations, while business logic is handled by the target plugins.
 
-CommandRoute.Mode 为 Server 时由服务端执行业务，为 Relay 时由目标客户端插件执行业务。历史报文缺少 CommandRoute 时按 Server 处理。Trade 的权威交易操作和 Chat 历史查询继续使用现有服务端处理流程。
+## Processing Modes & Lifecycle
 
-Relay 经过认证、资源限制、Command Interceptor、最终报文校验、能力 Router、Outbound Interceptor、发送前资格检查、投递及 Observer。服务端插件可按 CommandRoute.PluginId、CommandType、Version 和目标玩家匹配。Continue 继续，Replace 重新校验，Blocked 返回拒绝，Handled 返回 Status 为 Handled。处理模式切换被拒绝。服务端处理异常终止当前请求，Observer 异常隔离。
+When `CommandRoute.Mode` is `Server`, the server executes business logic; when `Relay`, target client plugins execute it. Legacy packets without `CommandRoute` default to `Server`. Authoritative Trade operations and Chat history queries continue using existing server handlers.
 
-Observer 可通过 ServerFrameworkContext.CommandRelayResult 获取路由结果。旧 Observer 的 action 参数继续可用。Outbound Interceptor 可以缩小接收集合，最终报文必须符合授权与接收能力，编码大小须处于本次已预留预算内。
+Relay passes through authentication, rate/resource limits, Command Interceptor, final packet validation, capability Router, Outbound Interceptor, pre-send eligibility checks, delivery, and Observer. Server plugins may match on `CommandRoute.PluginId`, `CommandType`, `Version`, and target player (`Continue`, `Replace`, `Blocked`, or `Handled`; mode switching is rejected). Server processing errors abort the request; Observer exceptions are isolated.
 
-## 声明与接收
+Observers access routing results via `ServerFrameworkContext.CommandRelayResult`. Outbound Interceptors may narrow the recipient set; final packets must satisfy authorization, receiver capabilities, and the reserved size budget.
 
-插件从 ExtensionHostContext 获取 IClientCommandCapabilities。ownerId 使用模块的 ExtensionId，插件持有并释放声明句柄。模块停止、激活失败或注册回滚也会按 ownerId 清理声明。
+## Declaring & Receiving Capabilities
+
+Plugins obtain `IClientCommandCapabilities` from `ExtensionHostContext`, using the module's `ExtensionId` as `ownerId` and disposing the declaration handle on shutdown (declarations are also cleaned up on module stop, activation failure, or registration rollback).
 
 ```csharp
 private IDisposable declaration;
@@ -30,7 +32,7 @@ public void Shutdown(ExtensionHostContext host)
 }
 ```
 
-Handler 按现有 builder.AddClientCommandHandler 注册，独立匹配报文。
+Handlers register via `builder.AddClientCommandHandler` and match incoming packets independently:
 
 ```csharp
 public bool CanHandleIncomingCommand(FrameworkPacket packet)
@@ -42,98 +44,72 @@ public bool CanHandleIncomingCommand(FrameworkPacket packet)
 }
 ```
 
-框架按声明路由，插件负责兑现声明。Handler 匹配和执行异常都受客户端分发边界保护。
+`PluginId` and `CommandType` use lowercase ASCII letters, digits, `.`, `_`, and `-`, starting with an alphanumeric character (max 128 chars each). `Version` is a positive integer with exact matching. `core`, `builtin`, `framework`, and their dotted namespaces are reserved. `PluginId` carries no authentication authority. Multiple handles for the same capability are tracked independently; the capability is withdrawn when the last handle is disposed.
 
-PluginId 和 CommandType 使用小写 ASCII 字母、数字、点、下划线与连字符，首字符为字母或数字，各最多 128 字符。版本为正整数并精确匹配。core、builtin、framework 及其点分命名空间保留给 Framework。PluginId 不具有认证权限。
-
-同一能力的多个声明句柄独立持有，最后一个释放后撤销。声明可以先于连接建立。重复释放和撤销无声明的 owner 幂等。
-
-## 发送与结果
+## Sending & Results
 
 ```csharp
 var relay = host.GetRequiredService<IClientCommandRelay>();
 string payload = FrameworkSerialization.SerializePayload(request);
 
-// 玩家单播会向该玩家的每个合格连接投递一次。
+// Player unicast delivers once to each eligible connection of that player.
 RelayResult direct = await relay.SendRelay(
     "author.research", "request", payload,
     targetPlayerUuid: targetUuid, version: 1);
 
-// 省略目标即按能力广播，默认排除发送连接。
+// Omitting target broadcasts by capability, excluding the sender connection by default.
 RelayResult broadcast = await relay.SendRelay(
     "author.research", "request", payload);
 ```
 
-每个具体 CommandType 均需接收方显式声明，例如 announcement 需要单独声明。声明 request 不会获得 announcement 的接收资格。
+Each `CommandType` must be explicitly declared by receivers. `RelayResult.Status` reports `Submitted` (network layer accepted delivery set), `Handled` (server plugin consumed request), `Partial`, or `Unknown` (timeout, send exception, or disconnect); `Deliveries` records per-connection `Submitted`, `NotSent`, or `Unknown`. Zero-match broadcasts return `NoRecipients`; unicast returns `TargetOffline`, `UnsupportedRelay`, or `NoCapability` when applicable. Other errors include `InvalidCommand`, `InvalidCapability`, `NotAuthenticated`, `Forbidden`, `PayloadTooLarge`, `RateLimited`, `CapabilitiesNotSynced`, `Blocked`, `ProcessingFailed`, `DeliveryFailed`, and local `NotSent`.
 
-Task 完成提供本地拒绝或服务端路由结果。Status 为 Submitted 时表示网络层接受本次接收集合的提交。Handled 表示服务端插件消费请求。Partial 保留部分提交或不确定结果，Unknown 表示客户端等待结果超时、发送期间异常或连接断开。Deliveries 逐连接记录 Submitted、NotSent 或 Unknown。调用方应同时检查 Status、Error 和 Deliveries。
+Business acknowledgements, timeouts, and idempotency are owned by plugins; Framework does not auto-resend `Submitted` or `Unknown` commands. Task continuations run asynchronously—use `IClientMainThreadDispatcher` before touching game state.
 
-零匹配广播返回 NoRecipients。单播目标离线返回 TargetOffline，在线目标没有 Relay 协议支持返回 UnsupportedRelay，支持 Relay 的连接均缺少能力返回 NoCapability。其余错误包括 InvalidCommand、InvalidCapability、NotAuthenticated、Forbidden、PayloadTooLarge、RateLimited、CapabilitiesNotSynced、Blocked、ProcessingFailed、DeliveryFailed 和本地 NotSent。
+## Capability Synchronization
 
-业务处理成功由插件自定义 ACK、超时及幂等机制表达。Framework 不自动重发已提交或结果未知的业务 Command。Task continuation 使用异步调度，修改游戏状态时必须通过 IClientMainThreadDispatcher 回到主线程。
+Hello negotiates `core.command-relay.v1` and returns the connection's `relay_epoch`. The client sends full declaration snapshots with `epoch` and `revision`; the server validates and atomically replaces its index before ACKing.
 
-## 能力同步
+Same `revision` + same content is idempotent; same `revision` + conflicting content is rejected; older revisions never overwrite newer state. Changes are coalesced over a 500 ms window, with exponential retry backoff up to 10 s on failure. `IClientCommandRelay.SyncState` exposes `Disconnected`, `Pending`, `Synced`, and `Failed` (`SyncError` gives the reason). Calling `SendRelay` before the first snapshot ACK returns `CapabilitiesNotSynced`.
 
-Hello 协商 core.command-relay.v1，服务端返回当前连接的 relay_epoch。客户端随后发送带 epoch、revision 的完整声明快照。完整验证后服务端原子替换索引并 ACK。
+## Budgets & Authorization
 
-相同 revision 相同内容可重发，相同 revision 内容冲突拒绝，较旧 revision 不会覆盖较新状态。失败保留上一份有效快照。客户端重试最新快照，间隔逐步增长至 10 秒，持续失败通过 SyncState 与 SyncError 暴露。声明变化由 500 ms 周期合并发送。
+| Item | Current Limit |
+| :--- | :--- |
+| Capabilities per connection | Max 256 items (max 4,096 local handles) |
+| Local capability payload | ~60 KiB (reserving envelope headroom) |
+| Snapshot & Relay envelope | Max 64 KiB encoded |
+| Snapshot control rate | 4/sec per connection, burst 4 |
+| Snapshot replacement interval | Min 250 ms |
+| Relay requests | 10/sec per connection, burst 20 |
+| Broadcast recipients | Max 128 connections |
+| Sender fanout | 1 MiB/sec, burst 2 MiB |
+| Global fanout | 8 MiB/sec, burst 16 MiB |
+| Pending client requests | Max 64, 15 s timeout |
+| UDP Relay queuing | 2,048 packets per receiver, 8,192 global watermark |
 
-IClientCommandRelay.SyncState 提供 Disconnected、Pending、Synced、Failed，SyncError 提供发送、ACK 超时或服务端拒绝原因。初次快照确认前 SendRelay 返回 CapabilitiesNotSynced。断线保留本地声明并终结待决请求为 Unknown，重连获取新 epoch 后全量恢复。会话令牌轮换沿用连接 epoch。
+Server composition roots may register `RelayLimits` and `ICommandRelayAuthorization` before creating the Framework. By default, authenticated players may unicast and broadcast within budgets; sender identity is always taken from the authenticated `Ready` connection.
 
-## 预算与授权
+## Protocol Compatibility & Security
 
-| 项目 | 当前值 |
-| --- | --- |
-| 单连接能力 | 最多 256 项，本地最多 4096 个持有句柄 |
-| 本地能力载荷 | 保留信封余量，最多约 60 KiB |
-| 快照和 Relay 信封 | 编码后最多 64 KiB |
-| 快照控制流 | 每连接每秒 4 次，突发 4 次，超额丢弃等待客户端重试 |
-| 快照状态替换 | 至少间隔 250 ms，幂等重发受控制流预算约束 |
-| Relay 请求 | 每连接每秒 10 条，突发 20 条 |
-| 广播接收连接 | 最多 128 个，超限拒绝整次路由 |
-| 发送者扇出 | 每秒 1 MiB，突发 2 MiB |
-| 全局扇出 | 每秒 8 MiB，突发 16 MiB |
-| 客户端待决请求 | 最多 64 个，15 秒等待结果 |
-| UDP Relay 排队 | 单接收连接可靠有序队列 2048 包，全局 8192 包水位 |
+| Combination | Behavior |
+| :--- | :--- |
+| New client + New server | Negotiates Relay and syncs plugin capabilities |
+| Old client + New server | Uses existing protocols; Relay excluded |
+| New client + Old server | Uses existing protocols; `SendRelay` returns `UnsupportedRelay` |
+| Old client + Old server | Uses existing protocols |
 
-服务端组合根可在创建 Framework 前注册 RelayLimits 和 ICommandRelayAuthorization。默认允许已认证玩家在预算内单播与广播，声明本身只参与接收资格匹配。服务器始终从 Ready 认证连接取发送者身份，并使用接收连接自己的 SessionId 构造投递信封。
+The outer envelope uses `DataContractJsonSerializer` with an optional `CommandRoute` field (defaulting to `Server`). Both client (`PinnedClientUdpReceiveGuard`) and server share `Common/Connections/PinnedUdpReceiveBudget.cs` for pre-reassembly UDP fragment/coalesced packet protection. Both sides pin Common `911047cf8a6dd34e661e107e182e9c921b8e9586`; see [R5 Final Verification](branch-local/dev/roadmaps/Command-Capability-Relay-R5-Final-Verification.md).
 
-UDP 队列水位在新增 Relay 之前检查，最后一次提交和可靠窗口内数据有额外余量。历史业务可继续使用其现有发送入口。TLS 使用既有有界出站队列。具体数字构成准入预算，进程峰值内存仍需实测。
+## Sample & Diagnostics
 
-## 协议兼容与安全限制
+A compilable standalone sample is in [Command Relay Sample](../Samples/CommandRelay/README.md). Client, shared contracts, and plugins must match as a set—protocol negotiation cannot fix missing CLR types at load time.
 
-| 组合 | 行为 |
-| --- | --- |
-| 新客户端与新服务端 | 协商 Relay 并同步插件能力 |
-| 旧客户端与新服务端 | 使用既有业务协议，排除 Relay |
-| 新客户端与旧服务端 | 使用既有业务协议，SendRelay 返回 UnsupportedRelay |
-| 旧客户端与旧服务端 | 使用既有协议 |
-
-外层使用 DataContractJsonSerializer，CommandRoute 是可选新增字段，缺省时沿用 Server 模式。新增控制消息只在 Relay 协商后发送。内层 protobuf Command 定义保持原格式。回归包含冻结的旧外层报文类读写测试。
-
-服务端既有固定 LiteNetLib 收包保护继续生效，包含分片重组与事件队列水位。客户端现已接入相同的共享收包预算，在原始 UDP 回调进入重组前检查分片与合包，并限制不完整分片组和事件队列。两个固定 DLL 分别校验哈希与反射布局。64 KiB 校验发生在重组后，收包预算负责重组前保护。队列水位仍允许最后一次重组与可靠窗口带来的短时额外占用。UDP/ClientKey 的既有身份与链路安全边界也继续适用。
-
-2026-11-10 用户反馈黑盒全部通过，并授权交叉兼容与压力采用白盒验收。最终通过 21 组、628 条 Pipeline 断言和 50 项服务端阶段检查，包含冻结旧组件矩阵、虚拟持续路由、慢接收者及实际 UDP/TLS 队列边界。两端 Common 精确引用已统一为 `911047cf8a6dd34e661e107e182e9c921b8e9586`。具体证据与测试边界见 [R5 最终核对](roadmaps/Command-Capability-Relay-R5-Final-Verification.md)；虚拟时钟与冻结组件不代表真实旧发行进程部署或实机长时 RSS 测量。
-
-## 客户端收包保护与示例验证
-
-共享实现为 Common/Connections/PinnedUdpReceiveBudget.cs，客户端通过 PinnedClientUdpReceiveGuard 安装，服务端通过既有同步入口复用。客户端轮询异常或收包保护异常由当前轮询工作线程关闭本次传输，后续重连先确认旧线程退出并重置保护状态。
-
-实际 net35 DLL 的客户端测试已验证有效 1 MiB 可靠载荷、直接及合包异常分片、未完成分片组预算、512 事件水位、32 MiB 载荷水位、排空恢复、轮询故障和再次重连。服务端固定 netstandard DLL 的既有分片与队列测试通过。两端共享预算内容保持一致。
-
-可编译独立插件见 [Command Relay 示例](../Samples/CommandRelay/README.md)。示例编译通过，展示当前 ClientExtensionModule、声明生命周期、单播与广播、异步路由结果和主线程接收。
-
-## 构建配套与诊断
-
-完整客户端、共享契约和插件必须成套对应。协议协商 `core.command-relay.v1` 处理的是网络端点兼容，无法修复 CLR 加载插件时缺失的公共类型。仅升级插件、沿用旧 Host，或混入旧 `Utils.dll`，均可能在网络协商前触发 `ReflectionTypeLoadException`/`TypeLoadException`。程序集版本或 API 主版本相同也不证明包含 Relay 新契约；核对实际加载目录、所选 1.6/1.7 variant 与构建指纹。
-
-| 现象 | 判断与处理 |
-| --- | --- |
-| `Could not load type 'Utils.Framework.RelayResult'` | 实际 Host/Common 缺少契约；完全退出游戏、完整替换配套候选客户端、排除重复安装后重启 |
-| `UnsupportedRelay` | 公共类型已能加载，但当前网络协商未启用 Relay；检查两端支持情况 |
-| `CapabilitiesNotSynced`、Pending/Failed | 检查连接、SyncError 与快照 ACK；声明重试由 Framework 负责 |
-| `NoRecipients`、`NoCapability` | 检查接收方实际声明、精确版本及 Ready 状态；Handler 注册本身不产生声明 |
-| `Example Relay handler fault injection.` | Example 主动选择抛错模式产生的测试异常；应验证后续正常消息仍可处理 |
-| 旧红包 `RedPacketRelay` 的 HTTP 轮询超时 | 属于红包自己的 HTTP 中继，不是 Command Capability Relay 的路由结果 |
-
-可视测试面板由独立 Example 仓库的 `codex/command-relay-test-panel` 分支提供（“示例 → 客户端通信测试”）；服务端无需安装该业务插件。开窗不自动声明接收能力。测试时双方使用同一候选 Host 和 Example，先声明并等到 Synced，再检查发送端路由结果与接收端业务记录。
+| Symptom | Cause & Action |
+| :--- | :--- |
+| `Could not load type 'Utils.Framework.RelayResult'` | Loaded Host/Common lacks Relay contracts; replace the full client and remove duplicate installs |
+| `UnsupportedRelay` | Network session did not negotiate Relay; check both endpoints |
+| `CapabilitiesNotSynced` / `Pending` / `Failed` | Check connection, `SyncError`, and snapshot ACK |
+| `NoRecipients` / `NoCapability` | Check receiver's exact capability declaration, version, and `Ready` state |
+| `Example Relay handler fault injection.` | Intentional test exception from Example fault-injection mode |
+| Legacy `RedPacketRelay` HTTP poll timeout | RedPacket's own HTTP relay, unrelated to Command Capability Relay |
