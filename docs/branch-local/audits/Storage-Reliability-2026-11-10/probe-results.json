@@ -1,0 +1,20 @@
+{
+  "client_commit": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "production_source": "Extensions/Trade/Client/TradeOfferOperations.cs",
+  "production_source_sha256": "173c80d83b509598f02dea00064540a849cf5276c15f1252d8db223bf83275be",
+  "runtime": "10.0.114",
+  "results": [
+    "P1 OBSERVED: known pre-send exception classified Unknown; no restore",
+    "P2 OBSERVED: terminal event then matching accepted event remains Unknown",
+    "P4 OBSERVED: legal-size 3 MiB raw payload expands beyond 8 MiB JSON journal record; JSON bytes=12582913",
+    "P5 MODEL: 16 offers missing result/binding slots exceed 64 MiB before payload files",
+    "P3 CONTROL: durable result resolves same pending operation"
+  ],
+  "scope": "synthetic event service and immediate dispatcher; actual production TradeOfferOperations.cs; BCL serializer measurement; capacity arithmetic model; no game or server execution",
+  "real_game_validated": false,
+  "reproduction": {
+    "exit": 0,
+    "source_sha256": "173c80d83b509598f02dea00064540a849cf5276c15f1252d8db223bf83275be",
+    "entry": "probes/run-probes.py"
+  }
+}

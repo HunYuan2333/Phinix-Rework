@@ -1,0 +1,70 @@
+{
+  "date": "2026-11-16",
+  "stage": "E3 control parsing and managed-worker diagnostics slice verified; E3 storage/settings/theme/nickname pending",
+  "branch": "codex/client-error-reporting",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "common_gitlink_advanced": false,
+  "committed_merged_pushed_released": false,
+  "source_sha256": {
+    "Client/Source/Framework/ClientErrorService.cs": "06c975b4ee3de9873e9c321ebc9c777584c9d54f8526ddfb8a737dfd4234f9e4",
+    "Client/Source/Framework/PhinixFrameworkClient.cs": "3a0be3a13b20a582b904f424f068b7f87dead099b1b13c7f2cf3e976602a775f",
+    "Client/Source/Framework/ManagedExtensionManagerController.cs": "34d91bc11059d478b11ae73a912b711e64386f3e049460f150aa63f9fcba0081",
+    "Client/Source/Framework/ManagedExtensionManagerView.cs": "132e97c4d8a6a7e9efc9b97edaa3f21e99f9cf92b5d3eeb050d0c6e875068a49",
+    "Client/Source/Client.cs": "749da30dd0455456f715eb6aa5f969b87a9b9aa4650c52e6066a498ba1b9fae1",
+    "Tests/ClientErrorBoundaryRuntimeTests/ControlBoundaries.cs": "cb59529ff10b86ea4b493b7823b99a873d6389c5f37b6a1d8e42df8be541a01e",
+    "Tests/ClientErrorBoundaryRuntimeTests/Program.cs": "7f9a5d21e0de2e4f203563ee86879732af870befc0bfc58847ddbabd5f3d60ab",
+    "Tests/ManagedExtensionRuntimeTests/ManagedExtensionRuntimeTests.csproj": "ef8bdee51fd32354d1e592ca3b2cba990ff4241bce7e0ad2710073dfb268b5f3",
+    "tools/quality/run-client-error-boundary-tests.py": "85c935b9dcc66afc6d573705f1a2f813e5bf9e55c5688e9e50ded5f2f1f3f836"
+  },
+  "builds": {
+    "net472": "PASS real Host/built-ins",
+    "net10": "PASS 28 projects including maintained RedPacket/TalentTrade consumers"
+  },
+  "real_component_boundaries": {
+    "net10": 72,
+    "net472_mono": 66,
+    "status": "PASS",
+    "new_checks": 14,
+    "scope": "Actual compiled Host/transport/shared components with scripted service faults; no game session or real network."
+  },
+  "error_core_regression": {
+    "net10": 64,
+    "net472_mono": 64,
+    "status": "PASS"
+  },
+  "old_managed_full_suite": {
+    "status": "NOT RUN: local build returns failure without usable compilation diagnostic",
+    "not_claimed_pass": true,
+    "snapshot_only_reference_substitution": "Also attempted built Utils references in isolated snapshot; did not run successfully."
+  },
+  "log_sha256": {
+    "/tmp/e3-control16-final-build.log": "5b94120087865a247f83e05c9763bcbaae54aa0402f91a76bdf134f90dad984f",
+    "/tmp/e3-control17-final-build.log": "c85ae4ea50f98a229bd10d3175486e8a7f1baaa3d373f68b83805fbfc219f7d5",
+    "/tmp/phinix-e3-control-verified/net10.0/build.log": "f4810ce3470af3bfaf013814eaeaefd763d1b3ca5f54b95dd8e821e03cf47168",
+    "/tmp/phinix-e3-control-verified/net10.0/test.log": "29b4fb23f6ef8827035ee74f3c4f2520284f39578f592efa55d8439ca1bdde36",
+    "/tmp/phinix-e3-control-verified/net472/build.log": "3411884a0489ed0b1ef765fc0d0b92fe02bd4a1caa3d23bc99c4d7a489c2edd2",
+    "/tmp/phinix-e3-control-verified/net472/test.log": "4db9c4c565f8a7cf93d01ae30c0af817a2f5cb5e0dfa1cbf64d7ddb3e5bb8961",
+    "/tmp/phinix-e3-control-core/net10.0/test.log": "19f93cafcd4c3aeef7e0abdb71768a995f2461066da4c77b39149337c1031f4e",
+    "/tmp/phinix-e3-control-core/net472/test.log": "19f93cafcd4c3aeef7e0abdb71768a995f2461066da4c77b39149337c1031f4e",
+    "/tmp/e3-control-managed.log": "2c69cf30de7b7fa2cb645dfae7ae045201b6557fb8c909403ab6712451a0c4ea",
+    "/tmp/e3-control-managed-isolated.log": "2c69cf30de7b7fa2cb645dfae7ae045201b6557fb8c909403ab6712451a0c4ea"
+  },
+  "binary_sha256": {
+    "/tmp/phinix-e3-control16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll": "31e77f38ac3c977ec7c48aa47d46e215631d1ff35b140cabfbeef896aa51770a",
+    "/tmp/phinix-e3-control16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll": "b4adbaedb08d2c9186bd21756fd9efe6864cf8a6e565b3a358e0d3a5bd0cf70c",
+    "/tmp/phinix-e3-control16/Phinix-Rework/Client/Source/bin/Release/Connections.Client.dll": "eaacc81a8fec0f0608a3b0ffa96c5f9ed3cde899da527a53883e181a1f6863ce",
+    "/tmp/phinix-e3-control16/Phinix-Rework/Client/Source/bin/Release/Utils.dll": "26bdd323ef56ba0ca1391dec3b95bae9f1b45c8f5b16db3af28f222559a77629",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/PhinixClient.dll": "3ef112cb4c81271f1461105dccc199aadae549f60c949bbbb8435c2acde268ce",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/ClientExtensionAbstractions.dll": "73d8f4e2f34186f943b379bd8d44b3ecc71472c1dced5da436f403a0bbe51451",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/Connections.Client.dll": "cbfa215d2a303b85c8cfea86883d6af766719cd0c8aa62eda51d366d17b8b2c0",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/Utils.dll": "daa70fc82299ad1028eaa875a9bbe87b9598f75ee2d97dc45cceb08a890d613b"
+  },
+  "limitations": [
+    "No actual game popup/clipboard/final propagation or real networking acceptance.",
+    "Mono emits existing Unity.Burst metadata attribute warning.",
+    "E3 storage/settings/nickname/themes remain incomplete.",
+    "Common still dirty, exact commit/pin required before release.",
+    "Relay integration remains planned after E4 and before E5; not performed."
+  ]
+}

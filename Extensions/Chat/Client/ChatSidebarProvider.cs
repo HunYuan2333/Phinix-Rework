@@ -125,7 +125,7 @@ namespace Phinix.ChatExtension.Client
                     target == null ? null : TextHelper.StripRichText(target.Value.DisplayName), L("memberActions"), bindings, rows,
                     !connected ? "Phinix_chat_notConnected".Translate().ToString() : filter.Length > 0 ? L("noMatches") : L("empty"), selected), actions, current);
             }
-            catch { actions.Dispose(); throw; }
+            catch (System.Exception boundaryError12) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatSidebarProvider/ViewUpdate", boundaryError12);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatSidebarProvider/ViewUpdate/Cleanup", () => { actions.Dispose(); }); throw; }
             memberVersion = version; pointVersion = contributions; online = connected; language = expectedLanguage;
             collapsed = expectedCollapse; formatting = expectedFormatting; themeVersion = expectedTheme; lastAction = actionResult; inputChanged = false;
         }
@@ -150,7 +150,7 @@ namespace Phinix.ChatExtension.Client
             memberWindow?.Close();
             var session = renderer.Open(module, "member-actions");
             try { memberWindow = new MemberActionWindow(this, user.Uuid, session); Find.WindowStack.Add(memberWindow); }
-            catch { session.Dispose(); memberWindow = null; throw; }
+            catch (System.Exception boundaryError13) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatSidebarProvider/OpenMemberActions", boundaryError13);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatSidebarProvider/OpenMemberActions/Cleanup", () => { session.Dispose(); }); memberWindow = null; throw; }
         }
         // Host publishes/guards actions before the native menu constructor receives its options.
         private sealed class MemberActionWindow : FloatMenu
@@ -165,7 +165,7 @@ namespace Phinix.ChatExtension.Client
                 base.WindowUpdate();
                 if (!projection.IsCurrent) { Close(); return; }
                 try { projection.Refresh(); options = projection.Options; }
-                catch (Exception error) { Log.Warning("[Phinix Chat] Member actions projection failed: " + error); Close(); }
+                catch (Exception error) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatSidebarProvider/WindowUpdate", error);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatSidebarProvider/WindowUpdate/LogObserver", () => { Log.Warning("[Phinix Chat] Member actions projection failed: " + error.GetType().Name); }); global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatSidebarProvider/WindowUpdate/Cleanup", () => { Close(); }); }
             }
             public override void PostClose()
             { try { projection.Session.Dispose(); } finally { if (ReferenceEquals(projection.Owner.memberWindow, this)) projection.Owner.memberWindow = null; base.PostClose(); } }
@@ -212,7 +212,7 @@ namespace Phinix.ChatExtension.Client
                     session.Publish(new ClientPresentationPage("member-actions", TextHelper.StripRichText(nextName), ++revision,
                         new[] { new ClientPresentationSection("actions", "", "", bindings) }), actions, current);
                 }
-                catch { actions.Dispose(); throw; }
+                catch (System.Exception boundaryError15) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatSidebarProvider/Refresh", boundaryError15);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatSidebarProvider/Refresh/Cleanup", () => { actions.Dispose(); }); throw; }
                 Options = ClientPresentationMenus.ToGameOptions(session.CreateActionMenuItems());
                 if (Options.Count == 0) throw new InvalidOperationException("ChatMemberActionsMissing");
                 name = nextName; blocked = nextBlocked; connected = nextConnected; contributions = nextContributions; tradeId = nextTradeId; language = nextLanguage; result = nextResult;

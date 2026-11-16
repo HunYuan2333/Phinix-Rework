@@ -61,7 +61,7 @@ namespace Phinix.TradeExtension.Client
         {
             if(disposed||owner==null||view!=null&&!view.IsClosed)return;
             view=renderer.Open(owner,"trade-list");dirty=true;
-            try {Refresh();}catch {ViewClosed();throw;}
+            try {Refresh();}catch (System.Exception boundaryError238) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeList/ViewOpened", boundaryError238, true); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeList/ViewOpened/Cleanup", () => { ViewClosed(); });throw;}
         }
         public void ViewClosed(){var old=view;view=null;old?.Dispose();dirty=true;}
         public void ViewUpdate()
@@ -137,7 +137,7 @@ namespace Phinix.TradeExtension.Client
             lock(sync){waiting.Add(id);noticeKey=null;notice=L("listCancelPending");changed++;}dirty=true;
             // A callback result is only command submission; completion/return stays with Trade owner.
             try {service.CancelTrade(id);}
-            catch(Exception error){lock(sync){notice=L("listCancelUncertain");changed++;}host.Log(new Utils.LogEventArgs("Trade cancel submission failed: "+error,Utils.LogLevel.ERROR));}
+            catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeList/Cancel", error, true); lock(sync){notice=L("listCancelUncertain");changed++;}global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeList/Cancel/LogObserver", () => { host.Log(new Utils.LogEventArgs("Trade cancel submission failed: "+error.GetType().Name,Utils.LogLevel.ERROR)); });}
         }
         private void Refresh()
         {
@@ -210,7 +210,7 @@ namespace Phinix.TradeExtension.Client
                 if(picked==null&&pickedOperation==null)sections.RemoveRange(2,sections.Count-2);
                 dirty=false;view.Publish(new ClientPresentationPage("trade-list","",ticket,sections).WithFixedHeaderSections(1),owned,current);
             }
-            catch {dirty=true;owned.Dispose();throw;}
+            catch (System.Exception boundaryError240) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeList/Refresh", boundaryError240, true); dirty=true;global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeList/Refresh/Cleanup", () => { owned.Dispose(); });throw;}
             shown=epoch;operationVersion=ov;themeVersion=tv;pointVersion=pv;language=lang;result=expectedResult;
         }
         private sealed class RowActionSets:IClientActionSet
@@ -218,7 +218,7 @@ namespace Phinix.TradeExtension.Client
             private readonly List<IClientActionSet> sets=new List<IClientActionSet>();
             public IReadOnlyList<IClientContributedAction> Actions=>sets.SelectMany(s=>s.Actions).ToArray();
             public IClientActionSet Add(IClientActionSet set){sets.Add(set);return set;}
-            public void Dispose(){var owned=sets.ToArray();sets.Clear();var failures=new List<Exception>();foreach(var set in owned)try{set.Dispose();}catch(Exception error){failures.Add(error);}if(failures.Count>0)throw new AggregateException(failures);}
+            public void Dispose(){var owned=sets.ToArray();sets.Clear();var failures=new List<Exception>();foreach(var set in owned)try{set.Dispose();}catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeList/Dispose", error); failures.Add(error);}if(failures.Count>0)throw new AggregateException(failures);}
         }
         private static string TabTitle()=>"Phinix_tabs_trades".Translate();
         private void Disconnected(object sender,EventArgs args){lock(sync){trades.Clear();waiting.Clear();notice="";noticeKey="listDisconnected";changed++;}}

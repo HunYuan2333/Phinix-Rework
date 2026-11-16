@@ -9,15 +9,17 @@ namespace PhinixClient.Framework
         private readonly Action<string> openGameBrowser;
         private readonly Action<string> openExternalBrowser;
         private readonly Action<string> diagnostic;
+        private readonly Func<string,string,Exception,string> fault;
 
         internal ClientLinkService(Func<bool> isMainThread, Func<bool> gameBrowserAvailable,
-            Action<string> openGameBrowser, Action<string> openExternalBrowser, Action<string> diagnostic)
+            Action<string> openGameBrowser, Action<string> openExternalBrowser, Action<string> diagnostic, Func<string,string,Exception,string> fault = null)
         {
             this.isMainThread = isMainThread ?? throw new ArgumentNullException(nameof(isMainThread));
             this.gameBrowserAvailable = gameBrowserAvailable ?? throw new ArgumentNullException(nameof(gameBrowserAvailable));
             this.openGameBrowser = openGameBrowser ?? throw new ArgumentNullException(nameof(openGameBrowser));
             this.openExternalBrowser = openExternalBrowser ?? throw new ArgumentNullException(nameof(openExternalBrowser));
             this.diagnostic = diagnostic;
+            this.fault = fault;
         }
 
         public ClientLinkOpenResult Open(string url, ClientLinkOpenPreference preference = ClientLinkOpenPreference.PreferGameBrowser)
@@ -41,7 +43,7 @@ namespace PhinixClient.Framework
                         return ClientLinkOpenResult.GameBrowserRequested;
                     }
                 }
-                catch (Exception ex) { Report("GameBrowserUnavailable:" + ex.GetType().Name, uri.Host); }
+                catch (Exception ex) { Failure("GameBrowserUnavailable", ex); Report("GameBrowserUnavailable:" + ex.GetType().Name, uri.Host); }
             }
             try
             {
@@ -51,10 +53,14 @@ namespace PhinixClient.Framework
             }
             catch (Exception ex)
             {
+                Failure("LinkOpenUnavailable", ex);
                 Report("LinkOpenUnavailable:" + ex.GetType().Name, uri.Host);
                 return ClientLinkOpenResult.Unavailable;
             }
         }
+
+        private void Failure(string code, Exception error)
+        { try { fault?.Invoke("builtin.host",code,error); } catch { } }
 
         private void Report(string code, string host)
         {

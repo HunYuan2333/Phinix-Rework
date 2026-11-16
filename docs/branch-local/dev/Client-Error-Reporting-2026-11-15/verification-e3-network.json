@@ -1,0 +1,86 @@
+{
+  "date": "2026-11-16",
+  "stage": "E3 network/authentication boundary slice verified; remaining E3 paths pending",
+  "branch": "codex/client-error-reporting",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "common_gitlink_advanced": false,
+  "merged_committed_pushed_or_released": false,
+  "source_sha256": {
+    "Client/Common/Connections.Client/ClientConnectionDiagnostics.cs": "f06b725cdb35ec08aed2a8b333b631dc825d0e861adba0e94e2110cdea3b46f1",
+    "Client/Common/Connections.Client/ConfiguredClientTransport.cs": "76add3c8bfb6ebe9add2416cb636b705e4599c15c8f246ff0cb0ca204410dbc8",
+    "Client/Common/Connections.Client/NetClient.cs": "ceb1385a6d559f47ace606ce96a42a8de97ac561c1f91be52bca586308547cca",
+    "Client/Common/Connections.Client/TlsNetClient.cs": "7c0efa2ebaca755d00c10f8344a4315fb429d78142b428c2ff846d9d7f7b6b10",
+    "Client/Common/Authentication.Client/ClientAuthenticator.cs": "704363d8c47bc9e43305d15f3f769ec2c938ab24be8185f3258102de64383b2a",
+    "Client/Common/Authentication.Client/PasswordlessIdentityClient.cs": "003a0ac2079f6b8908a4c493df29fd1e4c213f74114e8a0ee977aae8ace15b7c",
+    "Client/Common/Authentication.Client/ServerIdentityCredentials.cs": "55dc034b45d7775e9e22c273bce07c0c60849ff9849b6de84707c8c95ddadab1",
+    "Client/Source/Client.cs": "04e4eb11b05c4e281ea6e8ba5445066b3d866ab6965e5f52c829c850bb28f603",
+    "Tests/ClientErrorBoundaryRuntimeTests/ConnectionBoundaries.cs": "d2e2f4c1e4e6bd70d8d0797d142c62299214a84e743be60cd1440cbd09b8e7f3",
+    "Tests/ClientErrorBoundaryRuntimeTests/Program.cs": "c6838028382a6c222b828ab08b3d1b3d0d4f32d06eb48a9d8814b534aeaf5f88",
+    "Tests/ClientIdentityCredentialTests/Program.cs": "36c4121044ecbc0106742b68af12ff055169a1a8e8db342be04897ca2a2e35e8",
+    "Tests/Phase35ClientRuntimeTests/Phase35ClientRuntimeTests.csproj": "ba546408ae1370e5bf907d0b1fb2620ff81d860e71334a092054eb9c01a92a92",
+    "tools/quality/run-client-error-boundary-tests.py": "60b50538fa50e105df26285cb34ee8733fcbe97a591f2e38a6d0e274956c644c",
+    "tools/quality/run-client-identity-tests.py": "a8fe1a2900b379a93eda2c231fac84c6af56fe6e47e5a418cc392031297d006d",
+    "tools/quality/run-phase35-client-tests.py": "e06d682f6cd9355edaac392bd29a76f761d82ad73b2e5becbe97850032898f36"
+  },
+  "builds": {
+    "net472": "PASS real Host and built-ins",
+    "net10": "PASS 28 projects including maintained RedPacket and TalentTrade consumers; Example pending Relay integration"
+  },
+  "boundaries": {
+    "net10": 58,
+    "net472_mono": 52,
+    "status": "PASS",
+    "network": "No sockets in final suite; real thread/callback entrypoints, scripted transports and fault injection. Initial attempted socket creation was denied. No real TLS/UDP closure race acceptance."
+  },
+  "phase35": {
+    "cases": 7,
+    "assertions": 97,
+    "status": "PASS"
+  },
+  "identity_credentials": {
+    "checks": 70,
+    "actual_Authentication_Client_dll": true,
+    "status": "PASS",
+    "kill_cases": [
+      "create after-flush",
+      "create after-commit",
+      "confirm after-flush",
+      "confirm after-commit"
+    ]
+  },
+  "logs_sha256": {
+    "/tmp/e3-net16-final-build.log": "19cc6eaaf478493c9c6bfaa6f5f4f062c5e800355295559ce69bf499c7bdbb01",
+    "/tmp/e3-net17-final-build.log": "e7b2f9adcce68ca6c5b53654110932676dee3365132e57c12aedb3a3c87b5756",
+    "/tmp/phinix-e3-net-verified/net10.0/build.log": "91f8142b84de15dcb3fda9c0e470d3bba6e8d3a3709f967fe486e24bca0e28ad",
+    "/tmp/phinix-e3-net-verified/net10.0/test.log": "b7a636ad8860a8155a3af51a2acd6b64183259d3e3e520c00764d090edc828a3",
+    "/tmp/phinix-e3-net-verified/net472/build.log": "ff05ee7df23a76043f9d9c8b220a13880717e3fa11a400eae2cac24e54fad2a8",
+    "/tmp/phinix-e3-net-verified/net472/test.log": "cca435effc24d47b9d283ef8565ff46e2346974aafc38e5d7834cc1d8868e5aa",
+    "/tmp/phinix-e3-net-phase35/test.log": "cbee5046662a2ae6dc198b204c8ffe0e7204bdfa28ede5d0c6403e62ae9fa81d",
+    "/tmp/phinix-e3-identity-final/test.log": "92515a5998ccb1250aa82f94c8893b79e4d3338c5a8ee3671f585c19e4178eb5"
+  },
+  "binary_sha256": {
+    "/tmp/phinix-e3-net16-verified/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll": "0129c28bd02360731829c22fb2988e71bd2a6ec817733f73011d2a0b49692c83",
+    "/tmp/phinix-e3-net16-verified/Phinix-Rework/Client/Source/bin/Release/Connections.Client.dll": "3c20b35d22a458b15278478abd24710d773c1351e07b19f13ce04991e89435e8",
+    "/tmp/phinix-e3-net16-verified/Phinix-Rework/Client/Source/bin/Release/Authentication.Client.dll": "07296bf2f0846507e2dfa5981c6baae63d6f7fdfb265773468a15a6071781bdd",
+    "/tmp/phinix-e3-net16-verified/Phinix-Rework/Client/Source/bin/Release/Utils.dll": "1071842baaf8b3cd4b60841bcc0214307c70bd5ed7af3417ef0540cb9a40f99c",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/PhinixClient.dll": "e55a069b28707c46e5498cb57bcf239b98a73ec925b1be259ccfac6f4ad94fc5",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/Connections.Client.dll": "cbfa215d2a303b85c8cfea86883d6af766719cd0c8aa62eda51d366d17b8b2c0",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/Authentication.Client.dll": "e6ccc4e35c814bf54bb220fd707359a3e18d73f8d7a9b6bd86cc8e18afb6e4fe",
+    "/tmp/phinix-e3-net17-verified/bin/Release/net10.0/Utils.dll": "daa70fc82299ad1028eaa875a9bbe87b9598f75ee2d97dc45cceb08a890d613b"
+  },
+  "relay_integration": {
+    "stage": "M1 after E4 before E5",
+    "relay_head": "311fdd64479a36d5244aa656cc9ac765c53cd6d6",
+    "assessment": "relay-integration-assessment.json",
+    "performed": false
+  },
+  "limitations": [
+    "Framework parsing/control errors, storage and settings paths remain in E3.",
+    "No actual game popup/clipboard/final propagation acceptance; Mono emits existing Unity.Burst metadata warning.",
+    "Actual TLS/UDP networking and Windows ACL acceptance not run.",
+    "Common worktree remains dirty; commit and exact pin required before release.",
+    "The default Example selection fails before Relay merge; use documented explicit maintained consumer graph.",
+    "Temporary directories may disappear; persist hashes and rerun documented builders."
+  ]
+}

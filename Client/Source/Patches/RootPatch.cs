@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System;
+using HarmonyLib;
 using Verse;
 
 namespace PhinixClient.Patches
@@ -9,7 +10,13 @@ namespace PhinixClient.Patches
         [HarmonyPostfix]
         private static void Update()
         {
-            Client.Instance?.Update();
+            try { Client.Instance?.Update(); }
+            catch (Exception error)
+            {
+                try { Client.Instance?.ReportUpdateFailure(error); }
+                catch { /* Reporting must never replace the exception being handed to the game. */ }
+                throw;
+            }
         }
     }
 }

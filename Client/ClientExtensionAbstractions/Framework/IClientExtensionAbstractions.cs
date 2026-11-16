@@ -6,10 +6,19 @@ using Verse;
 
 namespace PhinixClient.Framework
 {
+    /// <summary>The Host rejected preparation before entering transport Send. No packet was submitted by this call.</summary>
+    public sealed class ClientPacketNotSentException : InvalidOperationException
+    {
+        public ClientPacketNotSentException(Exception cause)
+            : base("Packet was not submitted to the transport.", cause) { }
+    }
+
     public interface IFrameworkClientTransport
     {
         bool HasRemoteCapability(string capability);
 
+        // Return means accepted by transport, not server acknowledged. Local preparation failures
+        // throw ClientPacketNotSentException; other failures may have an unknown delivery outcome.
         void SendFrameworkPacket(FrameworkPacket packet);
 
         /// <summary>
@@ -30,7 +39,8 @@ namespace PhinixClient.Framework
     // Transport adapter boundary: prepared messages retain reply/mention metadata.
     public interface IClientMessageSubmission
     {
-        // True means dispatched, not server acknowledged. Failures never select another protocol.
+        // True means handled/dispatched, not server acknowledged. False means unavailable/unhandled.
+        // Handler or send failures throw with their original cause; never retry another protocol.
         bool TrySubmitMessage(FrameworkPacket message);
     }
 

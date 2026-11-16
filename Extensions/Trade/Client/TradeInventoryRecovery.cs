@@ -31,7 +31,7 @@ namespace Phinix.TradeExtension.Client
             // Activation only borrows ports/subscribes; game facts are read through guarded Capture.
             Dispose();this.read=read;this.reservations=reservations;
             try {read.InventoryChanged+=Changed;read.AvailabilityChanged+=Changed;Interlocked.Increment(ref revision);}
-            catch {Dispose();throw;}
+            catch (System.Exception boundaryError237) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeInventoryRecovery/Start", boundaryError237); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeInventoryRecovery/Start/Cleanup", () => { Dispose(); });throw;}
         }
         private void Changed(object sender,EventArgs args){Interlocked.Increment(ref revision);}
         internal void ConfigureCompletions(TradeCompletionInbox inbox,Func<string> recipient,Func<string> endpoint)

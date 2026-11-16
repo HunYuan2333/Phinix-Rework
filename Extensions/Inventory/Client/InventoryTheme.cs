@@ -53,7 +53,7 @@ namespace Phinix.InventoryExtension.Client
                 owned.Commit();
                 registration = owned;
             }
-            catch { owned.Dispose(); throw; }
+            catch (System.Exception boundaryError29) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryTheme/Start", boundaryError29);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryTheme/Start/Cleanup", () => { owned.Dispose(); }); throw; }
         }
 
         public void Dispose()

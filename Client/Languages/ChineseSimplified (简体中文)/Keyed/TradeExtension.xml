@@ -182,4 +182,5 @@
   <Phinix_trade_deliverySavePending>交易物品已保留，接收时当前存档尚未就绪，暂未交付。请先保存，再查看待核对交易。</Phinix_trade_deliverySavePending>
   <Phinix_trade_deliveryScopePending>交易物品已保留；游戏或存档范围已改变，暂未发放。请查看待核对交易，避免重复操作。</Phinix_trade_deliveryScopePending>
   <Phinix_trade_basicCompatibilityNotice>当前交易使用原版 Phinix 兼容规则：仅保留物品种类、数量、材质、品质、耐久及内含物，其他附加属性会丢弃。确认与交付采用原版较弱规则；服务端发出物品不代表对方游戏已保存到账。</Phinix_trade_basicCompatibilityNotice>
+  <Phinix_trade_deliveryDispatchFailed>本次交易的本地交付无法确认，物品可能未到账。其他交易可继续；不会自动重复投放。</Phinix_trade_deliveryDispatchFailed>
 </LanguageData>

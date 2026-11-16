@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_errorReport_title>Phinix Rework 遇到问题</Phinix_errorReport_title>
+  <Phinix_errorReport_message>处理过程中遇到问题。请复制错误详情并发送给维护者，帮助排查。关闭此窗口不会重试或取消该操作。</Phinix_errorReport_message>
+  <Phinix_errorReport_copy>复制错误详情</Phinix_errorReport_copy>
+  <Phinix_errorReport_close>关闭</Phinix_errorReport_close>
+  <Phinix_errorReport_copied>已复制，可粘贴给维护者。</Phinix_errorReport_copied>
+  <Phinix_errorReport_copyFailed>复制失败，请重试。</Phinix_errorReport_copyFailed>
+  <Phinix_errorReport_source>来源：</Phinix_errorReport_source>
+  <Phinix_errorReport_number>错误编号：</Phinix_errorReport_number>
+  <Phinix_errorReport_occurrences>发生次数：</Phinix_errorReport_occurrences>
+  <Phinix_errorReport_recent>最近错误</Phinix_errorReport_recent>
+  <Phinix_errorReport_empty>本次运行尚未记录错误。</Phinix_errorReport_empty>
+  <Phinix_errorReport_previous>上一条</Phinix_errorReport_previous>
+  <Phinix_errorReport_next>下一条</Phinix_errorReport_next>
+  <Phinix_theme_operationFailed>操作未能正常完成，更改可能已保存。可在“最近错误”中复制详情。</Phinix_theme_operationFailed>
+  <Phinix_managed_stateSavedRefreshFailed>扩展设置已保存，但界面刷新失败。可在“最近错误”中复制详情。</Phinix_managed_stateSavedRefreshFailed>
+  <Phinix_theme_exportSavedRefreshFailed>主题包已保存，但窗口刷新失败。可在“最近错误”中复制详情。</Phinix_theme_exportSavedRefreshFailed>
+</LanguageData>

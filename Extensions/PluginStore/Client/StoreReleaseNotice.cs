@@ -38,13 +38,13 @@ namespace Phinix.PluginStore
                         // Persist only after the main-thread window request succeeds.
                         markShown();
                     }
-                    catch(Exception ex) { Report(ex); }
+                    catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/Start", ex);  Report(ex); }
                 });
             }
-            catch(Exception ex) { Report(ex); }
+            catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/Start", ex);  Report(ex); }
         }
         internal void Stop() { active=false; generation++; }
         private void Report(Exception exception)
-        { try { diagnostic?.Invoke("StoreReleaseNoticeFailed:"+exception.GetType().Name); } catch { } }
+        { try { diagnostic?.Invoke("StoreReleaseNoticeFailed:"+exception.GetType().Name); } catch (System.Exception boundaryError163) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/Report", boundaryError163);  } }
     }
 }

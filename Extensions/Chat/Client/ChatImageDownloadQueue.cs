@@ -78,7 +78,7 @@ namespace Phinix.ChatExtension.Client
                 foreach (Action<T, ChatImageFailure> callback in job.Callbacks)
                 {
                     try { callback(completion.Value, completion.Failure); }
-                    catch (Exception ex) { Report(ex); }
+                    catch (Exception ex) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatImageDownloadQueue/Pump", ex);  Report(ex); }
                 }
             }
 
@@ -93,7 +93,7 @@ namespace Phinix.ChatExtension.Client
                     new Completion { Job = job, Attempt = attempt, Value = value, Failure = failure });
                 try { job.Cancel = start(job.Url, TimeoutSeconds(attempt), complete); }
                 catch (Exception ex)
-                {
+                { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatImageDownloadQueue/Pump", ex);
                     Report(ex);
                     complete(null, ChatImageFailure.Transient);
                 }
@@ -105,7 +105,7 @@ namespace Phinix.ChatExtension.Client
             foreach (Job job in jobs.Values)
             {
                 try { job.Cancel?.Invoke(); }
-                catch (Exception ex) { Report(ex); }
+                catch (Exception ex) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatImageDownloadQueue/CancelAll", ex);  Report(ex); }
             }
             jobs.Clear();
             waiting.Clear();
@@ -118,7 +118,7 @@ namespace Phinix.ChatExtension.Client
         private void Report(Exception exception)
         {
             try { log?.Invoke(exception); }
-            catch (Exception) { /* A logger cannot hold a download slot or block other subscribers. */ }
+            catch (Exception boundaryError3) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatImageDownloadQueue/Report", boundaryError3);  /* A logger cannot hold a download slot or block other subscribers. */ }
         }
 
         internal static ChatImageFailure ClassifyFailure(bool connectionError, bool processingError, long status)

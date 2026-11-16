@@ -13,7 +13,11 @@ namespace PhinixClient.Framework
         private sealed class Row
         { internal ManagedExtensionManagementPackage Model; internal string Title, State, Modules, Diagnostic, Tooltip, Toggle, Removal; }
         private readonly ManagedExtensionManagerController controller=new ManagedExtensionManagerController(
-            error=>{ if(Prefs.DevMode) Log.Warning("[Phinix] Managed manager internal diagnostic: "+error); });
+            error=>{
+                var host=Client.Instance;
+                if(host!=null) host.ReportHostFailure(error,"ManagedExtensionOperationFailed");
+                else new Connections.ClientConnectionDiagnostics(null).Report("ManagedExtensionOperationFailed",error);
+            });
         private readonly List<Row> rows=new List<Row>();
         private Vector2 scroll;
         private int cachedVersion=-1, settingsVersion=-1;

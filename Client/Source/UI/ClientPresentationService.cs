@@ -16,10 +16,11 @@ namespace PhinixClient
         private readonly IClientTheme theme;
         private readonly Func<bool> mainThread;
         private readonly Action<string> log;
+        private readonly Func<string,string,Exception,string> fault;
         private readonly HashSet<string> identities = new HashSet<string>(StringComparer.Ordinal);
 
-        internal ClientPresentationService(IClientLifetimeService lifetimes, IClientTheme theme, Func<bool> mainThread, Action<string> log)
-        { this.lifetimes = lifetimes; this.theme = theme; this.mainThread = mainThread; this.log = log; }
+        internal ClientPresentationService(IClientLifetimeService lifetimes, IClientTheme theme, Func<bool> mainThread, Action<string> log, Func<string,string,Exception,string> fault = null)
+        { this.lifetimes = lifetimes; this.theme = theme; this.mainThread = mainThread; this.log = log; this.fault = fault; }
         private void MainThread()
         { if (!mainThread()) throw new InvalidOperationException("PresentationRequiresMainThread"); }
 
@@ -37,7 +38,20 @@ namespace PhinixClient
                 lifetime.Own(session);
                 return session;
             }
-            catch { identities.Remove(identity); lifetime.Dispose(); throw; }
+            catch (Exception error)
+            {
+                ReportOpenFailure(lifetime.OwnerId,"OpenFailed",error);
+                identities.Remove(identity);
+                try { lifetime.Dispose(); }
+                catch (Exception cleanup) { ReportOpenFailure(lifetime.OwnerId,"OpenCleanupFailed",cleanup); }
+                throw;
+            }
+        }
+
+        private void ReportOpenFailure(string owner,string stage,Exception error)
+        {
+            try { if(fault?.Invoke(owner,"Presentation/"+stage,error)!=null) return; } catch { }
+            try { log?.Invoke("Presentation: owner="+owner+", stage="+stage+", exception="+error); } catch { }
         }
 
         private static readonly Regex IntegerSyntax = new Regex(@"^-?[0-9]*$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -178,8 +192,14 @@ namespace PhinixClient
             private void Fail(string code, Exception error = null)
             {
                 FailureCode = code;
-                if (error == null || reported.Count >= 16 || !reported.Add(code + "/" + error.GetType().FullName)) return;
-                try { service.log?.Invoke("Presentation: owner=" + OwnerId + ", page=" + PageId + ", stage=" + code + ", exception=" + error.GetType().Name); }
+                RecordFault(code,error);
+            }
+            private void RecordFault(string code,Exception error)
+            {
+                if (error == null) return;
+                try { if(service.fault?.Invoke(OwnerId,"Presentation/"+code,error)!=null) return; } catch { }
+                if (reported.Count >= 16 || !reported.Add(code + "/" + error.GetType().FullName)) return;
+                try { service.log?.Invoke("Presentation: owner=" + OwnerId + ", page=" + PageId + ", stage=" + code + ", exception=" + error); }
                 catch { }
             }
             private void Release(IDisposable resource)
@@ -1067,7 +1087,7 @@ namespace PhinixClient
             }
             private void ReportImageFailure(Exception error)
             {
-                if (reported.Add("ImageReadFailed")) service.log?.Invoke("PresentationImageReadFailed: " + error.GetType().Name);
+                RecordFault("ImageReadFailed", error);
             }
             private void ReturnImage(IClientPresentationImageLease lease)
             { try { lease?.Dispose(); } catch (Exception error) { ReportImageFailure(error); } }

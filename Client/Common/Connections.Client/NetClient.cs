@@ -75,8 +75,13 @@ namespace Connections
         /// </summary>
         /// <param name="checkInterval">Interval in milliseconds between keepalive transmissions</param>
         /// <param name="timeout">Duration in milliseconds after which the connection will be terminated if no response is received</param>
+        private readonly ClientConnectionDiagnostics diagnostics;
         public NetClient(int checkInterval = 5000, int timeout = 30000)
+            : this(null, checkInterval, timeout) { }
+        public NetClient(Action<string, Exception> report, int checkInterval = 5000, int timeout = 30000)
         {
+            diagnostics = new ClientConnectionDiagnostics(report);
+            PacketFault = diagnostics.Report;
             // Set up the client
             clientNetManager = new NetManager(listener, "Phinix")
             {
@@ -144,7 +149,7 @@ namespace Connections
 
             // Connect to each peer asynchronously and keep the one that works
             probeThreadStopRequested = false;
-            probeThread = new Thread(() =>
+            probeThread = new Thread(() => RunWorker("ClientProbeFailed", () =>
             {
                 // Spin until one of the peers connects
                 while (!probeThreadStopRequested)
@@ -174,16 +179,10 @@ namespace Connections
                 NetPeer connectedPeer;
                 lock (probePeersLock)
                 {
-                    try
+                    connectedPeer = probePeers.FirstOrDefault(peer => peer != null && peer.ConnectionState == ConnectionState.Connected);
+                    serverPeer = connectedPeer;
+                    if (connectedPeer == null)
                     {
-                        // Apply the connected one
-                        connectedPeer = probePeers.First(peer => peer.ConnectionState == ConnectionState.Connected);
-                        serverPeer = connectedPeer;
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        // No connected peers available, disconnect
-                        connectedPeer = null;
                         RaiseLogEntry(new LogEventArgs("[Phinix] Connection attempt ended: no server address responded.", LogLevel.WARNING));
                         Disconnect();
                     }
@@ -192,7 +191,7 @@ namespace Connections
                     probePeers.RemoveAll(peer => peer == null || peer.Equals(connectedPeer));
                 }
                 clearProbePeers();
-            });
+            }));
             probeThread.IsBackground = true;
             probeThread.Start();
         }
@@ -217,14 +216,14 @@ namespace Connections
             }
 
             // Parse the given hostname
-            if (TryResolveHostname(host, out IPAddress[] resolvedAddresses))
+            if (TryResolveHostname(host, out IPAddress[] resolvedAddresses, out Exception resolutionError))
             {
                 // Try to connect using the resolved address
                 Connect(resolvedAddresses.Select(address => new IPEndPoint(address, port)));
             }
             else
             {
-                throw new InvalidAddressException(host);
+                throw new InvalidAddressException(host, resolutionError);
             }
         }
 
@@ -234,15 +233,18 @@ namespace Connections
         /// <param name="hostname">Hostname to resolve</param>
         /// <param name="addresses">Resolved addresses</param>
         /// <returns>Resolved successfully</returns>
-        private static bool TryResolveHostname(string hostname, out IPAddress[] addresses)
+        private bool TryResolveHostname(string hostname, out IPAddress[] addresses, out Exception failure)
         {
+            failure = null;
             try
             {
                 // Query DNS for a list of addresses
                 addresses = Dns.GetHostAddresses(hostname);
             }
-            catch (SocketException)
+            catch (SocketException error)
             {
+                diagnostics.Report("DnsResolutionFailed", error);
+                failure = error;
                 // Couldn't contact a DNS server, set output to nothing and return a failure
                 addresses = null;
                 return false;
@@ -297,16 +299,29 @@ namespace Connections
         {
             stopPollThread();
             pollThreadStopRequested = false;
-            pollThread = new Thread(() =>
+            pollThread = new Thread(() => RunWorker("ClientPollFailed", () =>
             {
                 while (!pollThreadStopRequested)
                 {
                     clientNetManager.PollEvents();
                     Thread.Sleep(10);
                 }
-            });
+            }));
             pollThread.IsBackground = true;
             pollThread.Start();
+        }
+
+        private void RunWorker(string operation, Action run)
+        {
+            try { run(); }
+            catch (Exception error)
+            {
+                diagnostics.Report(operation, error);
+                pollThreadStopRequested = true;
+                probeThreadStopRequested = true;
+                try { Disconnect(); }
+                catch (Exception cleanup) { diagnostics.Report("ClientWorkerDisconnectFailed", cleanup); }
+            }
         }
 
         private void stopPollThread()

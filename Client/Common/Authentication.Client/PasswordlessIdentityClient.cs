@@ -22,6 +22,7 @@ internal sealed class PasswordlessIdentityClient : IDisposable
     private readonly Action<string, bool> authenticated;
     private readonly Action<string> failed;
     private readonly Timer timer;
+    private readonly ClientConnectionDiagnostics diagnostics;
     private long dueAt = long.MaxValue;
     private IdentityCredentialDirectory? files;
     private TrustedIdentityServer? server;
@@ -30,13 +31,18 @@ internal sealed class PasswordlessIdentityClient : IDisposable
     private bool disposed, authenticatingCandidate, rotateAfterAuthentication, published;
     internal bool Required => enabled();
     internal PasswordlessIdentityClient(IClientTransport transport, Func<bool> enabled, string root, Func<string, string> previousProof,
-        Action<string, bool> authenticated, Action<string> failed, Func<string, bool> hasPreviousMapping)
+        Action<string, bool> authenticated, Action<string> failed, Func<string, bool> hasPreviousMapping, Action<string, Exception>? report = null)
     {
+        diagnostics = new ClientConnectionDiagnostics(report);
         this.transport = transport; this.enabled = enabled; this.root = root; this.previousProof = previousProof;
         this.authenticated = authenticated; this.failed = failed; this.hasPreviousMapping = hasPreviousMapping;
         timer = new Timer(_ => Tick(), null, Timeout.Infinite, Timeout.Infinite);
         try { transport.RegisterPacketHandler(IdentityWire.Module, Handle); }
-        catch { timer.Dispose(); throw; }
+        catch (Exception error) {
+            diagnostics.Report("IdentityRegistrationFailed", error);
+            try { timer.Dispose(); } catch (Exception cleanup) { diagnostics.Report("IdentityTimerCleanupFailed", cleanup); }
+            throw;
+        }
         transport.OnDisconnect += Disconnect; transport.OnConnecting += Connecting;
     }
     private static void EnsureDirectory(string path)
@@ -157,7 +163,10 @@ internal sealed class PasswordlessIdentityClient : IDisposable
                 }
                 else throw new InvalidOperationException("UnknownIdentityResponse");
             }
-            catch (Exception) { Fail("Secure identity or local credential storage is unavailable; no fallback was attempted."); }
+            catch (Exception error) {
+                diagnostics.Report("IdentityResponseFailed", error);
+                Fail("Secure identity or local credential storage is unavailable; no fallback was attempted.");
+            }
         }
     }
     internal void RotateCredential()
@@ -194,6 +203,14 @@ internal sealed class PasswordlessIdentityClient : IDisposable
     internal void RejectPreviousGreeting() { lock (gate) if (!disposed) Fail("This connection requires modern secure identity; the previous login protocol was refused."); }
     private void Tick(bool force = false)
     {
+        try { TickCore(force); }
+        catch (Exception error) {
+            diagnostics.Report("IdentityRenewalFailed", error);
+            lock (gate) if (!disposed) Fail("Identity renewal failed; reconnect to recover the saved identity.");
+        }
+    }
+    private void TickCore(bool force)
+    {
         lock (gate)
         {
             if (disposed || !Required || !transport.Connected) return;
@@ -204,11 +221,17 @@ internal sealed class PasswordlessIdentityClient : IDisposable
             }
             if (server == null) { Fail("Secure identity greeting timed out; no fallback was attempted."); return; }
             if (pendingKind != "") { Fail("Identity response timed out; the original pending operation is retained."); return; }
-            try { Authenticate(); } catch { Fail("Identity renewal failed; reconnect to recover the saved identity."); }
+            Authenticate();
         }
     }
     private void Fail(string reason)
-    { Disarm(); failed(reason); transport.Disconnect(); }
+    {
+        try { Disarm(); } catch (Exception error) { diagnostics.Report("IdentityTimerStopFailed", error); }
+        try { failed(reason); } catch (Exception error) { diagnostics.Report("IdentityFailureObserverFailed", error); }
+        finally {
+            try { transport.Disconnect(); } catch (Exception error) { diagnostics.Report("IdentityDisconnectFailed", error); }
+        }
+    }
     private void Disconnect(object? _, EventArgs args)
     {
         lock (gate) { if (disposed) return; Disarm(); credential?.Dispose(); credential = null; files = null; server = null; pendingKind = requestId = proof = session = ""; authenticatingCandidate = rotateAfterAuthentication = published = false; }

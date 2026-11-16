@@ -1,0 +1,7 @@
+2026-11-15 / .NET SDK 10.0.114
+Production dispatcher + production task contract; other interface types are minimal test doubles.
+PASS: failed task is isolated and next task runs
+PASS: production dispatcher loses original cause and stack
+PASS: task snapshot has no diagnostic reference or exception
+PASS: broken log sink is isolated but diagnostics disappear
+These are current-behavior observations, not validation of a fix.

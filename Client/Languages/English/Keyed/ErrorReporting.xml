@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_errorReport_title>Phinix Rework encountered a problem</Phinix_errorReport_title>
+  <Phinix_errorReport_message>Something went wrong while processing an operation. Copy the error details and send them to the maintainer. Closing this window does not retry or cancel the operation.</Phinix_errorReport_message>
+  <Phinix_errorReport_copy>Copy error details</Phinix_errorReport_copy>
+  <Phinix_errorReport_close>Close</Phinix_errorReport_close>
+  <Phinix_errorReport_copied>Copied. You can paste the report to the maintainer.</Phinix_errorReport_copied>
+  <Phinix_errorReport_copyFailed>Copy failed. Please try again.</Phinix_errorReport_copyFailed>
+  <Phinix_errorReport_source>Source:</Phinix_errorReport_source>
+  <Phinix_errorReport_number>Error number:</Phinix_errorReport_number>
+  <Phinix_errorReport_occurrences>Occurrences:</Phinix_errorReport_occurrences>
+  <Phinix_errorReport_recent>Recent errors</Phinix_errorReport_recent>
+  <Phinix_errorReport_empty>No errors have been recorded in this session.</Phinix_errorReport_empty>
+  <Phinix_errorReport_previous>Previous</Phinix_errorReport_previous>
+  <Phinix_errorReport_next>Next</Phinix_errorReport_next>
+  <Phinix_theme_operationFailed>The operation could not finish normally; changes may already be saved. Open recent errors to copy the details.</Phinix_theme_operationFailed>
+  <Phinix_managed_stateSavedRefreshFailed>The extension setting was saved, but the display could not refresh. Open recent errors to copy the details.</Phinix_managed_stateSavedRefreshFailed>
+  <Phinix_theme_exportSavedRefreshFailed>The theme package was saved, but the window could not refresh. Open recent errors to copy the details.</Phinix_theme_exportSavedRefreshFailed>
+</LanguageData>

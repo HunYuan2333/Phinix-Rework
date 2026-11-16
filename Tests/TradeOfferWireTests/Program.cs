@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using System.IO;
 using System.Text.Json;
+using System.Data.Common;
+using PhinixClient.Storage;
 using Phinix.TradeExtension;
 using Phinix.TradeExtension.Client;
 using PhinixClient.Framework;
@@ -23,6 +25,8 @@ internal static class Program
         string journalRoot=Path.Combine(Path.GetTempPath(),"phinix-wire-intents-"+Guid.NewGuid().ToString("N"));
         try
         {
+            using var storage=new ClientDatabaseService(owner=>Path.Combine(journalRoot,"sqlite",owner));
+            var faults=new FaultStorage(storage);
             var encoder = new Encoder();
             var service = new PhinixFrameworkTradeClientService(encoder, null);
             var host = new Host();
@@ -31,13 +35,14 @@ internal static class Program
             type.GetMethod("Initialize", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(adapter, new object[] { host, host, host, host, null });
             type.GetMethod("ConfigureSaveReadiness",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(adapter,new object[]{(Func<Phinix.InventoryExtension.InventoryStatus>)(()=>new Phinix.InventoryExtension.InventoryStatus{Availability=Phinix.InventoryExtension.InventoryAvailability.Ready,SaveIdentity=new string('a',64)})});
             var journalType=type.Assembly.GetType("Phinix.TradeExtension.Client.TradeIntentJournal",true);
-            var journal=Activator.CreateInstance(journalType,BindingFlags.Instance|BindingFlags.NonPublic,null,new object[]{journalRoot},null);
+            var journal=Activator.CreateInstance(journalType,BindingFlags.Instance|BindingFlags.NonPublic,null,new object[]{journalRoot,faults,null},null);
+            using var journalLifetime=(IDisposable)journal;
             type.GetMethod("ConfigureIntentJournal",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(adapter,new object[]{journal,(Func<string>)(()=>"127.0.0.1:16200")});
             host.BeforeSend=()=>
             {
-                var files=Directory.GetFiles(journalRoot,"*.intent");
-                Check(files.Length>0&&files.All(f=>File.Exists(Path.ChangeExtension(f,".attempt"))),"Every transport callback must follow durable intent and attempt.");
-                Check(files.All(f=>!File.ReadAllText(f).Contains("synthetic-session")),"Transport session is excluded from durable intent.");
+                var records=((Array)journalType.GetMethod("Read",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(journal,new object[]{"127.0.0.1:16200","synthetic-owner"})).Cast<object>().ToArray();
+                Check(records.Length>0&&records.All(record=>(string)journalType.GetMethod("State",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(journal,new[]{record})=="OutcomeUnknown"),"Every transport callback must follow durable SQLite intent and attempt.");
+                Check(records.All(record=>!Serialized(record).Contains("synthetic-session")),"Transport session is excluded from durable intent.");
             };
             adapter.UpdateTradeItems("synthetic-trade", Array.Empty<TradeItemSnapshot>(), "synthetic-operation");
             Check(host.Items.Count == 2 && host.Commands.Count == 1, "Whole encoded batch precedes one offer command.");
@@ -54,7 +59,7 @@ internal static class Program
             Check(request.ItemPacketRefs.SequenceEqual(host.Items.Select(i => i.MessageId)), "Offer references the exact transmitted packet identities.");
             Check(request.ItemPacketRefs.Distinct().Count() == 2, "Distinct assets have distinct references.");
             Check(host.Commands.Single().GetCorrelationId() == "synthetic-operation", "Stable operation correlation survives wire encoding.");
-            using(var json=JsonDocument.Parse(File.ReadAllText(Directory.GetFiles(journalRoot,"*.intent").Single())))
+            using(var json=JsonDocument.Parse(Serialized(((Array)journalType.GetMethod("Read",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(journal,new object[]{"127.0.0.1:16200","synthetic-owner"})).Cast<object>().Single())))
             {
                 Check(json.RootElement.GetProperty("OperationId").GetString()==host.Commands.Single().MessageId,"The exact wire operation ID is durable.");
                 Check(json.RootElement.GetProperty("Items").EnumerateArray().Select(i=>i.GetProperty("MessageId").GetString()).SequenceEqual(request.ItemPacketRefs),"Durable staged IDs match the complete wire batch.");
@@ -72,9 +77,10 @@ internal static class Program
                 System.IO.File.WriteAllBytes(System.IO.Path.Combine(args[0], "item.bin"), FrameworkSerialization.SerializePacket(host.Items.Single()));
                 System.IO.File.WriteAllBytes(System.IO.Path.Combine(args[0], "offer.bin"), FrameworkSerialization.SerializePacket(host.Commands.Single()));
             }
-            encoder.Payloads=new[]{new FrameworkItemPayload{CodecId="synthetic.opaque",PayloadBytes=new byte[2*1024*1024]}};
+            encoder.Payloads=new[]{new FrameworkItemPayload{CodecId="synthetic.opaque",PayloadBytes=new byte[]{7}}};
+            faults.FailWrite=true;
             int sent=host.Order.Count;bool rejected=false;
-            try {adapter.UpdateTradeItems("synthetic-trade",Array.Empty<TradeItemSnapshot>(),"oversize-operation");}catch(IOException){rejected=true;}
+            try {adapter.UpdateTradeItems("synthetic-trade",Array.Empty<TradeItemSnapshot>(),"oversize-operation");}catch(Exception error) when(error.GetType().Name=="TradeRequestNotSentException" && error.InnerException is IOException){rejected=true;}
             Check(rejected&&host.Order.Count==sent,"Journal failure must stop the entire batch before any transport callback.");
             ((IDisposable)adapter).Dispose();
             Console.WriteLine("PASS: " + checks + " packaged adapter wire checks; synthetic FrameworkV2 profile; no game delivery claim.");
@@ -82,6 +88,25 @@ internal static class Program
         }
         catch (Exception e) { Console.Error.WriteLine("FAIL: " + e); return 1; }
         finally {if(Directory.Exists(journalRoot))Directory.Delete(journalRoot,true);}
+    }
+    private static string Serialized(object record)=>(string)typeof(FrameworkSerialization).GetMethod("SerializePayload").MakeGenericMethod(record.GetType()).Invoke(null,new[]{record});
+    private sealed class FaultStorage : IClientDatabaseService
+    {
+        private readonly IClientDatabaseService inner;
+        internal bool FailWrite;
+        internal FaultStorage(IClientDatabaseService inner){this.inner=inner;}
+        public IClientDatabase Open(string owner,string name,DatabaseSchema schema)=>new FaultDatabase(this,inner.Open(owner,name,schema));
+        private sealed class FaultDatabase : IClientDatabase
+        {
+            private readonly FaultStorage owner;private readonly IClientDatabase inner;
+            internal FaultDatabase(FaultStorage owner,IClientDatabase inner){this.owner=owner;this.inner=inner;}
+            public string Identity=>inner.Identity;
+            public T Read<T>(Func<DbConnection,DbTransaction,T> work)=>inner.Read(work);
+            public T Write<T>(Func<DbConnection,DbTransaction,T> work)
+            {if(owner.FailWrite){owner.FailWrite=false;throw new IOException("Synthetic local journal write failure");}return inner.Write(work);}
+            public void Backup(string path)=>inner.Backup(path);
+            public void Dispose()=>inner.Dispose();
+        }
     }
     private sealed class Encoder : ITradeItemPayloadEncoder
     {

@@ -152,16 +152,26 @@ public sealed class IdentityCredentialDirectory
         }
         else if (create)
         {
-            using var marker = OpenPrivate(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            marker.Write(Encoding.ASCII.GetBytes(server.ServerId)); marker.Flush(true);
+            WritePrivateFile(path,marker=>marker.Write(Encoding.ASCII.GetBytes(server.ServerId)));
         }
+    }
+    private static void WritePrivateFile(string path,Action<FileStream> write)
+    {
+        var stream=OpenPrivate(path,FileMode.CreateNew,FileAccess.Write,FileShare.None);Exception? primary=null;
+        try {write(stream);stream.Flush(true);}
+        catch(Exception error){primary=error;throw;}
+        finally {try{stream.Dispose();}catch(Exception cleanup){if(primary!=null)throw new AggregateException("Identity write and stream cleanup failed.",primary,cleanup);throw;}}
     }
     private FileStream Acquire(TrustedIdentityServer server)
     {
         CheckDirectory(); CheckTrustBinding(server, false);
         string path = Target(server) + ".lock"; CheckLinks(path);
         var stream = OpenPrivate(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        try { CheckLinks(path); CheckPrivate(path); return stream; } catch { stream.Dispose(); throw; }
+        try { CheckLinks(path); CheckPrivate(path); return stream; }
+        catch(Exception primary) {
+            try {stream.Dispose();}catch(Exception cleanup){throw new AggregateException("Identity storage validation and cleanup failed.",primary,cleanup);}
+            throw;
+        }
     }
     private Document Read(TrustedIdentityServer server)
     {
@@ -182,9 +192,9 @@ public sealed class IdentityCredentialDirectory
                     if (!parsed.RootElement.TryGetProperty(field, out _)) throw new InvalidDataException("Identity credential state evidence is missing.");
             Validate(server, document); return document;
         }
-        catch (JsonException) { throw new InvalidDataException("Identity credential format is invalid."); }
-        catch (ArgumentException) { throw new InvalidDataException("Identity credential fields are invalid."); }
-        catch (FormatException) { throw new InvalidDataException("Identity credential fields are invalid."); }
+        catch (JsonException error) { throw new InvalidDataException("Identity credential format is invalid.", error); }
+        catch (ArgumentException error) { throw new InvalidDataException("Identity credential fields are invalid.", error); }
+        catch (FormatException error) { throw new InvalidDataException("Identity credential fields are invalid.", error); }
         finally { CryptographicOperations.ZeroMemory(bytes); }
     }
     private static void Validate(TrustedIdentityServer server, Document d)
@@ -230,13 +240,11 @@ public sealed class IdentityCredentialDirectory
         d.Version = 2; Validate(server, d); cancellation.ThrowIfCancellationRequested();
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(d, Json);
         string target = Target(server), temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        Exception? primary = null;
         try
         {
             CheckDirectory(); CheckLinks(target);
-            using (var output = OpenPrivate(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                barrier?.Invoke("identity.client.before-write"); output.Write(Magic); output.Write(SHA256.HashData(payload)); output.Write(payload); output.Flush(true);
-            }
+            WritePrivateFile(temporary,output=>{barrier?.Invoke("identity.client.before-write");output.Write(Magic);output.Write(SHA256.HashData(payload));output.Write(payload);});
             barrier?.Invoke("identity.client.after-flush"); cancellation.ThrowIfCancellationRequested();
             CheckDirectory(); CheckLinks(target); CheckLinks(temporary); CheckPrivate(temporary);
             // Same-directory rename, never copy/delete the authoritative file. Cooperating writers hold the sidecar lock.
@@ -244,10 +252,15 @@ public sealed class IdentityCredentialDirectory
             File.Move(temporary, target, replace);
             barrier?.Invoke("identity.client.after-commit");
         }
+        catch(Exception error) {primary=error;throw;}
         finally
         {
             CryptographicOperations.ZeroMemory(payload);
-            if (File.Exists(temporary)) { CheckDirectory(); CheckLinks(temporary); File.Delete(temporary); }
+            try { if (File.Exists(temporary)) { CheckDirectory(); CheckLinks(temporary); File.Delete(temporary); } }
+            catch(Exception cleanup) {
+                if(primary!=null)throw new AggregateException("Identity write and temporary cleanup failed.",primary,cleanup);
+                throw;
+            }
         }
     }
     private void EnsureExpectation(TrustedIdentityServer server)
@@ -260,8 +273,7 @@ public sealed class IdentityCredentialDirectory
             if (new FileInfo(expected).Length != 36 || File.ReadAllText(expected) != server.ServerId) throw new InvalidDataException("Identity enrollment expectation differs.");
             return;
         }
-        using var marker = OpenPrivate(expected, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-        marker.Write(Encoding.ASCII.GetBytes(server.ServerId)); marker.Flush(true);
+        WritePrivateFile(expected,marker=>marker.Write(Encoding.ASCII.GetBytes(server.ServerId)));
     }
     public bool TryLoadExisting(TrustedIdentityServer server, out PendingIdentityCredential? credential)
     {

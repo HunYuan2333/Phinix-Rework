@@ -13,13 +13,14 @@ namespace PhinixClient.Framework
     {
         private readonly Func<bool> mainThread;
         private readonly Action<string> log;
+        private readonly Func<string,string,Exception,string> fault;
         private readonly HashSet<Type> types=new HashSet<Type>();
         private readonly Dictionary<IPhinixExtensionModule,List<Scope>> owners=new Dictionary<IPhinixExtensionModule,List<Scope>>(Identity.Instance);
         private readonly Dictionary<string,Point> points=new Dictionary<string,Point>(StringComparer.Ordinal);
         private readonly List<Contribution> contributions=new List<Contribution>();
         private readonly HashSet<ActionSet> sets=new HashSet<ActionSet>();
         private long revision,sequence;
-        internal ClientExtensionPointService(Func<bool> mainThread,Action<string> log) { this.mainThread=mainThread; this.log=log; }
+        internal ClientExtensionPointService(Func<bool> mainThread,Action<string> log,Func<string,string,Exception,string> fault=null) { this.mainThread=mainThread; this.log=log; this.fault=fault; }
         internal void SetModuleTypes(IEnumerable<Type> values) { MainThread(); types.Clear(); foreach(var value in values) types.Add(value); }
         public long Revision { get { MainThread(); return revision; } }
         public void OnActivating(IPhinixExtensionModule module)
@@ -118,10 +119,19 @@ namespace PhinixClient.Framework
                 }
                 result.Seal(); return result;
             }
-            catch { result.Dispose(); throw; }
+            catch (Exception error)
+            {
+                Report(point.Owner.ModuleId,"CollectFailed",error);
+                try { result.Dispose(); }
+                catch (Exception cleanup) { Report(point.Owner.ModuleId,"CollectCleanupFailed",cleanup); }
+                throw;
+            }
         }
         private void Report(string owner,string phase,Exception error)
-        { try { log?.Invoke("Contribution: owner="+owner+", phase="+phase+", exception="+(error?.GetType().Name??"none")); } catch { } }
+        {
+            try { if(error!=null && fault?.Invoke(owner,"Contribution/"+phase,error)!=null) return; } catch { }
+            try { log?.Invoke("Contribution: owner="+owner+", phase="+phase+", exception="+(error==null?"none":error.ToString())); } catch { }
+        }
         private sealed class Scope:IClientExtensionPointScope
         {
             private readonly ClientExtensionPointService service;

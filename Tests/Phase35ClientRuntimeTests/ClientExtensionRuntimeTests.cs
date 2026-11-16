@@ -120,20 +120,22 @@ internal static class ClientLifecycleFixtures
     }
 
     [PhinixExtension("runtime.a-provider")]
-    public sealed class Provider : IPhinixExtensionModule, IActivatablePhinixExtensionModule, IProviderApi
+    public sealed class Provider : IClientExtensionModule, IActivatablePhinixExtensionModule, IProviderApi
     {
         public Provider() { Events.Add("construct:provider"); }
         public string ExtensionId => "runtime.a-provider";
         public void Register(IExtensionBuilder builder) { Events.Add("register:provider"); builder.RegisterApi<IProviderApi>(this); }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
         public void Activate(ExtensionHostContext context) { Events.Add("activate:provider"); }
         public void Shutdown(ExtensionHostContext context) { Events.Add("stop:provider"); }
     }
 
     [PhinixExtension("runtime.b-consumer", DependsOn = new[] { "runtime.a-provider" })]
-    public sealed class Consumer : IPhinixExtensionModule, IActivatablePhinixExtensionModule
+    public sealed class Consumer : IClientExtensionModule, IActivatablePhinixExtensionModule
     {
         public string ExtensionId => "runtime.b-consumer";
         public void Register(IExtensionBuilder builder) { }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
         public void Activate(ExtensionHostContext context)
         {
             if (!context.TryResolveApi<IProviderApi>(out _)) throw new InvalidOperationException("missing provider");
@@ -143,20 +145,22 @@ internal static class ClientLifecycleFixtures
     }
 
     [PhinixExtension("runtime.register-failure")]
-    public sealed class RegisterFailure : IPhinixExtensionModule, IActivatablePhinixExtensionModule, IFailedApi
+    public sealed class RegisterFailure : IClientExtensionModule, IActivatablePhinixExtensionModule, IFailedApi
     {
         public string ExtensionId => "runtime.register-failure";
         public void Register(IExtensionBuilder builder) { builder.RegisterApi<IFailedApi>(this); throw new InvalidOperationException("partial registration"); }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
         public void Activate(ExtensionHostContext context) { throw new Exception("must not activate"); }
         public void Shutdown(ExtensionHostContext context) { Events.Add("stop:register-failure"); }
     }
 
     [PhinixExtension("runtime.activate-failure")]
-    public sealed class ActivateFailure : IPhinixExtensionModule, IActivatablePhinixExtensionModule, IFailedApi
+    public sealed class ActivateFailure : IClientExtensionModule, IActivatablePhinixExtensionModule, IFailedApi
     {
         private EventSource source;
         public string ExtensionId => "runtime.activate-failure";
         public void Register(IExtensionBuilder builder) { builder.RegisterApi<IFailedApi>(this); }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
         public void Activate(ExtensionHostContext context)
         {
             source = context.GetRequiredService<EventSource>(); source.Changed += OnChanged;
@@ -171,25 +175,28 @@ internal static class ClientLifecycleFixtures
     }
 
     [PhinixExtension("runtime.register-only")]
-    public sealed class RegisterOnly : IPhinixExtensionModule, IRegisterOnlyApi
+    public sealed class RegisterOnly : IClientExtensionModule, IRegisterOnlyApi
     {
         public string ExtensionId => "runtime.register-only";
         public void Register(IExtensionBuilder builder) { builder.RegisterApi<IRegisterOnlyApi>(this); }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
     }
 
     [PhinixExtension("runtime.constructor-failure")]
-    public sealed class ConstructorFailure : IPhinixExtensionModule
+    public sealed class ConstructorFailure : IClientExtensionModule
     {
         public ConstructorFailure() { throw new InvalidOperationException("construction failure"); }
         public string ExtensionId => "runtime.constructor-failure";
         public void Register(IExtensionBuilder builder) { throw new Exception("must not register"); }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
     }
 
     [PhinixExtension("runtime.z-interrupted", DependsOn = new[] { "runtime.a-provider" })]
-    public sealed class Interrupted : IPhinixExtensionModule
+    public sealed class Interrupted : IClientExtensionModule
     {
         public string ExtensionId => "runtime.z-interrupted";
         public void Register(IExtensionBuilder builder) { throw new Exception("must not register"); }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
     }
     internal sealed class InterruptPolicy : IExtensionActivationPolicy
     {

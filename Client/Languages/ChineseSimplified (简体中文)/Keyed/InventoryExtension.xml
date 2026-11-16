@@ -126,5 +126,17 @@
   <Phinix_inventory_discardHistoryWarning>仅使用当前存档内已保存的库存，并放弃存档之后的本地日志恢复。这可能造成物品丢失、重复，或使本地库存与服务端交易结果不一致；已完成的交易不会撤销。原日志和身份标记会保留备份，但备份不保证能够恢复。不会自动退款或重发物品。不接受这些风险，请选择“保持只读”。</Phinix_inventory_discardHistoryWarning>
   <Phinix_inventory_savedSnapshotRestored>已放弃后续日志恢复，当前使用存档内库存；原日志证据已保留备份。</Phinix_inventory_savedSnapshotRestored>
   <Phinix_inventory_saveProofRequired>需要可读取且身份与内容一致的存档证明。</Phinix_inventory_saveProofRequired>
-  <Phinix_inventory_faultExplanation>库存日志无法安全核对。建议保持只读；也可选择“放弃恢复（不安全）”，承担风险并使用存档内已保存的库存。</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_faultExplanation>库存数据库暂时无法使用，已有数据会保留。可重试打开数据库；存档中的旧库存不会覆盖共享库存。</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_legacyImported>旧存档库存已导入共享数据库。保存后会移除存档内的旧库存；未核实的旧日志变更不会自动恢复。</Phinix_inventory_legacyImported>
+  <Phinix_inventory_legacyBranchSkipped>这个存档的库存已经迁移过。本次忽略旧分支余额，继续使用共享库存；旧分支后续变更可能未保留。</Phinix_inventory_legacyBranchSkipped>
+  <Phinix_inventory_legacyImportConflict>旧库存与共享库存存在重复来源，未自动导入。旧字段保留在存档中，共享库存仍可使用。</Phinix_inventory_legacyImportConflict>
+  <Phinix_inventory_interruptedAbandoned>上次未完成的提取已放弃恢复，相关数量已从库存扣除，物品可能丢失。其他库存可正常使用。</Phinix_inventory_interruptedAbandoned>
+  <Phinix_inventory_abandonExtraction>放弃本次提取（可能丢失物品）</Phinix_inventory_abandonExtraction>
+  <Phinix_inventory_abandonReservations>放弃未决预留</Phinix_inventory_abandonReservations>
+  <Phinix_inventory_abandonReservationsWarning>放弃后会扣除这些预留数量，不再等待恢复，物品可能丢失；不会宣称交易成功，也不会自动退款。确定继续？</Phinix_inventory_abandonReservationsWarning>
+  <Phinix_inventory_reservationsAbandoned>未决预留已放弃，相关数量已扣除，物品可能丢失。其他库存可继续使用。</Phinix_inventory_reservationsAbandoned>
+  <Phinix_inventory_retryDatabase>重试打开库存数据库</Phinix_inventory_retryDatabase>
+  <Phinix_inventory_databaseChanged>共享库存数据库标识已变化，将继续使用本机库存。存档不能恢复原来的共享库存，旧库存数据可能已经丢失。</Phinix_inventory_databaseChanged>
+  <Phinix_inventory_migrationTitle>库存已升级</Phinix_inventory_migrationTitle>
+  <Phinix_inventory_migrationMessage>旧库存已成功迁移到新的共享库存。\n\n1. 库存已独立于游戏存档，本机所有存档共用同一份库存。\n\n2. 读取或回退游戏存档，不会再改变、恢复或回滚库存余额。\n\n之后存入或取出物品，都会更新这份共享库存。</Phinix_inventory_migrationMessage>
 </LanguageData>

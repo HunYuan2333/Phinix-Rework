@@ -54,6 +54,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
@@ -70,8 +71,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="TradeDiagnostics.cs" />
     <Compile Include="BuiltInTradeClientExtension.cs" />
     <Compile Include="TradeClientActivationLifetime.cs" />
+    <Compile Include="TradeLifetimeCleanup.cs" />
     <Compile Include="ClientTradeUiHostContext.cs" />
     <Compile Include="DefaultLegacyTradeItemCodec.cs" />
     <Compile Include="FrameworkTradeItemPayloadCodec.cs" />
@@ -105,6 +108,7 @@
     <Compile Include="TradeDeliveryReceipts.cs" />
     <Compile Include="TradeDeliveryRecovery.cs" />
     <Compile Include="TradeIntentJournal.cs" />
+    <Compile Include="TradeSqliteRecords.cs" />
     <Compile Include="TradeIntentSettlement.cs" />
     <Compile Include="TradeIntentSettlementCoordinator.cs" />
     <Compile Include="TradeRecoveryPump.cs" />
@@ -126,6 +130,7 @@
       <Name>TradeExtension</Name>
     </ProjectReference>
     <ProjectReference Include="../../Inventory/GameAdapter/InventoryExtension.GameAdapter.csproj" />
+    <ProjectReference Include="../../../Client/Storage.Contracts/ClientStorage.Contracts.csproj" />
     <ProjectReference Include="..\..\Inventory\Contracts\InventoryExtension.csproj">
       <Project>{F25C60B4-39F1-45E7-A02B-9CB9707C74A1}</Project>
       <Name>InventoryExtension</Name>

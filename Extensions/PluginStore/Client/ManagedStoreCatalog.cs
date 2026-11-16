@@ -95,12 +95,12 @@ namespace Phinix.PluginStore
             CatalogReader.Forbid(f,"rimWorldPackageId","workshopId","rimWorldVersions","name","summary");
             ExtensionDisplayLocalization localization;
             try { localization=ExtensionDisplayLocalization.Read(Get(f,"localization")); }
-            catch(ManagedExtensionValidationException ex) { throw new StoreValidationException(ex.Code,"Invalid catalog localization.",ex); }
+            catch(ManagedExtensionValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreCatalog/ReadPackage", ex);  throw new StoreValidationException(ex.Code,"Invalid catalog localization.",ex); }
             var declared=Get(f,"manifest");
             byte[] manifestBytes=JsonBytes(declared,false);
             ManagedExtensionManifest manifest;
             try { manifest=ManagedExtensionManifestReader.Read(manifestBytes); }
-            catch(ManagedExtensionValidationException ex) { throw new StoreValidationException(ex.Code,"Invalid managed catalog manifest.",ex); }
+            catch(ManagedExtensionValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreCatalog/ReadPackage", ex);  throw new StoreValidationException(ex.Code,"Invalid managed catalog manifest.",ex); }
             if(manifest.PackageId!=id) throw Error("ManifestMismatch");
             PackageVersion version;
             if(!PackageVersion.TryParse(manifest.Version.ToString(),out version)) throw Error("InvalidVersion");
@@ -116,7 +116,7 @@ namespace Phinix.PluginStore
             if(CatalogReader.Hash(bytes)!=expected.Artifact.ManifestSha256) throw Error("ManifestDigestMismatch");
             ManagedExtensionManifest actual;
             try { actual=ManagedExtensionManifestReader.Read(bytes); }
-            catch(ManagedExtensionValidationException ex) { throw new StoreValidationException(ex.Code,"Invalid managed ZIP manifest.",ex); }
+            catch(ManagedExtensionValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreCatalog/VerifyManifest", ex);  throw new StoreValidationException(ex.Code,"Invalid managed ZIP manifest.",ex); }
             // Object property order is insignificant; array order is part of this strict declaration contract.
             if(CatalogReader.Hash(JsonBytes(CatalogReader.ReadJson(bytes),true))!=expected.DeclarationHash) throw Error("ManifestMismatch");
             return actual;

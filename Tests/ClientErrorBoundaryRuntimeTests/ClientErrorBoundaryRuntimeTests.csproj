@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><LangVersion>7.3</LangVersion><NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Client/Source/Framework/ClientErrorService.cs" Link="Production/ErrorService.cs" />
+    <Reference Include="Utils"><HintPath>$(ClientRuntimeDirectory)/Utils.dll</HintPath></Reference>
+    <Reference Include="ClientExtensionAbstractions"><HintPath>$(ClientRuntimeDirectory)/ClientExtensionAbstractions.dll</HintPath></Reference>
+    <Reference Include="Google.Protobuf"><HintPath>$(ClientRuntimeDirectory)/Google.Protobuf.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

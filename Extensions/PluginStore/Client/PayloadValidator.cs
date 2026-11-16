@@ -133,8 +133,8 @@ namespace Phinix.PluginStore
                     return files;
                 }
             }
-            catch (InvalidDataException ex) { throw new StoreValidationException("InvalidArchive", "Malformed or unsupported ZIP data.", ex); }
-            catch (OverflowException ex) { throw new StoreValidationException("PayloadLimit", "Archive size overflow.", ex); }
+            catch (InvalidDataException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/ValidateArchive", ex);  throw new StoreValidationException("InvalidArchive", "Malformed or unsupported ZIP data.", ex); }
+            catch (OverflowException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/ValidateArchive", ex);  throw new StoreValidationException("PayloadLimit", "Archive size overflow.", ex); }
         }
 
         internal static string ValidatePath(string fullName, bool directory)
@@ -222,7 +222,7 @@ namespace Phinix.PluginStore
                     !new HashSet<string>(versions, StringComparer.Ordinal).SetEquals(expected.Compatibility.RimWorldVersions))
                     throw Error("AboutMismatch", "About supported versions differ from the locked manifest.");
             }
-            catch (XmlException ex) { throw new StoreValidationException("InvalidAbout", "Invalid or unsafe About XML.", ex); }
+            catch (XmlException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/ValidateAbout", ex);  throw new StoreValidationException("InvalidAbout", "Invalid or unsafe About XML.", ex); }
         }
 
         private static void ValidateAssembly(PackageAssembly expected, byte[] bytes, CancellationToken token)
@@ -244,10 +244,10 @@ namespace Phinix.PluginStore
                     !string.IsNullOrEmpty(actual.CultureName))
                     throw Error("AssemblyIdentityMismatch", "DLL metadata differs from its declared name/version: " + expected.FileName);
             }
-            catch (BadImageFormatException ex) { throw new StoreValidationException("InvalidAssemblyPayload", "DLL has invalid managed metadata.", ex); }
-            catch (FileLoadException ex) { throw new StoreValidationException("InvalidAssemblyPayload", "DLL metadata cannot be read.", ex); }
-            catch (ArgumentException ex) { throw new StoreValidationException("InvalidAssemblyPayload", "DLL metadata is invalid.", ex); }
-            finally { if (created) File.Delete(path); }
+            catch (BadImageFormatException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/ValidateAssembly", ex);  throw new StoreValidationException("InvalidAssemblyPayload", "DLL has invalid managed metadata.", ex); }
+            catch (FileLoadException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/ValidateAssembly", ex);  throw new StoreValidationException("InvalidAssemblyPayload", "DLL metadata cannot be read.", ex); }
+            catch (ArgumentException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/ValidateAssembly", ex);  throw new StoreValidationException("InvalidAssemblyPayload", "DLL metadata is invalid.", ex); }
+            finally { if(created)PluginStoreDiagnostics.Cleanup("PayloadValidator/TemporaryCleanup",()=>File.Delete(path)); }
         }
 
         // Bounded PE header inspection only. Metadata parsing belongs to the BCL.
@@ -280,7 +280,7 @@ namespace Phinix.PluginStore
                 if (cli < 0 || cli > bytes.LongLength - 72 || U32(bytes, cli) < 72 ||
                     (U32(bytes, cli + 16) & 0x11) != 1) throw new InvalidDataException();
             }
-            catch (InvalidDataException ex) { throw new StoreValidationException("InvalidAssemblyPayload", "Expected an IL-only managed PE DLL, without a native entry point.", ex); }
+            catch (InvalidDataException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PayloadValidator/RequireManagedDll", ex);  throw new StoreValidationException("InvalidAssemblyPayload", "Expected an IL-only managed PE DLL, without a native entry point.", ex); }
         }
 
         private static ushort U16(byte[] bytes, long offset)

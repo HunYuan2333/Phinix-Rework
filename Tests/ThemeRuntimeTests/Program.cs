@@ -7,7 +7,7 @@ using UnityEngine;
 using Verse;
 using Utils.Framework;
 
-internal static class Program
+internal static partial class Program
 {
     private static int checks;
     private static void Check(bool v,string message){checks++;if(!v)throw new Exception(message);}
@@ -18,6 +18,7 @@ internal static class Program
         string root=Path.Combine(Path.GetTempPath(),"phinix-themes-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
         try
         {
+            ErrorDiagnostics(root);
             string file=Path.Combine(root,"theme.xml"),settings=Path.Combine(root,"settings.xml"),user=Path.Combine(root,"user");
             File.WriteAllText(file,"<PhinixTheme version='1'><color key='primaryText' r='.2' g='.3' b='.4'/><color key='chat.sample' r='.7' g='.2' b='.1'/></PhinixTheme>");
             var input=ThemeInputAdapter.Read(file,"test", "local");Check(input.Colors.ContainsKey("ui.text.primary")&&!input.Colors.ContainsKey("primaryText"),"Aliases are normalized at input.");

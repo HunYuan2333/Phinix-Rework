@@ -18,6 +18,7 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.IO.Compression" />
+    <Compile Include="PluginStoreDiagnostics.cs" />
     <Compile Include="PackageVersion.cs" />
     <Compile Include="PackageModels.cs" />
     <Compile Include="CatalogReader.cs" />

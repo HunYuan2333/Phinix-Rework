@@ -95,7 +95,7 @@ namespace Phinix.TradeExtension.Client
             }
             if(!closed&&clientHostContext?.OfferOperations!=null&&seenOfferRevision!=clientHostContext.OfferOperations.Revision)
             {seenOfferRevision=clientHostContext.OfferOperations.Revision;refreshAvailableItems();}
-            try {UpdatePresentation();}catch(Exception error){logMessage("Trade offer presentation failed: "+error,LogLevel.ERROR);Close();}
+            try {UpdatePresentation();}catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/WindowUpdate", error, true); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/WindowUpdate/LogObserver", () => { logMessage("Trade offer presentation failed: "+error.GetType().Name,LogLevel.ERROR); });global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/WindowUpdate/Cleanup", () => { Close(); });}
         }
 
         private void ClampToSafeArea()
@@ -124,7 +124,7 @@ namespace Phinix.TradeExtension.Client
                 refreshAvailableItems();
                 OpenPresentation();
             }
-            catch {Close(false);throw;}
+            catch (System.Exception boundaryError252) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/PreOpen", boundaryError252, true); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/PreOpen/Cleanup", () => { Close(false); });throw;}
 
         }
 
@@ -185,20 +185,20 @@ namespace Phinix.TradeExtension.Client
                         if(!materialized.Succeeded)throw new InvalidOperationException(materialized.Reason??"Reserved inventory items could not be materialized.");
                         foreach(var thing in materialized.Things)inventoryOffer.Add(TradeItemConverter.ConvertThingFromVerse(thing));
                     }
-                    finally {DiscardTransientThings(materialized?.Things);}
+                    finally {TradeDiagnostics.Cleanup("TradeWindow/TransientCleanup",()=>DiscardTransientThings(materialized?.Things));}
                 }
                 foreach(var stack in availableItems)foreach(var popped in stack.PopSelectedPhysical())escrow.Physical.Add(popped);
                 foreach(var popped in escrow.Physical)popped.DeSpawn();
                 var actualOffer=trade.ItemsOnOffer.Concat(escrow.Physical.Select(t=>TradeItemConverter.ConvertThingFromVerse(t.Thing))).Concat(inventoryOffer).ToArray();
                 string id=trade.TradeId;
-                operations.Submit(token,correlation=>tradeService.UpdateTradeItems(id,actualOffer,correlation));
-                editorNotice=L("editorOfferSubmitted");
+                bool submitted=operations.Submit(token,correlation=>tradeService.UpdateTradeItems(id,actualOffer,correlation));
+                editorNotice=L(submitted?"editorOfferSubmitted":"editorPreparationFailed");
             }
             catch(Exception error)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/UpdateTradeItems", error, true);
                 if(token!=null)clientHostContext.OfferOperations.AbortBeforeSend(token);
                 editorNotice=L("editorPreparationFailed");
-                hostContext.Log(new LogEventArgs("Trade offer preparation failed: "+error,LogLevel.ERROR));
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/UpdateTradeItems/LogObserver", () => { hostContext.Log(new LogEventArgs("Trade offer preparation failed: "+error.GetType().Name,LogLevel.ERROR)); });
             }
             if(!closed)refreshAvailableItems();
         }
@@ -216,11 +216,11 @@ namespace Phinix.TradeExtension.Client
                 var payloads=TradeOfferEscrow.FreezeReturn(context,trade.ItemsOnOffer);
                 string id=trade.TradeId;
                 string token=owner.Begin(id,true,()=>escrow.ReturnFrozen(payloads),()=>TradeOfferSettlement.Done,null,errorSource:()=>escrow.LastError);
-                owner.Submit(token,correlation=>tradeService.UpdateTradeItems(id,Array.Empty<TradeItemSnapshot>(),correlation));
+                bool submitted=owner.Submit(token,correlation=>tradeService.UpdateTradeItems(id,Array.Empty<TradeItemSnapshot>(),correlation));
                 foreach(var stack in availableItems)stack.Selected=0;
-                rowDrafts.Clear();rowErrors.Clear();quantityDraft="0";quantityError=null;editorNotice=L("editorResetSubmitted");
+                rowDrafts.Clear();rowErrors.Clear();quantityDraft="0";quantityError=null;editorNotice=L(submitted?"editorResetSubmitted":"editorPreparationFailed");
             }
-            catch(Exception error){editorNotice=L("editorPreparationFailed");hostContext.Log(new LogEventArgs("Trade reset request failed: "+error,LogLevel.ERROR));}
+            catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/ResetTradeItems", error, true); editorNotice=L("editorPreparationFailed");global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/ResetTradeItems/LogObserver", () => { hostContext.Log(new LogEventArgs("Trade reset request failed: "+error.GetType().Name,LogLevel.ERROR)); });}
         }
 
         private void RebuildAvailableItemFilter()
@@ -265,9 +265,9 @@ namespace Phinix.TradeExtension.Client
                 else tradeService.UpdateTradeStatus(trade.TradeId, accepted: false);
             }
             catch (Exception exception)
-            {
-                clearPendingAccepted();
-                hostContext.Log(new LogEventArgs($"Failed to send trade status update for trade '{trade.TradeId}': {exception.Message}", LogLevel.ERROR));
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/sendTradeStatusUpdate", exception, true);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/sendTradeStatusUpdate/Cleanup", () => { clearPendingAccepted(); });
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/sendTradeStatusUpdate/LogObserver", () => { hostContext.Log(new LogEventArgs($"Failed to send trade status update for trade '{trade.TradeId}': {"Operation failed; see the error report."}", LogLevel.ERROR)); });
             }
         }
 
@@ -280,8 +280,8 @@ namespace Phinix.TradeExtension.Client
                 tradeService.CancelTrade(trade.TradeId);
             }
             catch (Exception exception)
-            {
-                hostContext.Log(new LogEventArgs($"Failed to send trade cancel request for trade '{trade.TradeId}': {exception.Message}", LogLevel.ERROR));
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/sendCancelTradeRequest", exception, true);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/sendCancelTradeRequest/LogObserver", () => { hostContext.Log(new LogEventArgs($"Failed to send trade cancel request for trade '{trade.TradeId}': {"Operation failed; see the error report."}", LogLevel.ERROR)); });
             }
         }
 
@@ -313,10 +313,10 @@ namespace Phinix.TradeExtension.Client
                         availableItems.Add(TradeAvailableItem.FromInventory(entry, preview.Things[0]));
                     }
                     catch (Exception exception)
-                    {
-                        hostContext.Log(new LogEventArgs(
-                            $"[TradeWindow] Inventory entry '{entry.EntryId}' cannot be offered: {exception}",
-                            LogLevel.WARNING));
+                    { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindow/refreshAvailableItems", exception);
+                        global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindow/refreshAvailableItems/LogObserver", () => { hostContext.Log(new LogEventArgs(
+                            $"[TradeWindow] Inventory entry '{entry.EntryId}' cannot be offered: {exception.GetType().Name}",
+                            LogLevel.WARNING)); });
                     }
                 }
             }

@@ -17,6 +17,8 @@
     <Compile Include="..\..\Client\Source\Framework\ClientLinkService.cs" Link="ClientLinkService.cs" />
     <Compile Include="..\..\Client\ClientExtensionAbstractions\Framework\IClientExtensionManagementWindowService.cs" Link="IClientExtensionManagementWindowService.cs" />
     <Compile Include="..\..\Client\Source\Framework\ClientExtensionManagementWindowService.cs" Link="ClientExtensionManagementWindowService.cs" />
+    <Compile Include="..\..\Client\Common\Connections.Client\ClientConnectionDiagnostics.cs" Link="ClientConnectionDiagnostics.cs" />
+    <Compile Include="..\..\Client\Common\Connections.Client\IClientTransport.cs" Link="IClientTransport.cs" />
     <Compile Include="..\..\Client\Common\Connections.Client\NetClient.cs" Link="NetClient.cs" />
     <Compile Include="..\..\Client\Common\Authentication.Client\ClientAuthenticator.cs" Link="ClientAuthenticator.cs" />
     <Reference Include="LiteNetLib">

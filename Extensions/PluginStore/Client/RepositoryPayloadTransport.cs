@@ -130,19 +130,19 @@ namespace Phinix.PluginStore
                     diagnostics.Event("package.payload_verified", "Package", requestId: LastRequestId, bytes: file.Length, package: expected);
                     var result = new ValidatedPackageDownload(file, report, LastRequestId); file = null; return result;
                 }
-                catch (OperationCanceledException)
-                {
+                catch (OperationCanceledException boundaryError138)
+                { if (!token.IsCancellationRequested) global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryPayloadTransport/DownloadPackage", boundaryError138);
                     if (token.IsCancellationRequested)
                     { diagnostics.Event("package.cancelled", "Package", requestId: LastRequestId, package: expected); throw; }
                     string code = total.IsCancellationRequested ? "PackageDownloadTimeout" : "PackageUnavailable";
                     diagnostics.Event("package.failed", "Package", code, LastRequestId, package: expected);
-                    throw new StoreValidationException(code, "Package operation did not complete.") { RequestId = LastRequestId };
+                    throw new StoreValidationException(code,"Package operation did not complete.",boundaryError138) { RequestId = LastRequestId };
                 }
                 catch (StoreValidationException ex)
-                { ex.RequestId = LastRequestId; diagnostics.Event("package.failed", "Package", ex.Code, LastRequestId, package: expected); throw; }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryPayloadTransport/DownloadPackage", ex);  ex.RequestId = LastRequestId; diagnostics.Event("package.failed", "Package", ex.Code, LastRequestId, package: expected); throw; }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is HttpRequestException)
-                { diagnostics.Event("package.failed", "Package", "PackageUnavailable", LastRequestId, package: expected); throw new StoreValidationException("PackageUnavailable", "Package transfer or temporary storage failed.", ex) { RequestId = LastRequestId }; }
-                finally { response?.Dispose(); file?.Dispose(); }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryPayloadTransport/DownloadPackage", ex);  diagnostics.Event("package.failed", "Package", "PackageUnavailable", LastRequestId, package: expected); throw new StoreValidationException("PackageUnavailable", "Package transfer or temporary storage failed.", ex) { RequestId = LastRequestId }; }
+                finally { PluginStoreDiagnostics.Cleanup("RepositoryPayloadTransport/ResponseCleanup",()=>response?.Dispose()); PluginStoreDiagnostics.Cleanup("RepositoryPayloadTransport/FileCleanup",()=>file?.Dispose()); }
             }
         }
 
@@ -161,19 +161,19 @@ namespace Phinix.PluginStore
                     Task deadline = Task.Delay(milliseconds, delay.Token);
                     if (await Task.WhenAny(work, deadline).ConfigureAwait(false) != work || total.IsCancellationRequested)
                     {
-                        try { io.Cancel(); } catch { /* The result remains rejected even if a cancellation callback fails. */ }
-                        try { abort?.Invoke(); } catch { /* Best effort; eventual task completion is still observed. */ }
+                        try { io.Cancel(); } catch (System.Exception boundaryError141) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryPayloadTransport/PackageOperation", boundaryError141);  /* The result remains rejected even if a cancellation callback fails. */ }
+                        try { abort?.Invoke(); } catch (System.Exception boundaryError142) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryPayloadTransport/PackageOperation", boundaryError142);  /* Best effort; eventual task completion is still observed. */ }
                         _ = ObserveLate(work, disposeLate);
                         caller.ThrowIfCancellationRequested();
                         throw new StoreValidationException(total.IsCancellationRequested ? "PackageDownloadTimeout" : timeoutCode, "Package operation timed out.");
                     }
                     return await work.ConfigureAwait(false);
                 }
-                finally { delay.Cancel(); }
+                finally { PluginStoreDiagnostics.Cleanup("RepositoryPayloadTransport/DelayCleanup",()=>delay.Cancel()); }
             }
         }
         private static async Task ObserveLate<T>(Task<T> operation, Action<T> dispose)
-        { try { var result = await operation.ConfigureAwait(false); dispose?.Invoke(result); } catch { /* Observed, never committed. */ } }
+        { try { var result = await operation.ConfigureAwait(false); dispose?.Invoke(result); } catch (System.Exception boundaryError143) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryPayloadTransport/ObserveLate", boundaryError143);  /* Observed, never committed. */ } }
         internal static void CheckDownloadLinks(string directory)
         {
             for (var current = new DirectoryInfo(directory); current != null; current = current.Parent)

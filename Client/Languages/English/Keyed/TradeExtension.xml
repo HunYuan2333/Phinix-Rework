@@ -182,4 +182,5 @@
   <Phinix_trade_deliverySavePending>Trade items are retained but could not be delivered because no ready save was bound when they arrived. Save the game and review the pending trade.</Phinix_trade_deliverySavePending>
   <Phinix_trade_deliveryScopePending>Trade items are retained for review because the game or save scope changed. Check pending trades before taking further action.</Phinix_trade_deliveryScopePending>
   <Phinix_trade_basicCompatibilityNotice>This trade uses original Phinix compatibility: only item type, quantity, material, quality, hit points and contained items are kept. Extra item properties are discarded. Confirmations and delivery follow the original client’s weaker rules; sending does not prove the game has saved the items.</Phinix_trade_basicCompatibilityNotice>
+  <Phinix_trade_deliveryDispatchFailed>Local delivery could not be confirmed for this trade. Items may not have arrived. Other trading remains available; no automatic duplicate delivery is attempted.</Phinix_trade_deliveryDispatchFailed>
 </LanguageData>

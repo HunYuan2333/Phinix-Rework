@@ -214,38 +214,37 @@ namespace Phinix.TradeExtension.Client
 
         public void UpdateTradeItems(string tradeId, IEnumerable<TradeItemSnapshot> items, string token = "")
         {
-            EnsureActive();
-            RequireSavedRecipient();
-            GuardOfferOperation(tradeId,token,true);
-            var tradeItems = items.ToList();
-
-            if (lifecycle.CompatibilityMode == FrameworkCompatibilityMode.Legacy)
+            Action dispatch;
+            try
             {
-                FrameworkPacket packet = tradeService.CreateOfferUpdateRequest(
-                    tradeId, tradeItems, createContext());
-                if (!string.IsNullOrEmpty(token))
-                    packet.SetCorrelationId(token);
-                SendTradePacket(packet);
-                return;
+                EnsureActive(); RequireSavedRecipient(); GuardOfferOperation(tradeId,token,true);
+                var tradeItems=items.ToList();
+                if(lifecycle.CompatibilityMode==FrameworkCompatibilityMode.Legacy)
+                {
+                    var packet=tradeService.CreateOfferUpdateRequest(tradeId,tradeItems,createContext());
+                    if(!string.IsNullOrEmpty(token))packet.SetCorrelationId(token);
+                    PrepareIntent(packet,Array.Empty<FrameworkPacket>());
+                    dispatch=()=>DispatchTradePacket(packet);
+                }
+                else
+                {
+                    var payloads=tradeService.EncodeTradeItems(tradeItems);
+                    var packets=payloads.Select(payload=>{
+                        var item=FrameworkSerialization.BuildItemPacket(payload,sessionContext.SessionId,sessionContext.Uuid);
+                        item.MessageType=FrameworkTradeProtocol.Capability;return item;}).ToArray();
+                    var command=tradeService.CreateOfferUpdateRequest(tradeId,packets.Select(item=>item.MessageId),createContext());
+                    if(!string.IsNullOrEmpty(token))command.SetCorrelationId(token);
+                    PrepareIntent(command,packets);
+                    dispatch=()=>{
+                        for(int i=0;i<payloads.Length;i++)
+                            if(!frameworkClient.TryHandleOutgoingItem(payloads[i]))frameworkClient.SendFrameworkPacket(packets[i]);
+                        DispatchTradePacket(command);
+                    };
+                }
             }
-
-            FrameworkItemPayload[] payloads = tradeService.EncodeTradeItems(tradeItems);
-
-            var itemPackets = payloads.Select(payload =>
-            {
-                var item = FrameworkSerialization.BuildItemPacket(payload, sessionContext.SessionId, sessionContext.Uuid);
-                item.MessageType = FrameworkTradeProtocol.Capability;
-                return item;
-            }).ToArray();
-            var command = tradeService.CreateOfferUpdateRequest(tradeId, itemPackets.Select(i => i.MessageId), createContext());
-            if (!string.IsNullOrEmpty(token)) command.SetCorrelationId(token);
-            // Preserve the complete batch and exact command identity, then mark the
-            // uncertain transport boundary before any item or command can leave.
-            PrepareIntent(command, itemPackets);
-            for (int i = 0; i < payloads.Length; i++)
-                if (!frameworkClient.TryHandleOutgoingItem(payloads[i]))
-                    frameworkClient.SendFrameworkPacket(itemPackets[i]);
-            DispatchTradePacket(command);
+            catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("FrameworkClientTradeServiceAdapter/UpdateTradeItems", error); throw new TradeRequestNotSentException(error);}
+            // Exceptions from here may have crossed the transport boundary and must stay Unknown.
+            dispatch();
         }
 
         public void AcceptObservedTrade(ClientTradeSnapshot snapshot)

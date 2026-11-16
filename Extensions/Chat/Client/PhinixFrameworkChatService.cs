@@ -102,8 +102,8 @@ namespace Phinix.ChatExtension.Client
                 payload = global::Phinix.Framework.BuiltInChatMessagePayload.Parser.ParseFrom(message.PayloadBytes ?? Array.Empty<byte>());
             }
             catch (Exception ex)
-            {
-                Log?.Invoke($"[PhinixChat] Failed to parse BuiltInChatMessagePayload: {ex.Message}", LogLevel.WARNING);
+            { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("PhinixFrameworkChatService/RenderMessage", ex);
+                Log?.Invoke($"[PhinixChat] Failed to parse BuiltInChatMessagePayload: {"Operation failed; see the error report."}", LogLevel.WARNING);
                 // Return a displayable error message instead of letting the exception propagate
                 return new FrameworkDisplayMessage
                 {

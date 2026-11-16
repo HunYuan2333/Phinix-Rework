@@ -35,7 +35,7 @@ namespace Phinix.LegacyAdapter.Client
             this.sink = sink;
             log = (message, level) =>
             {
-                try { dependencies.Log?.Invoke(message, level); } catch { /* Diagnostic isolation. */ }
+                try { dependencies.Log?.Invoke(message, level); } catch (System.Exception boundaryError78) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyAdapterSession/LegacyAdapterSession", boundaryError78);  /* Diagnostic isolation. */ }
             };
             this.transport = new SessionTransport(transport);
             Chat = new LegacyChatProtocolAdapter(this.transport, sink, session, dependencies.Log);
@@ -55,9 +55,9 @@ namespace Phinix.LegacyAdapter.Client
                     Select(lifecycle.CompatibilityMode);
                 }
                 catch (Exception error)
-                {
+                { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyAdapterSession/Start", error);
                     try { Dispose(); }
-                    catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                    catch (Exception cleanup) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyAdapterSession/Start", cleanup);  throw new AggregateException(error, cleanup); }
                     throw;
                 }
             }
@@ -133,7 +133,7 @@ namespace Phinix.LegacyAdapter.Client
         private static void Attempt(Action action, List<Exception> failures)
         {
             try { action(); }
-            catch (Exception error) { failures.Add(error); }
+            catch (Exception error) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyAdapterSession/Attempt", error);  failures.Add(error); }
         }
 
         private sealed class SessionTransport : ILegacyModuleTransport

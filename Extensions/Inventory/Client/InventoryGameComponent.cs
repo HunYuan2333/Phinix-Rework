@@ -5,11 +5,17 @@ using Verse;
 
 namespace Phinix.InventoryExtension.Client
 {
-    /// <summary>Snapshot belongs to the RimWorld save; journal only recovers its later local transactions.</summary>
+    /// <summary>Legacy save reader and upgrade marker. Shared balances are never written back to saves.</summary>
     public sealed class InventoryGameComponent : GameComponent
     {
         private string saveId;
         private string snapshotJson;
+        private int storageVersion;
+        private string databaseIdentity;
+        internal int StorageVersion => storageVersion;
+        internal string DatabaseIdentity => databaseIdentity;
+        internal bool HasLegacySnapshot => !string.IsNullOrWhiteSpace(snapshotJson);
+        internal void CompleteDatabaseMigration(string identity) { databaseIdentity = identity; storageVersion = 1; snapshotJson = null; JournalIdentity = null; }
         internal string JournalIdentity {get;set;}
         internal bool Initialized { get; private set; }
 
@@ -46,7 +52,7 @@ namespace Phinix.InventoryExtension.Client
 
         public override void FinalizeInit()
         {
-            if (string.IsNullOrEmpty(saveId)) saveId = Guid.NewGuid().ToString("N");
+            if (string.IsNullOrEmpty(saveId)) saveId = HasLegacySnapshot ? InventoryDatabaseStore.LegacySourceIdentity(snapshotJson) : Guid.NewGuid().ToString("N");
             Current = this;
             Initialized = true;
             if (BelongsTo(this, Verse.Current.Game)) InventorySaveIdentityPatch.CompleteLoad();
@@ -61,8 +67,8 @@ namespace Phinix.InventoryExtension.Client
 
         public override void ExposeData()
         {
-            if (Scribe.mode == LoadSaveMode.Saving && BuiltInInventoryClientExtension.IsAttached(this))
-                snapshotJson = BuiltInInventoryClientExtension.ExportSnapshot();
+            Scribe_Values.Look(ref storageVersion, "phinixInventoryStorageVersion", 0);
+            Scribe_Values.Look(ref databaseIdentity, "phinixInventoryDatabaseIdentity", null);
             Scribe_Values.Look(ref saveId, "phinixInventorySaveId", null);
             Scribe_Values.Look(ref snapshotJson, "phinixInventorySnapshot", null);
             string journalIdentity=JournalIdentity;Scribe_Values.Look(ref journalIdentity,"phinixInventoryJournalIdentity",null);JournalIdentity=journalIdentity;

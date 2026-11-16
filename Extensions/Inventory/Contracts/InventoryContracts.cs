@@ -50,7 +50,7 @@ namespace Phinix.InventoryExtension
 
     public static class InventoryContract
     {
-        public const int Version = 6;
+        public const int Version = 7;
     }
 
     public static class InventoryDeliveryPreference
@@ -139,7 +139,7 @@ namespace Phinix.InventoryExtension
     {
         public InventoryAvailability Availability { get; set; }
         public string Reason { get; set; }
-        // Opaque local save scope, not a path, credential, or proof of saved delivery.
+        // Opaque shared inventory database scope. Physical callbacks also require their original Game scope.
         public string SaveIdentity { get; set; }
         public string JournalIdentity {get;set;}
         public bool CanWrite => Availability == InventoryAvailability.Ready;
@@ -291,7 +291,8 @@ namespace Phinix.InventoryExtension
         Reserved,
         Uncertain,
         Committed,
-        Restored
+        Restored,
+        Abandoned
     }
 
     public sealed class InventoryReservationLine
@@ -356,7 +357,8 @@ namespace Phinix.InventoryExtension
     {
         Commit,
         Restore,
-        MarkUncertain
+        MarkUncertain,
+        Abandon
     }
 
     public sealed class InventoryReservationResolutionResult

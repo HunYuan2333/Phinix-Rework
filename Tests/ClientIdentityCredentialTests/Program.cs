@@ -17,6 +17,15 @@ internal static class Program
     static void Check(bool ok, string why) { checks++; if (!ok) throw new Exception(why); }
     static void Refuses<T>(Action action, string why) where T : Exception
     { try { action(); } catch (T) { checks++; return; } throw new Exception(why); }
+    static void RetainsCause<T>(Action action) where T : Exception
+    {
+        try { action(); }
+        catch (InvalidDataException error) {
+            Check(error.InnerException is T && !string.IsNullOrEmpty(error.InnerException.StackTrace), "Credential wrapper lost original cause or stack");
+            return;
+        }
+        throw new Exception("Invalid credential input was accepted");
+    }
     static string Private(string path)
     {
         Directory.CreateDirectory(path);
@@ -161,6 +170,17 @@ internal static class Program
                 File.WriteAllBytes(path, corrupt); Refuses<InvalidDataException>(() => store.Load(server), "Corrupt credential was accepted");
                 Check(corrupt.SequenceEqual(File.ReadAllBytes(path)), "Corrupt credential was silently replaced");
             }
+            File.WriteAllBytes(path, bound);
+            Envelope(path, Encoding.UTF8.GetBytes("{" + new string(' ', 32)));
+            RetainsCause<JsonException>(() => store.Load(server));
+            File.WriteAllBytes(path, bound);
+            var invalidSecret = Document(path); invalidSecret["Secret"] = "!";
+            Envelope(path, Encoding.UTF8.GetBytes(invalidSecret.ToJsonString()));
+            RetainsCause<FormatException>(() => store.Load(server));
+            File.WriteAllBytes(path, bound);
+            invalidSecret = Document(path); invalidSecret["Secret"] = null;
+            Envelope(path, Encoding.UTF8.GetBytes(invalidSecret.ToJsonString()));
+            RetainsCause<ArgumentException>(() => store.Load(server));
             File.WriteAllBytes(path, bound);
             foreach (string field in new[] { "Version", "Secret", "PrincipalId" })
             {

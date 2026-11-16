@@ -32,7 +32,10 @@ namespace PhinixClient.Framework
                 appendExtensionLog(e.Message, e.LogLevel);
             }
 
-            OnLogEntry?.Invoke(this, e);
+            if (OnLogEntry != null)
+                foreach (EventHandler<LogEventArgs> handler in OnLogEntry.GetInvocationList())
+                    try { handler(this, e); }
+                    catch (Exception error) { ReportParticipant(handler, "LogObserverFailed", error); }
         }
 
         public FrameworkCompatibilityMode CompatibilityMode { get; private set; } = FrameworkCompatibilityMode.Unknown;
@@ -66,8 +69,13 @@ namespace PhinixClient.Framework
         private bool hostBindingsAttached;
         private volatile bool disposed;
 
+        private readonly ClientConnectionDiagnostics parseDiagnostics;
         public PhinixFrameworkClient(IClientTransport netClient, ClientAuthenticator authenticator, ClientUserManager userManager, ExtensionHostContext extensionHostContext = null)
+            : this(netClient, authenticator, userManager, extensionHostContext, null) { }
+        public PhinixFrameworkClient(IClientTransport netClient, ClientAuthenticator authenticator, ClientUserManager userManager,
+            ExtensionHostContext extensionHostContext, Action<string, Exception> parseFault)
         {
+            parseDiagnostics = new ClientConnectionDiagnostics(parseFault);
             this.netClient = netClient;
             this.authenticator = authenticator;
             this.userManager = userManager;
@@ -92,15 +100,16 @@ namespace PhinixClient.Framework
             hostBindingsAttached = true;
             extensionHostContext.Log = (message, level) =>
             {
+                Utils.Framework.ExtensionDiagnostics.Write(originalStructuredHostLog, originalHostLog, new HostLogEntry("framework", level, message));
                 appendExtensionLog(message, level);
-                originalHostLog?.Invoke(message, level);
             };
             extensionHostContext.StructuredLog = entry =>
             {
                 if (entry == null) return;
-                appendExtensionLog(entry.ToDisplayMessage(), entry.Level);
-                originalStructuredHostLog?.Invoke(entry);
-                originalHostLog?.Invoke(entry.ToDisplayMessage(), entry.Level);
+                // Capture the Exception at the Host before optional display/log observers can fail.
+                Utils.Framework.ExtensionDiagnostics.Write(originalStructuredHostLog, originalHostLog, entry);
+                try { appendExtensionLog(entry.Exception == null ? entry.ToDisplayMessage() : entry.ExtensionId + ": " + entry.Message, entry.Level); }
+                catch { /* The independent Host sink already received the original record. */ }
             };
 
             try
@@ -114,10 +123,10 @@ namespace PhinixClient.Framework
                 this.extensionHostContext.AddService<IDisplayMessageSink>(this);
                 this.extensionHostContext.AddService<IItemCodecProvider>(this);
                 compositionFactory = new ClientCompositionFactory(() => UnityData.IsInMainThread,
-                    error => reportShutdownWarning("Client composition cleanup failed: " + error));
+                    error => ReportParticipant(this, "CompositionScopeFailed", error));
                 extensionHostContext.AddService<IClientCompositionFactory>(compositionFactory);
                 extensionRuntime.Start();
-                this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions);
+                this.capabilities = PhinixExtensionRegistry.CollectCapabilities(discoveredExtensions, extensionHostContext);
                 negotiationTimer = new Timer
                 {
                     AutoReset = false,
@@ -139,7 +148,7 @@ namespace PhinixClient.Framework
                 if (discoveredExtensions.Modules.Count > 0)
                 {
                     string moduleSummary =
-                        $"Framework modules: {string.Join(", ", discoveredExtensions.Modules.Select(module => module.ExtensionId).OrderBy(extensionId => extensionId))}. " +
+                        $"Framework modules: {string.Join(", ", discoveredExtensions.ExtensionResults.Select(result => result.ExtensionId).OrderBy(extensionId => extensionId))}. " +
                         $"Client handlers={discoveredExtensions.ClientMessageHandlers.Count}, client commands={discoveredExtensions.ClientCommandHandlers.Count}, renderers={discoveredExtensions.MessageRenderers.Count}, item codecs={discoveredExtensions.ItemCodecs.Count}, " +
                         $"client item handlers={discoveredExtensions.ClientIncomingItemHandlers.Count}, client outgoing item handlers={discoveredExtensions.ClientOutgoingItemHandlers.Count}.";
                     this.extensionHostContext.Log?.Invoke(moduleSummary, LogLevel.INFO);
@@ -147,14 +156,15 @@ namespace PhinixClient.Framework
 
                 // Settings panels summary: concise copyable machine-readable format
                 IReadOnlyList<IClientSettingsPanelProvider> settingsPanels = GetSettingsPanels();
-                if (settingsPanels.Count > 0)
+                var panelFacts = new List<Tuple<string,float>>();
+                foreach (var panel in settingsPanels)
+                    try { panelFacts.Add(Tuple.Create(panel.SectionId, panel.Order)); }
+                    catch (Exception error) { ReportParticipant(panel, "SettingsPanelMetadataFailed", error); }
+                if (panelFacts.Count > 0)
                 {
-                    string panelSummary = "SettingsPanels=" + string.Join(",", settingsPanels.OrderBy(p => p.Order).Select(p =>
-                        $"{{SectionId:{p.SectionId},Order:{p.Order}}}"));
-                    this.extensionHostContext.Log?.Invoke(panelSummary, LogLevel.DEBUG);
-                    // Also emit a human-readable version
-                    string humanSummary = $"Settings panels ({settingsPanels.Count}): {string.Join(" | ", settingsPanels.OrderBy(p => p.Order).Select(p => p.SectionId))}";
-                    this.extensionHostContext.Log?.Invoke(humanSummary, LogLevel.INFO);
+                    var ordered = panelFacts.OrderBy(value => value.Item2).ToArray();
+                    this.extensionHostContext.Log?.Invoke("SettingsPanels=" + string.Join(",", ordered.Select(p => "{SectionId:"+p.Item1+",Order:"+p.Item2+"}")), LogLevel.DEBUG);
+                    this.extensionHostContext.Log?.Invoke("Settings panels: " + string.Join(" | ", ordered.Select(p => p.Item1)), LogLevel.INFO);
                 }
 
                 foreach (string diagnostic in discoveredExtensions.Diagnostics)
@@ -166,10 +176,12 @@ namespace PhinixClient.Framework
                     this.extensionHostContext.Log?.Invoke(warning, LogLevel.WARNING);
                 }
             }
-            catch
+            catch (Exception error)
             {
+                ReportParticipant(this, "FrameworkStartFailed", error);
                 starting = false;
-                Shutdown();
+                try { Shutdown(); }
+                catch (Exception cleanup) { ReportParticipant(this, "FrameworkStartCleanupFailed", cleanup); }
                 throw;
             }
             finally
@@ -252,10 +264,10 @@ namespace PhinixClient.Framework
                 $"[Phinix] TryHandleOutgoingMessage: mode={CompatibilityMode}, textLen={rawMessage?.Length ?? 0}, handlers={discoveredExtensions.ClientMessageHandlers.Count}",
                 LogLevel.DEBUG));
 
-            foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleOutgoingText(rawMessage)))
+            foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => Probe(handler, "CanHandleOutgoingText", () => handler.CanHandleOutgoingText(rawMessage))))
             {
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Phinix] TryHandleOutgoingMessage: handler={handler.GetType().Name}(P={handler.Priority}) claims it can handle",
+                    $"[Phinix] TryHandleOutgoingMessage: handler={handler.GetType().Name} claims it can handle",
                     LogLevel.DEBUG));
 
                 ClientOutgoingMessageResult result = null;
@@ -277,8 +289,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Message handler {handler.GetType().FullName} threw for outgoing text: {ex}", LogLevel.ERROR));
+                    ReportParticipant(handler, "OutgoingMessageFailed", ex);
                     // Dispatch may already have occurred; never try another handler.
                     throw;
                 }
@@ -340,7 +351,7 @@ namespace PhinixClient.Framework
                 RemoteCapabilities = remoteCapabilities.ToArray(), HasRemoteCapability = hasRemoteCapability,
                 Log = (text, level) => RaiseLogEntry(new LogEventArgs(text, level))
             };
-            foreach (var handler in discoveredExtensions.Extensions.OfType<IClientOutgoingMessageHandler>().OrderBy(h => h.Priority))
+            foreach (var handler in Ordered(discoveredExtensions.Extensions.OfType<IClientOutgoingMessageHandler>(), h => h.Priority))
             {
                 try
                 {
@@ -354,14 +365,14 @@ namespace PhinixClient.Framework
                         result.Message.Kind = FrameworkProtocol.KindMessage;
                         result.Message.SessionId = authenticator.SessionId;
                         result.Message.SenderUuid = userManager.Uuid;
-                        netClient.Send(FrameworkProtocol.ModuleName, FrameworkSerialization.SerializePacket(result.Message));
+                        sendPacket(result.Message);
                     }
                     return true;
                 }
                 catch (Exception error)
                 {
-                    RaiseLogEntry(new LogEventArgs("Message submission failed in " + handler.GetType().FullName + ": " + error, LogLevel.ERROR));
-                    return false;
+                    ReportParticipant(handler, "MessageSubmissionFailed", error);
+                    throw;
                 }
             }
             return false;
@@ -391,22 +402,19 @@ namespace PhinixClient.Framework
             // 按 Priority 排序。优先级数字越小越先执行。
             // 用 is 检测而非在 DiscoverExtensions 中预收集，因为
             // IClientOutgoingCommandHandler 是纯增量接口，不需要修改 registry。
-            IEnumerable<IClientOutgoingCommandHandler> handlers = discoveredExtensions.Extensions
-                .OfType<IClientOutgoingCommandHandler>()
-                .OrderBy(h => h.Priority)
-                .ToList();
+            IEnumerable<IClientOutgoingCommandHandler> handlers = Ordered(discoveredExtensions.Extensions.OfType<IClientOutgoingCommandHandler>(), h => h.Priority).ToList();
 
             RaiseLogEntry(new LogEventArgs(
                 $"[Phinix] TryHandleOutgoingCommand: found {handlers.Count()} handler(s) — " +
-                string.Join(", ", handlers.Select(h => $"{h.GetType().Name}(P={h.Priority})")),
+                string.Join(", ", handlers.Select(h => $"{h.GetType().Name}")),
                 LogLevel.DEBUG));
 
             bool anyHandlerTried = false;
             foreach (IClientOutgoingCommandHandler handler in handlers)
             {
-                bool canHandle = handler.CanHandleOutgoingCommand(command);
+                bool canHandle = Probe(handler, "CanHandleOutgoingCommand", () => handler.CanHandleOutgoingCommand(command));
                 RaiseLogEntry(new LogEventArgs(
-                    $"[Phinix]   {handler.GetType().Name}(P={handler.Priority}).CanHandle → {canHandle}",
+                    $"[Phinix]   {handler.GetType().Name}.CanHandle → {canHandle}",
                     LogLevel.DEBUG));
 
                 if (!canHandle) continue;
@@ -419,8 +427,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"[Phinix] Outgoing command handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                    ReportParticipant(handler, "OutgoingCommandFailed", ex);
                     // Dispatch may already have occurred; never try another handler.
                     throw;
                 }
@@ -500,8 +507,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"[Phinix] Outgoing item handler {handler.GetType().FullName}.CanHandle threw: {ex}", LogLevel.ERROR));
+                    ReportParticipant(handler, "OutgoingItemProbeFailed", ex);
                     continue;
                 }
 
@@ -515,8 +521,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"[Phinix] Outgoing item handler {handler.GetType().FullName} threw: {ex}", LogLevel.ERROR));
+                    ReportParticipant(handler, "OutgoingItemFailed", ex);
                     // Dispatch may already have occurred; never try another handler.
                     throw;
                 }
@@ -611,10 +616,9 @@ namespace PhinixClient.Framework
 
         public void SendFrameworkPacket(FrameworkPacket packet)
         {
-            if (disposed) return;
-
-            if (packet == null)
+            if (disposed || packet == null)
             {
+                sendPacket(packet); // Records and throws the preparation failure.
                 return;
             }
 
@@ -682,9 +686,11 @@ namespace PhinixClient.Framework
             }
             catch (Exception exception)
             {
-                RaiseLogEntry(new LogEventArgs($"Failed to deserialize framework packet: {exception.Message}", LogLevel.WARNING));
+                parseDiagnostics.Report("FrameworkPacketParseFailed", exception);
                 return;
             }
+
+            if (packet == null) return;
 
             // 管线消息路由细节 → DEBUG（设计哲学 §3.8）：聊天等高频消息在 Release 构建下被过滤，
             // 避免每条消息都刷 RimWorld 日志（社区反馈"constant log spam from chatting"）
@@ -702,7 +708,10 @@ namespace PhinixClient.Framework
                     RaiseLogEntry(new LogEventArgs("[Phinix] Processing KindCapabilities from server...", LogLevel.INFO));
                     FrameworkCapabilitiesPayload capabilitiesPayload;
                     try { capabilitiesPayload = FrameworkSerialization.DeserializePayload<FrameworkCapabilitiesPayload>(packet.PayloadJson); }
-                    catch { admissionControl.RejectMalformed(packet.SessionId); negotiationTimer.Stop(); break; }
+                    catch (Exception error) {
+                        parseDiagnostics.Report("FrameworkCapabilitiesParseFailed", error);
+                        admissionControl.RejectMalformed(packet.SessionId); negotiationTimer.Stop(); break;
+                    }
                     if (capabilitiesPayload == null || capabilitiesPayload.Capabilities == null || capabilitiesPayload.Capabilities.Count > 512 ||
                         capabilitiesPayload.Capabilities.Any(capability => string.IsNullOrWhiteSpace(capability) || capability.Length > 256))
                     { admissionControl.RejectMalformed(packet.SessionId); negotiationTimer.Stop(); break; }
@@ -756,8 +765,9 @@ namespace PhinixClient.Framework
                 packet.MessageType != FrameworkAdmissionRejection.PacketType) return;
             FrameworkAdmissionRejection rejection;
             try { rejection = FrameworkSerialization.DeserializePayload<FrameworkAdmissionRejection>(packet.PayloadJson); }
-            catch
+            catch (Exception error)
             {
+                parseDiagnostics.Report("FrameworkAdmissionParseFailed", error);
                 admissionControl.RejectMalformed(packet.SessionId);
                 negotiationTimer.Stop();
                 RaiseLogEntry(new LogEventArgs("Malformed framework control; reconnect required, no protocol fallback.", LogLevel.WARNING));
@@ -774,7 +784,7 @@ namespace PhinixClient.Framework
             foreach (EventHandler<FrameworkAdmissionRejectedEventArgs> subscriber in AdmissionRejected?.GetInvocationList() ?? Array.Empty<Delegate>())
             {
                 try { subscriber(this, args); }
-                catch { RaiseLogEntry(new LogEventArgs("Framework admission observer failed.", LogLevel.WARNING)); }
+                catch (Exception error) { ReportParticipant(subscriber, "FrameworkAdmissionObserverFailed", error); }
             }
         }
 
@@ -793,7 +803,7 @@ namespace PhinixClient.Framework
                 Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
             };
 
-            foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => handler.CanHandleIncomingMessage(currentMessage)))
+            foreach (IClientMessageHandler handler in discoveredExtensions.ClientMessageHandlers.Where(handler => Probe(handler, "CanHandleIncomingMessage", () => handler.CanHandleIncomingMessage(currentMessage))))
             {
                 matchedHandler = true;
                 ClientIncomingMessageResult result = null;
@@ -803,9 +813,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Message handler {handler.GetType().FullName} threw for '{currentMessage.MessageType}': {ex}",
-                        LogLevel.ERROR));
+                    ReportParticipant(handler, "IncomingMessageFailed", ex);
                     continue;
                 }
                 if (result == null) continue;
@@ -832,7 +840,7 @@ namespace PhinixClient.Framework
                 }
             }
 
-            foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => renderer.CanRender(currentMessage)))
+            foreach (IMessageRenderer renderer in discoveredExtensions.MessageRenderers.Where(renderer => Probe(renderer, "CanRender", () => renderer.CanRender(currentMessage))))
             {
                 FrameworkDisplayMessage renderedMessage = null;
                 try
@@ -841,9 +849,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Message renderer {renderer.GetType().FullName} threw for '{currentMessage.MessageType}': {ex}",
-                        LogLevel.ERROR));
+                    ReportParticipant(renderer, "MessageRenderFailed", ex);
                     continue;
                 }
                 if (renderedMessage != null)
@@ -875,7 +881,7 @@ namespace PhinixClient.Framework
                 Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
             };
 
-            foreach (IClientCommandHandler handler in discoveredExtensions.ClientCommandHandlers.Where(handler => handler.CanHandleIncomingCommand(currentCommand)))
+            foreach (IClientCommandHandler handler in discoveredExtensions.ClientCommandHandlers.Where(handler => Probe(handler, "CanHandleIncomingCommand", () => handler.CanHandleIncomingCommand(currentCommand))))
             {
                 matchedHandler = true;
                 ClientIncomingCommandResult result = null;
@@ -885,9 +891,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Command handler {handler.GetType().FullName} threw for '{currentCommand.MessageType}': {ex}",
-                        LogLevel.ERROR));
+                    ReportParticipant(handler, "IncomingCommandFailed", ex);
                     continue;
                 }
                 if (result == null) continue;
@@ -930,7 +934,7 @@ namespace PhinixClient.Framework
                 Log = (logMessage, level) => RaiseLogEntry(new LogEventArgs(logMessage, level))
             };
 
-            foreach (IClientIncomingItemHandler handler in discoveredExtensions.ClientIncomingItemHandlers.Where(handler => handler.CanHandleIncomingItem(currentItem)))
+            foreach (IClientIncomingItemHandler handler in discoveredExtensions.ClientIncomingItemHandlers.Where(handler => Probe(handler, "CanHandleIncomingItem", () => handler.CanHandleIncomingItem(currentItem))))
             {
                 matchedHandler = true;
                 ClientIncomingItemResult result = null;
@@ -940,9 +944,7 @@ namespace PhinixClient.Framework
                 }
                 catch (Exception ex)
                 {
-                    RaiseLogEntry(new LogEventArgs(
-                        $"Item handler {handler.GetType().FullName} threw for '{currentItem.MessageType}': {ex}",
-                        LogLevel.ERROR));
+                    ReportParticipant(handler, "IncomingItemFailed", ex);
                     continue;
                 }
                 if (result == null) continue;
@@ -1014,7 +1016,10 @@ namespace PhinixClient.Framework
                 displayMessages.Add(message);
             }
 
-            OnDisplayMessageReceived?.Invoke(this, new FrameworkDisplayMessageEventArgs(message));
+            var displayArgs = new FrameworkDisplayMessageEventArgs(message);
+            foreach (EventHandler<FrameworkDisplayMessageEventArgs> subscriber in OnDisplayMessageReceived?.GetInvocationList() ?? Array.Empty<Delegate>())
+                try { subscriber(this, displayArgs); }
+                catch (Exception error) { ReportParticipant(subscriber, "DisplayMessageObserverFailed", error); }
         }
 
         private bool isDisplayMessageAlreadyStoredUnsafe(FrameworkDisplayMessage message)
@@ -1028,13 +1033,36 @@ namespace PhinixClient.Framework
             addDisplayMessage(message);
         }
 
+        private void ReportParticipant(object participant, string operation, Exception error)
+        {
+            var ownerType = participant is Delegate callback ? callback.Method.DeclaringType : participant?.GetType();
+            Utils.Framework.ExtensionDiagnostics.Report(extensionHostContext, ownerType?.Assembly.GetName().Name ?? "framework", operation, error);
+        }
+
+        private bool Probe(object participant, string operation, Func<bool> predicate)
+        {
+            try { return predicate(); }
+            catch (Exception error) { ReportParticipant(participant, operation, error); return false; }
+        }
+
+        private IEnumerable<T> Ordered<T>(IEnumerable<T> participants, Func<T, int> priority)
+        {
+            var valid = new List<Tuple<T, int>>();
+            foreach (var participant in participants.ToArray())
+                try { valid.Add(Tuple.Create(participant, priority(participant))); }
+                catch (Exception error) { ReportParticipant(participant, "ParticipantPriorityFailed", error); }
+            return valid.OrderBy(value => value.Item2).Select(value => value.Item1);
+        }
+
         private bool shouldSuppress(FrameworkDisplayMessage message)
         {
             if (message.SuppressDefaultDisplay) return true;
 
             foreach (IMessageInterceptor interceptor in discoveredExtensions.MessageInterceptors)
             {
-                MessageHandlingResultAction action = interceptor.Intercept(message);
+                MessageHandlingResultAction action;
+                try { action = interceptor.Intercept(message); }
+                catch (Exception error) { ReportParticipant(interceptor, "MessageInterceptFailed", error); continue; }
                 if (action == MessageHandlingResultAction.SuppressDefault || action == MessageHandlingResultAction.Handled || action == MessageHandlingResultAction.StopPropagation)
                 {
                     return true;
@@ -1046,43 +1074,46 @@ namespace PhinixClient.Framework
 
         private void sendPacket(FrameworkPacket packet)
         {
-            if (disposed || packet == null) return;
-            if (!netClient.Connected)
-            {
-                RaiseLogEntry(new LogEventArgs($"[Phinix] Dropping packet type={packet.MessageType} — netClient not connected", LogLevel.WARNING));
-                return;
-            }
-
-            if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Message || packet.Kind == FrameworkProtocol.KindMessage)
-            {
-                packet.Flow = global::Phinix.Framework.FrameworkFlow.Message;
-                if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindMessage;
-            }
-            else if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Command || packet.Kind == FrameworkProtocol.KindCommand)
-            {
-                packet.Flow = global::Phinix.Framework.FrameworkFlow.Command;
-                if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindCommand;
-            }
-            else if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Item || packet.Kind == FrameworkProtocol.KindItem)
-            {
-                packet.Flow = global::Phinix.Framework.FrameworkFlow.Item;
-                if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindItem;
-            }
-
-            if (admissionControl.NegotiationRejected) return;
-            admissionControl.Track(packet.MessageId, packet.GetCorrelationId());
-
-            // Use NetClient.Send which validates connection state atomically
-            byte[] serialized = FrameworkSerialization.SerializePacket(packet);
+            byte[] serialized;
             try
             {
-                netClient.Send(FrameworkProtocol.ModuleName, serialized);
+                if (disposed) throw new ObjectDisposedException(nameof(PhinixFrameworkClient));
+                if (packet == null) throw new ArgumentNullException(nameof(packet));
+                if (!netClient.Connected) throw new NotConnectedException();
+                if (admissionControl.NegotiationRejected) throw new InvalidOperationException("Framework negotiation was rejected; packet was not submitted.");
+
+                if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Message || packet.Kind == FrameworkProtocol.KindMessage)
+                {
+                    packet.Flow = global::Phinix.Framework.FrameworkFlow.Message;
+                    if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindMessage;
+                }
+                else if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Command || packet.Kind == FrameworkProtocol.KindCommand)
+                {
+                    packet.Flow = global::Phinix.Framework.FrameworkFlow.Command;
+                    if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindCommand;
+                }
+                else if (packet.Flow == global::Phinix.Framework.FrameworkFlow.Item || packet.Kind == FrameworkProtocol.KindItem)
+                {
+                    packet.Flow = global::Phinix.Framework.FrameworkFlow.Item;
+                    if (string.IsNullOrEmpty(packet.Kind)) packet.Kind = FrameworkProtocol.KindItem;
+                }
+
+                serialized = FrameworkSerialization.SerializePacket(packet);
+                admissionControl.Track(packet.MessageId, packet.GetCorrelationId());
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                RaiseLogEntry(new LogEventArgs(
-                    $"[Phinix] Failed to send packet type={packet.MessageType}: {ex.Message}",
-                    LogLevel.ERROR));
+                ReportParticipant(this, "PacketPreparationFailed", error);
+                throw new ClientPacketNotSentException(error);
+            }
+
+            // Once transport Send is entered, an exception cannot prove non-delivery.
+            // Preserve the original exception; callers must not retry or refund automatically.
+            try { netClient.Send(FrameworkProtocol.ModuleName, serialized); }
+            catch (Exception error)
+            {
+                ReportParticipant(this, "PacketSendOutcomeUnknown", error);
+                throw;
             }
         }
 
@@ -1146,8 +1177,7 @@ namespace PhinixClient.Framework
                     foreach (EventHandler<FrameworkCompatibilityModeChangedEventArgs> handler in handlers.GetInvocationList())
                     {
                         try { handler(this, args); }
-                        catch (Exception ex)
-                        { try { RaiseLogEntry(new LogEventArgs("Compatibility mode subscriber failed: " + ex, LogLevel.WARNING)); } catch { } }
+                        catch (Exception ex) { ReportParticipant(handler, "CompatibilityModeObserverFailed", ex); }
                     }
                 }
             }
@@ -1202,7 +1232,7 @@ namespace PhinixClient.Framework
             }
             catch (Exception ex)
             {
-                reportShutdownWarning($"Failed to dispose framework negotiation timer: {ex}");
+                ReportParticipant(this, "NegotiationTimerDisposeFailed", ex);
             }
 
             try
@@ -1217,7 +1247,7 @@ namespace PhinixClient.Framework
             }
             catch (Exception ex)
             {
-                reportShutdownWarning($"Failed to unregister framework client handlers: {ex}");
+                ReportParticipant(this, "FrameworkHandlerUnregisterFailed", ex);
             }
 
             int previousWarnings = discoveredExtensions.Warnings.Count;
@@ -1254,7 +1284,7 @@ namespace PhinixClient.Framework
             try { originalHostLog?.Invoke(message, LogLevel.WARNING); }
             catch (Exception error)
             {
-                appendExtensionLog("Shutdown log callback failed: " + error.Message, LogLevel.WARNING);
+                ReportParticipant(this, "ShutdownLogObserverFailed", error);
             }
         }
 

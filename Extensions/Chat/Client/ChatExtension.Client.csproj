@@ -86,6 +86,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ChatDiagnostics.cs" />
     <Compile Include="BuiltInChatClientExtension.cs" />
     <Compile Include="ChatCommandHandler.cs" />
     <Compile Include="ChatMainTabProvider.cs" />

@@ -29,7 +29,7 @@ namespace Phinix.TradeExtension.Client
             if (item == null || item.CodecId != CodecId || item.CodecVersion != Version ||
                 item.Quantity != 1 || item.Payload == null || item.Payload.Length == 0) return false;
             try { return itemPipeline.CanDecodeItemExactly(Decode(item.Payload)); }
-            catch (Exception) { return false; }
+            catch (Exception boundaryError234) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeInventoryIntegration/CanStore", boundaryError234);  return false; }
         }
 
         public string GetAggregationKey(InventoryItem item) => null;
@@ -125,7 +125,7 @@ namespace Phinix.TradeExtension.Client
         public InventoryDepositResult Deposit(TradeCompletionEventArgs args,string display)
         {
             try {var deposit=CreateDeposit(args,display);return deposit==null?new InventoryDepositResult {Status=InventoryDepositStatus.AlreadyCommitted}:inventory.TryDeposit(deposit);}
-            catch(Exception error){return new InventoryDepositResult {Status=InventoryDepositStatus.Rejected,FailureCode=InventoryFailureCode.CodecUnavailable,Reason=error.Message};}
+            catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeInventoryIntegration/Deposit", error); return new InventoryDepositResult {Status=InventoryDepositStatus.Rejected,FailureCode=InventoryFailureCode.CodecUnavailable,Reason="Operation failed; see the error report."};}
         }
         internal InventoryDeposit CreateDeposit(TradeCompletionEventArgs args,string display,string deliveryId=null)
         {
@@ -174,12 +174,12 @@ namespace Phinix.TradeExtension.Client
                 }
             }
             catch (Exception exception)
-            {
-                DiscardUnclaimed(things);
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeInventoryIntegration/DeliverFrozenOfferReturn", exception);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeInventoryIntegration/DeliverFrozenOfferReturn/Cleanup", () => { DiscardUnclaimed(things); });
                 return new InventoryDeliveryResult
                 {
                     Status = InventoryDeliveryStatus.Rejected,
-                    Reason = "Trade items could not be restored without loss: " + exception.Message
+                    Reason = "Trade items could not be restored without loss: " + "Operation failed; see the error report."
                 };
             }
 

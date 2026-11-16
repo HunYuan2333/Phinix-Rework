@@ -80,6 +80,7 @@ namespace Phinix.TradeExtension.Client
             }
 
             Thing thing = null;
+            Exception primaryFailure=null;
             try
             {
                 Scribe.mode = LoadSaveMode.LoadingVars;
@@ -98,6 +99,7 @@ namespace Phinix.TradeExtension.Client
                 assignFreshIds(thing);
                 return thing;
             }
+            catch(Exception error){primaryFailure=error;TradeDiagnostics.Report("TradeThingStateSerializer/Deserialize",error);throw;}
             finally
             {
                 // FinalizeLoading validates that Scribe is still in a loading
@@ -110,6 +112,7 @@ namespace Phinix.TradeExtension.Client
                     {
                         Scribe.loader.FinalizeLoading();
                     }
+                    catch(Exception cleanup){TradeDiagnostics.Report("TradeThingStateSerializer/FinalizeLoading",cleanup);if(primaryFailure==null)throw;}
                     finally
                     {
                         Scribe.mode = LoadSaveMode.Inactive;

@@ -1,0 +1,203 @@
+{
+  "date": "2026-11-16",
+  "stage": "E3 code, scoped review and automated validation complete; actual-game/release gates remain E5",
+  "branch": "codex/client-error-reporting",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "common_gitlink_advanced": false,
+  "committed_merged_pushed_released": false,
+  "baseline_inventory_sha256": "2cdc0e9094941eba9ee69191d4fa21af3351b838c6523fc5f6dd511ba8ecb9ee",
+  "migration": {
+    "e3_sites": 354,
+    "status_counts": {
+      "reviewed-preserved-validation": 235,
+      "implemented": 83,
+      "reviewed-normal-result": 5,
+      "reviewed-preserved-propagation": 27,
+      "reviewed-preserved-cause": 4
+    },
+    "e3_pending": 0,
+    "e3_plus_prior_completed_host_scope": 369,
+    "global_baseline_sites": 2343,
+    "not_a_global_completion_claim": true
+  },
+  "results": {
+    "build16": "PASS",
+    "build17": "PASS 28 projects including RedPacket/TalentTrade consumers",
+    "boundaries": {
+      "net10": 82,
+      "net472_mono": 76
+    },
+    "error_core_each_runtime": 64,
+    "sqlite_each_runtime_and_packaged_layout": 34,
+    "sqlite_runs": 4,
+    "business_sqlite": 75,
+    "managed": 3435,
+    "included_managed_store_operation": 2225,
+    "theme_core": 80,
+    "theme_editor": 39,
+    "phase35": 97,
+    "identity": 70,
+    "xml_matching_keys": 16
+  },
+  "source_sha256": {
+    "Client/Common/Authentication.Client/ClientAuthenticator.cs": "704363d8c47bc9e43305d15f3f769ec2c938ab24be8185f3258102de64383b2a",
+    "Client/Common/Authentication.Client/LegacyClientIdentityAdapter.cs": "b64d8a0885430208bf4d5f4794d43f9c6eb0579db2ec4e0eead20bceac35a500",
+    "Client/Common/Authentication.Client/PasswordlessIdentityClient.cs": "003a0ac2079f6b8908a4c493df29fd1e4c213f74114e8a0ee977aae8ace15b7c",
+    "Client/Common/Authentication.Client/ServerIdentityCredentials.cs": "c215f5ee51a746294bc776a570ccc8dfb63239581309d4012dd363f3c37e2519",
+    "Client/Common/Connections.Client/ClientConnectionDiagnostics.cs": "f06b725cdb35ec08aed2a8b333b631dc825d0e861adba0e94e2110cdea3b46f1",
+    "Client/Common/Connections.Client/ConfiguredClientTransport.cs": "76add3c8bfb6ebe9add2416cb636b705e4599c15c8f246ff0cb0ca204410dbc8",
+    "Client/Common/Connections.Client/NetClient.cs": "f9d9e42349acbbeba799250edf284b8bc415900e3116bda2cd4d4eb475997cc4",
+    "Client/Common/Connections.Client/TlsNetClient.cs": "7c0efa2ebaca755d00c10f8344a4315fb429d78142b428c2ff846d9d7f7b6b10",
+    "Client/Languages/ChineseSimplified (\u7b80\u4f53\u4e2d\u6587)/Keyed/ErrorReporting.xml": "6538e919ebca73a639e60a52db9075bc2ea830f8fe67963dc51fe27d5641797e",
+    "Client/Languages/English/Keyed/ErrorReporting.xml": "1e635384db0ea45ed41a7dbd24e9a4b48efa8af06e0a0bf93434c03cad6240bb",
+    "Client/Source/Client.cs": "e7c35d5beb5a487358be36fd9110ab161f98464d03e64aa015a43e32945f6539",
+    "Client/Source/Client.csproj": "53a9a292acde8961e8389b4ae8b28663b3fb98d89102cc0e10c33b2b69f7127b",
+    "Client/Source/Framework/ClientErrorService.cs": "06c975b4ee3de9873e9c321ebc9c777584c9d54f8526ddfb8a737dfd4234f9e4",
+    "Client/Source/Framework/ClientExtensionControlService.cs": "197a6b23ae3b71cdd682b4d62159674a88f7aef3f304782a020b6837a86df3c9",
+    "Client/Source/Framework/ClientHostDiagnostics.cs": "4b9952fd15970ca8da701ff7aab3ca763417b5c94f8dd81150a9a2c0e03a8cdc",
+    "Client/Source/Framework/ManagedExtensionManagerController.cs": "34d91bc11059d478b11ae73a912b711e64386f3e049460f150aa63f9fcba0081",
+    "Client/Source/Framework/PhinixFrameworkClient.cs": "3a0be3a13b20a582b904f424f068b7f87dead099b1b13c7f2cf3e976602a775f",
+    "Client/Source/LegacySettings.cs": "7e95752c0b52b2d9384dcf0994b03e8049c08aaa1946359d67c1b42142e32ee2",
+    "Client/Source/Settings.cs": "60bc36c001d1f8ae2896734489df737aba2caf2cbd7f4bbc745301117b0e41c8",
+    "Client/Source/UI/ClientThemePackageService.cs": "3cc0b62290f61164f8285b832c2e01fcc80fda11a6b54a9b16c55acbf6691be8",
+    "Client/Source/UI/NicknameEditState.cs": "c62a1ede59405abadae16c8d7bdf53e21beb7bc0838df32085c5c3f926551794",
+    "Client/Source/UI/NicknameWindow.cs": "c43c4a627abb11eed559868d1b43ba160d9a0f3078bcc3c66315ea93f350e52c",
+    "Client/Source/UI/ThemeInputAdapter.cs": "e5e63bcbe8132b44ff67e2cab90cefefb7fdb08a2100a31ea45e009a33127d0c",
+    "Client/Source/UI/ThemePackageExportWindow.cs": "310cd7f768544db1602a324e2cbecc82f2f2d91459cc16ecce00f890bfed6508",
+    "Client/Source/UI/ThemePresentationWindow.cs": "86b573328edc108c6fdf29342b4a4b566c3d587ebeb7f06da44ec26626b575e1",
+    "Client/Source/UI/ThemeSettingsWindow.cs": "af3304edd8a4b35d3292fa9ba2285aef3fdd96f7a300d47bdfaad36b2d1e0f7c",
+    "Client/Source/UI/UiTheme.cs": "872a347295264cb9721b7e5454ec6b0fb4b214a7feb30f6bc56fdebef3d5186e",
+    "Client/Storage.Contracts/ClientDatabase.cs": "4af85645d4aa482d0aaf93b1031cca7fec4fbb09072592a2154526449ba6a945",
+    "Client/Storage.Sqlite/ClientDatabaseService.cs": "22f5027fe869276cd7e5878d3f8fc87c92d9bcaa3e4d919ea5c1e65d9b0dbd1d",
+    "Client/Storage.Sqlite/DatabaseDiagnostics.cs": "007c5f8f3428a24902fa4f387c679cdd693be000400b5d649058787278a151c8",
+    "Client/Storage.Sqlite/SqliteRuntime.cs": "07d7cebe2c26a360746914ada3e5475f4aa1e294667540eb68fcd1470d1bf946",
+    "Dependencies/Phinix.Common/Common/Connections/InvalidAddressException.cs": "1d62aad71124cfa8e9e6b327e0ef698d5a418744166e6710bbb216b793f0e596",
+    "Dependencies/Phinix.Common/Common/Connections/NetCommon.cs": "746384033bcd47849ca6fb2d1aae1b0d31a8573a5a76dd506ad2a445178af5ca",
+    "Dependencies/Phinix.Common/Common/UserManagement/UserManager.cs": "d37bc210ebe17077a0e3f3355ee7fd7d462a1b1d9fcdb49be080eb99d1036164",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionDiagnostics.cs": "91ba73bfd4cb85fb2d768229821304ce6e468314ce2f61077eef80de41be642e",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/Themes/ManagedThemePackageStore.cs": "3edd3ecca941565bd2ed09307a0d809953d18e4d283a0f7cb96e77d4582685ee",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/Themes/ThemePackageBuilder.cs": "96e536e058f363f1aef556792442215f03ae549dc4ac9759aef48e4db6dc3304",
+    "Tests/ClientErrorBoundaryRuntimeTests/ConnectionBoundaries.cs": "795815d685dd12c91fa72112b5d82d54002c2282a5ddb0bda9adfd10f2344a85",
+    "Tests/ClientErrorBoundaryRuntimeTests/ControlBoundaries.cs": "7294a74618788088c1dfd8fe3dea344bb4886fa82f15c6d73820740916f5d638",
+    "Tests/ClientErrorBoundaryRuntimeTests/Program.cs": "439080df4356b37ecf4d6125d50f0e50239fd427d0eb1f24d807a253785519ce",
+    "Tests/ClientErrorBoundaryRuntimeTests/SettingsBoundaries.cs": "4672bc75846f0add3aae8cc857add7b2faef5d25b641b0cae789ed1e55d558f4",
+    "Tests/ClientStorageRuntimeTests/CommandCleanupTests.cs": "aef1a634d5d531f076dd3d43ea6a05282b1907a3571bc290f75877c16ae42a77",
+    "Tests/ClientStorageRuntimeTests/DiagnosticsTests.cs": "aa5bbc004875208c66ca1bacf841a8096108904ece6f56ac44de45ef90e39dff",
+    "Tests/ClientStorageRuntimeTests/Program.cs": "cb05305c8f16c177780ded0a2bdee4387f0d5a4aed0f91d9d8e90d78afec87f6",
+    "Tests/ManagedExtensionRuntimeTests/ManagedExtensionRuntimeTests.csproj": "ef8bdee51fd32354d1e592ca3b2cba990ff4241bce7e0ad2710073dfb268b5f3",
+    "Tests/ManagedExtensionRuntimeTests/ManagementControllerTests.cs": "0776eaca7783fa7afd96c258561ba5bd8e87c7359f1c65b27607740fbe31e24c",
+    "Tests/PresentationRuntimeTests/PresentationRuntimeTests.csproj": "7c898be2f27876fda7bf85338f770f3929bdabf08cf109e8b1574f6090573c24",
+    "Tests/ThemeEditorUsabilityRuntimeTests/Program.cs": "75670f2e3131b91c81f2241083e4e1992afe5b079ed24a75276e7c5b4e8eb92b",
+    "Tests/ThemeEditorUsabilityRuntimeTests/Stubs.cs": "7f2413321903873acdad6ee30f863ad3cb47724c56760f880bfe084c537c1f90",
+    "Tests/ThemeEditorUsabilityRuntimeTests/ThemeEditorUsabilityRuntimeTests.csproj": "03d07cccf3d1ec7cbc072deaabd086c68d40dd88495b0e6aa3b1091b1d4b7bae",
+    "Tests/ThemeRuntimeTests/ErrorDiagnosticsTests.cs": "c272f1088bbbd81382d9fe4823ac7e4efab01566036a51445fa8840ebe82a29a",
+    "Tests/ThemeRuntimeTests/Program.cs": "85ab2aaf8cdf9eb590d7da8826f2ffbc359958a4b3bdb7e27a1940dd51a560cf",
+    "Tests/ThemeRuntimeTests/Stubs.cs": "4879ece993ceda4630a838f138fd1bdd81d83cd65df60ae7b6235040f110c12d",
+    "Tests/ThemeRuntimeTests/ThemeRuntimeTests.csproj": "9284a050eda91b80b0e050420786cca9c5ba419cde8ce49bccb0eed7130190f1",
+    "tools/quality/inventory-client-error-migration.py": "6c00e0942ead4e2362d0cbc3d7ad4fd4ec5764a16c213d0c3ba63b9dff1382b0",
+    "tools/quality/run-client-error-boundary-tests.py": "8282151d7788216e9ddbae1f9116de399bd97cb897c21ae117c79608fa3415f6",
+    "tools/quality/run-client-error-tests.py": "e55118eeb65d598679fa3e751db9537e0da576dfe5b3a6cf6db65429f4050066",
+    "tools/quality/run-client-identity-tests.py": "a8fe1a2900b379a93eda2c231fac84c6af56fe6e47e5a418cc392031297d006d",
+    "tools/quality/run-client-managed-tests.py": "ae474a7377784636e86cf55643e3265143f41e2873cf30c5cf0adcd283edd141",
+    "tools/quality/run-client-storage-tests.py": "07c372b1d157982ad7dfad858c202a6033410c9374ec1e00880a8e58c5a670cc",
+    "tools/quality/run-client-theme-tests.py": "4a244008a21e782d9b202e6f8a00d0ef162408fddeacc9a8d8afa0c6b5d521f0",
+    "tools/quality/run-phase35-client-tests.py": "e06d682f6cd9355edaac392bd29a76f761d82ad73b2e5becbe97850032898f36",
+    "tools/quality/run-sqlite-business-tests.py": "c01765b208fa3d8965836b7bf93ef6da3326ae65989c9406cd445116eea60dc9"
+  },
+  "logs": {
+    "build16": {
+      "path": "/tmp/e3-final16-build.log",
+      "sha256": "14cdc95c3f299585cd8bdd71b033d2051bd6f165a27ad1128b8ba30f76cd6631"
+    },
+    "build17": {
+      "path": "/tmp/e3-final17-build.log",
+      "sha256": "08c04ebac39367d77d5e025552c9063b832e72eaa39c413381d1b753fdf82c8d"
+    },
+    "boundaries10": {
+      "path": "/tmp/phinix-e3-done-boundaries/net10.0/test.log",
+      "sha256": "02a27de979eb8c4f04785aab72aae2b1f69a48a9d0643df2627089b704039211"
+    },
+    "boundaries472": {
+      "path": "/tmp/phinix-e3-done-boundaries/net472/test.log",
+      "sha256": "3fb53665556b254f7304570cd3a18923881ff1ef89b95fe7df7d44aa7f28517e"
+    },
+    "core10": {
+      "path": "/tmp/phinix-e3-done-core/net10.0/test.log",
+      "sha256": "19f93cafcd4c3aeef7e0abdb71768a995f2461066da4c77b39149337c1031f4e"
+    },
+    "core472": {
+      "path": "/tmp/phinix-e3-done-core/net472/test.log",
+      "sha256": "19f93cafcd4c3aeef7e0abdb71768a995f2461066da4c77b39149337c1031f4e"
+    },
+    "managed": {
+      "path": "/tmp/phinix-e3-done-managed/test.log",
+      "sha256": "c49270348c2d9d8fab94b8f605e1d5e1c97c0b110793aa4ba6fff63bfdb7cfe9"
+    },
+    "theme": {
+      "path": "/tmp/phinix-e3-done-theme-v2/ThemeRuntimeTests/test.log",
+      "sha256": "093a2311038945a785ea5b69e690d5b34414a0c39f2c0db6b3e5197fa074fbfa"
+    },
+    "editor": {
+      "path": "/tmp/phinix-e3-done-theme-v2/ThemeEditorUsabilityRuntimeTests/test.log",
+      "sha256": "c9f20ce49c01c33fcda801688dbb0634cd1666a182ad6fb277d0a3fff69b5ee3"
+    },
+    "phase35": {
+      "path": "/tmp/phinix-e3-final-phase35/test.log",
+      "sha256": "0d981477f88d948eedc01b1bc8475c718d7db505e90e6174b96514560984ac7d"
+    },
+    "identity": {
+      "path": "/tmp/phinix-e3-done-identity/test.log",
+      "sha256": "92515a5998ccb1250aa82f94c8893b79e4d3338c5a8ee3671f585c19e4178eb5"
+    },
+    "business": {
+      "path": "/tmp/phinix-e3-done-business/test.log",
+      "sha256": "ed33d6c630cb7f5dc72e34cde76eae8be6420e41de505f8e39c1ee284c1faf3a"
+    },
+    "storage-net10.0-test": {
+      "path": "/tmp/phinix-e3-final-storage-verified/net10.0/test.log",
+      "sha256": "8c6d41032622e5538a0d5cc2e2d921e414a17b880fef3fddb4e14f072052bcc5"
+    },
+    "storage-net10.0-packaged-test": {
+      "path": "/tmp/phinix-e3-final-storage-verified/net10.0/packaged-test.log",
+      "sha256": "8c6d41032622e5538a0d5cc2e2d921e414a17b880fef3fddb4e14f072052bcc5"
+    },
+    "storage-net472-test": {
+      "path": "/tmp/phinix-e3-final-storage-verified/net472/test.log",
+      "sha256": "8c6d41032622e5538a0d5cc2e2d921e414a17b880fef3fddb4e14f072052bcc5"
+    },
+    "storage-net472-packaged-test": {
+      "path": "/tmp/phinix-e3-final-storage-verified/net472/packaged-test.log",
+      "sha256": "8c6d41032622e5538a0d5cc2e2d921e414a17b880fef3fddb4e14f072052bcc5"
+    }
+  },
+  "binary_sha256": {
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll": "d875f453dca98a4b5c010e01fb908abb3fe93a34cd4b6c7bc75e8bebf78ad128",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll": "588afc337472010f1b9f9d7af2d3baa4c9ff89230ee66adcf8531425321fdf0b",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/Phinix.ClientStorage.dll": "4e10ce55fd069b699519093c6f2db9341eac1a9eeb6e9eac0f1ab33f73c20bf2",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/ClientStorage.Contracts.dll": "888f9794dbfd9e77a9e91c40bb7e251e2d24c70c9093b2a9a0d7ea40a03610f4",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/Connections.Client.dll": "ffe151367cfede1fa8d659717a612adaffa05f3e6252fcb95148be154994c976",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/Connections.dll": "99bce1c66486985f08ee8533dd654d826c1a840b3eecff15993c28b9ed6fc915",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/Authentication.Client.dll": "57cdcfe2eb14a70d494e1e4f88a21958a8b8840a2bdb62d2da1c498efc379f1f",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/Utils.dll": "4d86cab3e7c67f60e6be66cef36734a71044916fb08152b8f6a9eac9bc7996a6",
+    "/tmp/phinix-e3-final16/Phinix-Rework/Client/Source/bin/Release/UserManagement.dll": "02fe1717fba5cbfec20431a2b1898bd807d4dbac7f7adbbb7644c5ad6913f494",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/PhinixClient.dll": "bf91d60f2f0339a9d15b034553e37c2abfcddcb582f6b77def5f6c06e15acad8",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/ClientExtensionAbstractions.dll": "145ed34d0972263274bafe3a7a2a14fa11bd35ac7e1f334920d0ab1b32f20d82",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/Phinix.ClientStorage.dll": "83fb96f85eb8b7baf064d3950a8ee16e8661ab76700120e2f36cc70f780d2fa6",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/ClientStorage.Contracts.dll": "58d1889dd3d6eadaf70b3f96ed8a735c2f53bd3c0421a83ded1616d5c7863705",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/Connections.Client.dll": "8759810f8372c8eb4ce146a6eb5f97e1dd9a0b3a72ff7f414f85a63d0d37b223",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/Connections.dll": "b2d3b87a81ac5dbcbbc63ce49d5ce603c2e922044fa756f7c4743b85e346baaf",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/Authentication.Client.dll": "9dc496ba4d5647f662e31d3d42bc6ec3d4f9f0da3e4c179ad21fc992a256a193",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/Utils.dll": "dda80f0ca4a5599086ef884c9eca9a324a63dcd1baa4e807240bd747c5652ff8",
+    "/tmp/phinix-e3-final17/bin/Release/net10.0/UserManagement.dll": "685dc99a417471722165e23136c160ad0ab887712b4651fe9cb9685e7e96f02a"
+  },
+  "next": "E4 built-in modules; M1 Relay integration after E4 and before E5",
+  "limitations": [
+    "Actual game window/clipboard/final propagation and real UDP/TLS joint closure/Windows ACL not executed.",
+    "Game references are compile/reflection inputs; Mono retains existing Unity.Burst attribute warning.",
+    "Common is dirty; exact new Common commit/pin is required before release.",
+    "Example/CommandRelay sample remains dependent on future M1 Relay integration; no placeholder APIs added.",
+    "Presentation fixture Inventory dependencies remain E4 work; E3 nickname behavior verified through its production source and compiled Host boundaries.",
+    "Temporary artifacts may disappear; source/binary/log hashes and rerunnable scripts persist here."
+  ]
+}

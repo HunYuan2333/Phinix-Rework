@@ -239,10 +239,11 @@ internal static partial class Program
     }
 
     [PhinixExtension("tests.disabled-probe")]
-    public sealed class DisabledProbeModule : IPhinixExtensionModule
+    public sealed class DisabledProbeModule : IClientExtensionModule
     {
         public static int ConstructorCount;
         public DisabledProbeModule() { ConstructorCount++; }
+        public void Compose(IExtensionBuilder builder) => Register(builder);
         public string ExtensionId => "tests.disabled-probe";
         public void Register(IExtensionBuilder builder) { }
     }
@@ -334,6 +335,9 @@ internal static partial class Program
     }
     private static string GetRepositoryRoot()
     {
+        string configured = Environment.GetEnvironmentVariable("PHINIX_TEST_ROOT");
+        if (!string.IsNullOrEmpty(configured) && File.Exists(Path.Combine(configured, "PhinixClient.sln")))
+            return Path.GetFullPath(configured);
         for (DirectoryInfo directory = new DirectoryInfo(AppContext.BaseDirectory);
              directory != null;
              directory = directory.Parent)

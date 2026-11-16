@@ -39,10 +39,10 @@ namespace Phinix.PluginStore
                 }
             }
             catch(Exception ex)
-            {
-                if(texture!=null) UnityEngine.Object.Destroy(texture);
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBadgeIcons/Get", ex);
+                if(texture!=null) PluginStoreDiagnostics.Cleanup("StoreBadgeIcons/FailedTextureCleanup",()=>UnityEngine.Object.Destroy(texture));
                 texture=null;
-                try { diagnostic?.Invoke(kind+":"+ex.GetType().Name); } catch { }
+                try { diagnostic?.Invoke(kind+":"+ex.GetType().Name); } catch (System.Exception boundaryError150) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBadgeIcons/Get", boundaryError150);  }
             }
             textures.Add(kind,texture); return texture;
         }

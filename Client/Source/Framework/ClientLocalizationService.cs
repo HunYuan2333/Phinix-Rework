@@ -17,13 +17,14 @@ namespace PhinixClient.Framework
         private readonly Func<Type,ExtensionLocalizationCatalog> load;
         private readonly Func<bool> isMainThread;
         private readonly Action<string,string,string,string> audit;
+        private readonly Func<string,string,Exception,string> fault;
         private readonly Dictionary<IPhinixExtensionModule,Localizer> localizers=new Dictionary<IPhinixExtensionModule,Localizer>(ModuleIdentity.Instance);
         private readonly HashSet<IPhinixExtensionModule> activating=new HashSet<IPhinixExtensionModule>(ModuleIdentity.Instance);
         private readonly object sync=new object();
         private string locale;
         private bool disposed;
-        internal ClientLocalizationService(IEnumerable<Type> registered,Func<Type,ExtensionLocalizationCatalog> load,Func<bool> isMainThread,Action<string,string,string,string> audit)
-        { this.registered=new HashSet<Type>(registered); this.load=load; this.isMainThread=isMainThread; this.audit=audit; }
+        internal ClientLocalizationService(IEnumerable<Type> registered,Func<Type,ExtensionLocalizationCatalog> load,Func<bool> isMainThread,Action<string,string,string,string> audit,Func<string,string,Exception,string> fault=null)
+        { this.registered=new HashSet<Type>(registered); this.load=load; this.isMainThread=isMainThread; this.audit=audit; this.fault=fault; }
         public void OnActivating(IPhinixExtensionModule module)
         {
             MainThread();
@@ -46,8 +47,8 @@ namespace PhinixClient.Framework
                     result=new Localizer(this,module.ExtensionId,catalog,locale); localizers[module]=result;
                     Report(module.ExtensionId,"LocalizationBound"); return result;
                 }
-                catch(ManagedExtensionValidationException error) { Report(module.ExtensionId,error.Code,error.ResourcePath); throw; }
-                catch(Exception) { Report(module.ExtensionId,"LocalizationBindingFailed"); throw; }
+                catch(ManagedExtensionValidationException error) { Failure(module.ExtensionId,"LocalizationBindingFailed",error); Report(module.ExtensionId,error.Code,error.ResourcePath); throw; }
+                catch(Exception error) { Failure(module.ExtensionId,"LocalizationBindingFailed",error); Report(module.ExtensionId,"LocalizationBindingFailed"); throw; }
             }
         }
         public void OnStopped(IPhinixExtensionModule module)
@@ -61,11 +62,17 @@ namespace PhinixClient.Framework
         internal void UpdateLanguage(string value)
         {
             MainThread(); string normalized=null;
-            if(value!=null) try { normalized=ExtensionLocale.Normalize(value); } catch(ManagedExtensionValidationException) { Report("host","GameLocaleUnavailable"); }
+            if(value!=null) try { normalized=ExtensionLocale.Normalize(value); } catch(ManagedExtensionValidationException error) { Failure("builtin.host","GameLocaleUnavailable",error); Report("host","GameLocaleUnavailable"); }
             Localizer[] listeners;
             lock(sync) { if(disposed || locale==normalized) return; locale=normalized; listeners=localizers.Values.ToArray(); }
             foreach(var listener in listeners) listener.SetLocale(normalized);
             Report("host","LocalizationLanguageChanged");
+        }
+        private void Failure(string owner,string phase,Exception error)
+        {
+            try { if(fault?.Invoke(owner,phase,error)!=null) return; } catch { }
+            ExtensionDiagnostics.Write(null, (message,level) => System.Diagnostics.Trace.TraceError(message), new HostLogEntry(owner, Utils.LogLevel.ERROR, phase, error));
+            Report(owner,phase);
         }
         private void MainThread() { if(!isMainThread()) throw new InvalidOperationException("Localization bindings and language updates require the main thread."); }
         private void Report(string module,string code,string resourcePath=null,string key=null) { try { audit?.Invoke(module,code,resourcePath,key); } catch { } }
@@ -146,7 +153,7 @@ namespace PhinixClient.Framework
                     return result;
                 }
                 catch(Exception ex) when(ex is FormatException || ex is ManagedExtensionValidationException)
-                { lock(gate) Missing(key,"LocalizationFormatFailed"); return text; }
+                { owner.Failure(module,"LocalizationFormatFailed",ex); lock(gate) Missing(key,"LocalizationFormatFailed"); return text; }
             }
             private void Missing(string key,string code)
             { if(catalog!=null && reported.Count<128 && reported.Add(code+":"+(key??"?"))) owner.Report(module,code,key:ExtensionLanguageFile.ValidKey(key)?key:null); }
@@ -157,7 +164,7 @@ namespace PhinixClient.Framework
                 foreach(Action handler in callback.GetInvocationList())
                 {
                     if(Closed) break;
-                    try { handler(); } catch { owner.Report(module,"LocalizationListenerFailed"); }
+                    try { handler(); } catch(Exception error) { owner.Failure(module,"LocalizationListenerFailed",error); owner.Report(module,"LocalizationListenerFailed"); }
                 }
             }
             public void Dispose() { lock(gate) { catalog=null; languageChanged=null; reported.Clear(); } }

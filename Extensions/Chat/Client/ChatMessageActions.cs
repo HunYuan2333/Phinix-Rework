@@ -65,7 +65,7 @@ namespace Phinix.ChatExtension.Client
             CloseView();
             var session = renderer.Open(module, "message-actions");
             try { window = new ActionWindow(this, session, message, urls, current, selectedMediaUrl, retryMedia, urlPage); Find.WindowStack.Add(window); }
-            catch { session.Dispose(); window = null; throw; }
+            catch (System.Exception boundaryError9) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageActions/Open", boundaryError9);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageActions/Open/Cleanup", () => { session.Dispose(); }); window = null; throw; }
         }
         internal void CloseView() { window?.Close(); window = null; }
         public void Dispose() { CloseView(); scope?.Dispose(); scope = null; point = null; module = null; }
@@ -87,7 +87,7 @@ namespace Phinix.ChatExtension.Client
                 base.WindowUpdate();
                 if (!projection.IsCurrent) { Close(); return; }
                 try { projection.Refresh(); options = projection.Options; }
-                catch (Exception error) { Log.Warning("[Phinix Chat] Message actions projection failed: " + error); Close(); }
+                catch (Exception error) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageActions/WindowUpdate", error);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageActions/WindowUpdate/LogObserver", () => { Log.Warning("[Phinix Chat] Message actions projection failed: " + error.GetType().Name); }); global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageActions/WindowUpdate/Cleanup", () => { Close(); }); }
             }
             public override void PostClose()
             {
@@ -148,7 +148,7 @@ namespace Phinix.ChatExtension.Client
                     session.Publish(new ClientPresentationPage("message-actions", L("title"), ++revision,
                         new[] { new ClientPresentationSection("message", "", preview, bindings) }), actions, current);
                 }
-                catch { actions.Dispose(); throw; }
+                catch (System.Exception boundaryError11) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageActions/Refresh", boundaryError11);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageActions/Refresh/Cleanup", () => { actions.Dispose(); }); throw; }
                 Options = ClientPresentationMenus.ToGameOptions(session.CreateActionMenuItems());
                 if (Options.Count == 0) throw new InvalidOperationException("ChatMessageActionsMissing");
                 contributions = nextPoints; language = nextLanguage; result = nextResult; publishedPage = nextPage;

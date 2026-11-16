@@ -9,6 +9,9 @@
     <RestoreLockedMode Condition="'$(RestoreLockedMode)' == '' and Exists('$(MSBuildProjectDirectory)/packages.lock.json')">true</RestoreLockedMode>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Client/Common/Connections.Client/ClientConnectionDiagnostics.cs" Link="Production/ClientConnectionDiagnostics.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs" Link="Production/IClientErrorService.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PluginStoreDiagnostics.cs" Link="Production/PluginStoreDiagnostics.cs" />
     <PackageReference Include="Stateless" Version="[5.20.1]" />
     <Compile Remove="Fixtures/ManagedPayload/**/*.cs" />
     <Compile Remove="Fixtures/ManagedAdapterPayload/**/*.cs" />

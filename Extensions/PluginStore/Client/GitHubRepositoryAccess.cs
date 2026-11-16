@@ -25,9 +25,9 @@ namespace Phinix.PluginStore
         public async Task<ManagedMetadataRead> ReadMetadata(RepositoryEndpoint endpoint,string etag,CancellationToken token,bool fresh)
         {
             try { return await ReadMetadataCore(endpoint,etag,token,fresh).ConfigureAwait(false); }
-            catch(OperationCanceledException)
-            { token.ThrowIfCancellationRequested(); diagnostics.Event("github.metadata_failed","Metadata","RepositoryTimeout");throw new StoreValidationException("RepositoryTimeout","GitHub metadata deadline exceeded."); }
-            catch(StoreValidationException ex) {diagnostics.Event("github.metadata_failed","Metadata",ex.Code);throw;}
+            catch(OperationCanceledException boundaryError101)
+            { if (!token.IsCancellationRequested) global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/ReadMetadata", boundaryError101);  token.ThrowIfCancellationRequested(); diagnostics.Event("github.metadata_failed","Metadata","RepositoryTimeout");throw new StoreValidationException("RepositoryTimeout","GitHub metadata deadline exceeded.",boundaryError101); }
+            catch(StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/ReadMetadata", ex); diagnostics.Event("github.metadata_failed","Metadata",ex.Code);throw;}
         }
         private async Task<ManagedMetadataRead> ReadMetadataCore(RepositoryEndpoint endpoint,string etag,CancellationToken token,bool fresh)
         {
@@ -77,12 +77,12 @@ namespace Phinix.PluginStore
                     using(var response=await operation.Binary(asset).ConfigureAwait(false))
                         return await ManagedPayloadTransfer.Read(response,endpoint,catalog,package,paths,budget,operation.Token,token,diagnostics,null,true,progress).ConfigureAwait(false);
                 }
-                catch(OperationCanceledException)
-                { token.ThrowIfCancellationRequested(); throw new StoreValidationException("PackageDownloadTimeout","GitHub operation exceeded its deadline."); }
+                catch(OperationCanceledException boundaryError103)
+                { if (!token.IsCancellationRequested) global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/DownloadManagedPackage", boundaryError103);  token.ThrowIfCancellationRequested(); throw new StoreValidationException("PackageDownloadTimeout","GitHub operation exceeded its deadline.",boundaryError103); }
                 catch(Exception ex) when(ex is IOException || ex is UnauthorizedAccessException || ex is HttpRequestException)
-                { diagnostics.Event("package.failed","GitHubPackage","PackageUnavailable",managed:package,snapshot:catalog.SnapshotId,catalogHash:catalog.Sha256);throw new StoreValidationException("PackageUnavailable","GitHub transfer or held-file storage failed.",ex); }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/DownloadManagedPackage", ex);  diagnostics.Event("package.failed","GitHubPackage","PackageUnavailable",managed:package,snapshot:catalog.SnapshotId,catalogHash:catalog.Sha256);throw new StoreValidationException("PackageUnavailable","GitHub transfer or held-file storage failed.",ex); }
                 catch(StoreValidationException ex)
-                { diagnostics.Event("package.failed","GitHubPackage",ex.Code,managed:package,snapshot:catalog.SnapshotId,catalogHash:catalog.Sha256); throw; }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/DownloadManagedPackage", ex);  diagnostics.Event("package.failed","GitHubPackage",ex.Code,managed:package,snapshot:catalog.SnapshotId,catalogHash:catalog.Sha256); throw; }
             }
         }
         internal async Task<byte[]> DownloadTheme(RepositoryEndpoint endpoint,ThemeStoreCatalog catalog,ThemeStoreRecord package,CancellationToken token)
@@ -206,7 +206,7 @@ namespace Phinix.PluginStore
                         Require(IsAssetCdn(next),"OriginRedirectRejected");
                         uri=next; audit.Event("github.redirect","Asset");
                     }
-                    catch { response.Dispose(); throw; }
+                    catch (System.Exception boundaryError106) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/Binary", boundaryError106);  global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("GitHubRepositoryAccess/Binary/Cleanup", () => { response.Dispose(); }); throw; }
                     response.Dispose();
                 }
                 throw new StoreValidationException("OriginRedirectLimit","Too many asset redirects.");
@@ -233,8 +233,8 @@ namespace Phinix.PluginStore
                         return response;
                     }
                     catch(Exception ex) when(ex is HttpRequestException || ex is IOException)
-                    { response?.Dispose(); audit.Event("github.failed","Origin","RepositoryUnavailable"); throw new StoreValidationException("RepositoryUnavailable","GitHub request failed.",ex); }
-                    catch(StoreValidationException ex) { response?.Dispose(); audit.Event("github.failed","Origin",ex.Code); throw; }
+                    { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/Send", ex);  global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("GitHubRepositoryAccess/Send/Cleanup", () => { response?.Dispose(); }); audit.Event("github.failed","Origin","RepositoryUnavailable"); throw new StoreValidationException("RepositoryUnavailable","GitHub request failed.",ex); }
+                    catch(StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("GitHubRepositoryAccess/Send", ex);  global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("GitHubRepositoryAccess/Send/Cleanup", () => { response?.Dispose(); }); audit.Event("github.failed","Origin",ex.Code); throw; }
                 }
             }
             internal async Task<byte[]> Body(HttpResponseMessage response,int maximum)

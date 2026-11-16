@@ -7,9 +7,11 @@ namespace PhinixClient.Framework
     {
         private ExtensionManagerWindow extensionManager;
         private readonly ClientExtensionManagementWindowService management;
+        private readonly Func<string,string,Exception,string> fault;
 
-        public ClientWindowService()
+        public ClientWindowService(Func<string,string,Exception,string> fault = null)
         {
+            this.fault = fault;
             management = new ClientExtensionManagementWindowService(
                 () => extensionManager != null && extensionManager.IsOpen,
                 () =>
@@ -27,7 +29,12 @@ namespace PhinixClient.Framework
             }
 
             RequireMainThread();
-            Find.WindowStack.Add(window);
+            try { Find.WindowStack.Add(window); }
+            catch (Exception error)
+            {
+                try { fault?.Invoke("builtin.host", "OpenWindow", error); } catch { }
+                throw;
+            }
         }
 
         public void OpenExtensionManagerWindow()

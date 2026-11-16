@@ -729,9 +729,9 @@ namespace Phinix.ChatExtension.Client
                 {
                     messageRectCache.Add(chatMessage.MessageId, messageRect);
                 }
-                catch (ArgumentException)
-                {
-                    hostContext.Log(new LogEventArgs(string.Format("Found existing chat message with key {0} when recalculating messageRectCache. Chat may fail to draw messages with this ID until it's updated again!", chatMessage.MessageId), LogLevel.ERROR));
+                catch (ArgumentException boundaryError19)
+                { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageList/recalculateMessageRects", boundaryError19);
+                    global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageList/recalculateMessageRects/LogObserver", () => { hostContext.Log(new LogEventArgs(string.Format("Found existing chat message with key {0} when recalculating messageRectCache. Chat may fail to draw messages with this ID until it's updated again!", chatMessage.MessageId), LogLevel.ERROR)); });
                 }
 
                 currentY += messageRect.height;
@@ -1061,7 +1061,7 @@ namespace Phinix.ChatExtension.Client
                     if (request.result == UnityWebRequest.Result.Success)
                     {
                         try { texture = DownloadHandlerTexture.GetContent(request); }
-                        catch (Exception) { failure = ChatImageFailure.Unsupported; }
+                        catch (Exception boundaryError20) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageList/StartImageDownload", boundaryError20);  failure = ChatImageFailure.Unsupported; }
                         if (texture == null) failure = ChatImageFailure.Unsupported;
                         else
                         {
@@ -1081,12 +1081,12 @@ namespace Phinix.ChatExtension.Client
                             url, request.error, request.responseCode, timeout, failure), LogLevel.WARNING));
                 }
                 catch (Exception ex)
-                {
-                    hostContext.Log(new LogEventArgs("Image download processing failed: " + ex.Message, LogLevel.WARNING));
+                { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageList/StartImageDownload", ex);
+                    global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageList/StartImageDownload/LogObserver", () => { hostContext.Log(new LogEventArgs("Image download processing failed: " + "Operation failed; see the error report.", LogLevel.WARNING)); });
                 }
                 finally
                 {
-                    try { request.Dispose(); }
+                    try { ChatDiagnostics.Cleanup("ChatMessageList/RequestCleanup",()=>request.Dispose()); }
                     finally { complete(texture, failure); }
                 }
             };
@@ -1099,10 +1099,10 @@ namespace Phinix.ChatExtension.Client
                 operation = request.SendWebRequest();
                 operation.completed += handler;
             }
-            catch
-            {
+            catch (System.Exception boundaryError22)
+            { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMessageList/StartImageDownload", boundaryError22);
                 closed = true;
-                request.Dispose();
+                global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMessageList/StartImageDownload/Cleanup", () => { request.Dispose(); });
                 throw;
             }
             return () =>
@@ -1111,7 +1111,7 @@ namespace Phinix.ChatExtension.Client
                 closed = true;
                 operation.completed -= handler;
                 try { request.Abort(); }
-                finally { request.Dispose(); }
+                finally { ChatDiagnostics.Cleanup("ChatMessageList/CancelCleanup",()=>request.Dispose()); }
             };
         }
 

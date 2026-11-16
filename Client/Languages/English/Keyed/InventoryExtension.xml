@@ -126,5 +126,17 @@
   <Phinix_inventory_discardHistoryWarning>Use only the inventory stored in this save and abandon recovery of later local journal changes. This can cause item loss, duplication, or disagreement with server trade results. Completed trades will not be reversed. The journal and authority files will be backed up, but a backup does not guarantee recovery. No automatic refund or resend will occur. Choose Keep read-only if you do not accept these risks.</Phinix_inventory_discardHistoryWarning>
   <Phinix_inventory_savedSnapshotRestored>Later journal recovery was abandoned. The saved inventory is now in use; original evidence was retained in a backup.</Phinix_inventory_savedSnapshotRestored>
   <Phinix_inventory_saveProofRequired>Save identity and a readable matching save are required.</Phinix_inventory_saveProofRequired>
-  <Phinix_inventory_faultExplanation>The inventory journal could not be verified. Keeping it read-only is recommended. Abandon recovery (unsafe) uses the inventory stored in this save at your own risk.</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_faultExplanation>The inventory database is temporarily unavailable. Existing data is retained. Retry opening the database; an old save will not replace the shared inventory.</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_legacyImported>Old save inventory was imported into the shared database. Saving removes its old inventory snapshot. Unverified legacy journal changes are not automatically restored.</Phinix_inventory_legacyImported>
+  <Phinix_inventory_legacyBranchSkipped>This save lineage was already imported. Its old branch balance was skipped; shared inventory remains current. Later legacy branch changes may not be retained.</Phinix_inventory_legacyBranchSkipped>
+  <Phinix_inventory_legacyImportConflict>Old inventory overlaps existing shared records and was not imported. Its original save fields are retained; shared inventory remains available.</Phinix_inventory_legacyImportConflict>
+  <Phinix_inventory_interruptedAbandoned>An interrupted extraction was abandoned. Its reserved quantity was consumed and items may be lost. Other inventory remains available.</Phinix_inventory_interruptedAbandoned>
+  <Phinix_inventory_abandonExtraction>Abandon this extraction (items may be lost)</Phinix_inventory_abandonExtraction>
+  <Phinix_inventory_abandonReservations>Abandon uncertain reservations</Phinix_inventory_abandonReservations>
+  <Phinix_inventory_abandonReservationsWarning>This consumes the uncertain reserved quantities and stops waiting for recovery. Items may be lost. No trade success or refund is asserted. Continue?</Phinix_inventory_abandonReservationsWarning>
+  <Phinix_inventory_reservationsAbandoned>Uncertain reservations were abandoned and their quantities consumed. Items may be lost. Other inventory remains available.</Phinix_inventory_reservationsAbandoned>
+  <Phinix_inventory_retryDatabase>Retry opening inventory database</Phinix_inventory_retryDatabase>
+  <Phinix_inventory_databaseChanged>The shared inventory database identity has changed. This computer's inventory will be used. A game save cannot restore the former shared balance; old inventory data may have been lost.</Phinix_inventory_databaseChanged>
+  <Phinix_inventory_migrationTitle>Inventory upgraded</Phinix_inventory_migrationTitle>
+  <Phinix_inventory_migrationMessage>Your old inventory has been migrated to the shared inventory.\n\n1. Inventory is now independent of game saves. All saves on this computer share the same inventory.\n\n2. Loading or rolling back a game save no longer changes, restores or rolls back your inventory balance.\n\nFuture deposits and withdrawals update this shared inventory.</Phinix_inventory_migrationMessage>
 </LanguageData>

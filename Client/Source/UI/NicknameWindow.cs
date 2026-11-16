@@ -35,16 +35,16 @@ namespace PhinixClient
                 Point = scope.DefineActions<HostNicknameActionContext>("builtin.host.nickname.actions");
                 scope.ContributeActions<HostNicknameActionContext>("builtin.host.nickname.actions", context => context.Actions);
             }
-            catch { scope.Dispose(); throw; }
+            catch(Exception error) { ClientHostDiagnostics.Report(error,"NicknameScopeFailed");ClientHostDiagnostics.Cleanup(()=>scope.Dispose(),"NicknameScopeCleanupFailed");throw; }
         }
         internal void Open()
         {
             if (!UnityData.IsInMainThread) throw new InvalidOperationException("Nickname window requires the game main thread.");
             if (!Active || !host.Active || window?.IsOpen == true) return;
-            var next = new NicknameWindow(this, host, theme, capture, new NicknameEditState(capture, persist, submit));
+            var next = new NicknameWindow(this, host, theme, capture, new NicknameEditState(capture, persist, submit, (operation,error)=>ClientHostDiagnostics.Report(error,operation)));
             window = next;
             try { Find.WindowStack.Add(next); }
-            catch { window = null; next.Release(); throw; }
+            catch(Exception error) { ClientHostDiagnostics.Report(error,"NicknameOpenFailed");window=null;ClientHostDiagnostics.Cleanup(()=>next.Release(),"NicknameOpenCleanupFailed");throw; }
         }
         public void Dispose()
         {
@@ -80,7 +80,7 @@ namespace PhinixClient
             {
                 base.PreOpen();
                 try { view = host.Renderer.Open(host.Owner, pageId); Refresh(); }
-                catch { Release(); throw; }
+                catch(Exception error) { ClientHostDiagnostics.Report(error,"NicknamePresentationFailed");ClientHostDiagnostics.Cleanup(()=>Release(),"NicknamePresentationCleanupFailed");throw; }
             }
             public override void WindowUpdate()
             {
@@ -123,12 +123,12 @@ namespace PhinixClient
                     dirty = false;
                     view.Publish(new ClientPresentationPage(pageId, L("title"), ticket, sections).WithFixedHeaderSections(1), actions, current);
                 }
-                catch { dirty = true; actions.Dispose(); throw; }
+                catch(Exception error) { ClientHostDiagnostics.Report(error,"NicknamePublishFailed");dirty=true;ClientHostDiagnostics.Cleanup(()=>actions.Dispose(),"NicknameActionsCleanupFailed");throw; }
                 published = facts; result = nextResult; language = nextLanguage; pointsVersion = pointVersion;
             }
             public override void DoWindowContents(Rect rect) { view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height)); }
             internal void Release() { var old = view; view = null; old?.Dispose(); }
-            public override void PostClose() { try { Release(); } finally { base.PostClose(); } }
+            public override void PostClose() { ClientHostDiagnostics.Cleanup(()=>Release(),"NicknameCloseFailed");base.PostClose(); }
         }
     }
 }

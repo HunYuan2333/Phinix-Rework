@@ -125,8 +125,8 @@ namespace Phinix.PluginStore
                     return root;
                 }
             }
-            catch (XmlException ex) { throw new StoreValidationException("InvalidJson", "Malformed JSON or reader quota exceeded.", ex); }
-            catch (DecoderFallbackException ex) { throw new StoreValidationException("InvalidJson", "JSON is not valid UTF-8.", ex); }
+            catch (XmlException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("CatalogReader/ReadJson", ex);  throw new StoreValidationException("InvalidJson", "Malformed JSON or reader quota exceeded.", ex); }
+            catch (DecoderFallbackException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("CatalogReader/ReadJson", ex);  throw new StoreValidationException("InvalidJson", "JSON is not valid UTF-8.", ex); }
         }
 
         internal static void ValidateDocumentBoundary(byte[] bytes)

@@ -1,0 +1,25 @@
+Phinix Rework error report
+Host: test
+Game: test
+Runtime: test
+Error ID: PX-c03f9e669cb642f499eecff3cc182dff
+Owner: builtin.inventory
+Owner version: 1.0.0.0
+Code: ModuleBoundaryFailed
+Operation: SyntheticBusinessBoundary
+First UTC: 2026-11-16T08:36:10.9085104Z
+Level: ERROR
+First sample context: 
+Last UTC: 2026-11-16T08:36:10.9085104Z
+Occurrences: 1
+Evicted groups: 0
+Diagnostic sink failures: 0
+Suppressed recursive reports: 0
+Suppressed shared log writes: 0
+Outcome: not inferred; reporting does not retry, cancel or confirm the operation.
+
+Exception: System.InvalidOperationException
+[message omitted: sensitive boundary]
+   at Program.Origin()
+   at Program.Captured()
+

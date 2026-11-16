@@ -1,5 +1,18 @@
 # Client inventory and recovery boundaries
 
+## Current dev: shared SQLite inventory (2026-11-10)
+
+Inventory contract v7 uses the local shared database under the framework user-data directory: `Phinix/ExtensionData/builtin.inventory/databases/inventory.sqlite3`. Trade owns a separate `builtin.trade/databases/trade.sqlite3`, using the same neutral infrastructure. The host does not own either business schema. Stored item payloads are BLOBs and unchanged entries are not rewritten on every balance change.
+
+Loading/renaming/copying a world does not roll back this balance. Game saves retain only upgrade markers after a successful one-time import. Old branch balances are not imported repeatedly. Overlapping independent sources retain their old fields and produce a warning; unknown journal changes are not automatically restored. A changed/missing local database identity is visibly reported; the save cannot recreate that old global balance. A copied world's marker does not select or freeze another local database.
+
+Physical callbacks still require their original Game. Interrupted extractions can be abandoned; this consumes their reserved quantity and warns about possible loss. Uncertain reservations can be explicitly abandoned through a confirmation, reaching Abandoned rather than Committed or Restored. Unrelated available inventory remains usable. Malformed legacy data cannot silently clear the old snapshot, and an unavailable database is never reported as a successful write.
+
+Trade pre-send preparation failures restore local custody instead of becoming Unknown. Known terminal operations compact large payloads while keeping a small dedup record. This is finite game-mod recovery, not a promise of atomic commit across SQLite, the remote server and the game's world save. See [implementation/checks](branch-local/dev/SQLite-Implementation-2026-11-10.md) and [generic storage design](branch-local/dev/Client-SQLite-Storage-Design-2026-11-10.md).
+
+The save-scoped journal description below documents the legacy format and historical behavior; it is not the current writer.
+
+
 Creation and restoration are separate boundaries. RimWorld 1.6 `GenTypes.AllActiveAssemblies` enumerates the game assembly and each active mod's `ModAssemblyHandler.loadedAssemblies`, not every assembly loaded into the AppDomain. Therefore the FillComponents attachment patch alone cannot resolve the saved inventory `Class` node. While inventory is active, an exact-name Harmony prefix on `GenTypes.GetTypeInAnyAssembly(string, string)` supplies `InventoryGameComponent` before native lookup, including when a previous lookup cached null. It leaves every other type lookup unchanged and is removed with the extension's other patches at shutdown. The saved class name, lineage ID and snapshot fields remain unchanged; no inventory reset or automatic relay reward replay is used as a recovery substitute. Reopen an intact original save after updating; a save overwritten after failed restoration may require its backup.
 
 When replaying a local claim/assignment, an unavailable inventory receipt lookup holds the relay cursor and emits the existing throttled recovery message. It must not also emit an unsolicited-claim warning on each tick. Once the exact receipt is available, history updates the displayed claim balance without depositing the reward again; a truly unrequested result still cannot authorize a new reward.

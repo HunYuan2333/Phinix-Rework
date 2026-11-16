@@ -35,6 +35,7 @@ namespace Phinix.TradeExtension.Client
         {
             internal TradeIntentRecord Intent;
             internal string Session;
+            internal long StartedAt;
         }
         private readonly TradeIntentJournal journal;
         private readonly Func<string> endpoint,principal,session;
@@ -42,13 +43,26 @@ namespace Phinix.TradeExtension.Client
         private readonly Func<FrameworkPacket,bool> send;
         private readonly Dictionary<string,Pending> pending=new Dictionary<string,Pending>(StringComparer.Ordinal);
         private string observedSession;
+        private readonly object gate=new object();
+        private readonly Func<long> clock;
+        private const long TimeoutMilliseconds=30000;
         internal TradeOperationQueryClient(TradeIntentJournal journal,Func<string> endpoint,Func<string> principal,Func<string> session,Func<bool> available,Func<FrameworkPacket,bool> send)
-        {this.journal=journal;this.endpoint=endpoint;this.principal=principal;this.session=session;this.available=available;this.send=send;}
+            : this(journal,endpoint,principal,session,available,send,()=>(long)(System.Diagnostics.Stopwatch.GetTimestamp()*(1000.0/System.Diagnostics.Stopwatch.Frequency))) { }
+        internal TradeOperationQueryClient(TradeIntentJournal journal,Func<string> endpoint,Func<string> principal,Func<string> session,Func<bool> available,Func<FrameworkPacket,bool> send,Func<long> clock)
+        {this.journal=journal;this.endpoint=endpoint;this.principal=principal;this.session=session;this.available=available;this.send=send;this.clock=clock;}
         internal bool Available=>available();
         internal void Query(string operationId)
+        {lock(gate) QueryCore(operationId);}
+        private void Prune()
+        {
+            long now=clock();
+            foreach(string id in pending.Where(p=>now-p.Value.StartedAt>=TimeoutMilliseconds).Select(p=>p.Key).ToArray())pending.Remove(id);
+        }
+        private void QueryCore(string operationId)
         {
             if(!Available)throw new InvalidOperationException("TradeOperationQueryUnavailable");
             string current=session();if(current!=observedSession){pending.Clear();observedSession=current;}
+            Prune();
             var intent=journal.Read(endpoint(),principal()).SingleOrDefault(r=>r.OperationId==operationId)??throw new InvalidOperationException("TradeOperationIntentMissing");
             foreach(string stale in pending.Where(p=>p.Value.Intent.Checksum==intent.Checksum).Select(p=>p.Key).ToArray())pending.Remove(stale);
             if(pending.Count>=64)throw new InvalidOperationException("TradeOperationQueryLimit");
@@ -56,11 +70,13 @@ namespace Phinix.TradeExtension.Client
             var packet=new FrameworkPacket {Flow=global::Phinix.Framework.FrameworkFlow.Command,CommandKind=global::Phinix.Framework.FrameworkCommandKind.Request,
                 MessageType=TradeOperationQueryProtocol.Request,MessageId=id,SessionId=current,SenderUuid=principal(),
                 PayloadJson=FrameworkSerialization.SerializePayload(new TradeOperationQueryRequest{OperationId=intent.OperationId,RequestFingerprint=intent.RequestFingerprint})};
-            packet.SetCorrelationId(id);pending.Add(id,new Pending{Intent=intent,Session=current});
+            packet.SetCorrelationId(id);pending.Add(id,new Pending{Intent=intent,Session=current,StartedAt=clock()});
             try {if(!send(packet))throw new InvalidOperationException("TradeOperationQueryNotHandled");}
-            catch {pending.Remove(id);throw;}
+            catch (System.Exception boundaryError248) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeOperationQuery/QueryCore", boundaryError248); pending.Remove(id);throw;}
         }
         internal void Handle(FrameworkPacket packet)
+        {lock(gate) {Prune();HandleCore(packet);}}
+        private void HandleCore(FrameworkPacket packet)
         {
             if(packet?.MessageType!=TradeOperationQueryProtocol.Response||!Available||!pending.TryGetValue(packet.GetCorrelationId(),out var request))return;
             if(request.Session!=session()||packet.SessionId!=request.Session||packet.SenderUuid!=FrameworkProtocol.SystemSenderUuid||

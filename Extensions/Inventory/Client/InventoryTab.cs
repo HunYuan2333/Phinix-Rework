@@ -169,8 +169,8 @@ namespace Phinix.InventoryExtension.Client
                 var sections = new List<ClientPresentationSection>();
                 if (mode == "recovery" || mode == "reconcile")
                     sections.Add(new ClientPresentationSection("resolution", L(mode == "recovery" ? "recoveryTitle" : "pendingTitle"),
-                        L(mode == "recovery" ? "recoveryWarning" : "pendingWarning"), bindings, new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Warning), "inventory.noticeBackground"));
-                else if (mode == "fault") sections.Add(new ClientPresentationSection("fault", L("unavailableTitle"), L("faultExplanation") + "\n" + inventory.Fault, bindings, status: new ClientPresentationStatus(notice ?? "", ClientPresentationTone.Error), surfaceKey: "inventory.errorBackground"));
+                        L(mode == "recovery" ? "recoveryWarning" : "pendingWarning"), bindings, new ClientPresentationStatus(notice ?? inventory.StorageNotice ?? "", ClientPresentationTone.Warning), "inventory.noticeBackground"));
+                else if (mode == "fault") sections.Add(new ClientPresentationSection("fault", L("unavailableTitle"), L("faultExplanation") + "\n" + inventory.Fault, bindings, status: new ClientPresentationStatus(notice ?? inventory.StorageNotice ?? "", ClientPresentationTone.Error), surfaceKey: "inventory.errorBackground"));
                 else
                 {
                     sections.Add(new ClientPresentationSection("save", "", "Phinix_inventory_entryCount".Translate(groups.Count) + " · " + L("saveOnly"), surfaceKey: "inventory.infoBackground").WithPlainLayout());
@@ -233,7 +233,7 @@ namespace Phinix.InventoryExtension.Client
                     scrollToPageStart = false;
                 }
             }
-            catch { dirty = true; actions.Dispose(); throw; }
+            catch (System.Exception boundaryError66) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryTab/Refresh", boundaryError66);  dirty = true; global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryTab/Refresh/Cleanup", () => { actions.Dispose(); }); throw; }
             publishedVersion = version; publishedLanguage = language; publishedGame = game; pointsRevision = pointVersion; publishedResult = view.LastActionResult;
         }
         private IEnumerable<ClientActionDefinition> BuildActions(InventoryPresentationActionContext context)
@@ -244,17 +244,11 @@ namespace Phinix.InventoryExtension.Client
             if (context.Mode == "recovery")
             { add("recover", "recover", () => notice = inventory.ApproveRecovery() ? null : L("operationFailed"), null); add("keep-save", "keepSave", () => notice = inventory.RejectRecovery() ? null : L("operationFailed"), null); }
             else if (context.Mode == "reconcile")
-            { add("mark-delivered", "markDelivered", () => notice = inventory.ResolvePendingExtraction(true) ? null : L("operationFailed"), null); add("restore-balance", "restoreBalance", () => notice = inventory.ResolvePendingExtraction(false) ? null : L("operationFailed"), null); }
+            { add("abandon-extraction", "abandonExtraction", () => notice = inventory.AbandonPendingExtraction() ? null : L("operationFailed"), null); add("mark-delivered", "markDelivered", () => notice = inventory.ResolvePendingExtraction(true) ? null : L("operationFailed"), null); add("restore-balance", "restoreBalance", () => notice = inventory.ResolvePendingExtraction(false) ? null : L("operationFailed"), null); }
             else if (context.Mode == "fault")
             {
                 add("keep-readonly", "keepReadOnly", () => notice = L("readOnlyKept"), null);
-                add("discard-history", "discardHistory", () =>
-                {
-                    notice = inventory.DiscardUnrecoverableHistory(out string reason) ? L("savedSnapshotRestored") : reason;
-                    shownVersion = -1;
-                }, inventory.CanDiscardUnrecoverableHistory ? null : L("saveProofRequired"));
-                batchConfirmations["discard-history"] = new ClientPresentationConfirmation(
-                    L("discardHistory"), L("discardHistoryWarning"), L("discardHistoryConfirm"), L("keepReadOnly"));
+                add("retry-database","retryDatabase",inventory.RetryDatabase,null);
             }
             else if (context.Mode == "batch")
                 add("batch-stop", "batchStop", inventory.StopBatchExtraction, null);
@@ -306,6 +300,11 @@ namespace Phinix.InventoryExtension.Client
                         actions.Add(new ClientActionDefinition(TakeId(entryId), L("extractStack"), () => ExtractInline(entryId, quantity, units, label, draft),
                             valid ? null : QuantityError(draft, available)));
                     }
+            }
+            if(context.Mode!="fault"&&inventory.HasUncertainReservations)
+            {
+                add("abandon-reservations","abandonReservations",()=>notice=inventory.AbandonUncertainReservations()?null:L("operationFailed"),null);
+                batchConfirmations["abandon-reservations"]=new ClientPresentationConfirmation(L("abandonReservations"),L("abandonReservationsWarning"),L("abandonReservations"),L("cancel"));
             }
             return actions;
         }
@@ -501,7 +500,7 @@ namespace Phinix.InventoryExtension.Client
             var next = new InventoryPlansWindow(inventory, theme, module, renderer, points, point, () => disposed, () => plansWindow = null);
             plansWindow = next;
             try { next.Select(entryId); windows.Open(next); }
-            catch { plansWindow = null; next.Release(); throw; }
+            catch (System.Exception boundaryError67) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryTab/OpenPlans", boundaryError67);  plansWindow = null; global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryTab/OpenPlans/Cleanup", () => { next.Release(); }); throw; }
         }
 
         private static string BuildTooltip(string title, long quantity, InventorySourcePresentation source,

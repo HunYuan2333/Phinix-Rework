@@ -64,7 +64,7 @@ namespace Phinix.InventoryExtension.Client
         {
             base.PreOpen(); game = Current.Game;
             try { view = renderer.Open(module, pageId); Refresh(); }
-            catch { Release(); throw; }
+            catch (System.Exception boundaryError32) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryPlansWindow/PreOpen", boundaryError32);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryPlansWindow/PreOpen/Cleanup", () => { Release(); }); throw; }
         }
         public override void WindowUpdate()
         {
@@ -82,7 +82,7 @@ namespace Phinix.InventoryExtension.Client
             Refresh();
         }
         public override void DoWindowContents(Rect rect) => view?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height));
-        public override void PostClose() { try { Release(); } finally { closed(); base.PostClose(); } }
+        public override void PostClose() { try { Release(); } finally { InventoryDiagnostics.Cleanup("InventoryPlansWindow/Closed",()=>closed()); base.PostClose(); } }
         internal void Release() { if (released) return; released = true; var old = view; view = null; old?.Dispose(); icons.Clear(); }
         private InventoryEntry Entry(string id) => id != null && entryIndex.TryGetValue(id, out var entry) ? entry : null;
         private InventoryItemPresentation Presentation(InventoryEntry entry)
@@ -213,7 +213,7 @@ namespace Phinix.InventoryExtension.Client
                     scrollTop = false;
                 }
             }
-            catch { dirty = true; owned.Dispose(); throw; }
+            catch (System.Exception boundaryError33) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryPlansWindow/Refresh", boundaryError33);  dirty = true; global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryPlansWindow/Refresh/Cleanup", () => { owned.Dispose(); }); throw; }
             publishedBlocked = blockedNow; publishedVersion = version; publishedPoints = pointsVersion; language = lang; result = view.LastActionResult;
         }
     }

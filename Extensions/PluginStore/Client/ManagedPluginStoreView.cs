@@ -307,7 +307,7 @@ namespace Phinix.PluginStore
         private void Act(Action action)
         {
             try { error=null; localFailure=null; linkNotice=null; action(); }
-            catch(Exception ex) { localFailure=controller.ReportFailure(ex); error=localFailure.Diagnostic; }
+            catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedPluginStoreView/Act", ex);  localFailure=controller.ReportFailure(ex); error=localFailure.Diagnostic; }
         }
         private void Select(ManagedStoreEntry row,ManagedStoreSnapshot snapshot)
         { installIntent=null; selected=row; cached=null; Rebuild(snapshot); error=null; localFailure=null; linkNotice=null; }

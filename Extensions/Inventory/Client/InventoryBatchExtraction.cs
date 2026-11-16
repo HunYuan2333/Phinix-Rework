@@ -60,7 +60,7 @@ namespace Phinix.InventoryExtension.Client
             else
             {
                 try { extractionBatch.Advance((string id, long units, out string why) => TryExtractSingleStack(id, units, null, -1, out why)); }
-                catch (Exception error) { extractionBatch.Stop(error.Message); host?.Log?.Invoke("[Inventory] Batch extraction stopped: " + error, Utils.LogLevel.ERROR); }
+                catch (Exception error) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryBatchExtraction/AdvanceBatchExtraction", error, true);  extractionBatch.Stop("Operation failed; see the error report."); global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryBatchExtraction/AdvanceBatchExtraction/LogObserver", () => { host?.Log?.Invoke("[Inventory] Batch extraction stopped: " + error.GetType().Name, Utils.LogLevel.ERROR); }); }
                 batchVersion = Version;
             }
             if (!BatchProgress.Running) ReleaseBatchContext();

@@ -153,6 +153,9 @@
     <Compile Include="Framework\ClientExtensionPointService.cs" />
     <Compile Include="Framework\ClientApiDirectory.cs" />
     <Compile Include="Framework\ClientLifetimeService.cs" />
+    <Compile Include="Framework\ClientErrorService.cs" />
+    <Compile Include="Framework\ClientHostDiagnostics.cs" />
+    <Compile Include="Framework\ClientErrorNotificationController.cs" />
     <Compile Include="Framework\ClientSettingsContextAdapter.cs" />
     <Compile Include="Framework\ClientSessionContextAdapter.cs" />
     <Compile Include="Framework\ClientSoundService.cs" />
@@ -207,6 +210,7 @@
     <Compile Include="UI\ThemeSettingsWindow.cs" />
     <Compile Include="UI\ThemePresentationWindow.cs" />
     <Compile Include="UI\NicknameEditState.cs" />
+    <Compile Include="UI\ClientErrorWindow.cs" />
     <Compile Include="UI\NicknameDisplayMarkup.cs" />
     <Compile Include="UI\SidebarSplitLayout.cs" />
     <Compile Include="UI\SidebarResizeCursor.cs" />
@@ -244,6 +248,8 @@
       <Name>Phinix.ClientComposition</Name>
     </ProjectReference>
     <ProjectReference Include="../PresentationContracts/ClientPresentation.Contracts.csproj" />
+    <ProjectReference Include="../Storage.Sqlite/Phinix.ClientStorage.csproj" />
+    <ProjectReference Include="../Storage.Contracts/ClientStorage.Contracts.csproj" />
     <ProjectReference Include="..\ClientExtensionAbstractions\ClientExtensionAbstractions.csproj">
       <Project>{A16F1B6A-6E62-4F4E-A5D2-8E4C9D93F201}</Project>
       <Name>ClientExtensionAbstractions</Name>
@@ -326,6 +332,23 @@
       <CompositionRuntimeAsset Include="$(PhinixCompositionOutput)/Phinix.ClientComposition.dll;$(PhinixCompositionOutput)/Autofac.dll;$(PhinixCompositionOutput)/Microsoft.Bcl.AsyncInterfaces.dll;$(PhinixCompositionOutput)/System.Diagnostics.DiagnosticSource.dll;$(PhinixCompositionOutput)/System.Memory.dll;$(PhinixCompositionOutput)/System.Runtime.CompilerServices.Unsafe.dll;$(PhinixCompositionOutput)/System.Numerics.Vectors.dll;$(PhinixCompositionOutput)/System.Buffers.dll;$(PhinixCompositionOutput)/System.Threading.Tasks.Extensions.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(CompositionRuntimeAsset)" DestinationFolder="$(SolutionDir)Output/phinix-rework/Common/Assemblies" />
+
+    <MSBuild Projects="../Storage.Sqlite/Phinix.ClientStorage.csproj" Targets="GetTargetPath" Properties="Configuration=$(PhinixCompositionConfiguration);TargetFramework=net472" BuildInParallel="false">
+      <Output TaskParameter="TargetOutputs" ItemName="StorageTarget" />
+    </MSBuild>
+    <PropertyGroup><PhinixStorageOutput>@(StorageTarget->'%(RootDir)%(Directory)')</PhinixStorageOutput></PropertyGroup>
+    <ItemGroup>
+      <StorageRuntimeAsset Include="$(PhinixStorageOutput)/ClientStorage.Contracts.dll;$(PhinixStorageOutput)/Phinix.ClientStorage.dll;$(PhinixStorageOutput)/Microsoft.Data.Sqlite.dll;$(PhinixStorageOutput)/SQLitePCLRaw.core.dll;$(PhinixStorageOutput)/SQLitePCLRaw.provider.e_sqlite3.dll" />
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/win-x86/native/*"><PackageSubdirectory>win-x86/native</PackageSubdirectory></StorageNativeAsset>
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/win-x64/native/*"><PackageSubdirectory>win-x64/native</PackageSubdirectory></StorageNativeAsset>
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/win-arm64/native/*"><PackageSubdirectory>win-arm64/native</PackageSubdirectory></StorageNativeAsset>
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/linux-x64/native/*"><PackageSubdirectory>linux-x64/native</PackageSubdirectory></StorageNativeAsset>
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/linux-arm64/native/*"><PackageSubdirectory>linux-arm64/native</PackageSubdirectory></StorageNativeAsset>
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/osx-x64/native/*"><PackageSubdirectory>osx-x64/native</PackageSubdirectory></StorageNativeAsset>
+      <StorageNativeAsset Include="$(PhinixStorageOutput)/runtimes/osx-arm64/native/*"><PackageSubdirectory>osx-arm64/native</PackageSubdirectory></StorageNativeAsset>
+    </ItemGroup>
+    <Copy SourceFiles="@(StorageRuntimeAsset)" DestinationFolder="$(SolutionDir)Output/phinix-rework/Common/Assemblies" />
+    <Copy SourceFiles="@(StorageNativeAsset)" DestinationFolder="$(SolutionDir)Output/phinix-rework/Common/Native/runtimes/%(PackageSubdirectory)" />
 
     <!-- Copy static resources from Client source to output -->
     <ItemGroup>

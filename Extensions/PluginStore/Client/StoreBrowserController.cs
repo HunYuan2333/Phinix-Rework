@@ -79,7 +79,7 @@ namespace Phinix.PluginStore
                 using (var connection = transport ?? new RepositoryTransport(audit))
                 {
                     try { entry = await RepositoryBrowser.Refresh(endpoint, cache, connection, token).ConfigureAwait(false); }
-                    catch (StoreValidationException ex) { ex.RequestId = ex.RequestId ?? connection.LastRequestId; throw; }
+                    catch (StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/RefreshRepository", ex);  ex.RequestId = ex.RequestId ?? connection.LastRequestId; throw; }
                 }
                 audit.Event("repository.chain_verified", bytes: entry.CatalogBytes.Length);
                 staged = cache.Stage(entry, token); audit.Event("repository.cache_staged");
@@ -88,7 +88,7 @@ namespace Phinix.PluginStore
             }, token => { staged.Commit(token); audit.Event("repository.cache_committed"); }, endpoint, true,
                 () => { try { staged?.Dispose(); audit.Event("repository.cleanup_complete"); }
                     catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-                    { audit.Failure("repository.cleanup_failed","CacheCleanup",ex,"CacheCleanupFailed"); } }, audit);
+                    { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/RefreshRepository", ex);  audit.Failure("repository.cleanup_failed","CacheCleanup",ex,"CacheCleanupFailed"); } }, audit);
         }
 
         public Task ReadCachedRepository(RepositoryEndpoint endpoint, string extensionDataDirectory)
@@ -290,7 +290,7 @@ namespace Phinix.PluginStore
                         {
                             ++generation; running = null;
                             Publish(StoreBrowserState.Failed, snapshot.Catalog, null, "TaskTimeout", "Store operation exceeded " + timeout + " ms.");
-                            source.Cancel(); audit?.Event("repository.task_timeout", reason: "TaskTimeout");
+                            CancelSource(source); audit?.Event("repository.task_timeout", reason: "TaskTimeout");
                         }
                     }
                     // Observe eventual exceptions and release its cancellation source.
@@ -336,7 +336,7 @@ namespace Phinix.PluginStore
                     { running = null; Publish(StoreBrowserState.Cancelled, snapshot.Catalog, null, null, null); }
             }
             catch (Exception ex)
-            {
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/RunWorker", ex);
                 var validation = ex as StoreValidationException;
                 if (validation == null && (operation == StoreBrowserState.Installing || operation == StoreBrowserState.Managing) &&
                     (ex is IOException || ex is UnauthorizedAccessException))
@@ -350,7 +350,7 @@ namespace Phinix.PluginStore
             {
                 try { cleanup?.Invoke(); }
                 catch (Exception ex)
-                {
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/RunWorker", ex);
                     audit.Failure("install.cleanup_failed",operation.ToString(),ex,"InstallationCleanupFailed");
                     lock (gate) if (!disposed && generation == ticket)
                         Publish(snapshot.State, snapshot.Catalog, snapshot.Plan, "InstallationCleanupRequired",
@@ -358,8 +358,8 @@ namespace Phinix.PluginStore
                 }
                 finally
                 {
-                    source.Cancel(); source.Dispose();
-                    lock (gate) workerCount--;
+                    try { CancelSource(source); }
+                    finally { PluginStoreDiagnostics.Cleanup("StoreBrowserController/WorkerCleanup",()=>source.Dispose()); lock (gate) workerCount--; }
                 }
             }
         }
@@ -370,7 +370,7 @@ namespace Phinix.PluginStore
             {
                 if (disposed || !snapshot.Busy || snapshot.State == StoreBrowserState.Committing) return;
                 ++generation;
-                running?.Cancel(); running = null;
+                var source=running; running = null; CancelSource(source);
                 Publish(StoreBrowserState.Cancelled, snapshot.Catalog, null, null, null);
             }
         }
@@ -381,8 +381,18 @@ namespace Phinix.PluginStore
             {
                 if (disposed) return;
                 disposed = true; ++generation;
-                running?.Cancel(); running = null;
+                var source=running; running = null; CancelSource(source);
                 Publish(StoreBrowserState.Shutdown, null, null, null, null);
+            }
+        }
+
+        private void CancelSource(CancellationTokenSource source)
+        {
+            try { source?.Cancel(); }
+            catch(Exception error)
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/CancelSource", error);
+                // A faulty cancellation callback cannot retain the worker admission slot.
+                try { repositoryLog?.Invoke("Store cancellation callback failed: "+error.GetType().Name); } catch (System.Exception boundaryError157) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/CancelSource", boundaryError157);  }
             }
         }
 
@@ -401,7 +411,7 @@ namespace Phinix.PluginStore
             if (filePath.StartsWith("\\\\", StringComparison.Ordinal) || filePath.StartsWith("//", StringComparison.Ordinal))
                 throw new StoreValidationException("InvalidIndexPath", "Network paths are not supported by the local preview.");
             try { filePath = PhinixClient.Framework.ClientEnvironmentPaths.NormalizeAbsolute(filePath); }
-            catch (ArgumentException ex) { throw new StoreValidationException("InvalidIndexPath", "Select a fully qualified local JSON path.", ex); }
+            catch (ArgumentException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreBrowserController/ReadBounded", ex);  throw new StoreValidationException("InvalidIndexPath", "Select a fully qualified local JSON path.", ex); }
             using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var result = new MemoryStream())
             {

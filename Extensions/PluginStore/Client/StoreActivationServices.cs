@@ -80,7 +80,7 @@ namespace Phinix.PluginStore
             this.localizer=localizer; this.theme=theme; this.links=links; this.icons=icons;
             maintainers=StoreMaintainerRegistry.Empty;
             try { maintainers=StoreMaintainerRegistry.Load(); }
-            catch(Exception error) { diagnostics.Maintainer(error); }
+            catch(Exception error) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreActivationServices/StoreViewFactory", error);  diagnostics.Maintainer(error); }
         }
         internal ManagedPluginStoreView Create()
         {

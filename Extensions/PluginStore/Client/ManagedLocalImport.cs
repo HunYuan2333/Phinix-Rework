@@ -71,8 +71,8 @@ namespace Phinix.PluginStore
         {
             try { RequireDeveloperMode(token).GetAwaiter().GetResult(); }
             catch(StoreValidationException ex)
-            {
-                if(ex.Code=="DeveloperModeRequired") throw new OperationCanceledException("Local import authorization was revoked.");
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedLocalImport/RevalidateLocalAuthorization", ex);
+                if(ex.Code=="DeveloperModeRequired") throw new OperationCanceledException("Local import authorization was revoked.",ex);
                 throw new ManagedExtensionValidationException(ex.Code,ex);
             }
         }
@@ -111,7 +111,7 @@ namespace Phinix.PluginStore
                     return ManagedExtensionZip.Read(staged,token,length,gameVersion:environment.RimWorldVersion);
                 }
             }
-            finally { NoLocalLinks(temporary); if(File.Exists(temporary)) File.Delete(temporary); }
+            finally { PluginStoreDiagnostics.Cleanup("ManagedLocalImport/TemporaryCleanup",()=>{NoLocalLinks(temporary);if(File.Exists(temporary))File.Delete(temporary);}); }
         }
         private static void NoLocalLinks(string path)
         {

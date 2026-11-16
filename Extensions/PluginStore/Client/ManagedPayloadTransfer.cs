@@ -59,7 +59,7 @@ namespace Phinix.PluginStore
                     diagnostics.Event("package.payload_verified", "Package", requestId: requestId, bytes: file.Length, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256);
                     return report;
             }
-            finally { file?.Dispose(); }
+            finally { PluginStoreDiagnostics.Cleanup("ManagedPayloadTransfer/FileCleanup",()=>file?.Dispose()); }
         }
     }
 }

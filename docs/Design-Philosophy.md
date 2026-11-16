@@ -1,5 +1,12 @@
 # Phinix Rework — Design Philosophy
 
+## Game mod reliability premise — 2026-11-10
+
+This is a game mod. Normal availability, understandable outcomes and maintainable code take precedence over exhaustive crash recovery. Keep basic database transactions, idempotency, bounded inputs and game-object ownership. Do not pursue financial-grade end-to-end consistency or comprehensive rollback prevention. A rare interrupted operation may be explicitly abandoned with an item-loss warning; it must not indefinitely freeze unrelated operations. Never silently erase committed balances, invent server success, or automatically refund an uncertain sent request.
+
+SQLite is reusable client infrastructure; Inventory and Trade own their schemas and outcomes. Local preparation failure is NotSent. Failures after transport/world handoff are uncertain and cannot be blindly replayed. Shared inventory belongs to the local database; physical callbacks still belong to their original Game. This decision supersedes historical save+journal dual authority and mandatory recovery requirements. See [implementation and checks](branch-local/dev/SQLite-Implementation-2026-11-10.md).
+
+
 > **Target audience: code maintainers and AI agents**
 >
 > **中文版**：[设计哲学.md](./设计哲学.md)

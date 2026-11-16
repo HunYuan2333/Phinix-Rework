@@ -45,7 +45,7 @@ namespace Phinix.PluginStore
             Versions=StoreCollections.Freeze(entries.OrderByDescending(p=>VersionKey(p.Version)));
             Preferred=Versions.FirstOrDefault(p=>p.State=="active")??Versions.First();
         }
-        private static ManagedExtensionVersion VersionKey(string text) { try {return ManagedExtensionVersion.Parse(text);}catch {return ManagedExtensionVersion.Parse("0.0.0");} }
+        private static ManagedExtensionVersion VersionKey(string text) { try {return ManagedExtensionVersion.Parse(text);}catch (System.Exception boundaryError119) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreListing/VersionKey", boundaryError119); return ManagedExtensionVersion.Parse("0.0.0");} }
         internal ReadOnlyCollection<ManagedStoreEntry> Versions { get; }
         internal ManagedStoreEntry Preferred { get; }
     }

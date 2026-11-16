@@ -88,10 +88,10 @@ namespace Phinix.PluginStore
                         }
                     }
                 }
-                catch (StoreValidationException ex) { ex.RequestId = LastRequestId; diagnostics.Event("repository.failed", stage, ex.Code, LastRequestId); throw; }
+                catch (StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryTransport/Get", ex);  ex.RequestId = LastRequestId; diagnostics.Event("repository.failed", stage, ex.Code, LastRequestId); throw; }
                 catch (OperationCanceledException) { diagnostics.Event("repository.cancelled", stage, requestId: LastRequestId); throw; }
                 catch (Exception ex) when (ex is HttpRequestException || ex is IOException)
-                { diagnostics.Event("repository.failed", stage, "RepositoryUnavailable", LastRequestId); throw new StoreValidationException("RepositoryUnavailable", "Cannot reach the configured repository.", ex) { RequestId = LastRequestId }; }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryTransport/Get", ex);  diagnostics.Event("repository.failed", stage, "RepositoryUnavailable", LastRequestId); throw new StoreValidationException("RepositoryUnavailable", "Cannot reach the configured repository.", ex) { RequestId = LastRequestId }; }
             }
         }
         internal async Task<byte[]> DownloadTheme(RepositoryEndpoint endpoint,ThemeStoreCatalog catalog,ThemeStoreRecord package,CancellationToken token)
@@ -149,8 +149,8 @@ namespace Phinix.PluginStore
                         }
                     }
                 }
-                catch (StoreValidationException) { /* Retain HTTP diagnosis for untrusted/malformed envelopes. */ }
-                catch (IOException) { /* Keep the status if the error body itself is truncated. */ }
+                catch (StoreValidationException boundaryError147) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryTransport/ReadFailure", boundaryError147);  /* Retain HTTP diagnosis for untrusted/malformed envelopes. */ }
+                catch (IOException boundaryError148) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryTransport/ReadFailure", boundaryError148);  /* Keep the status if the error body itself is truncated. */ }
             }
             return new StoreValidationException(code, "Repository returned HTTP " + status + ".") { RequestId = LastRequestId };
         }

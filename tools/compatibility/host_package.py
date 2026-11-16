@@ -1,8 +1,35 @@
 """Final distribution checks; DLL metadata/closure is checked separately by staging."""
 from pathlib import Path
 import re
+import struct
 import xml.etree.ElementTree as ET
 import zipfile
+
+
+def is_managed_dll(data):
+    """Reject native PE/ELF files before they reach Verse's recursive DLL loader."""
+    try:
+        if data[:2] != b'MZ':
+            return False
+        pe = struct.unpack_from('<I', data, 0x3c)[0]
+        if data[pe:pe + 4] != b'PE\0\0':
+            return False
+        optional = pe + 24
+        magic = struct.unpack_from('<H', data, optional)[0]
+        if magic not in (0x10b, 0x20b):
+            return False
+        directories = optional + (96 if magic == 0x10b else 112)
+        count = struct.unpack_from('<I', data, directories - 4)[0]
+        rva, size = struct.unpack_from('<II', data, directories + 14 * 8)
+        return count > 14 and rva != 0 and size >= 72
+    except (struct.error, OverflowError):
+        return False
+
+
+def validate_managed_scan(paths):
+    for path in paths:
+        if not is_managed_dll(Path(path).read_bytes()):
+            raise ValueError('Native or invalid DLL in a managed assembly scan: ' + str(path))
 
 
 def validate_host_package(archive, client, layout):
@@ -22,6 +49,9 @@ def validate_host_package(archive, client, layout):
         for name, path in expected.items():
             if package.read(name) != path.read_bytes():
                 raise ValueError('Distribution bytes differ: ' + name)
+            if name.lower().endswith('.dll') and 'assemblies' in [p.lower() for p in Path(name).parts]:
+                if not is_managed_dll(package.read(name)):
+                    raise ValueError('Native DLL would be loaded as managed code by Verse: ' + name)
         prefix = 'phinix-rework/'
         required = [prefix + p for p in ['About/About.xml', 'About/PublishedFileId.txt',
                                         'About/Preview.png', 'LoadFolders.xml']]

@@ -45,6 +45,8 @@ namespace Phinix.PluginStore
         {
             if(composition==null) throw new InvalidOperationException("Plugin Store must be composed before activation.");
             StopActivation();
+            IClientErrorService moduleErrorService;
+            PluginStoreDiagnostics.Scope.Bind(hostContext.TryGetService(out moduleErrorService)?moduleErrorService.ForModule(this):null);
             try
             {
                 var environment=hostContext.GetRequiredService<IClientEnvironmentService>();
@@ -101,21 +103,25 @@ namespace Phinix.PluginStore
                 managedController.CheckUpdates(endpoint,environment.Capture());
             }
             catch(Exception error)
-            {
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreClientExtension/Activate", error);
                 try { Shutdown(hostContext); }
-                catch(Exception cleanup) { throw new AggregateException(error,cleanup); }
+                catch(Exception cleanup) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreClientExtension/Activate", cleanup);  throw new AggregateException(error,cleanup); }
                 throw;
             }
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            try {
+
             var failures=new List<Exception>();
             Release(StopActivation,failures);
             IClientCompositionScope oldComposition=composition; composition=null;
             Release(()=>oldComposition?.Dispose(),failures);
             panel=null; tab=null; updateBanner=null;
             if(failures.Count!=0) throw new AggregateException("Plugin Store shutdown failed.",failures);
+
+            } finally { PluginStoreDiagnostics.Scope.Unbind(); }
         }
 
         private void StopActivation()
@@ -136,7 +142,7 @@ namespace Phinix.PluginStore
         private static void Release(Action release,List<Exception> failures)
         {
             try { release(); }
-            catch(Exception error) { failures.Add(error); }
+            catch(Exception error) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreClientExtension/Release", error);  failures.Add(error); }
         }
 
     }

@@ -14,6 +14,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Contracts/InventoryExtension.csproj" />
+    <ProjectReference Include="../../../Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj" />
     <Reference Include="Assembly-CSharp">
       <HintPath>$(RimWorldDepDir)/Assembly-CSharp.dll</HintPath>
       <Private>false</Private>

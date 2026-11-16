@@ -1,6 +1,6 @@
 # 客户端通用 SQLite 存储设计
 
-日期：2026-11-10。状态：待实现。库存是第一个消费者，本设计不依赖库存模型。
+日期：2026-11-10。状态：通用层及 Inventory/Trade 首批接入已实现，实际检查与剩余限制见 [实现记录](SQLite-Implementation-2026-11-10.md)。本设计不依赖库存模型。
 
 ## 目标与边界
 
@@ -24,7 +24,7 @@
 
 以下是职责草案，实施时按现有合同命名收敛：
 
-- `IClientDatabaseService.Open(ownerId, logicalName, schema)`：取得模块拥有的逻辑库租约。owner 从模块作用域取得或验证；禁止把任意绝对路径直接当作普通打开参数。
+- `IClientDatabaseService.Open(ownerId, logicalName, schema)`：取得模块拥有的逻辑库租约。owner 用于逻辑库命名及 schema 归属校验，不构成对同进程 Mod 的安全沙箱；禁止把任意绝对路径直接当作普通打开参数。
 - 数据库租约提供短生命周期连接/工作单元。使用标准 `System.Data.Common` 的 `DbConnection`、`DbCommand`、`DbTransaction` 表达查询和事务，不公开某个 provider 的连接类型。
 - 通用层统一连接初始化、超时与资源释放；SQL 参数化、reader/command 释放及业务事务边界由使用者落实。可以提供薄的事务执行帮助方法，不再包一套自定义 SQL 语言或 ORM。
 - `DatabaseSchema` / `DatabaseMigration`：模块声明目标版本和有序升级步骤，通用 runner 在模块表可用之前执行。迁移 SQL/代码位于模块内。

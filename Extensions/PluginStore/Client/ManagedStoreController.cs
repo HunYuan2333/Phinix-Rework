@@ -124,7 +124,7 @@ namespace Phinix.PluginStore
                 if(inventory==null) throw Error("IncompleteEnvironment");
                 lock(gate) inventoryKnown=true;
             }
-            catch { lock(gate) inventoryKnown=false; throw; }
+            catch (System.Exception boundaryError184) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreController/Inventory", boundaryError184);  lock(gate) inventoryKnown=false; throw; }
             var diagnostics=inventory.Diagnostics.Concat(inventory.Packages.Select(p=>p.Package.DiagnosticCode).Where(c=>c!=null)).ToArray();
             if(diagnostics.Length!=0)
                 new RepositoryDiagnostics(log,Snapshot.Repository?.Endpoint.SourceId) {Operation="Inventory",ContextReasons=diagnostics}
@@ -146,7 +146,7 @@ namespace Phinix.PluginStore
         {
             try { return Result(state,catalog,repository,plan,Inventory(environment,CancellationToken.None),code,committed:true); }
             catch(Exception error)
-            {
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreController/CompleteCommit", error);
                 var failure=new RepositoryDiagnostics(log,repository?.Endpoint.SourceId) {Operation="PostCommitRefresh"}
                     .Failure("managed.refresh_after_commit_failed","ManagedStore",error,"ManagedInventoryUnavailable");
                 return Result(state,catalog,repository,plan,null,state==ManagedStoreState.Installed?"ManagedInstallSavedRefreshFailed":"ManagedStateSavedRefreshFailed",
@@ -322,7 +322,7 @@ namespace Phinix.PluginStore
                     }
                     catch(OperationCanceledException) { outcome=Result(ManagedStoreState.Canceled,null,null,null,null,"ManagedStoreCanceled"); }
                     catch(Exception ex)
-                    {
+                    { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreController/Run", ex);
                         var validation=ex as StoreValidationException;
                         string code=validation?.Code??(ex as ManagedExtensionValidationException)?.Code??"ManagedStoreFailed";
                         var referenceFailure=validation?.ReferenceFailure??(ex as ManagedExtensionValidationException)?.ReferenceFailure;
@@ -350,7 +350,7 @@ namespace Phinix.PluginStore
                         finally
                         {
                             if(ReferenceEquals(running,source)) running=null;
-                            source.Dispose();
+                            PluginStoreDiagnostics.Cleanup("ManagedStoreController/SourceCleanup",()=>source.Dispose());
                         }
                     }
                 });
@@ -404,8 +404,8 @@ namespace Phinix.PluginStore
         private void CancelRunning()
         {
             try { running?.Cancel(); }
-            catch(Exception)
-            {
+            catch(Exception boundaryError188)
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStoreController/CancelRunning", boundaryError188);
                 // Cancellation marks the token before invoking callbacks; a throwing
                 // callback/logger must not prevent terminal stop or other cleanup.
                 new RepositoryDiagnostics(log,snapshot.Repository?.Endpoint.SourceId).Event("managed.cancel_callback_failed","ManagedStore","ManagedStoreFailed");

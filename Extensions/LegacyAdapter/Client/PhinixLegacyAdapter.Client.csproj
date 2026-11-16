@@ -63,6 +63,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="LegacyAdapterDiagnostics.cs" />
     <Compile Include="BuiltInLegacyAdapterClientExtension.cs" />
     <Compile Include="LegacyAdapterSession.cs" />
     <Compile Include="LegacyChatProtocolAdapter.cs" />

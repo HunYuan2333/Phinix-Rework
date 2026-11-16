@@ -47,7 +47,7 @@ internal static class Program
         var type = typeof(PhinixFrameworkClient).Assembly.GetType("PhinixClient.Framework.ClientExtensionPointService", true);
         var service = (IClientExtensionPointService)Activator.CreateInstance(type,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
-            new object[] { (Func<bool>)(() => true), (Action<string>)(_ => {}) }, null);
+            new object[] { (Func<bool>)(() => true), (Action<string>)(_ => {}), null }, null);
         var module = new BuiltInChatClientExtension();
         type.GetMethod("SetModuleTypes", BindingFlags.Instance | BindingFlags.NonPublic)
             .Invoke(service, new object[] { new[] { module.GetType() } });

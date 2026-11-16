@@ -22,10 +22,10 @@ namespace Phinix.PluginStore
                     {
                         if(token.IsCancellationRequested) { completion.TrySetCanceled(); return; }
                         try { completion.TrySetResult(capture()); }
-                        catch(Exception ex) { completion.TrySetException(ex); }
+                        catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreEnvironmentRefresh/Capture", ex);  completion.TrySetException(ex); }
                     });
                 }
-                catch(Exception ex) { completion.TrySetException(ex); }
+                catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreEnvironmentRefresh/Capture", ex);  completion.TrySetException(ex); }
                 return await completion.Task.ConfigureAwait(false);
             }
         }

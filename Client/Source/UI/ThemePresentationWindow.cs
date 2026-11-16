@@ -42,10 +42,10 @@ namespace PhinixClient
                 Point=scope.DefineActions<ClientThemePresentationActionContext>(ClientThemePresentationActionContext.PointId);
                 scope.ContributeActions<ClientThemePresentationActionContext>(ClientThemePresentationActionContext.PointId,c=>c is HostThemeActionContext owned?owned.Actions:Array.Empty<ClientActionDefinition>());
             }
-            catch {Dispose();throw;}
+            catch(Exception error) {ClientHostDiagnostics.Report(error,"ThemeScopeFailed");ClientHostDiagnostics.Cleanup(()=>Dispose(),"ThemeScopeCleanupFailed");throw;}
         }
         public void Dispose()
-        {if(!Active)return;Active=false;try {scope?.Dispose();}finally {try {pointOwner.OnStopped(Owner);}finally {lifetimeOwner.OnStopped(Owner);}}}
+        {if(!Active)return;Active=false;ClientHostDiagnostics.Cleanup(()=>scope?.Dispose(),"ThemeScopeDisposeFailed");ClientHostDiagnostics.Cleanup(()=>pointOwner.OnStopped(Owner),"ThemePointsStopFailed");ClientHostDiagnostics.Cleanup(()=>lifetimeOwner.OnStopped(Owner),"ThemeLifetimeStopFailed");}
     }
     internal abstract class ThemePresentationWindow : Window
     {
@@ -70,7 +70,7 @@ namespace PhinixClient
         {
             base.PreOpen();if(!Available)return;
             try {presentation=Services.Renderer.Open(Services.Owner,PageId);Project();}
-            catch {var failed=presentation;presentation=null;failed?.Dispose();throw;}
+            catch(Exception error) {ClientHostDiagnostics.Report(error,"ThemeOpenFailed");var failed=presentation;presentation=null;ClientHostDiagnostics.Cleanup(()=>failed?.Dispose(),"ThemeOpenCleanupFailed");throw;}
         }
         public override void WindowUpdate()
         {
@@ -89,7 +89,7 @@ namespace PhinixClient
             if(dirty||DataChanged||themeVersion!=Theme.Version||pointsVersion!=Services.Points.Revision||!ReferenceEquals(language,LanguageDatabase.activeLanguage)||!ReferenceEquals(actionResult,presentation.LastActionResult))Project();
         }
         public override void DoWindowContents(Rect rect){if(Available)presentation?.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height));}
-        public override void PostClose(){var old=presentation;presentation=null;try {old?.Dispose();}finally {base.PostClose();}}
+        public override void PostClose(){var old=presentation;presentation=null;ClientHostDiagnostics.Cleanup(()=>old?.Dispose(),"ThemeWindowCloseFailed");base.PostClose();}
         protected static string L(string key)=>key.Translate();
         protected static string Safe(string text)=>(text??"").Replace("<","‹").Replace(">","›");
         protected static string Name(string key)=>string.IsNullOrEmpty(key)?"":Translator.CanTranslate(key)?L(key):Safe(key);
@@ -110,7 +110,7 @@ namespace PhinixClient
                 if(split!=null)page=page.WithSplitView(split);else if(fixedHeaders>0)page=page.WithFixedHeaderSections(fixedHeaders);
                 dirty=false;presentation.Publish(page,actions,current);
             }
-            catch {dirty=true;actions.Dispose();throw;}
+            catch(Exception error) {ClientHostDiagnostics.Report(error,"ThemePublishFailed");dirty=true;ClientHostDiagnostics.Cleanup(()=>actions.Dispose(),"ThemeActionsCleanupFailed");throw;}
             themeVersion=nextTheme;pointsVersion=nextPoints;language=nextLanguage;actionResult=nextResult;
         }
     }

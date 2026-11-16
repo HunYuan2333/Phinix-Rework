@@ -1,0 +1,110 @@
+{
+  "baseline_scope": "E4 built-in source catch/throw positions; Tools/Samples remain E5",
+  "total": 1108,
+  "modules": {
+    "Chat": {
+      "total": 62,
+      "kind": {
+        "throw": 39,
+        "catch": 23
+      },
+      "status": {
+        "reviewed-validation": 32,
+        "implemented": 23,
+        "reviewed-propagation": 7
+      }
+    },
+    "Inventory": {
+      "total": 124,
+      "kind": {
+        "throw": 74,
+        "catch": 50
+      },
+      "status": {
+        "reviewed-validation": 60,
+        "reviewed-cause-preserved": 1,
+        "implemented": 49,
+        "reviewed-propagation": 12,
+        "reviewed-normal-result": 2
+      }
+    },
+    "LegacyAdapter": {
+      "total": 54,
+      "kind": {
+        "catch": 23,
+        "throw": 31
+      },
+      "status": {
+        "implemented": 23,
+        "reviewed-cause-preserved": 4,
+        "reviewed-propagation": 4,
+        "reviewed-validation": 23
+      }
+    },
+    "PluginStore": {
+      "total": 579,
+      "kind": {
+        "throw": 479,
+        "catch": 100
+      },
+      "status": {
+        "reviewed-validation": 419,
+        "implemented": 102,
+        "reviewed-cause-preserved": 28,
+        "reviewed-propagation": 25,
+        "reviewed-normal-result": 5
+      }
+    },
+    "Trade": {
+      "total": 289,
+      "kind": {
+        "throw": 224,
+        "catch": 65
+      },
+      "status": {
+        "reviewed-validation": 199,
+        "implemented": 66,
+        "reviewed-cause-preserved": 8,
+        "reviewed-propagation": 16
+      }
+    }
+  },
+  "new_boundaries": "Additive SDK module diagnostics, named-rethrow fixes, independent cleanup/observer diagnostics and explicit requested cancellation handling are covered by final source fingerprints and runtime fault injection.",
+  "normal_results": [
+    {
+      "path": "Extensions/Inventory/Client/InventoryJournal.cs",
+      "baseline_line": 97,
+      "reason": "Expected incomplete terminal journal record is re-parsed to distinguish a complete conflicting record. Existing torn-tail rule and original bytes retained; outer Load reports unexpected faults. No successful recovery is invented. InventoryDiagnostics is bound with the actual module reporter during activation and unbound in shutdown finally. SQLite/result status, all-batch delivery, original Game ownership and Unknown no-replay rules remain unchanged."
+    },
+    {
+      "path": "Extensions/Inventory/Client/InventoryLedger.cs",
+      "baseline_line": 283,
+      "reason": "Expected quantity overflow keeps the original typed rejection; there is no consumed infrastructure failure. InventoryDiagnostics is bound with the actual module reporter during activation and unbound in shutdown finally. SQLite/result status, all-batch delivery, original Game ownership and Unknown no-replay rules remain unchanged."
+    },
+    {
+      "path": "Extensions/PluginStore/Client/ManagedLocalImport.cs",
+      "baseline_line": 121,
+      "reason": "Missing optional legacy path is an expected absence; does not claim import or deletion succeeded. PluginStoreDiagnostics binds phinix.plugin-store. Sensitive full exception capture is separate from unchanged fixed-field RepositoryDiagnostics audit. Cache fallback, rejected payloads, committed install status, cancellation and safe filesystem guards retain their existing authority."
+    },
+    {
+      "path": "Extensions/PluginStore/Client/ManagedLocalImport.cs",
+      "baseline_line": 121,
+      "reason": "Missing optional legacy path is an expected absence; does not claim import or deletion succeeded. PluginStoreDiagnostics binds phinix.plugin-store. Sensitive full exception capture is separate from unchanged fixed-field RepositoryDiagnostics audit. Cache fallback, rejected payloads, committed install status, cancellation and safe filesystem guards retain their existing authority."
+    },
+    {
+      "path": "Extensions/PluginStore/Client/ManagedStoreController.cs",
+      "baseline_line": 323,
+      "reason": "Existing explicit canceled/revoked-authorization result or bare cancellation propagation retained. Deadline translations elsewhere now retain their OCE inner cause; no cancellation popup. PluginStoreDiagnostics binds phinix.plugin-store. Sensitive full exception capture is separate from unchanged fixed-field RepositoryDiagnostics audit. Cache fallback, rejected payloads, committed install status, cancellation and safe filesystem guards retain their existing authority."
+    },
+    {
+      "path": "Extensions/PluginStore/Client/RepositoryTransport.cs",
+      "baseline_line": 92,
+      "reason": "Existing explicit canceled/revoked-authorization result or bare cancellation propagation retained. Deadline translations elsewhere now retain their OCE inner cause; no cancellation popup. PluginStoreDiagnostics binds phinix.plugin-store. Sensitive full exception capture is separate from unchanged fixed-field RepositoryDiagnostics audit. Cache fallback, rejected payloads, committed install status, cancellation and safe filesystem guards retain their existing authority."
+    },
+    {
+      "path": "Extensions/PluginStore/Client/StoreBrowserController.cs",
+      "baseline_line": 331,
+      "reason": "Existing explicit canceled/revoked-authorization result or bare cancellation propagation retained. Deadline translations elsewhere now retain their OCE inner cause; no cancellation popup. PluginStoreDiagnostics binds phinix.plugin-store. Sensitive full exception capture is separate from unchanged fixed-field RepositoryDiagnostics audit. Cache fallback, rejected payloads, committed install status, cancellation and safe filesystem guards retain their existing authority."
+    }
+  ]
+}

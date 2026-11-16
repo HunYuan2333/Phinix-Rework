@@ -16,6 +16,9 @@ internal static partial class Program
         ExpectFailure(() => factory.CreateScope(local => local.Register<AsyncOnly, AsyncOnly>()),
             "Async-only owned resources must be rejected before construction, never silently skipped by guarded release.");
         Assert(AsyncOnly.Constructions == 0, "Rejected asynchronous resources must not acquire work during registration.");
+        Assert(errors.Count == 1 && errors[0].StackTrace.Contains("CreateScope"),
+            "Construction rejection is reported once with its original captured stack before rethrow.");
+        errors.Clear();
         var host = new BorrowedApi();
         var sibling = new BorrowedApi();
         IClientCompositionBuilder escaped = null;

@@ -83,15 +83,15 @@ namespace Phinix.TradeExtension.Client
                     }
                 }
                 catch (Exception exception)
-                {
+                { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PoppedThing/RestoreAll", exception);
                     if (poppedThing?.Thing != null && !poppedThing.Thing.Destroyed)
                     {
                         unrestoredThings.Add(poppedThing.Thing);
                     }
 
-                    log?.Invoke(
-                        $"[{context}] Failed to restore a transferred thing.{Environment.NewLine}{exception}",
-                        LogLevel.ERROR);
+                    global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PoppedThing/RestoreAll/LogObserver", () => { log?.Invoke(
+                        $"[{context}] Failed to restore a transferred thing.{Environment.NewLine}{exception.GetType().Name}",
+                        LogLevel.ERROR); });
                 }
             }
 

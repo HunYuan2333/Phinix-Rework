@@ -24,7 +24,7 @@ namespace Phinix.TradeExtension.Client
             this.inbox=inbox;this.read=read;this.deposit=deposit;this.saved=saved;this.receipts=receipts;this.endpoint=endpoint;this.principal=principal;this.log=log;
             pump=new TradeRecoveryPump(tasks,()=>Recover(null),log);
             try {read.AvailabilityChanged+=Changed;read.InventoryChanged+=Changed;if(saved!=null)saved.SavedCheckpoint+=Changed;Schedule();}
-            catch {Dispose();throw;}
+            catch (System.Exception boundaryError229) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeDeliveryRecovery/TradeDeliveryRecovery", boundaryError229); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeDeliveryRecovery/TradeDeliveryRecovery/Cleanup", () => { Dispose(); });throw;}
         }
         internal void RequestRecovery()=>Schedule();
         internal void Start()=>pump.Start();
@@ -57,7 +57,7 @@ namespace Phinix.TradeExtension.Client
                         Kind="SavedInventory",SaveIdentity=checkpoint.SaveIdentity,CheckpointFingerprint=checkpoint.CheckpointFingerprint};
                     inbox.BindDelivery(server,owner,reply);receipts.Send(reply);
                 }
-                catch(Exception error){log?.Invoke("Delivery recovery retained for reconciliation: "+error.GetType().Name);}
+                catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeDeliveryRecovery/Recover", error); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeDeliveryRecovery/Recover/LogObserver", () => { log?.Invoke("Delivery recovery retained for reconciliation: "+error.GetType().Name); });}
             }
             if(page.Length==8){string cursor=page[page.Length-1].Fingerprint;pump.Continue(()=>Recover(cursor,records));}
         }

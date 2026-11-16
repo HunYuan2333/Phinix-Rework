@@ -48,19 +48,19 @@ namespace Phinix.PluginStore
                             "PackageIdleTimeout", () => response.Dispose()).ConfigureAwait(false);
                     return await ManagedPayloadTransfer.Read(response,endpoint,catalog,expected,paths,budget,total.Token,token,diagnostics,LastRequestId,false,progress).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
-                {
+                catch (OperationCanceledException boundaryError113)
+                { if (!token.IsCancellationRequested) global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryPayloadTransport/DownloadManagedPackage", boundaryError113);
                     if (token.IsCancellationRequested)
                     { diagnostics.Event("package.cancelled", "Package", requestId: LastRequestId, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256); throw; }
                     string code = total.IsCancellationRequested ? "PackageDownloadTimeout" : "PackageUnavailable";
                     diagnostics.Event("package.failed", "Package", code, LastRequestId, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256);
-                    throw new StoreValidationException(code, "Package operation did not complete.") { RequestId = LastRequestId };
+                    throw new StoreValidationException(code,"Package operation did not complete.",boundaryError113) { RequestId = LastRequestId };
                 }
                 catch (StoreValidationException ex)
-                { ex.RequestId = LastRequestId; diagnostics.Event("package.failed", "Package", ex.Code, LastRequestId, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256); throw; }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryPayloadTransport/DownloadManagedPackage", ex);  ex.RequestId = LastRequestId; diagnostics.Event("package.failed", "Package", ex.Code, LastRequestId, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256); throw; }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is HttpRequestException)
-                { diagnostics.Event("package.failed", "Package", "PackageUnavailable", LastRequestId, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256); throw new StoreValidationException("PackageUnavailable", "Package transfer or temporary storage failed.", ex) { RequestId = LastRequestId }; }
-                finally { response?.Dispose(); }
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryPayloadTransport/DownloadManagedPackage", ex);  diagnostics.Event("package.failed", "Package", "PackageUnavailable", LastRequestId, managed: expected, snapshot: catalog.SnapshotId, catalogHash: catalog.Sha256); throw new StoreValidationException("PackageUnavailable", "Package transfer or temporary storage failed.", ex) { RequestId = LastRequestId }; }
+                finally { PluginStoreDiagnostics.Cleanup("ManagedRepositoryPayloadTransport/ResponseCleanup",()=>response?.Dispose()); }
             }
         }
 

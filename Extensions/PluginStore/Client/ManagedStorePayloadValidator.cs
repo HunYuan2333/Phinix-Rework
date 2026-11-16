@@ -34,7 +34,7 @@ namespace Phinix.PluginStore
                 if(actual.Localization!=null) expected.Localization.VerifyProjection(zip.Localization);
                 return new ManagedStorePayloadReport(expected,zip);
             }
-            catch(ManagedExtensionValidationException ex) { throw new StoreValidationException(ex.Code,"Managed static payload inspection failed.",ex); }
+            catch(ManagedExtensionValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStorePayloadValidator/Validate", ex);  throw new StoreValidationException(ex.Code,"Managed static payload inspection failed.",ex); }
         }
     }
 }

@@ -11,11 +11,12 @@ namespace PhinixClient.Framework
     {
         private readonly Func<bool> mainThread;
         private readonly Action<string> log;
+        private readonly Func<string,string,Exception,string> fault;
         private readonly HashSet<Type> types=new HashSet<Type>();
         private readonly Dictionary<IPhinixExtensionModule,Owner> owners=new Dictionary<IPhinixExtensionModule,Owner>(Identity.Instance);
         private int count;
         private readonly HashSet<string> reported=new HashSet<string>(StringComparer.Ordinal);
-        internal ClientLifetimeService(Func<bool> mainThread,Action<string> log) {this.mainThread=mainThread;this.log=log;}
+        internal ClientLifetimeService(Func<bool> mainThread,Action<string> log,Func<string,string,Exception,string> fault=null) {this.mainThread=mainThread;this.log=log;this.fault=fault;}
         internal void SetModuleTypes(IEnumerable<Type> values) {MainThread();foreach(var type in values) types.Add(type);}
         private void MainThread() {if(!mainThread()) throw new InvalidOperationException("Lifetime operations require main thread.");}
         public void OnActivating(IPhinixExtensionModule module)
@@ -37,9 +38,10 @@ namespace PhinixClient.Framework
         }
         private void Report(string owner,string stage,Exception error)
         {
+            try { if(fault?.Invoke(owner,"Lifetime/"+stage,error)!=null) return; } catch { }
             string key=owner+"/"+stage+"/"+error.GetType().FullName;
             lock(reported) {if(reported.Count>=256 || !reported.Add(key)) return;}
-            try {log?.Invoke("Lifetime: owner="+owner+", stage="+stage+", exception="+error.GetType().Name);}catch {}
+            try {log?.Invoke("Lifetime: owner="+owner+", stage="+stage+", exception="+error);}catch {}
         }
         private sealed class Owner
         {internal readonly string Id;internal readonly List<Scope> Scopes=new List<Scope>();internal Owner(string id) {Id=id;}}

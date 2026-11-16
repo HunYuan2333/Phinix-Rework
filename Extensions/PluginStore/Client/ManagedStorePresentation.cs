@@ -160,7 +160,7 @@ namespace Phinix.PluginStore
                 presentationDirty = false;
                 presentation.Publish(new ClientPresentationPage(pageId, "", revision, sections.Select(s => s.WithPlainLayout())).WithSplitView(new ClientPresentationSplitView(primarySections, T("browsePane"), T("detailPane"), .5f).WithFixedHeaders(1, 1, 1, picked == null ? "none" : ListIdentity(picked)).WithAlignedHeaders()), actions, current);
             }
-            catch { presentationDirty = true; actions.Dispose(); throw; }
+            catch (System.Exception boundaryError189) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStorePresentation/UpdatePresentation", boundaryError189);  presentationDirty = true; global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("ManagedStorePresentation/UpdatePresentation/Cleanup", () => { actions.Dispose(); }); throw; }
             publishedSnapshot = snapshot; publishedSelection = selection; publishedError = feedback; publishedControls = controlRevision;
             publishedPoints = pointRevision; publishedLanguage = nextLanguage; publishedDevMode = dev; publishedResult = nextResult;
         }
