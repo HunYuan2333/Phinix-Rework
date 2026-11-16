@@ -1,5 +1,12 @@
 # Phinix Rework — Design Philosophy
 
+## Game mod reliability premise
+
+Phinix Rework is a game mod: prioritize normal availability, understandable failures, and maintainable mechanisms. Keep basic transactions, idempotency, bounds, and ownership without pursuing financial-grade end-to-end consistency or automatic crash recovery.
+
+SQLite is reusable client infrastructure; Inventory and Trade own their schemas and outcomes. Local preparation failure is `NotSent`; failures after transport or world handoff are uncertain and cannot be blindly replayed. Shared inventory belongs to the local database, while physical callbacks still belong to their original `Game`. See [SQLite Implementation](branch-local/dev/SQLite-Implementation-2026-11-10.md).
+
+
 > **Target audience: code maintainers and AI agents**
 >
 > **中文版**：[设计哲学.md](./设计哲学.md)
@@ -320,11 +327,9 @@ Client/Composition owns Autofac 8.4.0 and its locked dependency graph. Common, p
 
 Chat is the first adopter. Its feed adapter, UI context, user list and notice sidebar subscribe only at explicit Start and unsubscribe at disposal, including partial Start failure. Queued mention/legacy notifications verify module state, connection generation and captured game identity before delivery. Chat shutdown cancels image requests and releases its cached textures on the main thread. Optional Trade resolution remains a borrowed, deferred action at the module composition boundary. Other modules retain their existing assembly paths until their individual migration.
 
-The main package owns one copy of Phinix.ClientComposition and all eight support DLLs in Common/Assemblies. Memory/Unsafe/Vectors compile references and packaged versions must agree. Managed packages must not redistribute these host assets. Deploy or roll back the full matching host/abstractions/Utils/Chat/runtime package; an isolated Chat DLL replacement is insufficient. Existing abstraction assembly version 1.8.0.0 is retained for these additive contracts; modules using them require the corresponding host build. Compile and console regression success do not certify Unity loading or compatibility with other mods.
+The main package owns the single copy of `Phinix.ClientComposition` and its supporting DLLs under `Common/Assemblies`; managed plugins must never bundle duplicate host assets, and deployments or rollbacks must update host, abstractions, `Utils`, extensions, and runtime libraries together.
 
-New client authors derive from `ClientExtensionModule` and override `Compose(IExtensionBuilder)` (ClientExtensionAbstractions 1.9). Its explicit, nonvirtual shared Register bridge checks host composition availability and invokes Compose once through the ordinary registry. Chat now adopts this entry. Constructors stay passive; Activate/Shutdown and scope ownership remain explicit. Old direct Register modules and server modules retain their existing path during migration. Managed metadata recognizes only the trusted client contract/base assembly identity, not arbitrary external inheritance. The 1.9 API/CLR version prevents new authors from binding to older contract assemblies; deploy a matching full package.
-
-F8 development status (2026-10-10): client authors use Compose only. LegacyClientExtensionModule is deleted; client discovery rejects shared Register entries before constructing them. Shared/server Register remains available. Client abstractions source declares 2.0.0, and maintained plugins must be rebuilt against the matching host. This is unpublished source work; game and distribution gates remain open.
+Client extensions use `ClientExtensionModule.Compose` exclusively; client discovery rejects legacy `Register` entries (while shared and server `Register` remain available).
 
 ### 3.13 Store operation transitions
 
@@ -641,9 +646,6 @@ RimWorld selects and loads ordinary mods and their effective version/conditional
 
 The owned loader prepares complete assembly identities before loading, handles only owned requesters and declared exact references, and detaches its resolver after plugin shutdown. This is an ownership boundary for our loader, not CLR isolation. Managed plugin payload verification and startup conflict/dependency gates remain separate. The legacy server loader remains available until a separate migration is accepted.
 
-## F8 boundary decision — 2026-10-10
+## Compatibility & Legacy Boundary
 
-The user confirmed that Steam clients update together and no third-party plugins require indefinite old API support. New business/UI uses one current contract. Adapters cover all old interfaces, data formats and external systems, not only the LegacyAdapter plugin. Maintained callers migrate before obsolete interfaces/duplicate paths are removed; preserve persisted data and supported wire behavior. The previous conditional removal milestone is historical, not a reason to retain unused client APIs. See the [boundary audit](branch-local/dev/Compatibility-Interface-Boundary-Audit.md). This is a design constraint; current leaks remain pending remediation.
-
-
-F8 过渡更新：维护插件采用同一包内部 adapter 支持 API 1.9/2.0；当前核心接口仍是 2.0，CLR 绑定身份暂时保持 1.9.0.0，文件/API 版本与绑定身份分开。客户端更新完成后再结束该过渡，不恢复核心旧 API。当前详情见 branch-local/dev/F8-Implementation-Progress.md。
+Clients update together, so long-term retention of unconsumed legacy binary APIs or mixed legacy/current UI is not a goal. New business logic and UI consume current contracts only; legacy interfaces, historical data readers, and supported external protocols are isolated inside their respective adapters and removed once maintained callers migrate (see [Compatibility Interface Boundary Audit](branch-local/dev/Compatibility-Interface-Boundary-Audit.md)).

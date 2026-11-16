@@ -1,147 +1,56 @@
-# 客户端兼容边界与故障恢复约束
+# Client Compatibility Boundaries and Recovery Constraints
 
-> 2026-11-04 P3 业务分支：服务端可按用户授权对含原版对端的交易选择基础物品/当前报价条款。客户端读取已认证 Framework 快照附带的 `trade_basic_terms_v1`，每次连接首次遇到该条款时在游戏主线程提示属性损失和原版交付限制；提示不切换协议、不确认交易、不消费或退回资产。普通双方 Rework 仍按原有严格规则。此改动不合并到 UI/工坊分支；服务端原版入口需显式开启，真实游戏验收尚未执行。
+> **中文版**：[兼容边界与故障恢复约束.md](./兼容边界与故障恢复约束.md)
 
+## 2026-11-10: Shared SQLite and Bounded Recovery
 
-本文件约束 Rework 客户端连接原版服务端及 Framework 服务端时的实现。原版协议以同级 `Phinix/Common/Trading/ClientTrading.cs` 和 `ServerTrading.cs` 为本轮核对依据；其他服务端变种须提供独立证据，不得以猜测改变通用业务语义。
+Because this is a game mod, rare interrupted operations may be abandoned with a visible warning rather than attempting financial-grade automatic recovery. Inventory authority has moved to a cross-save local SQLite database; legacy saves are imported once and their old fields are cleared on normal save. Per-path journal files, save-balance rollbacks, and mandatory per-incident recovery are no longer required for the new write path. An unreadable database fails visibly without fabricating success; a corrupted historical trade record isolates only that operation.
 
-## 职责边界
+Inventory contract v7 adds `Abandoned`/`Abandon`: explicit abandonment consumes the reserved quantity, never asserts remote success, and never authorizes automatic refunds. Normal active reservations are not abandoned automatically. Existing wire protocols and receipt correlations remain intact, and physical `Game` lifecycle ownership cannot be transferred to a different world via cross-save sharing. `IInventorySavedReceiptApi` keeps its historical name while returning committed SQLite deposit receipts; `SaveIdentity`/`JournalIdentity` map to the database scope/identity, and the live `Game` is validated by an independent scope.
 
-| 层 | 负责 | 不应负责 |
-| --- | --- | --- |
-| Legacy 协议 adapter | 旧模块与包类型、字段方向、缺省 UUID、旧物品格式、请求与回执关联、能力限制 | 提前确认交易、静默丢弃物品、修改主体成功/失败含义 |
-| Framework 传输 adapter | 新协议包、物品引用、发送结果与领域结果的转换 | UI 状态和地图物品所有权 |
-| 交易主体 | 待确认物品托管、操作状态、确认后的提交/恢复、幂等交付 | 解析旧包、依据 Legacy/V2 改变业务成功标准 |
-| 物品主体 | 编解码、保留不可解码数据、完整性检查 | 将不支持的物品静默过滤后继续交易 |
-| UI | 展示状态、提交用户意图、异常安全的缓存和 GUI 清理 | 决定协议、把本地预测当作服务端确认 |
+> P3 business branch (2026-11-04): The server may opt into `trade_basic_terms_v1` for trades involving legacy peers. On the first encounter per connection, the client displays a main-thread notice about property loss and legacy delivery limits without switching protocols or confirming trades.
 
-兼容代码应收敛于明确的接口、数据读取/迁移及外部系统 adapter，范围不限于 `Extensions/LegacyAdapter/Client` 协议插件。adapter 接收旧契约并输出当前操作/事件/模型；新业务不得引用旧接口、判断兼容模式/schema 或调用原始传输。设置迁移与连接协商属于边界职责，不能由常规 UI/领域对象承担。
+This document constrains the Rework client when connecting to legacy servers (`Phinix/Common/Trading/ClientTrading.cs` and `ServerTrading.cs`) and Framework servers.
 
-2026-10-10 F8 范围决定：Steam 客户端统一更新，目前没有第三方插件，不以旧二进制 API 或混用新旧 UI 作为长期目标。维护中调用方迁移后评估删除旧入口；仍需读取的历史数据和仍支持的外部协议由各自 adapter 保留。现有泄漏点、迁移顺序与删除条件见 [旧接口边界审查](branch-local/dev/Compatibility-Interface-Boundary-Audit.md)。该决定是后续实现约束，本轮仅文档审查，未宣称现有业务已实现零兼容感知。
+## Responsibility Boundaries
 
-## 不变量
+| Layer | Owns | Must Not Own |
+| :--- | :--- | :--- |
+| Legacy protocol adapter | Legacy modules/packet types, field directions, default UUIDs, legacy item formats, request/receipt correlation, capability limits | Prematurely confirming trades, silently dropping items, altering core success/failure semantics |
+| Framework transport adapter | New protocol packets, item references, mapping send results to domain outcomes | UI state or map item ownership |
+| Trade core | Escrow of pending items, operation state, post-confirmation commit/recovery, idempotent delivery | Parsing legacy packets or changing business success criteria based on Legacy/V2 |
+| Item core | Codecs, preserving undecodable data, integrity checks | Silently filtering out unsupported items to continue trading |
+| UI | Displaying state, submitting user intent, exception-safe cache/GUI cleanup | Deciding protocol, treating local prediction as server confirmation |
 
-1. 普通快照更新、乐观预览和操作确认是不同事件。写入仓库不能凭空确认请求。
-2. 只有真实的、与请求关联的成功回执，才能提交该请求托管的物品。重复/过期回执不能再次提交或返还。
-3. 明确拒绝或确定未发送可以恢复；已经发送但回执丢失属于结果未知，不能直接自动返还，否则可能复制物品。结果未知须保留记录并通过同步核对。
-4. 物品转换必须整批成功或整批失败。不支持的 codec、损坏 payload、缺失物品引用都不能变成部分成功。
-5. 原版 `UpdateTradeItemsResponsePacket` 的 `Success/Token/Items` 是报价操作结果；`UpdateTradeItemsPacket` 是接收者视角状态，`Items` 为本方、`OtherPartyItems` 为对方。空列表是合法的空报价。
-6. 发送失败必须通过显式结果或异常传递到业务调用方；处理器声明 Handled 只表示已处理，不应掩盖失败。
-7. 原版服务端不支持的功能由 adapter 明确拒绝或有说明地降级。失败时不得由 UI 自动换协议发送。
-8. 缓存重建成功后才能清除失效状态；锁、滚动区域和 GUI 全局状态必须在异常路径释放/恢复。
-9. 异步动作的异常处理在动作实际执行处建立。日志不能替代待交付记录和业务恢复。
+Compatibility code belongs in explicit interfaces, data readers/migrations, and external system adapters (not limited to `Extensions/LegacyAdapter/Client`). New business logic and UI must consume current contracts without legacy awareness (see [Compatibility Interface Boundary Audit](branch-local/dev/Compatibility-Interface-Boundary-Audit.md)).
 
-## 首轮修复与验收
+## Invariants
 
-首轮已实现原版报价确认链修复，保持现有公开接口可用，通过新增 `IFrameworkTradeUpdateResultApi` 提供协议无关的请求登记和结果入口：
+1. Routine snapshot updates, optimistic previews, and operation acknowledgements are distinct events; writing to a repository cannot confirm a request.
+2. Only an authentic, request-correlated success receipt commits escrowed items; duplicate or stale receipts never re-commit or refund.
+3. Explicit rejection or confirmed non-dispatch may restore items; a sent request with a lost receipt is `Unknown` and must not auto-refund (to prevent duplication), instead remaining recorded for reconciliation.
+4. Item conversion is all-or-nothing; unsupported codecs, corrupt payloads, or missing references cannot become partial success.
+5. In legacy `UpdateTradeItemsResponsePacket`, `Success/Token/Items` represent the offer operation result; `UpdateTradeItemsPacket` is the receiver view (`Items` = self, `OtherPartyItems` = peer), and empty lists are valid empty offers.
+6. Send failures must propagate explicitly to callers; `Handled` means processed, not succeeded.
+7. Unsupported legacy server features are explicitly rejected or downgraded with notice by the adapter; UI never silently switches protocols.
+8. Stale caches are cleared only after rebuild succeeds; locks, scroll regions, and GUI state must restore on exception paths.
+9. Async exception handling lives where the action executes; logs do not replace pending delivery records or recovery.
 
-- 删除发送后的本地预测成功；原版真实成功/失败回执归一化为主体操作结果。
-- 普通 legacy 状态刷新不能清理请求 token 或制造操作成功。
-- 原版空报价按权威状态应用。
-- adapter 出站物品转换失败时停止发送整批请求，并反馈原 token 的失败；发送失败不能继续乐观写入。
-- 主体编码器不再过滤失败项；一件物品编码失败则整批抛出异常，交由已有调用方恢复。
-- 未提供 token 的调用在 adapter 中生成唯一 wire token，防止旧回执确认后续操作。
-- 明确未连接会通知操作失败；其他传输异常保留 pending，等待真实回执，不能认定服务端未收到。
-- 新客户端用 `core.item.scribe-v1` 保存完整 `Thing`/`ThingComp` 状态；基础物品预览与 opaque 状态分离，服务端不解释状态载荷。
-- 原版服务端路径由 Legacy adapter 将状态载荷封装在旧服务端能够原样保存、转发的 `InnerProtoThing` 哨兵节点中。哨兵格式、深度/大小限制和还原逻辑不得移出 `Extensions/LegacyAdapter/Client`。
-- 入站状态载荷必须与旧协议可见的物品预览一致；缺失 codec、载荷损坏、缺失 Mod/Def 或预览不匹配均拒绝交付，不能降级为重新 `ThingMaker.MakeThing` 的空白/随机物品。
-- 从客户端库存加入报价时，Trade 通过 `IInventoryReservationApi` 先原子预留，再让库存使用条目自己的 codec 整批物化为不落地的临时对象；Trade 转换后立即销毁临时副本。只有与请求 token 匹配的成功回执会提交预留；拒绝恢复，派发后异常标记为结果未知。Legacy Adapter 只负责把旧回执翻译成同一操作结果，不得直接操作库存。
-- 库存发红包使用红包自身的中继发布确认：整批状态分片先于 create，稳定事件 ID 重试，真实接受回调在游戏主线程移交库存所有权。发送者模板与领取余额在红包插件存储中先刷盘；过期返还须等中继历史完整消费，断线/重启后的历史尚不自动核对，未决记录继续托管。HTTP 发送排队不等于成功，不修改服务端或 Host 专用业务接口。
+## Legacy Integration, Inventory & Delivery Boundaries
 
-验证：`Tests/LegacyTradeRuntimeTests` 使用编译后的真实 adapter、交易服务和 protobuf 包，注入内存传输，9 组场景通过：发送不提前确认、拒绝回执、未连接、整批转换拒绝、空报价、唯一 token、整批编码拒绝、发送结果未知后收到回执、状态物品经旧服务端消息形状往返。包含重复/未知回执不覆盖状态、普通快照携带 token 仍不得确认、状态载荷逐字保留及 UI 快照继续持有状态的断言。
+- **Legacy Trade & Item State**: Removed optimistic local success after send; legacy `Success`/`Failure` receipts normalize into core operation outcomes. State payloads (`core.item.scribe-v1`) are preserved in legacy `InnerProtoThing` sentinel nodes inside `Extensions/LegacyAdapter/Client` and must match visible previews without falling back to blank `ThingMaker.MakeThing` items.
+- **Inventory Reservation & RedPacket**: Trade reserves inventory atomically via `IInventoryReservationApi`, materializes unspawned temporary copies, converts them, and destroys the temporaries immediately. LegacyRedPacket reserves selected units or whole stateful entries and transfers custody only on HTTP `create` acceptance or matching relay history echo.
+- **Legacy Journal Recovery**: Per-save-path journals tolerate historical sequence gaps before the loaded snapshot while validating checksums, ledger state, and strictly increasing sequences; newer records (`snapshot + 1` onward) require user approval before restoration, and crash-truncated tails are backed up and isolated after snapshot verification. See [Inventory.md](./Inventory.md).
+- **RimWorld 1.7 / API 3 & Presentation Boundaries**: Theme (`IClientTheme`, `ClientRgba`), shared presentation (`ClientPresentation.Contracts`), and Trade/Inventory game-object boundaries remain isolated in their respective adapters. Host stays neutral and never references Trade/Inventory domain internals.
+- **Trade Completion Inbox, Attempt Journal & Scopes**: Terminal trade events persist to `ExtensionData` before delivery callbacks (keyed by endpoint/recipient/trade). `Attempted` is appended before calling local delivery, and `ReturnedSuccess`/`ReturnedFailure` afterward; Game and Inventory scopes captured at receive time are re-verified before delivery so items are never delivered into a different game or save. See [P3–P6 Closeout](branch-local/dev/P3-Closeout-2026-10-29.md).
 
-测试程序集按 mod 的 net472 依赖编译，在 .NET 10 下运行无 GUI 场景，避免 Windows Framework 测试进程与游戏依赖的 netstandard 版本冲突。它不替代 RimWorld/Unity 内的联机测试。
+## Verification (`Tests/LegacyTradeRuntimeTests`)
 
-从仓库根目录执行（Visual Studio MSBuild；`SolutionDir` 必须为仓库绝对路径并带末尾分隔符）：
+Verified 9 in-memory transport scenarios against compiled adapters, trade services, and protobuf packages (built for `net472` and executed under `.NET 10`):
 
 ```powershell
 MSBuild Tests/LegacyTradeRuntimeTests/LegacyTradeRuntimeTests.csproj /t:Build /p:Configuration=Release /p:MSBuildEnableWorkloadResolver=false /p:SolutionDir=<repository-root>/
 dotnet exec --runtimeconfig Tests/LegacyTradeRuntimeTests/runtimeconfig.json Tests/LegacyTradeRuntimeTests/bin/Release/LegacyTradeRuntimeTests.exe
 ```
 
-若 protobuf 的旧 SDK 固定版本阻止构建，可在当前命令进程中将 `MSBuildSDKsPath` 指向已安装 SDK 的 `Sdks` 目录；不要修改 vendored protobuf 的 `global.json`。
-
-部署需同时更新产物 `09-TradeExtension.dll`、`10-LegacyAdapter.Client.dll`、`12-TradeExtension.Client.dll`，避免新 adapter 与旧契约/实现混用。
-
-## 库存日志恢复边界
-
-库存按存档路径分开记录日志，切换文件名期间的操作可能使某份日志出现历史序号间隔。当前存档快照已覆盖的间隔不再误判为损坏；历史记录仍必须通过校验和、账本状态、严格递增序号及包头与载荷序号一致性检查。同序号记录必须与存档内容完全一致。快照之后的首条记录必须为 `snapshot + 1`，后续必须连续，且仍须玩家确认恢复；损坏、重复序号、内容冲突或未来缺号继续只读保护。
-
-日志追加只接受下一提交序号。崩溃留下完整载荷但缺少换行时，保留原文件备份并补齐分隔符；真正残缺的尾部在验证快照一致性后才隔离。未修改日志格式、存档字段、幂等回执、预留或服务端确认标准，不重发奖励，不自动归还结果未知的物品。对应英文说明见 [Inventory.md](Inventory.md)。
-
-## 后续修复清单
-
-以下是已发现但不能以首轮修复完成为由宣称解决的工作：
-
-- 将待确认物品从窗口迁出，支持关窗、断线及结果未知后的核对。
-- 重置报价等待确认后返还；完成/取消物品交付保留可恢复记录。
-- Framework 发送失败传播及缺失引用整批拒绝。
-- 将现有 `ApplyLegacyTradeSnapshot/RemoveLegacyTrade/CompleteLegacyTrade` 兼容桥梁迁移到统一领域入口，清理重复的 native/legacy 状态通知实现。
-- 旧 JSON 物品解析移入 adapter；保留原始 payload，避免 UnknownItem 过滤造成数据丢失。
-- 统一聊天意图入口，协议路由和回复/提及能力降级收敛至 adapter。
-- 用户侧栏缓存、锁、GUI 清理、扩展能力筛选和回调隔离。
-
-后续迁移须逐项更新本文件的完成情况，不能通过关闭功能、吞异常或降低确认标准换取表面兼容。
-
-
-## UI compatibility scope — 2026-10-12 user decision
-
-The user explicitly removed the requirement to preserve unused old theme data and UI protocols. New presentation/UI contracts and theme structure may be refactored directly around current consumers; do not introduce legacy-mode branches or a parallel renderer to preserve those unused formats. Current theme capabilities remain required. This does not authorize business wire/save/authority changes; the explicitly maintained red-packet and pawn-trade internal 1.9 adapters remain. Latest implementation and acceptance status is in roadmap §16.13.
-
-
-## 2026-10-12 B19 主题呈现边界
-
-主题是永久 Host 服务，Editor/Selector/Export 消费普通公共 presentation session 与 typed contribution point。内部 builtin.host principal 由 Host 成对激活/终止，不进入 optional plugin discovery；没有 renderer owner 白名单、第二动作系统或 Store 存在前提。公开 ClientThemePresentationActionContext 只给贡献者只读投影事实，不移交 draft/Apply/export 权威。公共滑块回发原文输入意图，主题 owner 验证；被动颜色样本不保存状态。原 catalog/readers/registry/package/exporter 继续处理 keys/fallback/inherit/unknown/profiles/T5，保存规则和协议不变。
-
-
-## 2026-10-12 B21 Trade operation owner 边界
-
-TradeOfferOperations/TradeOfferEscrow 属 Trade plugin；Host 只消费通用呈现，不引用 Trade Contracts 或管理 Thing/quote/ledger。公开 ITradeOfferOperationApi 提供只读 operation facts 与有明确依据的本地重试；未知结果不能被该 API 强行确认。shared facade 拦截本会话已持 operation 的冲突 update/status/cancel，owner 的同 token 提交放行一次；不新增协议或对独立客户端/custom raw packet 的协调保证。关闭视图只释放 view/actions；模块 stop 撤销回调并标 unknown，不自动返还。保存 schema/wire/adapters 未改，physical escrow 和 correlation 仍为会话内；跨存档/切游戏持久恢复是未完成门槛。维护的 1.9 adapters 未要求新 renderer/新能力。
-
-
-## 2026-10-12 B22 原 Game 边界
-
-Trade offer 本地资源绑定发起 Game 与 activation；失效后不写当前 Inventory ledger、不返还到新地图，scope 永久失效，原窗口关闭仅清理视图。现有 journal/保存协议未改；持久重建 escrow 与独立 completion 跨存档绑定仍未完成。详见 roadmap §16.30 和 Trade-R44-Save-Boundary-2026-10-12.md。该 guard 不能充当服务端结果证据。
-
-
-## 2026-10-12 B25 库存恢复核对边界
-
-ITradeInventoryRecoveryApi 是 Trade 普通只读 API，读取既有 Inventory reservation journal，未改变保存格式。它不是自动恢复/物理托管档案/结果权威；不 Resolve/Restore/Materialize/退款。公共恢复 context 不继承同 ID 活跃 Trade 的官方操作，数量为 codec units，game/lifetime/cache 与来源事件配对。Host 保持中立，使用原公共 list/typed point；完整恢复与编辑门槛见 roadmap §16.33。
-
-## 2026-10-13 RimWorld 1.7 迁移合同门槛
-
-用户已授权按 Roadmap 逐步迁移，优先新 API、保留专门的 1.6 引擎 adapter，不新增旧客户端组合分支。Trade request 类型归属、Inventory 游戏 helper 程序集、presentation Draw 参数与 Swatch 值类型的变更属于 ABI 破坏性迁移，按 API 3.0 联合闭合。当前正式产品/API 2.0、正式插件范围与固定 Host pin 仍是历史发行基线，尚未更新；不得把中间 DLL 单独部署到这些包。旧接口保留/Obsolete 的一般规则不要求本迁移再增旧客户端 UI 桥。
-
-Bounds/RGBA 仅数值契约首切片；整个 Abstractions 仍有引擎依赖，主题/图像/自绘/窗口/输入和两版 renderer 尚未闭合。Host 继续使用同一公共 renderer/theme/action/confirmation，业务/Thing/Pawn/codec/账本权威不因引擎迁移改变。当前游戏安装变化时按 DLL 指纹核验独立缓存，禁止把 1.6 目录或旧日志当作当前 1.7 验收。实施范围与测试状态见 docs/branch-local/dev/RimWorld-1.7-Migration-Roadmap-2026-10-13.md 及各切片记录。
-
-
-## 2026-10-14 主题中立色值与绘制边界
-
-当前迁移源码的主题 registration/reader/catalog/snapshot/draft/preview 使用 ClientRgba；绘制端显式经 Game bridge 转换，仍使用同一主题服务。整个 Abstractions 物理拆分、Region/窗口/输入与新版后端未闭合，不能据此部署或宣称游戏通过。注册、返回/out 与泛型容器签名属于 API 3.0 联合变更；正式身份/包范围/pin 未切换。主题包 byte source 与文件共用受限 XML stream reader，修复已在本地白盒确认的导出 BOM 重载失败，保存和包格式未改。
-
-
-## 2026-10-14 中立呈现程序集首切片
-
-迁移源码的普通 presentation/theme/image/action 合同现属 ClientPresentation.Contracts；原 namespace/owner/renderer 不变，旧 Abstractions 经项目引用消费它。Game bridge、widgets、原生 shell 和 UnknownItem 仍有引擎依赖，未搬存档类型。类型跨程序集是 API 3.0 联合 ABI 变更，正式身份/范围/pin 未闭合。两插件反射绑定按真实类型归属同步，不依赖“所有 SDK 类型在同一 DLL”的假设；真实联合 DLL 白盒不等于游戏加载或原生 UI 验收。完整 restore/锁图、两版加载布局与 backend 后续实施，记录见 R17-23-Presentation-Assembly 文档。
-
-## 2026-10-18 交易接收日志边界
-
-正式交易插件在交付回调前将完整终态事件持久保存于用户 ExtensionData，按远端 endpoint/接收主体/交易核对；重复不再次发布，内容或终态冲突拒绝。endpoint 仅是路由边界，不能代替可信服务器身份。同一交易换 endpoint 不自动迁移或再次交付。日志不是游戏保存回执，不授予退款、物化成功或重放许可。
-
-Host 通过中立 IClientConnectionIdentity 和 ClientEnvironmentPaths 向所有插件提供同等事实；不加入业务专属恢复分支。不存 session/凭据，不修改固定 Common/vendor。重启后的记录保留供核对，自动恢复与存档授权、现代 receipt 尚未实现。详见 [本轮验证](branch-local/dev/Trade-Completion-Inbox-2026-10-18.md)。
-
-## 2026-10-21 交付尝试证据边界
-
-Trade 在实际交付调用前持久追加 Attempted，API 返回后记录 ReturnedSuccess/ReturnedFailure；本地返回不能代替游戏保存 ACK。已有尝试不因事件重放、设置/可用性变化或换交付方式再次执行，未知保留核对、不退款。首次主线程处理绑定当前 Game 实例和接收 UUID/endpoint，失效后不能重绑；空批次保持无需游戏实例。此 guard 不提供跨重启稳定存档身份，入队到首次处理的切换及历史记录仍待核对。详见 [实施及限制](branch-local/dev/Trade-Delivery-Attempt-Journal-2026-10-21.md)。
-
-## 2026-10-21 存档绑定与只读核对
-
-InventoryStatus 投影既有 journal 的存档谱系/路径摘要，Trade 只经公开合同读取。非空交付前将摘要与 receipt fingerprint 绑定，旧尝试无绑定时不追认，不把不同存档自动合并；原始路径和凭据不进入绑定记录。交易列表通过普通呈现显示同主体/endpoint 的本地交付证据、存档关系，不提供产品资产动作。它不是到账或保存 ACK、退款或重投许可；同路径回滚、接收排队期间切存档、权威结果查询仍待完成。完整范围见 [本轮记录](branch-local/dev/Trade-Save-Binding-and-Review-2026-10-21.md)。
-
-## 2026-10-22 P3 接收时游戏范围
-
-Trade 完成/取消在统一接收入口枚举载荷、落盘和解码之前捕获中立 Host 游戏范围，内部事件携带原令牌到主线程交付 owner。Host 主线程发布、网络线程只读取令牌；验证在绑定存档/持久 attempt 之前进行。入队期间切换 Game、回菜单、宿主停止或缺少令牌时保留 inbox，不向后来游戏绑定/交付或发 ACK。空批次仍只核验主体与 endpoint。令牌不是持久 save identity 或保存成功 receipt，不授予重启重投/退款；同 Game 的路径/旧存档回滚仍未解决。见 [实现与证据](branch-local/dev/P3-Receive-Game-Scope-2026-10-22.md)。
-
-## 2026-10-22 P3 接收时库存范围
-
-库存通过普通附加 API 发布只读接收范围，Trade 在统一入口枚举/IO 前捕获并随事件携带。实际交付前同时校验原 Game、原库存范围及当前库存身份，binding 使用原身份；不采用执行时新打开/另存为的存档。路径代数与加载暂停阻止旧令牌复活，同路径保存不使正常令牌失效。接收时无范围、API 缺失或范围变化均保留核对，不能在稍后保存或 availability 回调中补造接收归属。空批次原规则保持。令牌不是持久游戏 receipt，崩溃前未绑定记录仍不自动恢复，详见 [实施与限制](branch-local/dev/P3-Receive-Save-Scope-2026-10-22.md)。
+Do not modify vendored protobuf `global.json`; override `MSBuildSDKsPath` in the current process if needed.

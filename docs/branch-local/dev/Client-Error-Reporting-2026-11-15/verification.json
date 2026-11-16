@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-15",
+  "branch": "codex/client-error-reporting",
+  "stage": "E0 complete; E1 implemented/whitebox verified; in-game acceptance pending",
+  "error_runtime_tests": {
+    "output": "/tmp/phinix-client-errors-e1-tests-final",
+    "frameworks": [
+      "net10.0",
+      "net472/Mono"
+    ],
+    "checks_per_framework": 48,
+    "exit": 0,
+    "scope": "Production service/controller/dispatcher/contracts/RootPatch/window, peripheral APIs doubled"
+  },
+  "queue_regression": {
+    "output": "/tmp/phinix-client-errors-queue-regression",
+    "checks": 6,
+    "exit": 0,
+    "scope": "Existing ResourceRecoveryRuntimeTests against production dispatcher and actual net10 SDK assemblies"
+  },
+  "build16": {
+    "output": "/tmp/phinix-client-errors-e1-final16",
+    "exit": 0,
+    "scope": "Latest source; actual 1.6 game references, Host and five built-in plugins"
+  },
+  "build17": {
+    "output": "/tmp/phinix-client-errors-e1-build17",
+    "latest_log": "final-build.log",
+    "exit": 0,
+    "source_projects": 28,
+    "scope": "Latest source rebuild; rev1248 real game references, Host, built-ins, maintained red-packet and pawn-trade plugins"
+  },
+  "extra_consumers16": {
+    "output": "/tmp/phinix-client-errors-e1-build16",
+    "red_packet_exit": 0,
+    "pawn_trade_exit": 0,
+    "example_exit": 1,
+    "example_reason": "Missing RelayResult, IClientCommandRelay, IClientCommandCapabilities; these definitions are absent in current Host and HEAD, independently of additive error contract"
+  },
+  "localization": {
+    "languages": [
+      "English",
+      "ChineseSimplified"
+    ],
+    "matching_keys": 13,
+    "xml_parse": "passed"
+  },
+  "not_run": [
+    "Actual RimWorld UI/clipboard and error propagation in a running game",
+    "Full E2-E5 migration/fault injection",
+    "Release packaging/distribution"
+  ],
+  "current_source_sha256": {
+    "Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs": "e63fb32adfb60da2874d0824df57964b6177431356280002632a242ef4416e90",
+    "Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj": "35eaa51d8db3a64c3169d7f828da61c35456aa09af2535f6a8d671fbb24f0948",
+    "Client/Source/Framework/ClientErrorService.cs": "0327dd3cd6ac1b605e8121533e92600e6ade521c0720c04eb628fd36f8ca6d49",
+    "Client/Source/Framework/ClientErrorNotificationController.cs": "7242732a5ac92deb101a2ab41ceeb123f3621d09416810516d6c2447a9cff5a8",
+    "Client/Source/Framework/ClientMainThreadDispatcher.cs": "5f288fe5342eae634272480a766f608cdf8b625f7a576fe1cdbe6a4e0dafc6e4",
+    "Client/Source/UI/ClientErrorWindow.cs": "3789ddcfaeb82d2ff1d832dd1912be3dbf0e0849dc67d00ec01816d5ad600c9c",
+    "Client/Source/Patches/RootPatch.cs": "b4ea0be9ab84bb4c6a606d8b223413d811fd94bd956dcf3eab8d2e4db26e22c7",
+    "Client/Source/Client.cs": "27e5477215cc119624ac8b0dcfa95e237a77b52aea738c7860dcf1321d1496e3",
+    "Client/Source/Client.csproj": "3359ce0c8c23b27ea3f2d4c7417842dab9429a6a9301843b030d57ce5a442afc"
+  }
+}

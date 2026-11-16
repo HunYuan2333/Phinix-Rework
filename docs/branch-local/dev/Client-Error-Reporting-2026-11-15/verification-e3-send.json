@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-15",
+  "stage": "E3 send slice complete; remaining E3 paths pending",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "branch": "codex/client-error-reporting",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "common_gitlink_advanced": false,
+  "committed_pushed_or_released": false,
+  "source_sha256": {
+    "Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs": "74d032a9e99d5a170bb542d26accd0a4f19ab2176816b5fbdb30841c69765657",
+    "Client/Source/Framework/PhinixFrameworkClient.cs": "b94994219e499d1ef34608d738d0a2b26b54e0e6a4f14b50bfe487e4ff785598",
+    "Tests/ClientErrorBoundaryRuntimeTests/Program.cs": "15e53e7c6b405e35041c118c81b531983985862d43f8f8d3baf9bb2040198f1b",
+    "Tests/Phase35ClientRuntimeTests/Phase35ClientRuntimeTests.csproj": "28faf6c81ffcc93a0135a8198ed5b6a6c10a8961273c810609d9b432cfa8d29d",
+    "Tests/Phase35ClientRuntimeTests/Program.cs": "7df34f0eef05b150281823f843cb3c9f13021d90c3de13308b054cb4186c3130",
+    "Tests/Phase35ClientRuntimeTests/ClientExtensionRuntimeTests.cs": "4b2fabefc6da107ecb63ff86ff10a1b02075d82948710114196123964bd6930e",
+    "tools/quality/run-client-error-boundary-tests.py": "9f37dc433dcc13d89942ec0bbb575cd8258b77abe61f166cbf653bef0dc482f9",
+    "tools/quality/run-phase35-client-tests.py": "e06d682f6cd9355edaac392bd29a76f761d82ad73b2e5becbe97850032898f36"
+  },
+  "builds": {
+    "net472": "PASS real Host and built-ins",
+    "net10": "PASS 28 projects including maintained RedPacket/TalentTrade consumers"
+  },
+  "boundaries": {
+    "net10_checks": 38,
+    "mono_checks": 38,
+    "result": "PASS",
+    "runtime_diagnostic": "Mono emits preexisting Unity.Burst attribute reference warning; checks still pass."
+  },
+  "phase35": {
+    "cases": 7,
+    "assertions": 97,
+    "result": "PASS isolated linked production source tests against actual built shared assemblies; original direct restore still fails without an MSBuild error diagnostic"
+  },
+  "log_sha256": {
+    "/tmp/e3-final-build16.log": "f3f3680872a81af3b8653d81b7763dc251c8ea32b4d66233ac618c6cec130f13",
+    "/tmp/e3-final-build17.log": "63f64fb0452ff37468cb6ee837b50f2dd641ddf6555b4c1608b0d98d88259467",
+    "/tmp/phinix-e3-send-verified-boundaries/net10.0/build.log": "fc920c11b307183a9e47735f142800d840dc5804e6ecaa3f17323c424387fd24",
+    "/tmp/phinix-e3-send-verified-boundaries/net10.0/test.log": "c9c9d45cdca1abf713a53111447973a3d05165b9d4870089b832692a1e795d4b",
+    "/tmp/phinix-e3-send-verified-boundaries/net472/build.log": "cc0af6aa152225a006806ac5b10b3e4725a89db8450989004c62d1d21e73a27a",
+    "/tmp/phinix-e3-send-verified-boundaries/net472/test.log": "2844661878fa193c24d05258c3381ff1d87e21a5b06950e18fd0c26a2957f563",
+    "/tmp/phinix-e3-phase35-current/test.log": "be4b43ec62a28e90ed7bcd220a3cc61c3dc09381e825d0bb7b4bdcd69ee09e5b"
+  },
+  "artifacts_sha256": {
+    "/tmp/phinix-e3-send16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll": "fbdc9be948ecdecde408c0deee2b99e6c4ef503aace276c653df5c8d68aa545a",
+    "/tmp/phinix-e3-send16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll": "4d2f3eff59d20589635f5330232ce54703673cebce3705c17ea984c052ad872b",
+    "/tmp/phinix-e3-send17/bin/Release/net10.0/PhinixClient.dll": "9f1d1d9bd50ca0c1a9f116fa8ac9a8dd4147c4691630277b5717dda929064da6",
+    "/tmp/phinix-e3-send17/bin/Release/net10.0/ClientExtensionAbstractions.dll": "6e2d2250cc1511e38f488bdb2c8a874a3461b50444ac80046edda8b6bb5e1949"
+  },
+  "limitations": [
+    "No real game, UI/clipboard, server/network or release-package acceptance.",
+    "Common is still dirty and must be committed and pinned exactly before release.",
+    "Earlier /tmp output may disappear. Rebuild using documented commands.",
+    "Network/authentication, worker cancellation, SQLite and settings E3 slices remain pending."
+  ]
+}

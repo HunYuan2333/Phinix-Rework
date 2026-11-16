@@ -1,0 +1,118 @@
+{
+  "date": "2026-11-15",
+  "stage": "E2 implementation and targeted verification; actual-game/release acceptance pending",
+  "branch": "codex/client-error-reporting",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "common_worktree_dirty": true,
+  "common_gitlink_advanced": false,
+  "release_gate": "Commit the Common changes and pin its exact commit in the client before shipping; no commit/push/release performed.",
+  "runtime": {
+    "frameworks": [
+      "net10.0",
+      "net472/Mono"
+    ],
+    "checks_per_framework": 64,
+    "exit": 0,
+    "directory": "/tmp/phinix-e2-final-checks",
+    "summary": "Production source with peripheral API doubles; includes notification/window state and public callback isolation."
+  },
+  "boundaries": {
+    "frameworks": [
+      "net10.0",
+      "net472/Mono"
+    ],
+    "checks_per_framework": 30,
+    "exit": 0,
+    "directory": "/tmp/phinix-e2-final-boundaries",
+    "summary": "Actual compiled shared registry/loader/SDK and Host pure boundaries; no actual game session."
+  },
+  "composition": {
+    "framework": "net472/Mono",
+    "checks": 66,
+    "exit": 0,
+    "log_sha256": "eb1c7e042bf544d4f24718101ccb1db831b53c725a96af6d16334c25a3f1c544"
+  },
+  "build16": {
+    "exit": 0,
+    "log_sha256": "f5061323711005278c03c0a07eb2c1b870094481b7990324528e59548825c042",
+    "directory": "/tmp/phinix-e2-verified16"
+  },
+  "build17": {
+    "exit": 0,
+    "source_projects": 28,
+    "log_sha256": "499c03bb87cb07c6605de47a6bfbbe4f2e642938151793cf590b2ee129d6ce99",
+    "directory": "/tmp/phinix-e2-verified17"
+  },
+  "known_test_gaps": [
+    {
+      "suite": "PresentationRuntimeTests",
+      "status": "compile failed",
+      "reason": "Existing inventory fixture missing InventorySaveIdentityPatch, StorageNotice, RetryDatabase, uncertain/abandon APIs; scheduled for E4",
+      "log_sha256": "2e847975e1bc3741e2fda8ae3926ae531535ebe63d5ed9434dc888b28841c731"
+    },
+    {
+      "suite": "Phase35ClientRuntimeTests",
+      "status": "compile failed",
+      "reason": "Source list omits current IClientTransport interface; scheduled for E3",
+      "log_sha256": "0e20a8eb3ea364baf07c007286e57d67a318ca8b3a7b299bc499a4141facfd72"
+    }
+  ],
+  "unchanged_assessment_sources_for_fixture_gaps": {
+    "Extensions/Inventory/Client/InventoryTab.cs": {
+      "matches_baseline": true,
+      "sha256": "b20f023b440652bee137f5668cc3dd1266ff03baf0db301ddc360cb7132d4e2c"
+    },
+    "Client/Common/Connections.Client/NetClient.cs": {
+      "matches_baseline": true,
+      "sha256": "e562c401a52f669e337d01058d19f71edafa89413abb9cb2d9a2313ed0a94920"
+    }
+  },
+  "warnings": [
+    "Mono game-reference metadata probe reports missing Unity.Burst attribute constructor; assertions still pass. No alternative-version game DLLs substituted."
+  ],
+  "not_run": [
+    "Actual game UI/clipboard/end-to-end RimWorld handling",
+    "Full E3-E5 migration",
+    "Published package acceptance"
+  ],
+  "current_source_sha256": {
+    "Client/Source/Client.cs": "7d5eac6e818d9417d34c44278a47e56f7343331408206e95dc8fcae350b6ac5f",
+    "Client/Source/Framework/ClientErrorService.cs": "f95d12237e13ef87d11edea8a8183f4e42347d66d326538e76f364f947e891d1",
+    "Client/Source/Framework/ClientUserEventStream.cs": "ae144636dd76e5499767f87ad068356c9c7f5bb2906aec68a35f6a5a3e42b57b",
+    "Client/Source/Framework/ClientLifetimeService.cs": "3345973bb86c41b4519f6851d01814253bb218e0274f873f998d0fda50033db2",
+    "Client/Source/Framework/ClientExtensionPointService.cs": "5127862a2715f87d929e1e279528ee398b70384ce7ae72fa4979ea88374f97cf",
+    "Client/Source/UI/ClientPresentationService.cs": "f63edc4b9a17c281be5c7c4a5cf68432444b5da44e55e3866a0a7d296705b4d3",
+    "Client/Source/Framework/ClientLocalizationService.cs": "b93018af5732cc6c90fce101df97e1f0757ef647ea35589e0a2f25876637aa4f",
+    "Client/Source/Framework/ClientLinkService.cs": "af3cdbbf162adae5d65e2d15fea1e79f6ce6b9b9e06b31d51918b14b443a6dee",
+    "Client/Source/Framework/ClientWindowService.cs": "1100ab8f048383d2a726a82033f710d48d6aa2b7ce5f7347af12703002e095d5",
+    "Client/Source/Framework/ClientExtensionRuntime.cs": "6c1f50a7a25e41847fa59527b155d708948bd323e201330195bc50609a274ff1",
+    "Client/Source/Framework/PhinixFrameworkClient.cs": "fe041821a92d2c3a57194233b4583faae40252856f17d28c0e125994231f2138",
+    "Client/Composition/ClientCompositionFactory.cs": "d76f87c0457e886393b16d15882277aa697cc1be0fdae68ad5c3004b64f09cbf",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionDiagnostics.cs": "09270d71e62012046dcf2c0779d2c8dc90027eaff1f60059b1c876d7d3f586a9",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionAssemblyLoader.cs": "c2a3e4af9fa0557d4e811904ca7e43f72d78b1b9c76f6ea37923713caa1a3de4",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionDependencyGraph.cs": "74d8b768f550615d2c12f8468a67b18bab40f609c4641c49df23d990d49136b9",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/FrameworkTypes.cs": "bb4592771e32ca7a9845fd4b732bd5f440ed826d4c01ac6b8efbde32e00a87f6",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/PhinixExtensionRegistry.cs": "c3e38c1b960a3117441e1873fb97a0af9e96743d4b9f78a3d09f9bc3b43ae458",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/FrameworkSerialization.cs": "31a6172031f3be9c0ff1356cef8aee0af1934c22fe1de996669208b5a449644f"
+  },
+  "binary_sha256": {
+    "/tmp/phinix-e2-verified16/Phinix-Rework/Client/Source/bin/Release/Utils.dll": "3b7863f8add4586943b022ab8e8db254e71c414b284c9f30a120b3705055e936",
+    "/tmp/phinix-e2-verified16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll": "7320896e8aa1bd366a00f701fe05eb2352482226a1c6f11132dcd543775b6155",
+    "/tmp/phinix-e2-verified16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll": "70e92b046dccf28aee0ae4b840edfbc6ef0ac700a89a3f7b858b02c26ffeaf9a",
+    "/tmp/phinix-e2-verified17/PhinixClient/bin/Release/net10.0/Utils.dll": "e4a6f91ad3e81e13520d46693a38148cc1df06d31998596b4036c303a112ad28",
+    "/tmp/phinix-e2-verified17/PhinixClient/bin/Release/net10.0/ClientExtensionAbstractions.dll": "297b361fc85cfdde8825b7ea38739e935acc35b7cfaa244722916b216942c215",
+    "/tmp/phinix-e2-verified17/PhinixClient/bin/Release/net10.0/PhinixClient.dll": "c07d7349c1dec8bf047da5e5b7d69b58ee7d501291960621c47ea0543cd47f31"
+  },
+  "ledger": {
+    "baseline_sites": 2343,
+    "implemented": 72,
+    "reviewed_other": 17
+  },
+  "reproduction_tools": [
+    "tools/quality/run-client-error-tests.py",
+    "tools/quality/run-client-error-boundary-tests.py",
+    "tools/compatibility/build-graph-isolated.py",
+    "tools/compatibility/build-net10-graph.py"
+  ]
+}

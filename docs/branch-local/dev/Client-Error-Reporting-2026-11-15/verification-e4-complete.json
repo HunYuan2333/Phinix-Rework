@@ -1,0 +1,1045 @@
+{
+  "date": "2026-11-16",
+  "status": "E4 code migration, per-site review and automated verification complete; M1 integration and E5 game/release acceptance not performed",
+  "client_head": "939e8e2c27e70432875dc2be306856b5a6621ea2",
+  "common_head": "c165f61d749189f700ca896d63d9366d5c71dbf7",
+  "baseline_inventory_sha256": "2cdc0e9094941eba9ee69191d4fa21af3351b838c6523fc5f6dd511ba8ecb9ee",
+  "e4_sites": {
+    "total": 1108,
+    "pending": 0,
+    "kind": {
+      "throw": 847,
+      "catch": 261
+    },
+    "status": {
+      "reviewed-validation": 733,
+      "implemented": 263,
+      "reviewed-propagation": 64,
+      "reviewed-cause-preserved": 41,
+      "reviewed-normal-result": 7
+    },
+    "modules": {
+      "Chat": {
+        "total": 62,
+        "kind": {
+          "throw": 39,
+          "catch": 23
+        },
+        "status": {
+          "reviewed-validation": 32,
+          "implemented": 23,
+          "reviewed-propagation": 7
+        }
+      },
+      "Inventory": {
+        "total": 124,
+        "kind": {
+          "throw": 74,
+          "catch": 50
+        },
+        "status": {
+          "reviewed-validation": 60,
+          "reviewed-cause-preserved": 1,
+          "implemented": 49,
+          "reviewed-propagation": 12,
+          "reviewed-normal-result": 2
+        }
+      },
+      "LegacyAdapter": {
+        "total": 54,
+        "kind": {
+          "catch": 23,
+          "throw": 31
+        },
+        "status": {
+          "implemented": 23,
+          "reviewed-cause-preserved": 4,
+          "reviewed-propagation": 4,
+          "reviewed-validation": 23
+        }
+      },
+      "PluginStore": {
+        "total": 579,
+        "kind": {
+          "throw": 479,
+          "catch": 100
+        },
+        "status": {
+          "reviewed-validation": 419,
+          "implemented": 102,
+          "reviewed-cause-preserved": 28,
+          "reviewed-propagation": 25,
+          "reviewed-normal-result": 5
+        }
+      },
+      "Trade": {
+        "total": 289,
+        "kind": {
+          "throw": 224,
+          "catch": 65
+        },
+        "status": {
+          "reviewed-validation": 199,
+          "implemented": 66,
+          "reviewed-cause-preserved": 8,
+          "reviewed-propagation": 16
+        }
+      }
+    }
+  },
+  "sources": {
+    "Client/ClientExtensionAbstractions/ClientExtensionAbstractions.csproj": "35eaa51d8db3a64c3169d7f828da61c35456aa09af2535f6a8d671fbb24f0948",
+    "Client/ClientExtensionAbstractions/Framework/ClientEnvironmentSnapshot.cs": "10211829c9894640db91aa4b9bdd2a20cd880a261ca54a76b35adc9190dc20cc",
+    "Client/ClientExtensionAbstractions/Framework/FrameworkDisplayMessageEventArgs.cs": "e75f879002961d7daaf94de8084445c9e541fc49e1274e6b00fcbb260e60d03e",
+    "Client/ClientExtensionAbstractions/Framework/IClientApiDirectory.cs": "6b732ebce604418238ab01e6155e1f389f601c0e03371eea1ebb3172c44c2d59",
+    "Client/ClientExtensionAbstractions/Framework/IClientComposition.cs": "3ebff6d2bc77b5b3eaa26d9ea7f1277d26e5d164b2231b0c18c83bef9ca608c5",
+    "Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs": "1af883d86c1627cf61793ef824a4f85aed81192815e8c577aabd9235cd0a0128",
+    "Client/ClientExtensionAbstractions/Framework/IClientExtensionAbstractions.cs": "74d032a9e99d5a170bb542d26accd0a4f19ab2176816b5fbdb30841c69765657",
+    "Client/ClientExtensionAbstractions/Framework/IClientExtensionControlService.cs": "1a8ace094e8314034d17b16c7e2981c440602550a3c1db30a19780a97100d3f9",
+    "Client/ClientExtensionAbstractions/Framework/IClientExtensionManagementWindowService.cs": "4770b6a99dbfde42e6f2f0bcde000d2c7b9e41669bb3b7bb2f49c5c54ba2cba3",
+    "Client/ClientExtensionAbstractions/Framework/IClientGameScopeService.cs": "c057e375534ad9082540dc4f8deae1256b6c66381a7307dc3374e14dac2cb3e8",
+    "Client/ClientExtensionAbstractions/Framework/IClientLifetimeService.cs": "d93a8340d7a0ae06813310bcae46a45c1652599b1a467d840a39f61913acfc65",
+    "Client/ClientExtensionAbstractions/Framework/IClientLinkService.cs": "5c72596b2ed31a0056b031a10d092407ac3065e50a8dbc531ff4b0fe65aae17c",
+    "Client/ClientExtensionAbstractions/Framework/IClientLocalizationService.cs": "b442c5524e0bad151f05b3d43880b8e6880b170b3a80be1d6b44eca3a1e1779c",
+    "Client/ClientExtensionAbstractions/Framework/IClientTaskService.cs": "516739175b51350da03396d4c8f4593d8dc99057161ff494b2ccd238178a5dd1",
+    "Client/ClientExtensionAbstractions/Framework/UserBlockStateChangedEventArgs.cs": "2f73a6be0836250dda1225b0119c348f74f205e9cb15a64de3dee13d94c8d7e6",
+    "Client/ClientExtensionAbstractions/GUI/GUIUtils.cs": "8cd81fb7501f3aee305c64471daaf34782d5f85654c45a72b70e72ca85799587",
+    "Client/ClientExtensionAbstractions/Game/ClientColorValues.cs": "2e291e11e1e7e57c3238da0cd806371720e266c7b6d48cef8eef43d2051c735c",
+    "Client/ClientExtensionAbstractions/Game/ClientPresentationMenus.cs": "fa7d0d800f84f18a8d160d26ffcc3c2dd52c34c1a2f1c65be706c771185542b4",
+    "Client/ClientExtensionAbstractions/Game/ClientTextureImages.cs": "fc786102772aba289a2e508edc412e356fc5d469e67824c70c2cd8abfca9b80c",
+    "Client/ClientExtensionAbstractions/Game/Drawing/ClientGameDrawing16.cs": "6ff3a3ac0fa9e1b76935966e03236078cb9160ad612d67e157f884ec1a4d2975",
+    "Client/ClientExtensionAbstractions/Game/Drawing/ClientGameDrawing17.cs": "fe727780d7d48ff0e73b07b5c4b75c287472f5cd4ebe92fb09c88c2f0557f1e6",
+    "Client/ClientExtensionAbstractions/Game/IClientGameWindowService.cs": "484b0db27d2ff2f380cc54d874414bda17f148b4abe178223dd89dfcde6f7e43",
+    "Client/ClientExtensionAbstractions/Properties/AssemblyInfo.cs": "e9659582aef068efd0863ba8f2afb78ad2ae79c9314c657e7695c631b0c4c7f1",
+    "Client/ClientExtensionAbstractions/UI/ClientPresentationMainTab.cs": "abfa3f77be735906619f3a39b3d57d68b1c4e93bac79429837311e0e83f4c961",
+    "Client/ClientExtensionAbstractions/UI/ClientWidgets.cs": "89b31375472ce4c9d0451a997e9a05b0e92296e24e3351c4cc91fec25077185b",
+    "Client/ClientExtensionAbstractions/UI/IBadgeProvider.cs": "2244d03938dbbf0d204b706c836b2b3fb5a64b574f69b24117516d6e3b264633",
+    "Client/ClientExtensionAbstractions/UI/IMainTabProvider.cs": "6870d6b43d793e07901a283943ad3130520ba99d227b89cfac0668bfb518c5b4",
+    "Client/ClientExtensionAbstractions/UI/INoticeBannerProvider.cs": "b47659b0149ed27f8b6320414f1ea7f13f8bd9645dc86336f5e7aa49da61f250",
+    "Client/ClientExtensionAbstractions/UI/IResponsiveMainTabProvider.cs": "9c2667ab1287e9197f7419ae73e35bfafa3df5219b5060b4a424d8f52f2c9257",
+    "Client/ClientExtensionAbstractions/UI/IResponsiveSidebarProvider.cs": "0d1670a28c5d9439c18b46e9e4ae769c671af2a07af8277c515640a6df4dfb4a",
+    "Client/ClientExtensionAbstractions/UI/IServerSidebarProvider.cs": "e182bcb1a00dfc20126464a4e2f7988731c9570601ca5a9d16f28422a8555f32",
+    "Client/ClientExtensionAbstractions/UI/IUiAcceptKeyHandler.cs": "a1da7122ca4b0d4f07aaaa40886bbe56ce907a755116648ce250ff56edeb646c",
+    "Client/ClientExtensionAbstractions/UI/ResponsiveFormLayout.cs": "3c9d04a54627b7d5ce40f5d76a86eb7f109fce32e4da4fe22be30baf19462960",
+    "Client/ClientExtensionAbstractions/UI/ResponsiveSplitLayout.cs": "a276511dad82d83fb380797a95df2b26a9a9eec2fcfbe75d913170d07ff9579f",
+    "Client/ClientExtensionAbstractions/UI/ResponsiveToolbarLayout.cs": "27efcb3a79c6dba322f824ac8c2e9429dc81631a76497a3cb3e500eb15754e7f",
+    "Client/ClientExtensionAbstractions/UI/UiLayoutHints.cs": "e3e7e1f8c94b5bbd3dadd657a4258f15e22fbae279eb6f36abf0177b7129ade0",
+    "Client/ClientExtensionAbstractions/UI/UiScreenSafeArea.cs": "0b5bf1d0d7dbb4f23019c592d70887b0bb467ba7f6b0d447f38069ae2957cffe",
+    "Client/ClientExtensionAbstractions/UI/VirtualListLayout.cs": "ae76ccf92ac1dfedf746ebb7adc0128dfe458a3772614de286630448b3874116",
+    "Client/ClientExtensionAbstractions/UnknownItem.cs": "afb129bc9fcd7f03dece9e3c9696e893e6b5a3ace15a1619945bf5a24ecd54ca",
+    "Client/Common/Authentication.Client/AssemblyInfo.cs": "638858472f736d891d5af7d790b97d5918adf331c8c8539217807ae6b4c5f94b",
+    "Client/Common/Authentication.Client/Authentication.Client.csproj": "03f81285a0c7a176e4957a58625c992604d0cb1ec51b84e8d40dfe4c75d2bdcb",
+    "Client/Common/Authentication.Client/ClientAuthenticator.cs": "704363d8c47bc9e43305d15f3f769ec2c938ab24be8185f3258102de64383b2a",
+    "Client/Common/Authentication.Client/LegacyClientIdentityAdapter.cs": "b64d8a0885430208bf4d5f4794d43f9c6eb0579db2ec4e0eead20bceac35a500",
+    "Client/Common/Authentication.Client/PasswordlessIdentityClient.cs": "003a0ac2079f6b8908a4c493df29fd1e4c213f74114e8a0ee977aae8ace15b7c",
+    "Client/Common/Authentication.Client/ServerIdentityCredentials.cs": "c215f5ee51a746294bc776a570ccc8dfb63239581309d4012dd363f3c37e2519",
+    "Client/Common/Connections.Client/AssemblyInfo.cs": "36a7a0a95b97d89844d21d5cf3aaec9f3cbedeed53632be60c1652031b5642f4",
+    "Client/Common/Connections.Client/ClientConnectionDiagnostics.cs": "f06b725cdb35ec08aed2a8b333b631dc825d0e861adba0e94e2110cdea3b46f1",
+    "Client/Common/Connections.Client/ConfiguredClientTransport.cs": "76add3c8bfb6ebe9add2416cb636b705e4599c15c8f246ff0cb0ca204410dbc8",
+    "Client/Common/Connections.Client/Connections.Client.csproj": "9939e086042852d60d5932be61aaaa4024e550cba538b1f548cd5351d612341d",
+    "Client/Common/Connections.Client/IClientTransport.cs": "ee9c91b5d469c369be11cdaf86e409c0f9e9f715b900cbb16049924f09691f66",
+    "Client/Common/Connections.Client/NetClient.cs": "f9d9e42349acbbeba799250edf284b8bc415900e3116bda2cd4d4eb475997cc4",
+    "Client/Common/Connections.Client/TlsNetClient.cs": "7c0efa2ebaca755d00c10f8344a4315fb429d78142b428c2ff846d9d7f7b6b10",
+    "Client/Common/Connections.Client/ValidatedClientTrust.cs": "1d25726a136cbfc19aa7de790675521fbf5550e87a10a432afd50c949525c31d",
+    "Client/Common/UserManagement.Client/AssemblyInfo.cs": "db63ae8f24da7cdc8b0d8a1e76530192c64ff1f739bc301b4e8656c83f08731d",
+    "Client/Common/UserManagement.Client/ClientUserManager.cs": "56803a8b80760cb82c89f728475474bbef3a97e2e33f8fc953741dccf16a147f",
+    "Client/Common/UserManagement.Client/UserManagement.Client.csproj": "79d43c8a6b31d76c1c4d992e5271779919600286a94f02cbecf3c59aea2b8391",
+    "Client/Composition/ClientCompositionFactory.cs": "d76f87c0457e886393b16d15882277aa697cc1be0fdae68ad5c3004b64f09cbf",
+    "Client/Composition/Phinix.ClientComposition.csproj": "061afae1d0890f3dd48e41f544c436476b3e1aa110c3aa670e2cc3218e490493",
+    "Client/PresentationContracts/ClientPresentation.Contracts.csproj": "2c8f44c6f4a1faf887bbb79675e9e53bdeacb5b19366db7c7f493003a4ad7439",
+    "Client/PresentationContracts/Framework/IClientExtensionPoints.cs": "5726a28ad2593fccece881ed5e2726f754ee99351e97ec95014b482105b0cd4a",
+    "Client/PresentationContracts/Properties/AssemblyInfo.cs": "daf8341936af40dbe5dbda7412809976e0a48463eb993fabf6ecf74f192baedb",
+    "Client/PresentationContracts/UI/ClientPresentationValues.cs": "96e0b2dcd9c5953778e14e7d6f6e1dc61404ca0a7934d931a8c7d7a314eaf7c1",
+    "Client/PresentationContracts/UI/ClientThemePresentationActionContext.cs": "ceccf6534864feaedb825f7ada4b9fe2eb418a26a206e874aa7486c5b2cd6968",
+    "Client/PresentationContracts/UI/IClientPresentationImage.cs": "2ed9f34eba614fba2e1abb42da3abc7069697a77624a7b35c42cdeceba649f6b",
+    "Client/PresentationContracts/UI/IClientPresentationService.cs": "feff023b0bad629403ef787dd46af3fa747706eef28ae9e51dd09d6a8127b62d",
+    "Client/PresentationContracts/UI/IClientTheme.cs": "1cad56c189840d217f1d4d720113225e07c470e056e4bf6e97324e057b4150b5",
+    "Client/PresentationContracts/UI/IClientThemePackages.cs": "ba9df40fa3a117d5418911d39cc270be6c1256366cbf61b96f32792579703e35",
+    "Client/Source/Client.cs": "e7c35d5beb5a487358be36fd9110ab161f98464d03e64aa015a43e32945f6539",
+    "Client/Source/Client.csproj": "53a9a292acde8961e8389b4ae8b28663b3fb98d89102cc0e10c33b2b69f7127b",
+    "Client/Source/Framework/ClientApiDirectory.cs": "aaeeae7dfc7ebb9362689bf8676069c2958d1c4e6e3221696fd819f91d7eae36",
+    "Client/Source/Framework/ClientEnvironmentCapture.cs": "c3902169a25b969c164ce7714b162dab58771e21f814061e803f69180b8e81d6",
+    "Client/Source/Framework/ClientEnvironmentService.cs": "489f004f4fe75964380af3fe027d86a30f15b11bd795955267735f444b76aec1",
+    "Client/Source/Framework/ClientErrorNotificationController.cs": "7242732a5ac92deb101a2ab41ceeb123f3621d09416810516d6c2447a9cff5a8",
+    "Client/Source/Framework/ClientErrorService.cs": "bccdb002e218a44dbcb80e14553cc128b74567b211d1e2327d0cedca034a211f",
+    "Client/Source/Framework/ClientExtensionControlService.cs": "197a6b23ae3b71cdd682b4d62159674a88f7aef3f304782a020b6837a86df3c9",
+    "Client/Source/Framework/ClientExtensionManagementWindowService.cs": "c1024ea06c2ad87dbe6a7ee1aeb86e750654d697cf3f3f559c26d2a2a33aee75",
+    "Client/Source/Framework/ClientExtensionPointService.cs": "5127862a2715f87d929e1e279528ee398b70384ce7ae72fa4979ea88374f97cf",
+    "Client/Source/Framework/ClientExtensionRuntime.cs": "6c1f50a7a25e41847fa59527b155d708948bd323e201330195bc50609a274ff1",
+    "Client/Source/Framework/ClientFrameworkUserDirectoryAdapter.cs": "ff7be5d6f1ecc85ed6b28e7200f66b52377c6e5839b19ecc0ebac364c89c7a2c",
+    "Client/Source/Framework/ClientGameAssemblyLayout.cs": "b7ce51a4bf0993cee2fe834b885584003e5871ef9235fc6cc6a3abbaa369fdfe",
+    "Client/Source/Framework/ClientGameLanguage.cs": "8e7ffdff4b8ea35a7c640b17a0dab2129a75ad3806e495811cb539b2607e403a",
+    "Client/Source/Framework/ClientGameScopeService.cs": "b61e426d15d16aac348d20b9e99f25b3e264d84ff2673282c4f333616b870d09",
+    "Client/Source/Framework/ClientHostDiagnostics.cs": "4b9952fd15970ca8da701ff7aab3ca763417b5c94f8dd81150a9a2c0e03a8cdc",
+    "Client/Source/Framework/ClientLifetimeService.cs": "3345973bb86c41b4519f6851d01814253bb218e0274f873f998d0fda50033db2",
+    "Client/Source/Framework/ClientLinkService.cs": "af3cdbbf162adae5d65e2d15fea1e79f6ce6b9b9e06b31d51918b14b443a6dee",
+    "Client/Source/Framework/ClientLocalizationService.cs": "b93018af5732cc6c90fce101df97e1f0757ef647ea35589e0a2f25876637aa4f",
+    "Client/Source/Framework/ClientMainThreadDispatcher.cs": "5f288fe5342eae634272480a766f608cdf8b625f7a576fe1cdbe6a4e0dafc6e4",
+    "Client/Source/Framework/ClientModuleLifecycleObservers.cs": "3d1e8f244ca06bbd05d0b44806dd4f552b89e03862b64f0599b9a200bb235d48",
+    "Client/Source/Framework/ClientRuntimeAssemblyFacts.cs": "cedde4dbd479998cf7cd2135373899bca61d20879e62b768afa8cabb88e50b15",
+    "Client/Source/Framework/ClientSessionContextAdapter.cs": "e4d1ff5d337792530ee592ad91002c1b8bd9297035c31d4d589ac1b45921530d",
+    "Client/Source/Framework/ClientSettingsContextAdapter.cs": "44d179ff8c9385ec1cdcb010184fc261f3b54c923f83d10af23c5acdfe7bec0a",
+    "Client/Source/Framework/ClientSoundService.cs": "ad5c5b8d61980c2742e4026893458fffb47d7dc8309fdad4142719942227312e",
+    "Client/Source/Framework/ClientUserEventStream.cs": "ae144636dd76e5499767f87ad068356c9c7f5bb2906aec68a35f6a5a3e42b57b",
+    "Client/Source/Framework/ClientWindowService.cs": "1100ab8f048383d2a726a82033f710d48d6aa2b7ce5f7347af12703002e095d5",
+    "Client/Source/Framework/ExtensionControlSettingsPanelProvider.cs": "e9798472d6b9db2b0155bdf45c537521dcf3a512ca52d418e8d3c53938a3dc07",
+    "Client/Source/Framework/FrameworkAdmissionControl.cs": "99ae696e7de5e39d8317b7ea579187e4d71b6040e77badfc0423d451ad504d93",
+    "Client/Source/Framework/ManagedExtensionDiagnosticSummary.cs": "3ccaccf53bba199e1ca08c3434ad7c1995913148615cd182669fb832e1cd39fa",
+    "Client/Source/Framework/ManagedExtensionManagerController.cs": "34d91bc11059d478b11ae73a912b711e64386f3e049460f150aa63f9fcba0081",
+    "Client/Source/Framework/ManagedExtensionManagerLayout.cs": "880b46dd192e883617671424b3969503ee18867f71127363d4a888b0a57632f3",
+    "Client/Source/Framework/ManagedExtensionManagerView.cs": "132e97c4d8a6a7e9efc9b97edaa3f21e99f9cf92b5d3eeb050d0c6e875068a49",
+    "Client/Source/Framework/NetClientLegacyTransportAdapter.cs": "0f81d00f05a5e1f800a7ae51a8e3c3b81adc282139f7751d107a7fdd7524f497",
+    "Client/Source/Framework/PhinixFrameworkClient.cs": "3a0be3a13b20a582b904f424f068b7f87dead099b1b13c7f2cf3e976602a775f",
+    "Client/Source/Framework/StaticActivationPolicy.cs": "913a505a79570e54be20cf17feb50f54626645f51c86689738e6cd69c8571a5d",
+    "Client/Source/GUI/Basic Widgets/BlankWidget.cs": "2c50f274259339c3e94980e16429434e46e0c5cd23acf08769a264e6f0c13b19",
+    "Client/Source/GUI/Basic Widgets/ButtonWidget.cs": "8588712cb8419b1e75b8b33d02f49d981b8c606c818cabd0c81dd3e30bc09802",
+    "Client/Source/GUI/Basic Widgets/CheckboxLabeledWidget.cs": "0f2181af38c6ee3cdc1001a081edbee4d40058c0bd7946877ef6129595e794e4",
+    "Client/Source/GUI/Basic Widgets/FittedTextureWidget.cs": "06da399f8803de147bbaa46faa803217372897644e9f551771ca037b2d255365",
+    "Client/Source/GUI/Basic Widgets/PlaceholderWidget.cs": "486bc47f27e33eee6929651d019ed1b69f5d187a714c9a9f25e6e55c18a962af",
+    "Client/Source/GUI/Basic Widgets/SpacerWidget.cs": "b5aefc95b4616fa5f1dead1b86a380f76a28e1d19c085264badb7b959a611e7f",
+    "Client/Source/GUI/Basic Widgets/TextFieldWidget.cs": "034199fc3abe20fa1dccbcc838acaebed65dc3b11fbee947710466bf493b8e8a",
+    "Client/Source/GUI/Basic Widgets/TextWidget.cs": "36ace01fc40b77d9bae97a62042beb0f247b43009d2fda76c6b6ed2e998e89fe",
+    "Client/Source/GUI/Basic Widgets/ThingIconWidget.cs": "a07325c4896ad6098bb20d66cdc6257a34e0bf59b4107136629065f139382785",
+    "Client/Source/GUI/Compound Widgets/DynamicTextWidget.cs": "d928e49dd8658f0a1068d56c2d359a24d4951c5cc58ee1285bba79e01637a05d",
+    "Client/Source/GUI/Containers/ConditionalContainer.cs": "57f2a49d39a8ed85d4f76a73979736adf38ede6e1fa78c449716a5506b91313b",
+    "Client/Source/GUI/Containers/Container.cs": "a54576e96010f4757d42d7dfa958e63b48109fb5238a1ebc22070e5443227476",
+    "Client/Source/GUI/Containers/HeightContainer.cs": "fc7f3bf95c448ee32b8cbe95ea17b27283cdb02bee097c1609b48649ffd3f0da",
+    "Client/Source/GUI/Containers/HorizontalFlexContainer.cs": "0ce6b0f1a7fdce21ff17fea89ac8caaf5acc1acee4ba7893edf8e6aa63d74bc0",
+    "Client/Source/GUI/Containers/HorizontalScrollContainer.cs": "77f71fcea7e3940731482142d038d68b1aed2b0af25310fd18b28ae3cd7f58cf",
+    "Client/Source/GUI/Containers/MinimumContainer.cs": "760cc5b8013261ba976ab577e9879588ba77d004b697642bbb04aa6bc5f95d10",
+    "Client/Source/GUI/Containers/TabContainerEntry.cs": "65e68034dbb124a8de8644c956a28b2dbacfb2060ac5de7778d6d7bf6ce6dd70",
+    "Client/Source/GUI/Containers/TabsContainer.cs": "e334d1de5657ebfe5d7c5c7ffb9ed22884da5db54cf8619ac599e26f158d91a7",
+    "Client/Source/GUI/Containers/VerticalFlexContainer.cs": "868b31042b9631340e8a4654fc38fdcd4f19b91b3bf659959d173442cf926008",
+    "Client/Source/GUI/Containers/VerticalPaddedContainer.cs": "1d8624923a9be82cf0cd55d142515ee0f28bd607988e59d22d20ee423f426bde",
+    "Client/Source/GUI/Containers/VerticalScrollContainer.cs": "0575030efeb2a867da65a9bd1d0988d5e95a96e35250096ea3db2fbfb72c27e1",
+    "Client/Source/GUI/Displayable.cs": "ae2024ed92446433bb19d2cf591ef95f8935db6d01d52b98da58bfb7f530b901",
+    "Client/Source/GUI/Windows and panels/CredentialsWindow.cs": "347e6d84fdc401660ecbf81dd139de018d0f070c69912165f1c0ba8f4e57f921",
+    "Client/Source/GUI/Windows and panels/ExtensionManagerTab.cs": "56ca65ce0d67b342e177f1ff62319f2e3c4c52a1dc9d71a278471cf3c3f19f9f",
+    "Client/Source/GUI/Windows and panels/ExtensionManagerWindow.cs": "3d94435ce9a043727bcb5042def55ee1536787fab3494999aeba0a06b5549e29",
+    "Client/Source/GUI/Windows and panels/ServerTab.cs": "c7376a95ad5346ad9f8970b25e3e0952bb4a21422a9e88d24fb16cff0507f195",
+    "Client/Source/GUI/Windows and panels/ServerTabButtonWorker.cs": "1594c759e6712f960b0e2b75db51d7e816f98722f406b070f14588d18a2c399e",
+    "Client/Source/GUI/Windows and panels/SettingsWindow.cs": "dde72ccf95dd932eefadfcd95b9c6bd0359ca5fb5c6e69558518d4a5f4bfd718",
+    "Client/Source/LegacySettings.cs": "7e95752c0b52b2d9384dcf0994b03e8049c08aaa1946359d67c1b42142e32ee2",
+    "Client/Source/Patches/RootPatch.cs": "b4ea0be9ab84bb4c6a606d8b223413d811fd94bd956dcf3eab8d2e4db26e22c7",
+    "Client/Source/Properties/AssemblyInfo.cs": "8fe1dc8afef9edf5856215b2cc1154a298384db2f7c6e14bc7eb597e48eb5e76",
+    "Client/Source/Settings.cs": "60bc36c001d1f8ae2896734489df737aba2caf2cbd7f4bbc745301117b0e41c8",
+    "Client/Source/UI/ClientErrorWindow.cs": "3789ddcfaeb82d2ff1d832dd1912be3dbf0e0849dc67d00ec01816d5ad600c9c",
+    "Client/Source/UI/ClientPresentationFeedRenderer.cs": "3b7072816314051cd6035b281b1c607c457e346d9c602b39b15c4ee2be2add39",
+    "Client/Source/UI/ClientPresentationService.cs": "b490bc5e3b272672f4993f8c97d90ccc673fa6e2b5d732b77c08417bf8ae3f5c",
+    "Client/Source/UI/ClientThemePackageService.cs": "3cc0b62290f61164f8285b832c2e01fcc80fda11a6b54a9b16c55acbf6691be8",
+    "Client/Source/UI/HostThemeDrawing.cs": "892b6da19ad2893e2ede8225897c1aa3b631afd517726ebd9bae67d8d94c49f0",
+    "Client/Source/UI/LocalFileLocationAdapter.cs": "5ccf830e5d3f2ec28ae90914178a764edc7c8b9254a3555dd976c88573378eb4",
+    "Client/Source/UI/NicknameDisplayMarkup.cs": "85dab301bda79ef064447a2098e918a0f6e079e6f50068c0293831665a178858",
+    "Client/Source/UI/NicknameEditState.cs": "c62a1ede59405abadae16c8d7bdf53e21beb7bc0838df32085c5c3f926551794",
+    "Client/Source/UI/NicknameWindow.cs": "c43c4a627abb11eed559868d1b43ba160d9a0f3078bcc3c66315ea93f350e52c",
+    "Client/Source/UI/SidebarResizeCursor.cs": "f884cba4eb97b1bb0bff367f4c5f332ec7ea67f191992b49663748ace7e4e998",
+    "Client/Source/UI/SidebarSplitLayout.cs": "11a20f0bee83ad77f013eab0bad1fce4f972fa2c0a17a46073256c5a0f0b301d",
+    "Client/Source/UI/ThemeDraftValues.cs": "96795352abc63ececd727872037dfda6881c279c6c298c5499452e70522b5a58",
+    "Client/Source/UI/ThemeInputAdapter.cs": "e5e63bcbe8132b44ff67e2cab90cefefb7fdb08a2100a31ea45e009a33127d0c",
+    "Client/Source/UI/ThemeLoader.cs": "9e99fede6fd7b7c98516f6409abd7c71dce830e46c148199f95f40d36d5bcb80",
+    "Client/Source/UI/ThemePackageExportWindow.cs": "310cd7f768544db1602a324e2cbecc82f2f2d91459cc16ecce00f890bfed6508",
+    "Client/Source/UI/ThemePresentationWindow.cs": "86b573328edc108c6fdf29342b4a4b566c3d587ebeb7f06da44ec26626b575e1",
+    "Client/Source/UI/ThemeSettingsWindow.cs": "af3304edd8a4b35d3292fa9ba2285aef3fdd96f7a300d47bdfaad36b2d1e0f7c",
+    "Client/Source/UI/UiTheme.cs": "872a347295264cb9721b7e5454ec6b0fb4b214a7feb30f6bc56fdebef3d5186e",
+    "Client/Storage.Contracts/ClientDatabase.cs": "4af85645d4aa482d0aaf93b1031cca7fec4fbb09072592a2154526449ba6a945",
+    "Client/Storage.Contracts/ClientStorage.Contracts.csproj": "ce1182cb196db26e0fea7ec2de519f18d18512293b82e7514d2c5edfa669585e",
+    "Client/Storage.Sqlite/ClientDatabaseService.cs": "22f5027fe869276cd7e5878d3f8fc87c92d9bcaa3e4d919ea5c1e65d9b0dbd1d",
+    "Client/Storage.Sqlite/DatabaseDiagnostics.cs": "007c5f8f3428a24902fa4f387c679cdd693be000400b5d649058787278a151c8",
+    "Client/Storage.Sqlite/Phinix.ClientStorage.csproj": "9ab3c8e48ed643e1013c1515c9b8a592b053c4ec0f68c189f372acd2267d0cd5",
+    "Client/Storage.Sqlite/SqliteRuntime.cs": "07d7cebe2c26a360746914ada3e5475f4aa1e294667540eb68fcd1470d1bf946",
+    "Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionDiagnostics.cs": "8e2b9218444aa70cceb62035d63353255b761d2c26ef59a71b92ebd715a57f1e",
+    "Extensions/Chat/Client/BuiltInChatClientExtension.cs": "bd258d81e4f7b23644a02d319cb5137156ad276a34f38eba77860ebb1a943735",
+    "Extensions/Chat/Client/ChatCommandHandler.cs": "d97a2ced9a396b4af41fa457e29de2ec558c2068fda725140d202078d618bb34",
+    "Extensions/Chat/Client/ChatDiagnostics.cs": "80fe561f2ffce4e631a6df27e009e2c724034b34c9eed51843f5aa8563272aed",
+    "Extensions/Chat/Client/ChatExtension.Client.csproj": "e4df4aaad235518bc59c0a501686d6465139c3caad506db52cb486d29db50a2a",
+    "Extensions/Chat/Client/ChatImageDownloadQueue.cs": "ef093ee4a74f3f8de6f6483ff23245d3b088140c200c32f992a898df9e828e3d",
+    "Extensions/Chat/Client/ChatMainTabProvider.cs": "e178cc56b61a758d52560dc29976aa8bcaf2629abbec90cf0f7225698364e7be",
+    "Extensions/Chat/Client/ChatMentionUtility.cs": "70a2b6dd67311dc7af9d7cd1836f3be812def83c5600483def50f87244a94ca8",
+    "Extensions/Chat/Client/ChatMessageActions.cs": "56f5a631a000041bc6e78ad9fe999dc061dac23bb5e4261d78194fe7a7723ef1",
+    "Extensions/Chat/Client/ChatMessageHandler.cs": "f4f8adff77dba135dedcbe467ccb6f168ad462cffb2c9cbc3ab48ac0b13591a0",
+    "Extensions/Chat/Client/ChatMessageList.cs": "52fe0f1bff77c00c5f176cc03187c70ef9118367d21ce25db89cba54587158cc",
+    "Extensions/Chat/Client/ChatMessageRenderer.cs": "fa45be99e59492a91aeba752ebda67fa15dbe8deb0b7166532dc0d7c6b17e0f5",
+    "Extensions/Chat/Client/ChatMessageSubmissionAdapter.cs": "2059f3d89d9608900f9217d7ac46e7f7bf5f5718f095551da343edec1978af22",
+    "Extensions/Chat/Client/ChatSettingsInputAdapter.cs": "abe2be79b60b530ca414b102bf0e63659a05883770b6dd28f23e34524de01247",
+    "Extensions/Chat/Client/ChatSettingsPanelProvider.cs": "4856e569bbc48865cd26ab673ac4c7d38a2a9f48c92f6dd82efcea24dc1933bc",
+    "Extensions/Chat/Client/ChatSidebarProvider.cs": "75ad7f1356df6229e2e92aa40411c0b55d0483089b83ec8237c4b2b0b2c4cf0e",
+    "Extensions/Chat/Client/ChatTheme.cs": "e9659f9f7702ddd2c934427ec8909a66c32afb9c4b145cc758141aae4c030ce5",
+    "Extensions/Chat/Client/ChatUiHostContext.cs": "078079a9541f2ca15a205877e5ecefa3e413656000a4ceea8e323d50b735768e",
+    "Extensions/Chat/Client/FrameworkClientChatServiceAdapter.cs": "90feb8212f65f11bff59dba8d18219bff9b679245544ae0f28cd26775ea20070",
+    "Extensions/Chat/Client/IChatTabContent.cs": "621ea45538577376d600014238a6c86b71b79948966d87054feba77aaf5b401a",
+    "Extensions/Chat/Client/MemberSidebarPresentation.cs": "ce71aa20959156c5274107e79c49256baa0f3349da37daeda37d7024dc1310b3",
+    "Extensions/Chat/Client/NoticeBannerProvider.cs": "01d7e964d760b4e0993aaa103cdfe550ce9dcd4e60c119166235efdfcaeb332e",
+    "Extensions/Chat/Client/NoticeSidebarProvider.cs": "76f55339b102d822810553539efa13f6238d21e45f01465c56f8eea1ed61f4e7",
+    "Extensions/Chat/Client/PhinixFrameworkChatService.cs": "22bb65c809d05194e4b21fbd6f25ac646081e6f0ce851bdbeed72629066ed7e1",
+    "Extensions/Chat/Client/Properties/AssemblyInfo.cs": "9d4cdf0cee7ffba49802b14eb9525f17b5d1862dfccb0bb260338f379d060b63",
+    "Extensions/Chat/Client/UserList.cs": "624465f95365a0a18f97998044778a64de566707e75f71a3d8c44f0693e61449",
+    "Extensions/Chat/Contracts/ChatExtension.csproj": "5e60aa5c963089b9f7c44707e1a6973a5daf3ebdb6da1df5a05a83072a6e6fd1",
+    "Extensions/Chat/Contracts/ClientChatContracts.cs": "073ab1e3dd3fcbbc2ec666c0864401454621bbf06c744b87f0d3f625d11a395f",
+    "Extensions/Inventory/Client/BuiltInInventoryClientExtension.cs": "4689ca38d7eecdca69a6edc3256be03ca53f63b7d1856e532c4d0075fda6ae76",
+    "Extensions/Inventory/Client/InventoryAssemblyInfo.cs": "da890b3d8fc80caf0c32d53d3052209275dc3c2de518d4dfebb5f0c0f682df31",
+    "Extensions/Inventory/Client/InventoryBatchExtraction.cs": "368d8c7f0ffcd11259416b34543401f4e82d81a639b0ea1e0793a28e92fff4e9",
+    "Extensions/Inventory/Client/InventoryDatabaseStore.cs": "c0d142ced7a50b3a238e141f4b0ae41e05ea19ec0e5946e888a5697f9e3253ef",
+    "Extensions/Inventory/Client/InventoryDeliveryChoiceDialog.cs": "7098b573c3658625de7cb0b2234750d0d6a132b0d6122257696a43cc5005d6e8",
+    "Extensions/Inventory/Client/InventoryDisplayGrouping.cs": "81c8089fd6c0b991fd61e55135c2a595a7b534534c6f778dedb96338d87fc999",
+    "Extensions/Inventory/Client/InventoryDisplaySearch.cs": "7e6d3bc7708393997b8d12d29badf58d4859aac429c241ac7bb56c55eeb83116",
+    "Extensions/Inventory/Client/InventoryExtension.Client.csproj": "5eb7e57c4fb1f9e6c3b676de94d00fbbf344a855916671031ab4ef7f16f7fa2c",
+    "Extensions/Inventory/Client/InventoryExtractionBatch.cs": "2ca9556103882657fed443c5a8d8c131a51cecc9822c1f42847fe5d4fef3e69a",
+    "Extensions/Inventory/Client/InventoryGameComponent.cs": "1341abf852c2a42c50feb37ed3204dc6f0117b9f2fb1e8d53ae1dfdcb2961126",
+    "Extensions/Inventory/Client/InventoryIconCache.cs": "fc7c7cdf775933963dc2cb9f571d5941182b5a53b9f25f3737a2e22266e54ada",
+    "Extensions/Inventory/Client/InventoryInlineDraft.cs": "163a04a7d6bef15c2d94895c822b4cab963adf72100c8b7353b55085b181a6d5",
+    "Extensions/Inventory/Client/InventoryJournal.cs": "4c17919de210d966a1bb603afa8f3a755748de8945c8c54b11524c4b31086d79",
+    "Extensions/Inventory/Client/InventoryJournalCompatibility.cs": "27f3203c4c85cc8819da4143efef52e5eae1bbfbcc9fa18442d841661e4c6d88",
+    "Extensions/Inventory/Client/InventoryLedger.cs": "4019c196ec3aed80aba5ab974ce7242af908f1026067c03a30db37b1e72cea51",
+    "Extensions/Inventory/Client/InventoryPlansWindow.cs": "25f21009fcbfce5f02dd2b5181b4051e7effdae9ad586eae6693ea1c646c31b8",
+    "Extensions/Inventory/Client/InventorySaveCheckpoint.cs": "a2f84bb8d2d753941f03864b0355ccdcb4879714d0e3911378065f5973eddecd",
+    "Extensions/Inventory/Client/InventorySaveIdentityPatch.cs": "f3b1516b7e275758fcc80fc20f966a400870109dac69f48206dc5d850002000c",
+    "Extensions/Inventory/Client/InventorySavedDepositReceipts.cs": "44e46f686e27bc47fd460dd5afce472f06313795dbd10299169b45f31e14903b",
+    "Extensions/Inventory/Client/InventorySettingsPanel.cs": "fc9b427221c272de60036f941b17d9997420c88ec74bf9f5c99c2c1893ce3d02",
+    "Extensions/Inventory/Client/InventoryTab.cs": "de8e7a31b03d8b26ba977ee11978daac26219ffd04d1f16e41176fce41b8f5a3",
+    "Extensions/Inventory/Client/InventoryTheme.cs": "54371d20c995ea8ad780c7e1dbafae5ec305aa5f919b523f2da5a08445c08739",
+    "Extensions/Inventory/Contracts/InventoryContracts.cs": "2da170b4bb52fbdfa49c0998fa712eabfad01cf7b24c76d81dbecb32bab4473c",
+    "Extensions/Inventory/Contracts/InventoryExtension.csproj": "05f4422160e76f29f518184ac24fc82ad71bc2290e4b12dfbc493aa7103d561a",
+    "Extensions/Inventory/Contracts/InventoryGameContracts.cs": "82b5b25f461195e02b753f3bf5962dbaeb124d215ab9acd3d28cc79a0b11f033",
+    "Extensions/Inventory/GameAdapter/InventoryDiagnostics.cs": "c7f427a933c879bfc4002f091835b2ab911979a024e2916b464e94b3e6b77c7e",
+    "Extensions/Inventory/GameAdapter/InventoryDropDelivery.cs": "a9e763649d170c1405435e8889dba5601d4d8986add89f16e5e1fa7f886a601e",
+    "Extensions/Inventory/GameAdapter/InventoryExtension.GameAdapter.csproj": "e7dba062b443fb49b44d5760eda5b2c123eb592130e9a7dd282e2a0f4559af2f",
+    "Extensions/LegacyAdapter/Client/BuiltInLegacyAdapterClientExtension.cs": "71ba9b8fc8b2c7a3eddfe3cb1feeed7e7ce2d584de63bf4a2e0c69103db82e97",
+    "Extensions/LegacyAdapter/Client/LegacyAdapterDiagnostics.cs": "1ba1bba2002053b0bab85eceeef1781820c8864da29c2b499836c4da66d9eefe",
+    "Extensions/LegacyAdapter/Client/LegacyAdapterSession.cs": "3c6a16021485bb29a69fca99d147fd899d4ebf30c0ad5be11780ae6dbf35d68f",
+    "Extensions/LegacyAdapter/Client/LegacyChatProtocolAdapter.cs": "aa3721dd863c34ec6292df7ab814488f14a23e4954acbc79adc987da7226f080",
+    "Extensions/LegacyAdapter/Client/LegacyTradeProtocolAdapter.cs": "a073688b50d414c368e794a1339dbb233c5fd08e09d9bbe20221e1975e7451f5",
+    "Extensions/LegacyAdapter/Client/PhinixLegacyAdapter.Client.csproj": "2227608cf986b7524d31823a8a36f5185a3cb1ae060243930cb6292dd061287c",
+    "Extensions/LegacyAdapter/Client/Properties/AssemblyInfo.cs": "285b8444ec49c327efa22ebe7020c8caa3eb0bbef6fa6b1654251ac8376c01b8",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Chat/ChatHistoryPacket.cs": "bbf81c91b4594c86f0332d1e61dbff40d08f2b522ac5acebc6d05da0a68926db",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Chat/ChatMessagePacket.cs": "e991a9ade23de0824e265750ae71ab7aba523999887b992fbad5d61acf4b39cb",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Chat/ChatMessageResponsePacket.cs": "aa940567e1ac5b760cde510e5b244da09759668aeb3ae1d3b9b72fedf61a4a1c",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/CompleteTradePacket.cs": "71c528f0f8d689cc2b37831f845ec06f4c8497c36b7327d750bcaa0862e2be55",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/CreateTradePacket.cs": "71c860d0f01fb473443c6213a18112f7f870cff4ba6af9d51b8d1c2a63a52640",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/CreateTradeResponsePacket.cs": "4451241e18c13d45d17ef262d0fadecfd21a6e2b610fe29f205cf38e2e333150",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/Quality.cs": "61dabd369086bc3d325f8d1f5f8556a0d369439e76279292bee34a8bb020dc0f",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/SyncTradesPacket.cs": "80a3d63327289d2e227b1614d32f640016ad8b81cfbe790a59a493fbff8f88f0",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/Thing.cs": "7ca99d0431d17584394b6daf27f70207f695bebb0de342c29e04e27415ba45be",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/TradeFailureReason.cs": "38231647b60810c3b795a7756f392c7bb122183d3c83d071e65d3711aef64b3c",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/TradeProto.cs": "8d02bfee4909c3b83c5d9e46840834f521503d016756cd863efa5a09d4d41774",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/UpdateTradeItemsPacket.cs": "6b9cfe7aca6a8f66efa9f4069efed957e1534be6d051f778dce902a161c4f2e2",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/UpdateTradeItemsResponsePacket.cs": "5a58fbef3adf48a13536cca6ee4eb75128e908908b38de319c51f4880b807e4e",
+    "Extensions/LegacyAdapter/Contracts/Proto/PhinixLegacy/Trading/UpdateTradeStatusPacket.cs": "2e74039377c2f023470addb4cd5e19777d498c41ccfe068ce42a321a5008c7df",
+    "Extensions/PluginStore/Client/CatalogReader.cs": "a610c2d55c61e1ac26e6a1efb07ecce041b19885c4795ca6a2c3ab11f8d4c988",
+    "Extensions/PluginStore/Client/DependencyPlanner.cs": "32158aa410959c880ecd1e2cb7813ae1c4fafae3bd44e0e32ca59af5cc676a24",
+    "Extensions/PluginStore/Client/GitHubRepositoryAccess.cs": "e31cc8603970bcd87fc3108e323362b233dedba531e3802c0781db84783c8187",
+    "Extensions/PluginStore/Client/LocalPackageFileWindow.cs": "47fedc7a3886d7fc0073d0f944ba1c5439481e1a345adbe21fe309d45c1ab3a8",
+    "Extensions/PluginStore/Client/LocalThemePackagesWindow.cs": "b64242f3bffb4ff5e5d7fb59a8bc10c854f36a17192a35882eb394fb41d78ac1",
+    "Extensions/PluginStore/Client/ManagedInstallation.cs": "ebf45a473dbd57122e200d2093384c1e01abcba225e7f0aa2de7699deb9ed7d4",
+    "Extensions/PluginStore/Client/ManagedLocalImport.cs": "baf89ee7197bc05c6c477a8cb3acf4b59d03394a932bfdcd8b09b7c14f7102b2",
+    "Extensions/PluginStore/Client/ManagedPayloadTransfer.cs": "f79dd176a0b4a6a9da755829a5c07be9ab4d58d86e5f89789e6518b6dee06796",
+    "Extensions/PluginStore/Client/ManagedPluginStoreView.cs": "cef3b935c27aa5e805e04b244a226420f9d5a206084aa26db9df12451b1dd236",
+    "Extensions/PluginStore/Client/ManagedRepositoryAccess.cs": "77b9820fe1bd1ff094da2e455a2914978bea2e5883d91afc818f994c015b5764",
+    "Extensions/PluginStore/Client/ManagedRepositoryCache.cs": "8baa1117dff615d5a90569008ab4d435b63205477d04ba4e21c015886ac4a026",
+    "Extensions/PluginStore/Client/ManagedRepositoryPayloadTransport.cs": "50a8e1aa82ca0d9395c0426a4edb8d696ec8ff5476567a7ed40a2b8c53739671",
+    "Extensions/PluginStore/Client/ManagedStoreCatalog.cs": "2f1c3dd4b4ab11be5526c27d2d726a95f0e1a53d20edee7f451c8ce7bb295f70",
+    "Extensions/PluginStore/Client/ManagedStoreController.cs": "b68ad24f2a3894e5a299ddbd00d8e096293548c28acb27d51609de692434a0b9",
+    "Extensions/PluginStore/Client/ManagedStoreInstallationInput.cs": "ab41009a5641551db8f205df925bb8c803fae02799e3dd30ad585c3da58da34a",
+    "Extensions/PluginStore/Client/ManagedStoreLayout.cs": "8befcd2ec584c576e117daf2c54fc43e7fc130d77f5d0ebdbfa176f7ed70528e",
+    "Extensions/PluginStore/Client/ManagedStoreListing.cs": "b3a7e00a7650193dc21722635b51b5b77ef2fb7bd5acdd530e49b08072011241",
+    "Extensions/PluginStore/Client/ManagedStoreOperation.cs": "092a3e2b1c7bafe9b46687e99a566ea7b300e539dd6cabd8fb57bdfeb1f7e3f9",
+    "Extensions/PluginStore/Client/ManagedStorePayloadValidator.cs": "2c2120f80f00beea669355f21b2b836d061613b2fd1c1b3a432f8faadc68eb73",
+    "Extensions/PluginStore/Client/ManagedStorePlanner.cs": "32cabf93768da11f7b096a126418be56ad639583fd93a0279604d692266a4192",
+    "Extensions/PluginStore/Client/ManagedStorePresentation.cs": "9eb47098b5d97602f20c5708c464405490327984bab3377ec2a786f590459a8b",
+    "Extensions/PluginStore/Client/ManagedStoreProgress.cs": "136d1e125d8a0288cc3d5ed29904d240f2afb9538244fe375f1c405040c9c470",
+    "Extensions/PluginStore/Client/ManagedStoreUpdates.cs": "a2601f5a728a63d2eebd3cb90387a7250e98854922a9f6ba8bc2834d102bb1d4",
+    "Extensions/PluginStore/Client/PackageModels.cs": "638d380c605b2ad95f126612f2edfe66f3ffb3212c9ad1f375afe77bc449d0e5",
+    "Extensions/PluginStore/Client/PackageVersion.cs": "d4db6465504fecc8c5164d9c1046ff9f9a61a97b0e51bf75381861b193f94219",
+    "Extensions/PluginStore/Client/PayloadValidator.cs": "272ad77f7710ec2af32466e0e0ee63fd35442c5e1f00b66e32f3f0cff2ef2664",
+    "Extensions/PluginStore/Client/PluginStore.Client.csproj": "a3ee28b84817a85dc37593835b2c04207aec6fdeca4681d100a95ffc22a94123",
+    "Extensions/PluginStore/Client/PluginStoreClientExtension.cs": "38c87d381ddfd31989c8414bbe69f4b1c826134ca344c9d5c0c3d9bb55cfebfc",
+    "Extensions/PluginStore/Client/PluginStoreDiagnostics.cs": "c44c018c7db52da216bc35d8faedebd0203eb1d878612db6f6e02ccbb8c8c6b9",
+    "Extensions/PluginStore/Client/PluginStoreMainTabProvider.cs": "502ed805c19073352db6959feebb5478659864b5a850105ac5bd78a110844439",
+    "Extensions/PluginStore/Client/PluginStorePresentationActionContext.cs": "6e16067152d88c1ed626bddc4492694dcfa93001898edfedf34488fb6e7f0498",
+    "Extensions/PluginStore/Client/PluginStoreSettingsPanel.cs": "6cb8b7eecfd3405b915847eb0172b61ce49ae2e7cd0261e8efe90c35e9cc93a6",
+    "Extensions/PluginStore/Client/PluginStoreUpdateBanner.cs": "0264789d34f64ee103f5eb9705cd07e5ee2b59caedfcd5235edd6fa5bdb2f2de",
+    "Extensions/PluginStore/Client/PluginStoreView.cs": "b0b5b3ce1b5d269cc4db212470031e2cea5e98fd6c80cde631785a793fb49ade",
+    "Extensions/PluginStore/Client/PluginStoreWindow.cs": "5c32935f0f798dca58dbc557a84f5eed67b3a22ef4cb92d3b7db4940e06ea2f7",
+    "Extensions/PluginStore/Client/RepositoryCache.cs": "973aac5cbaf41b3200bdd6a167a60349c3dbb50b065c345e1b934e554ed9d0c1",
+    "Extensions/PluginStore/Client/RepositoryDiagnostics.cs": "6c9d6e554dd5becf62b8ec4fb823ac7bc62b397ebc199a19685e4927f3907b5f",
+    "Extensions/PluginStore/Client/RepositoryMetadata.cs": "15bfdf4379f700fe643a42f696c8c92ad433bf6f9cb2da1b34eef53e07fe9c50",
+    "Extensions/PluginStore/Client/RepositoryPayloadTransport.cs": "1430d601f93f101fa36655a1fa3836ae7277040e1ce9d2a3ca12b403236ab2d2",
+    "Extensions/PluginStore/Client/RepositoryTransport.cs": "83e5f56e2647380f6f5249621b47d92fc78428e54abc32f04ec72edd2e3c637a",
+    "Extensions/PluginStore/Client/StoreActivationServices.cs": "4645cf204ed3d26b643c10cd5f81eb138b0e6679c3aeb7e6125f92fa64947f1e",
+    "Extensions/PluginStore/Client/StoreBadgeIcons.cs": "fc8a101b6b9a4d237b801fd480e4a76875069b6921ce8e0c8b4d1b5f2fb783c9",
+    "Extensions/PluginStore/Client/StoreBrowserController.cs": "99b8bd98dfff7c4b15fd64267a460a02e6a3d101420424c7a56a33dfe6ec6908",
+    "Extensions/PluginStore/Client/StoreBrowserLayout.cs": "c59b0965faaa5c628c15f8c48e98acc109708f0e85d124baeba41a19420c4a79",
+    "Extensions/PluginStore/Client/StoreEnvironmentAdapter.cs": "74dc85ead7a568b70198035f265d6df074d8313948db7f8bade0d536b2f00f44",
+    "Extensions/PluginStore/Client/StoreEnvironmentRefresh.cs": "ac90b7bbd2a122c496556b150aadd28c13876fd28c1da6e1a029a8d727a736d3",
+    "Extensions/PluginStore/Client/StoreMaintainerRegistry.cs": "4710b3836865fa5bc57db8b1b4e0898c33528434bb1c85a909e5a66ef4a8a188",
+    "Extensions/PluginStore/Client/StorePresentationWindow.cs": "042137765d0063094f75d876b086390bb9eee18209b515e01a65dc0f859ce91f",
+    "Extensions/PluginStore/Client/StoreReleaseNotice.cs": "bd7d05a4353c22d8c169a3f3fe321b6a0d869b837079d41de0f0680e8df316c2",
+    "Extensions/PluginStore/Client/ThemeStoreCatalog.cs": "f93fe918223f417258f2c5af192e7cd10c5673fa7b45863e54d270540f44e05f",
+    "Extensions/PluginStore/Client/ThemeStoreController.cs": "457d41b255b4b0ea802d763d9f9d373f3e5dc4a3cedee92ab056cef215c3717b",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/HostProfileExport.cs": "eb6a9d46e01838d1ce958a844c09b67ff80ae76aa9b3ecfcc3eebddcdd69d96d",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/ManagedPackageTool.csproj": "6c2ac67529ac6d24a6375014a7373c708f9d5bb934991f9e91f5761edc32ac31",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/OfflinePreflight.cs": "017928cfc0f3ae3bdae3e8c4fe2ecdce521b300ab4f776b9ecf009fafd769da3",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/PackageConfiguration.cs": "be01a0447b77704642b9862bb1e97ca2110bc9e0dd57603a6034362701964ad4",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/Program.cs": "c8c4b5bbf18199ffd89037f7c620a4b9966ece04a0d9fd4de0472ae9a8b423ec",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/ThemePackageCommand.cs": "ec9cf4cd397b9d5ee1b7c9fe441923511f480d0db3ab61c8fe3b60e2cc9ea622",
+    "Extensions/PluginStore/Tools/ManagedPackageTool/VariantPackageCommand.cs": "a0a40b25156a001f8924254f16365370968bf581ec1d0f663c55613fa8c04268",
+    "Extensions/Trade/Client/BuiltInTradeClientExtension.cs": "550d67920605776eddfdc9c15acc711bdd13c064fd5f3151b87e80e52dee1ecb",
+    "Extensions/Trade/Client/ClientTradeUiHostContext.cs": "8aef0c266d179ab06000e86bb03d7f666a7d12b7b3811f23d32a7f70e8ae0973",
+    "Extensions/Trade/Client/DefaultLegacyTradeItemCodec.cs": "dfbca506c0f89378148b91b5dc048f773b32ad1c3aa121d5c7fe68d02f1b9b6f",
+    "Extensions/Trade/Client/FrameworkClientTradeServiceAdapter.cs": "2ed1cc1a780a259a8938f64ac4429c329c95ed03c3b61dfc22fe6c866cfd4d3f",
+    "Extensions/Trade/Client/FrameworkTradeItemPayloadCodec.cs": "2e0eb9d480907c54a8e296294eb73d84a8a5e2dbed87b664f4193827377c2c15",
+    "Extensions/Trade/Client/LegacyTradeConsentAdapter.cs": "c773c24035d3ca3d64253569b141d13dc69b3512cdc559dc7da0264f6a7011a9",
+    "Extensions/Trade/Client/PhinixDefaultTradeBehaviour.cs": "1622187a01dab4c006d952f70f37b6838247ff6ca2930126f9a90e883da9170b",
+    "Extensions/Trade/Client/PhinixFrameworkTradeClientRepository.cs": "03aa9582b934d06807141bc2c9ec571e92bf8f29756e078410b1ddc93baf0715",
+    "Extensions/Trade/Client/PhinixFrameworkTradeClientService.cs": "a0631c4f46f024a504d8d0dd0e05aa527d34594350575227761418d309add13a",
+    "Extensions/Trade/Client/PoppedThing.cs": "38933bbd3703633e85118d281418c05763bf2a13055300f3d17ca576ebb151d7",
+    "Extensions/Trade/Client/Properties/AssemblyInfo.cs": "abbc69fd98398cd662cd247cd30396fca4005488ce4cf7d96fea217752ef16b9",
+    "Extensions/Trade/Client/ScribedTradeItemCodec.cs": "a0023e6cc6509b7135c5a7f880e754e0868df8947353361ca154c318b422f735",
+    "Extensions/Trade/Client/StackedThings.cs": "c2178a21a7d3892acbee9e624af78965381a2f81a6978dd38ea43a2b2880d28c",
+    "Extensions/Trade/Client/StoredThingCollector.cs": "69e580a0648d07035eb729b0cdbab0148615fe77b75ef761966fb0123284f3ca",
+    "Extensions/Trade/Client/TradeAvailableItem.cs": "f7bac9a691f5fbe21415aeaf1ea25320e564ba6e862e7652e75463748e61b8d4",
+    "Extensions/Trade/Client/TradeClientActivationLifetime.cs": "8da7aa8b65b9f33b13ca54559c933f49ec36db293bcabad96bd15293342f15ab",
+    "Extensions/Trade/Client/TradeClientItemPipeline.cs": "4c4410207a1f97c26846d2aee6b3e4f2ad848c73e5bbe173cba08edee3d43627",
+    "Extensions/Trade/Client/TradeCompletionInbox.cs": "eee4e8977ce0549399aef54034b6f80570ab94f6c7447654e18f2b613b192b0d",
+    "Extensions/Trade/Client/TradeCompletionScope.cs": "c5f777316956e88e2bd4229478b09ea504263bab09fe0e4745b6d21905a50a09",
+    "Extensions/Trade/Client/TradeDeliveryReceipts.cs": "9871e933078d4a796556c002bed1b19a81883788aac687446198675435ff1736",
+    "Extensions/Trade/Client/TradeDeliveryRecovery.cs": "afc7d2b25214ecd2b9e500887319648da47047c78644204cb74a4ecfc47a8ef1",
+    "Extensions/Trade/Client/TradeDiagnostics.cs": "4174e5c423a2e5e9df899b931e1dfc22c026f3a121e62446684e910ae260573e",
+    "Extensions/Trade/Client/TradeExtension.Client.csproj": "7505a5a50a7264006542d339f8e1965247ce660ee6ebc4f8e786fd3f4f5fa6bf",
+    "Extensions/Trade/Client/TradeIntentJournal.cs": "b07e86abe2fba43219ecdf9b792842ea0ed3d36b429dd3f9fdf1febebe2cc028",
+    "Extensions/Trade/Client/TradeIntentSettlement.cs": "ae7e3054019a5f60d3c03efdff8220948e23dd611b4e136a675ac93f89aaec51",
+    "Extensions/Trade/Client/TradeIntentSettlementCoordinator.cs": "33a98f5c6041cd7d71322590da0fe732d5c8404e2fc88e844c515c18f3f1ddc6",
+    "Extensions/Trade/Client/TradeInventoryIntegration.cs": "1ca19326387d9af18a60bcfdf84375215dd18b6daa5f553c492092a5cf32bc25",
+    "Extensions/Trade/Client/TradeInventoryRecovery.cs": "6b065acc291987a06d51fc4a24e4e8e289e245607e0f8d4b72ee2410a2453c17",
+    "Extensions/Trade/Client/TradeItemConverter.cs": "664e2d6b35e91bf19b6810daeb04f479951b41876d475bf25d44fbe4d50e4e74",
+    "Extensions/Trade/Client/TradeLifetimeCleanup.cs": "6c5b3cd71a8af5c30db45de022e239d49552fa8d1b8424c6ea449dcb9651d36a",
+    "Extensions/Trade/Client/TradeList.cs": "146a656c8f3cc92d9ad51a68e67112d77c742fd6a10e1d1cb89854756e71b2a6",
+    "Extensions/Trade/Client/TradeMainTabProvider.cs": "a000807b630ad39b5cc12206c2c4390ea9dd44b055cea966ebf6e091d19ac55d",
+    "Extensions/Trade/Client/TradeOfferEscrow.cs": "971193cb3f454a7dd105e2d030a86da533f0132c155f3ae081497f78e79a6c36",
+    "Extensions/Trade/Client/TradeOfferOperations.cs": "f818dd3a4645ffec2bb72e146e301ec13a63c5013e3d7012960c4892dc23ce79",
+    "Extensions/Trade/Client/TradeOfferPresentationFactory.cs": "d49bf95c6c2266daf95b0a0e7a292ba1b1aca938c0e60bad2f89fa60fe095219",
+    "Extensions/Trade/Client/TradeOperationQuery.cs": "3ff1e6deb65438ef570f2e998b6842c3cb7e83339dd895346e8b458e37b316d9",
+    "Extensions/Trade/Client/TradeQuantityDraft.cs": "11d97812cac4863dc49fbca125c368e2df681b81b6b76e3eb295a610d4319645",
+    "Extensions/Trade/Client/TradeQuoteRows.cs": "f7c110c8661f1bd4715aaada4f4d09cbcae6d0567dcd5fba03b315cec9a2b743",
+    "Extensions/Trade/Client/TradeRecoveryPump.cs": "02b1c34e35c73b0ba76981673827f798380ddf1ea750ca2532b1f7eaa1895352",
+    "Extensions/Trade/Client/TradeSaveReadiness.cs": "9fe8954340387190482254283f7f25af62948553423c1b63e477d89dd0230428",
+    "Extensions/Trade/Client/TradeSettingsInputAdapter.cs": "c05918c9d69d093acb142da00cee73e72a7b95cd7b805ee9a8cfe59455cb72e2",
+    "Extensions/Trade/Client/TradeSettingsPanelProvider.cs": "47b7ca7303365d736c1db6f4f004569c7b06d4bdd5c2212641e25bc9e75bc5fa",
+    "Extensions/Trade/Client/TradeSnapshotObservation.cs": "096d5c23d8fa6a960733eb161ae86c73adc29be2e7a6b2efe54774fcb3a415f5",
+    "Extensions/Trade/Client/TradeSqliteRecords.cs": "e49df34cc34543b981e78a2f322f1c39c1ceef886d87fbffcda24e49b777ec57",
+    "Extensions/Trade/Client/TradeTheme.cs": "caf684c590c61253240d0d1869d50b40282f0ac1f0a1c8186b2666432ee4e0ff",
+    "Extensions/Trade/Client/TradeThingStateSerializer.cs": "dff0e9114d1db4b4000cf8f19661877c3befe5d29899ebb4e7df8a331527a017",
+    "Extensions/Trade/Client/TradeWindow.cs": "121b906928551707418ba266f3199acdfb052742ec86c717f23bda1a13a4d1d4",
+    "Extensions/Trade/Client/TradeWindowPresentation.cs": "f34bef19346330752e1a82e497499469a2469b1d26520e8a8b1e870d1b1acdad",
+    "Extensions/Trade/Contracts/ClientTradeContracts.cs": "b06af19d26a56a382efbccd830892dff5736d277320253a58e91f6425b6e9b96",
+    "Extensions/Trade/Contracts/ITradeRequestApi.cs": "976c663efbf978c368faa3735ef155245bac3442fab96400e278bcb262d43808",
+    "Extensions/Trade/Contracts/TradeExtension.csproj": "7454a1ec23ca2dfd305beacf592448f1d1dffbcb04edbeb84762cefe6b5f032a",
+    "Extensions/Trade/Contracts/TradeInventoryRecoveryContracts.cs": "4d376c2948fe3d7b99c11ce64cf68abab6a15cf9330aeacff3ab8e3448a83ce5",
+    "Extensions/Trade/Contracts/TradeOfferOperationContracts.cs": "df4498c7b1e9682d668a51ae20ea59710f5848ed279133e42dcb7fa82961de34",
+    "Extensions/Trade/Contracts/TradeOfferPresentationActionContext.cs": "00655b52234d4f38b32d5ef7b03ccbe6cc6331e2873f53a0b2ca7d03cfb0b5c2",
+    "Extensions/Trade/Contracts/TradePresentationActionContext.cs": "b42170e7c301c0f6a60cc7488c5b803c87df2d311dad1794fa28d080e9ff4f2b",
+    "Tests/ChatRegressionTests/ChatImageDownloadScenarios.cs": "bfa0f99dd46bdd29f7f588f95cc8c62ab4325e355b2bd10e69e13421b1aae0f7",
+    "Tests/ChatRegressionTests/ChatRegressionTests.csproj": "2281212fd6f1b673fdcd04da4d18db08c841ff380171e91c7fa27ee43607cb1b",
+    "Tests/ChatRegressionTests/Program.cs": "d59b311a171f665499b0110483248bb1985f4079ac40d478200cb874b3570d16",
+    "Tests/ClientCompositionRuntimeTests/ChatServiceTests.cs": "f913b530dcee8a5a48f2bf256d3932f5a254276eec9639c7e2412369647e0567",
+    "Tests/ClientCompositionRuntimeTests/ClientAuthorEntryTests.cs": "f927902c2a77beb23c26cf5f3cab792a709b5eb218148f8a893b65e8d2899c59",
+    "Tests/ClientCompositionRuntimeTests/ClientCompositionRuntimeTests.csproj": "426cd02e0c73fa4d3c997a7a6887fb11a8618edd098c5870c9f52b51fcc491d4",
+    "Tests/ClientCompositionRuntimeTests/Fixtures/AuthorEntry/AuthorEntry.cs": "f3b55b9daf00b8beee0288433f26acdb8aef916b883f5e4d3859d24c281e496c",
+    "Tests/ClientCompositionRuntimeTests/Fixtures/AuthorEntry/AuthorEntry.csproj": "276ee6069f96c6f98214d94edee8ab6a669fb4d2d3ed441feb4e2c6cbc709b7c",
+    "Tests/ClientCompositionRuntimeTests/ProductionCompositionTests.cs": "8d16a9bab01531b46ee90c10a2a69a179bded1c01c73f49f3bcf87e4fbbe180e",
+    "Tests/ClientCompositionRuntimeTests/Program.cs": "201cd9aa65848af6835efd199703530368f6dc6ea1cf875b69535969776d999f",
+    "Tests/ClientErrorBoundaryRuntimeTests/ClientErrorBoundaryRuntimeTests.csproj": "4e9a281f4f7dd854d712759be2292cf8b0dc49b03f20e20d26428bbf92bed70b",
+    "Tests/ClientErrorBoundaryRuntimeTests/ConnectionBoundaries.cs": "795815d685dd12c91fa72112b5d82d54002c2282a5ddb0bda9adfd10f2344a85",
+    "Tests/ClientErrorBoundaryRuntimeTests/ControlBoundaries.cs": "7294a74618788088c1dfd8fe3dea344bb4886fa82f15c6d73820740916f5d638",
+    "Tests/ClientErrorBoundaryRuntimeTests/Program.cs": "439080df4356b37ecf4d6125d50f0e50239fd427d0eb1f24d807a253785519ce",
+    "Tests/ClientErrorBoundaryRuntimeTests/SettingsBoundaries.cs": "4672bc75846f0add3aae8cc857add7b2faef5d25b641b0cae789ed1e55d558f4",
+    "Tests/ClientErrorRuntimeTests/ClientErrorRuntimeTests.csproj": "75a1e494f3d5ee8783f0e09591b9489dc33efa7413de3ac15617d5a1296220a9",
+    "Tests/ClientErrorRuntimeTests/Program.cs": "240635f57448d053d544ec47f7805521692a11d3744cbb15815526273324c0cb",
+    "Tests/ClientErrorRuntimeTests/Stubs.cs": "2c1b85cd0ecf526fda2fd6daf1c8d491eace32adf4d923b3c21a8b73d1081495",
+    "Tests/ClientIdentityCredentialTests/ClientIdentityCredentialTests.csproj": "486639794fb1b12963ef6ed0ccbc44aac4aa917908ddd6b2c674aee076ddf737",
+    "Tests/ClientIdentityCredentialTests/Program.cs": "36c4121044ecbc0106742b68af12ff055169a1a8e8db342be04897ca2a2e35e8",
+    "Tests/ClientStorageRuntimeTests/CommandCleanupTests.cs": "aef1a634d5d531f076dd3d43ea6a05282b1907a3571bc290f75877c16ae42a77",
+    "Tests/ClientStorageRuntimeTests/DiagnosticsTests.cs": "aa5bbc004875208c66ca1bacf841a8096108904ece6f56ac44de45ef90e39dff",
+    "Tests/ClientStorageRuntimeTests/Program.cs": "cb05305c8f16c177780ded0a2bdee4387f0d5a4aed0f91d9d8e90d78afec87f6",
+    "Tests/ClientTlsRuntimeTests/Program.cs": "0423506bb58ce9e48ea77981e78d741e131ac35e0338779f7fabcc5f7eff8b51",
+    "Tests/FrameworkAdmissionRuntimeTests/FrameworkAdmissionRuntimeTests.csproj": "9bff889c507e3fc23cdb5f1666489c098357d86ba30fa4fd6c85e81faee27346",
+    "Tests/FrameworkAdmissionRuntimeTests/NetworkProbe.cs": "79b2e4507f0dd7c4224b4714ff44cc161d5ff51a37eb08d4770507685ec0e4bb",
+    "Tests/FrameworkAdmissionRuntimeTests/Program.cs": "7b62c2e851c2c60c0e5d75944568e268540c84553fa7bf365629c970b62784f2",
+    "Tests/FrameworkAdmissionRuntimeTests/TradeDeliveryNetworkProbe.cs": "6b996c9d1a637be7ca9669de702cffc445c5f02baee180e3b002af28828722c5",
+    "Tests/FrameworkAdmissionRuntimeTests/TradeIntentNetworkProbe.cs": "b1ca1271a38d2a29636b18537574f0a05183a9fefb2c7be6309f2596e6e5c0c9",
+    "Tests/FrameworkAdmissionRuntimeTests/TradeNetworkProbe.cs": "512974e6f4cd8a20276569157fd75e1454c4cb15d2d9c5a2cea506e1cffaa8b3",
+    "Tests/GameAssemblyLayoutRuntimeTests/GameAssemblyLayoutRuntimeTests.csproj": "492de469e5977652654c04ba5f2ec7b168d271a9ae1da15686c1ada861272a21",
+    "Tests/GameAssemblyLayoutRuntimeTests/Program.cs": "82b05829b55e3303587d799d82208ed550e78a7c8a76a9ca148ad5fe455463c1",
+    "Tests/GameAssemblyLoadOrderRuntimeTests/Program.cs": "3b80741fc100cf6b7a038b53b4dc446fa98b08993faf8bd3716ab830d3127dc5",
+    "Tests/GameDrawing17RuntimeTests/Program.cs": "2e30c3e865259299e5fac01881b3efa7aa50b38d58cea4b0c7272dc183aec29e",
+    "Tests/HostStartupTests/Program.cs": "eedd9b7bc361c91f0f944693128e2f7e80a86b2306cc51f2b44445493315f53b",
+    "Tests/InventoryCheckpointIntegrationTests/Program.cs": "088e9b72d8904eb42e2508a09af65b742ef3ec0d97e48694b1ab9ebfb2c46132",
+    "Tests/InventoryCheckpointTests/CapacityRegression.cs": "ccbfb80dd994de05b55473043123e754a684ec3037759845daebacbfb081726d",
+    "Tests/InventoryCheckpointTests/Program.cs": "9518021bb4428190d8361fbf7513b2155b6f761a28187863476814a63f049a14",
+    "Tests/InventoryCompositionRuntimeTests/InventoryCompositionRuntimeTests.csproj": "ec9ac8c0bbc4e987e9d7485791682c5c5c39dabd9ddb62ac95d89d43dc759a37",
+    "Tests/InventoryCompositionRuntimeTests/Program.cs": "c84de8ef060d095fb7ec04d5173497b728de346882db10b3d90629e6139c3d85",
+    "Tests/InventoryDisplayRuntimeTests/InventoryDisplayRuntimeTests.csproj": "3de4c82b59cff84d682664223d9fab472456ffcffeddf351f05d1a22f3b3cb35",
+    "Tests/InventoryDisplayRuntimeTests/Program.cs": "4092085944d1875d3f4da013afe0ecacdedede53c6e515f9d0327913e6229e44",
+    "Tests/InventoryGameAdapterRuntimeTests/InventoryGameAdapterRuntimeTests.csproj": "5089a1e5e9f3cbdf9bb2c3268ab4f63feba2193daaeef26447ac6614a97a0ff1",
+    "Tests/InventoryGameAdapterRuntimeTests/Program.cs": "3f23c54871efff8ffaa003ca35ba7cc936b6fc8be8bb7418f84ec1a7ec69cd84",
+    "Tests/InventoryRuntimeTests/InventoryJournalScenarios.cs": "87e1abff1412083c540c6d6c06012a6fba75edba1be79bb91f9f503a6bc42ede",
+    "Tests/InventoryRuntimeTests/InventoryRuntimeTests.csproj": "fbe5db34ec85e18a2a104ebef103599d856ce4432928a86c9a6bc4a612fab61a",
+    "Tests/InventoryRuntimeTests/Portable/InventoryRuntimeTests.Portable.csproj": "aeee8c6ce0817671a263204b91e8ce8efa95a2585d4d43a33e13fb0733090c6b",
+    "Tests/InventoryRuntimeTests/Program.cs": "3fdcd02b328bf1c55c373ac028ba732171a0c568ab1c2d87e61a0276c90791e6",
+    "Tests/LegacyTradeRuntimeTests/LegacyTradeRuntimeTests.csproj": "701928bc59a118653c42e416c9487ee1a7c79bf9f054b75b8688118136e034cd",
+    "Tests/LegacyTradeRuntimeTests/Program.cs": "631d87449fc9459ae0355676b5f49d28496237f71b210a74f4a6c0b25f31bb39",
+    "Tests/LocalJointCohortRuntimeTests/LocalJointCohortRuntimeTests.csproj": "f3c3f59ccd0a9262c99800d893fef858ac44f7310142ef6758fbb6cb614d62ee",
+    "Tests/LocalJointCohortRuntimeTests/Program.cs": "4fc8f3e9336452592f84d5c3a46e0ec3045bb011f228587bb20450d3637dffdd",
+    "Tests/ManagedExtensionRuntimeTests/AssemblyOccupancyTests.cs": "190a3ed5d48a4886677074f9a5b726e3db426cf243cafd0886de0d8486095e6b",
+    "Tests/ManagedExtensionRuntimeTests/DisabledSettingReinstallTests.cs": "f1a8cf624315ac7ef2d28b0bc8ad1488af29cee7df8eaea4f0b9dd69711d57a9",
+    "Tests/ManagedExtensionRuntimeTests/DualPackageTests.cs": "60d34e398d01497cd823ba8ca5c12b68615d3943330a28baac472c19c3d31ae9",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/Helper/Helper.cs": "03a74b4e7b2d9492f8b327099c7e575aaf0016d5d97b534d02cf0d347f3b3141",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/Helper/Helper.csproj": "9562a19b6c4483817b917e54214971cafd2dc9da28269378f2d5f6321c4ea6c4",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/HostUpgrade/HostUpgrade.csproj": "bea00a07c866918b221f36f244d7415ccf1b8c1e5d53451588de2f5ed73d0b3f",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/Plugin/Plugin.cs": "1125fa4b45022d0e4e24f604ed77fdbb32575c4f76355ffac0ac1db706cfef63",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/Plugin/Plugin.csproj": "c42cdd6240a38969cc60b02b84ccee632bf815f760ce5b58f7ff078a898b4afa",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/Provider/Provider.cs": "6dba4f122a7ea86489eeb7c760ea6d3782601c99a975988560555536d8dccd9b",
+    "Tests/ManagedExtensionRuntimeTests/Fixtures/Provider/Provider.csproj": "c389f7c3672fcbdbe27855c4abf1134089f73bb2d3414d364fe2d7f16fa660f7",
+    "Tests/ManagedExtensionRuntimeTests/HostMigrationReplacementTests.cs": "2d04f4a29e15602d2b78d2dd27c7cd213943cab85376087de1812e602eebe758",
+    "Tests/ManagedExtensionRuntimeTests/HostReferenceTests.cs": "a839e488de3433ecbc78b10e05f8f7be90a3ccaa2f46c59692dac211970168de",
+    "Tests/ManagedExtensionRuntimeTests/InstallationRuntimeTests.cs": "9be7dacb0de3401b833cdc7fb4cba11cfd97bb1244ad6607eb30994d466f6017",
+    "Tests/ManagedExtensionRuntimeTests/LazyStartupTests.cs": "773e9780df7280745fb81a45ec61c7cc1847b41ba22e6ac4c3e1ae40a54d4347",
+    "Tests/ManagedExtensionRuntimeTests/LocalDevelopmentTests.cs": "1587bf12515717e7900f0b0f153a6226408568f1a2e35d554ac1af7d3c19bcdd",
+    "Tests/ManagedExtensionRuntimeTests/LocalLoadFolderTests.cs": "f23b3f7afa601ea4c4cb475449a8027c2a43b37905da74a847c7e449772fe58a",
+    "Tests/ManagedExtensionRuntimeTests/LocalizationTests.cs": "5ee5a1164a2d111c6bb2f709e95f7994e8c9b5e0073c8001709c39f3be21a5cd",
+    "Tests/ManagedExtensionRuntimeTests/ManagedExtensionRuntimeTests.csproj": "39f1f665f8140eabdf05d36dbb809ebdc16b10d54205580b467d64439310b1d9",
+    "Tests/ManagedExtensionRuntimeTests/ManagedStoreExperienceTests.cs": "5ea6770e78c320c90ebd2dbaa95042ce55580c214cf58cab1e6b1d7363d0bd2d",
+    "Tests/ManagedExtensionRuntimeTests/ManagedStoreFlowTests.cs": "e4ead4762e99642ca3e545bc236a2b913b4d82a8143ba54a8c80922f64a7e2d0",
+    "Tests/ManagedExtensionRuntimeTests/ManagedStoreOperationTests.cs": "6f8ca8d4a6aa99ca05c9cc4d71d03bfc7d8ae5aa77a0202f6852c24cdfdf16da",
+    "Tests/ManagedExtensionRuntimeTests/ManagedStoreProtocolTests.cs": "16de8321f9a3a7a07d060c1f0f48819f1280a0e8c85b25b180ef5ee259952f28",
+    "Tests/ManagedExtensionRuntimeTests/ManagementControllerTests.cs": "0776eaca7783fa7afd96c258561ba5bd8e87c7359f1c65b27607740fbe31e24c",
+    "Tests/ManagedExtensionRuntimeTests/ManagementTests.cs": "69850d4581e55242b0c183912ddb306c85806410d924dd59aed2f3b170ddcd9a",
+    "Tests/ManagedExtensionRuntimeTests/Program.cs": "13c1353f7ac21d03bae79ac59f27f41bbaadf1a523c4da9b0cafe77a7ba2ae8c",
+    "Tests/ManagedExtensionRuntimeTests/ReplacementRuntimeTests.cs": "60529dd2a5f403c9047f9b2c83ae1c5e9389f9c0ba20cfab00caa711dd7dac39",
+    "Tests/ManagedExtensionRuntimeTests/StartupTests.cs": "60eb940d7229f70fdc1cc855c99a5e1a3c6ac663407ee771022eaccfead7d39f",
+    "Tests/ManagedExtensionRuntimeTests/StoreEnvironmentRefreshTests.cs": "e8075257351df8f1fb4846730c7411c5ac43167a029c00bb5bf47430e36d5798",
+    "Tests/ManagedExtensionRuntimeTests/StoreMaintainerTests.cs": "e2244f20c86a76d65204bac7cd2667fb48fcdced61bc83888230ad87f8241416",
+    "Tests/ManagedExtensionRuntimeTests/StoreReleaseNoticeTests.cs": "6a925eac25a835f66548e3e7b43d8488fcf18d6de745f2acb27150c15681bcdf",
+    "Tests/ManagedExtensionRuntimeTests/StoreSynchronizationTests.cs": "86cab60d0e0adbfbf3885b3485ce67c0ae68b4a7b3a241b6599ddd20fd1743af",
+    "Tests/ManagedExtensionRuntimeTests/TargetFrameworkTests.cs": "4f66a5ace243edc25a3c21cf5945053faa244a8c545f24a4f8dcc82de7d7082b",
+    "Tests/ManagedExtensionRuntimeTests/ThemeRepositoryTests.cs": "b4aa8fef2a2140af4b726ea4480fc06b3b42e86753046189d5d4811909b61b9e",
+    "Tests/P4IdentityJointTests/Program.cs": "ee45aaafdf9fa71a761026a8aba585667bf27e0eddcd6b1913a401d60fb6312f",
+    "Tests/Phase35ClientRuntimeTests/ClientExtensionRuntimeTests.cs": "4b2fabefc6da107ecb63ff86ff10a1b02075d82948710114196123964bd6930e",
+    "Tests/Phase35ClientRuntimeTests/ClientLinkServiceTests.cs": "e31a226ef89b61417522a5dd59fe18e09cb385d008cdb81669d9673cac109c02",
+    "Tests/Phase35ClientRuntimeTests/Phase35ClientRuntimeTests.csproj": "ba546408ae1370e5bf907d0b1fb2620ff81d860e71334a092054eb9c01a92a92",
+    "Tests/Phase35ClientRuntimeTests/Program.cs": "7df34f0eef05b150281823f843cb3c9f13021d90c3de13308b054cb4186c3130",
+    "Tests/PluginStoreDownloadCheck/LocalIdentityCheck.cs": "9c39fed6ea000d0d0b547929b7589594b9dea2b884ee49365dcd305b75625c09",
+    "Tests/PluginStoreDownloadCheck/ManagedLiveCheck.cs": "d67c7eff99f017e0b8424641d9744f79477f518d14ba9d13e2046903c3dba04a",
+    "Tests/PluginStoreDownloadCheck/PluginStoreDownloadCheck.csproj": "f54af54fc3699c0af2ec39e511b85b7ffab96977208409cd03f7c77c7fa0526f",
+    "Tests/PluginStoreDownloadCheck/Program.cs": "29eb2852ce340fec6096cae3df23ee6cbb53da4f7b015cb062f317978691a6f3",
+    "Tests/PluginStoreDownloadCheck/ThemeLiveCheck.cs": "a47a3567b4367fc3e872bd0c0a6ce28ff721f8a90b77a99d0de20facbd84f29a",
+    "Tests/PluginStorePayloadCheck/PluginStorePayloadCheck.csproj": "58e8654f927d2b306a094a56af20505c84674911fc66c1e3eede76f99163c4c6",
+    "Tests/PluginStorePayloadCheck/Program.cs": "cd52d9bc02b1a615ae15d877d608be763c1ab573d816a411acecc56b7a4064fe",
+    "Tests/PluginStoreRuntimeTests/CacheStagingTests.cs": "879a1448e43db0620706c2cbf2044e108279616d83ee008b0623c21af0cb9a1b",
+    "Tests/PluginStoreRuntimeTests/ExtensionControlTests.cs": "eaef7ed478dccdea465089ab2c16c519ee5bd6ddd17f3361d0d0a4da5c9ce7c8",
+    "Tests/PluginStoreRuntimeTests/Fixtures/ManagedAdapterPayload/ManagedAdapterPayload.csproj": "234965dce2355645043ab1694ed2ca80ca6c74a1f6dbc8c712e4f15f6b9db14d",
+    "Tests/PluginStoreRuntimeTests/Fixtures/ManagedAdapterPayload/Module.cs": "bba4388b31ae87564e7eae7e7f6d2a2288aba170b67ab316af089e8fe53f86bc",
+    "Tests/PluginStoreRuntimeTests/Fixtures/ManagedAdapterPayload/ModuleInitializerAttribute.cs": "343bbfd3401e0b633775f6aef3a6c01576d8944d900e6310e70dac3dc4a25dc5",
+    "Tests/PluginStoreRuntimeTests/Fixtures/ManagedExtensionMonoSmoke/Program.cs": "8b206076d0626d6b167dea538958537d983ee46d78dad47a37c9e7e0cfd745a6",
+    "Tests/PluginStoreRuntimeTests/Fixtures/ManagedPayload/ManagedPayload.csproj": "7a8e0e30df00459fb51768011325d121da75de8dddf3a11f4278d4322ac274b3",
+    "Tests/PluginStoreRuntimeTests/Fixtures/ManagedPayload/Sentinel.cs": "46508347a57755107000f002fec5111e7a093243f14d5dca9164f5b3c7311991",
+    "Tests/PluginStoreRuntimeTests/Fixtures/RepositoryMonoSmoke/Program.cs": "9cc7c9f0a596840d7c3e47232bc3693b307784e447b475e08f95e0d35edf7fae",
+    "Tests/PluginStoreRuntimeTests/InstallationTests.cs": "f777aabace4e1ede77a23f927c678a3355cb62caa1b0d84748b880c4cecd42f6",
+    "Tests/PluginStoreRuntimeTests/ManagedExtensionTests.cs": "7a110215ba064abb16bcb5b092de3bef4e96bb009571bd2ef313f559a45f8aeb",
+    "Tests/PluginStoreRuntimeTests/PackageDownloadTests.cs": "5c757f98d7dd341028ce697549f1ecfc157c30ac00b3a244c804d1aede4c1918",
+    "Tests/PluginStoreRuntimeTests/PayloadTests.cs": "5d0811dc18560241d53b5591cb61e1cfbdfaba6ded2ec24aedfdbac941d7f633",
+    "Tests/PluginStoreRuntimeTests/PluginStoreRuntimeTests.csproj": "13d4d1f1e983bc763f543b9c6f8ff059308acef3d2cfdbd7526ec8cac0edbeb7",
+    "Tests/PluginStoreRuntimeTests/Program.cs": "dbbea7676b672fdc5f4661ae1b218151e39dc60b33159dc7c159629b31257a20",
+    "Tests/PluginStoreRuntimeTests/RepositoryAdapterTests.cs": "17c44f4a28b4e9c6aa7c9732bd1b0ca6f2d31b8db61268b00e16545111de3cfc",
+    "Tests/PluginStoreRuntimeTests/RepositoryAuditTests.cs": "b27102e2ce64799d65d5d6255582b2a180314661fc76b1be91f31f000f40b4ec",
+    "Tests/PluginStoreRuntimeTests/RepositoryTests.cs": "17487a0ca36f0a70d941dd3d3ae16a1fea623df891c0e769a3c0066c75df2fc7",
+    "Tests/PluginStoreRuntimeTests/StoreBrowserFailureTests.cs": "511a7a7cbf252d992af9d78c1c71c83d2e2752b3cf04a88ec18b48775285e861",
+    "Tests/PluginStoreRuntimeTests/StoreFailureTests.cs": "e89bc97549db9b24bfb84d5fa56b99635a776d0ad9e292e7da4135c577b71f4a",
+    "Tests/PresentationRuntimeTests/ButtonStateContrastTests.cs": "f03c05cad8067ad3e585ee1bff0f6f5ea6e53d98b948e3cfa369e0dde1198f19",
+    "Tests/PresentationRuntimeTests/CompactLayoutTests.cs": "09ed051b59f04cc1484243e7a95fa57a0670a6a104521441bfd5b7d727d37e6c",
+    "Tests/PresentationRuntimeTests/DrawContextTests.cs": "6c7a89537e8e4aaa5bdb6968300a6f04d907bb83565c48fed73acefe544d15e4",
+    "Tests/PresentationRuntimeTests/ImageLeaseTests.cs": "01d83f51f5904a545078f2511445d13cac1114f1a300c351f832bf6d93fc4224",
+    "Tests/PresentationRuntimeTests/ImageSlotTests.cs": "9c8895656c0c6f5b07d4d075d15194e958b1aeddbead7574f132ec483ea35d15",
+    "Tests/PresentationRuntimeTests/InlineColorPickerTests.cs": "109c6316ffa0b5979b7d3f32dc84d72fe6fa2f5f14e30ee04b1554a74cd26334",
+    "Tests/PresentationRuntimeTests/InventoryInlineTests.cs": "f729326441227b5c2a783f9b9da529ac86bca0c48d5480e83638486bef2967da",
+    "Tests/PresentationRuntimeTests/InventoryPlansTests.cs": "a8441c92abebe9f9eed9fcccaf833bd179a061e1255f547920a0984d4ba84388",
+    "Tests/PresentationRuntimeTests/InventoryRecoveryProjectionTests.cs": "cb45d7b4c037be4e847419cb9a5a51deb7819981e10d9b55225a6b6d75bcbde5",
+    "Tests/PresentationRuntimeTests/ListThemeRoleTests.cs": "7fa9bc1f14fcbefd628d65de536b3d37691b54707397bb0d239e31bd311b9b9f",
+    "Tests/PresentationRuntimeTests/MenuSnapshotTests.cs": "81bdcd88b5ff37953a85c75874f98b549d0c40daff4360ca05cbeafc2d284e3f",
+    "Tests/PresentationRuntimeTests/NicknameAndMembersTests.cs": "2ea21d07e9c4163d8f4de31e0102a22c82eee11f7dfb9d0a9caa0735e2edb4c3",
+    "Tests/PresentationRuntimeTests/PresentationRuntimeTests.csproj": "58661d3c7fa708fb99f46a4c5f5c542c710e0895386b6a8411e2ab3564799a47",
+    "Tests/PresentationRuntimeTests/Program.cs": "fc8da9a79d8098333b2807d9ca4ea1b314fe77579638b522a098a713ef965d26",
+    "Tests/PresentationRuntimeTests/ReadOnlyListTests.cs": "f55b0286b8f553e8ab8a02686f32bec26007a5af44530371a4b217259fc14553",
+    "Tests/PresentationRuntimeTests/RowControlsTests.cs": "2c7ba082c935ad7152bc2837967a712564ef9c98164b5cb55331cb6e26b2dff1",
+    "Tests/PresentationRuntimeTests/StoreWindowTests.cs": "7c4dcd34f4056406f3a52eb74b2375e6e69d1f38179cbc86a0ee1f92ff706104",
+    "Tests/PresentationRuntimeTests/Stubs.cs": "738d0e13b0de9d24c76f3cc486b69ce16df266247df8296d250e91c3bde624e7",
+    "Tests/PresentationRuntimeTests/TradeListTests.cs": "b9a43461e03e0632ae4aef19bf5c3e29497c5c105f48df16bcd6c46ecdbf56a2",
+    "Tests/PresentationRuntimeTests/TradeOfferOwnerTests.cs": "e37c53c3d767ad3a00db60ed768325971d81e0cecdf75af95bd5aa473838985b",
+    "Tests/PresentationRuntimeTests/TradeOfferPresentationTests.cs": "bfdc8f40857031de24014c8a4ceda0822b3c2f8415f5c6a1276b587511000f9f",
+    "Tests/PresentationRuntimeTests/TradeQuantityDraftTests.cs": "2438de9ca1d31e6d6593126a9012b084c0b9471fbbf31874feb35fb9611ea56e",
+    "Tests/PresentationRuntimeTests/TradeRecoveryTests.cs": "ee0c5d0a55f91e0f88a81d56e5192df750e94b3d20a772fa53222d42a2a7eb4e",
+    "Tests/PresentationRuntimeTests/TradeStubs.cs": "a5c7e2ac1e72cbd31d34188039cdfb667a063794f14b541076cac677318441ac",
+    "Tests/PresentationRuntimeTests/WindowThemeDrawingTests.cs": "e8849b11d92d468df6a1f24c268c69134501123d7201abf9bc3f892f4429f42c",
+    "Tests/PresentationValuesRuntimeTests/PresentationValuesRuntimeTests.csproj": "cf003f6e53a6bd59c527f21444b7b352707bf637060f74cd036e2eb0382ffed6",
+    "Tests/PresentationValuesRuntimeTests/Program.cs": "1cf02f171c02b22e32f9ad4edd40cbf0995a13b82f2f30f41e47acf1a20fa5e8",
+    "Tests/ResourceRecoveryRuntimeTests/Program.cs": "cb6fe248f4bde42bf2d41ed8bae831c074921498483fa8c3b29355dd6eef8cf0",
+    "Tests/ResourceRecoveryRuntimeTests/ResourceRecoveryRuntimeTests.csproj": "c947ec93d3273e1009e3806d0c5fb967678ae6bbbd0ac8da9851d2210d171def",
+    "Tests/ResponsiveUiGeometryTests/Program.cs": "4b58311ecdb1d682f9359db12fedc8fccac1c6650bb0938baacd5b3dd3ce12cf",
+    "Tests/ResponsiveUiGeometryTests/ResponsiveUiGeometryTests.csproj": "2d465f2a2fb9f78a1b6f5b4d0e907a1abfcafb0be50e4780327cf2b336708e1e",
+    "Tests/ResponsiveUiGeometryTests/UnityEngineStubs.cs": "0a74ad1247b2c403d0ba07eb5f454bf65e69f5269a573782f1aea31d4bd6862c",
+    "Tests/RuntimeFrameworkFactsTests/Program.cs": "b6ffdf80512e1439389310f4954ce9b42f5caf9b45f2d5db44f4bfc41607184b",
+    "Tests/RuntimeFrameworkFactsTests/RuntimeFrameworkFactsTests.csproj": "1f92785a882bbf026b26d14d0e02fd0430cc03b88b2049b9d29fb39142deb069",
+    "Tests/SidebarCursorRuntimeTests/Program.cs": "8c9d127fd57ce941c20f527773c8d611cf38d400a84bb9fd27664be7124217b2",
+    "Tests/SidebarCursorRuntimeTests/SidebarCursorRuntimeTests.csproj": "48c669641f3cb6fbc631dd73fbfa05682678376a42e324ef75c18cc89ef6464f",
+    "Tests/SidebarSplitLayoutTests/Program.cs": "6d503d953adeac808273a4465f6cf52fc1384dcacdaa47b2a54f6ad61d07b31d",
+    "Tests/SidebarSplitLayoutTests/SidebarSplitLayoutTests.csproj": "1b0a73cb9a891e9221b9c93c59bd910d12cc9f116da8975b0e6c2ebaef9ec446",
+    "Tests/SqliteBusinessRuntimeTests/ErrorDiagnosticsScenarios.cs": "e372165d3618ebe61bd469c8cad0799a7468559bc37416b426745c218d76a48b",
+    "Tests/SqliteBusinessRuntimeTests/FailureScenarios.cs": "987053c43baa6fdb2ff4bfd5ee95fb6d30aaa697655fdd1186c3de0d771e26fc",
+    "Tests/SqliteBusinessRuntimeTests/Program.cs": "ac7d19ffc5a7fe2557768a9e584705ed6247aca2cef9aca33e0b5e56f533b60b",
+    "Tests/SqliteBusinessRuntimeTests/ReconciliationScenarios.cs": "3d341b7c57510d7a827d91a0450123ab53ccbe5002954aad2bce9dc1d8f63b56",
+    "Tests/StoreCompositionRuntimeTests/Program.cs": "af6460d60c90feddbc43061aca05b3b54b6257112b7cf391322e9880d5fa6314",
+    "Tests/StoreCompositionRuntimeTests/StoreActivationTests.cs": "6c42ac579e1be15c6625d9ea6f8127a9663c0f6e60e0333514a6d5f4d8fcf858",
+    "Tests/StoreCompositionRuntimeTests/StoreCompositionRuntimeTests.csproj": "f024b853f71405a396530ff71cb9f7d8507da70404b37e53ee617e68666f3f7f",
+    "Tests/StoreUsabilityRuntimeTests/Program.cs": "ef9ab789ea207d2743a45cbfaefd61d6dba109ba0f8326d905e0d72d573d7463",
+    "Tests/StoreUsabilityRuntimeTests/StoreUsabilityRuntimeTests.csproj": "43d7f6536bc4612840c5433a5f2bcdaffba9c99751cbf7ce9f8d0cce51cb87af",
+    "Tests/ThemeEditorUsabilityRuntimeTests/Program.cs": "75670f2e3131b91c81f2241083e4e1992afe5b079ed24a75276e7c5b4e8eb92b",
+    "Tests/ThemeEditorUsabilityRuntimeTests/Stubs.cs": "7f2413321903873acdad6ee30f863ad3cb47724c56760f880bfe084c537c1f90",
+    "Tests/ThemeEditorUsabilityRuntimeTests/ThemeEditorUsabilityRuntimeTests.csproj": "03d07cccf3d1ec7cbc072deaabd086c68d40dd88495b0e6aa3b1091b1d4b7bae",
+    "Tests/ThemePresentationCompositionRuntimeTests/Program.cs": "bf4dfafa50065210025b06a66cdad317ab32ee711991578bb3ee7335bd6812cb",
+    "Tests/ThemePresentationCompositionRuntimeTests/ThemePresentationCompositionRuntimeTests.csproj": "3c996720f79f21ddf1e5b849bc9a9a39198775d72cd1ecb89ce38041e4f79299",
+    "Tests/ThemeRuntimeTests/ErrorDiagnosticsTests.cs": "c272f1088bbbd81382d9fe4823ac7e4efab01566036a51445fa8840ebe82a29a",
+    "Tests/ThemeRuntimeTests/Program.cs": "85ab2aaf8cdf9eb590d7da8826f2ffbc359958a4b3bdb7e27a1940dd51a560cf",
+    "Tests/ThemeRuntimeTests/Stubs.cs": "4879ece993ceda4630a838f138fd1bdd81d83cd65df60ae7b6235040f110c12d",
+    "Tests/ThemeRuntimeTests/ThemeRuntimeTests.csproj": "9284a050eda91b80b0e050420786cca9c5ba419cde8ce49bccb0eed7130190f1",
+    "Tests/TradeCompletionInboxTests/DeliveryJournalTests.cs": "0f29fdbfc8a779113013a5fabd65ba73550f66e3500a474d8db2eb975e13d5ef",
+    "Tests/TradeCompletionInboxTests/DeliveryProtocolTests.cs": "a0f62936912c372568765672251497e92193e253b218e9e5c478a6368270b40e",
+    "Tests/TradeCompletionInboxTests/FilesystemTests.cs": "7b14f5ffe40c3c9cfd15cbe0f288cb7d6ae0b4c17b00a310eb246a2ee3cd8469",
+    "Tests/TradeCompletionInboxTests/GameScopeTests.cs": "6b5f63844fc0ae5d82f683a416a017750f78f9699e30ee024715e0098ab647fa",
+    "Tests/TradeCompletionInboxTests/Program.cs": "2a14272f8148a5fbb810158af5768b6eccd82d2743b3aae8577bbf11c82496be",
+    "Tests/TradeCompletionInboxTests/SaveBindingTests.cs": "6e11ff308dbdc03fd0733738061d37eb622828954ee0c93346dbc6ad753c070e",
+    "Tests/TradeCompletionInboxTests/TradeCompletionInboxTests.csproj": "a7eb1a91ecf05687224e7cfee335f057e3df001a15b97081375960b8f5a8c8f1",
+    "Tests/TradeCompositionRuntimeTests/ActivationLifetimeTests.cs": "76b3c0a857656419f37e578f0398c7bd26360aaf46249e1a41fbf001ebc293d6",
+    "Tests/TradeCompositionRuntimeTests/ConsentObservationTests.cs": "43ff2ca46f4616b067bc4ac547f88f726d1cee41ae90c92bb1911fcd71e142ce",
+    "Tests/TradeCompositionRuntimeTests/InventoryRecoveryTests.cs": "dc85161f4b2ae1e2e472ea1b16e01cf842eca832597e306daf8ac5c14ca0c727",
+    "Tests/TradeCompositionRuntimeTests/InventorySaveScopeTests.cs": "e2a90385c4863c4e841effa819dd7609ce6905e4f87e6c087034b67bc320f557",
+    "Tests/TradeCompositionRuntimeTests/OfferCorrelationTests.cs": "b0bed617835126337669ad0861350152b3412ba8a36e3161321aad94404e889b",
+    "Tests/TradeCompositionRuntimeTests/OfferGameScopeTests.cs": "b1c6b8158723f6c177f11674c0eff8c3b453d7ae22c57180e13a6375dd3e30ab",
+    "Tests/TradeCompositionRuntimeTests/Program.cs": "64bd1b2c170c08ca4e5255b1e74ab3fc3901afa6164f1a138282bc4e108f2fed",
+    "Tests/TradeCompositionRuntimeTests/QuotePreviewTests.cs": "1c0b51348c695bb4fe69c77e06f8afc1b81611ee2e890236731385541c61f4e0",
+    "Tests/TradeCompositionRuntimeTests/SaveReadinessTests.cs": "e4d23197e74f769f222e98fe4707cae065b73764f0dcc6a183f956dc7812c873",
+    "Tests/TradeCompositionRuntimeTests/TradeCompositionRuntimeTests.csproj": "a7d8c40dcf19a8d68d26720b88d95e5663bf9ffd6daf1e0e9036d053638b3794",
+    "Tests/TradeCompositionRuntimeTests/TradeRequestBoundaryTests.cs": "bc06f5a44e235bb3967c8401ee87c6daa5eea6e0dd634874209e570a4ac58434",
+    "Tests/TradeCompositionRuntimeTests/TransportSelectionTests.cs": "d7b8e42d3e24b72cb4dea17f4e99ff2e0f8911aa42fec3b055122ae293a28ab9",
+    "Tests/TradeIntentJournalTests/CapacityTests.cs": "1ef4b58df16fdb5dfc94adcdfc8f25fbecfa20f493d0f32c08796c5f1ce38414",
+    "Tests/TradeIntentJournalTests/FilesystemTests.cs": "51adbdef02b2e1c9a91cce84960ef3d091c29ec7fe85775842ea244ffcd873c2",
+    "Tests/TradeIntentJournalTests/Program.cs": "8a386f1fa2de3370c7c675c4e5089043450245a72cb5b7e1bb2718bf82dad511",
+    "Tests/TradeIntentJournalTests/TradeIntentJournalTests.csproj": "c4af0873167c16f1aebb019ad971a1296f852e1bfa871f7b2e83210ec8e85097",
+    "Tests/TradeOfferWireTests/Program.cs": "f4e0612e5d730a3b0f467f996c02bc2d7adf09946677b5274f2c384bc72c38d0",
+    "Tests/TradeOfferWireTests/TradeOfferWireTests.csproj": "3ea4107f0f42791cb498ef0c2a56ac5f47cc6defbfea6a221d6a1a585ab1ec22",
+    "Tests/TradeRecoveryQueueTests/Program.cs": "8d79e1f4546105ac9ff1d848fc1934cbdf64927750f33125f6d5a90d1d1e318d",
+    "Tests/WindowBoundaryRuntimeTests/Program.cs": "ceb8d20e1176f5dbb8237753e69b0ce0bc62a511debaa3d3e6af703a77a229f8",
+    "Tests/WindowBoundaryRuntimeTests/WindowBoundaryRuntimeTests.csproj": "0f93879425e9941856dc148d7a119320ae80d8f1b90d1639c2f6579670619b82",
+    "tools/quality/inventory-client-error-migration.py": "f4b965ac72220b94864d20621e75e8bda8358141d82a843d869f842bdfa2bd52",
+    "tools/quality/run-client-built-in-tests.py": "ebe4cb9b23b7be4a58d8f95dc7255c9e255e1683a639d2155c509133ae26fb36",
+    "tools/quality/run-client-component-probes.py": "38f86b1d38ff61d2ba5d00643c05338215c11b1519d341ebffe7feb849457a0a",
+    "tools/quality/run-client-error-boundary-tests.py": "8282151d7788216e9ddbae1f9116de399bd97cb897c21ae117c79608fa3415f6",
+    "tools/quality/run-client-error-tests.py": "46904ec9782d010c6fedf5557b851ab41d72cb2bb421d10a46fd10d9e1b9fb75",
+    "tools/quality/run-client-identity-tests.py": "a8fe1a2900b379a93eda2c231fac84c6af56fe6e47e5a418cc392031297d006d",
+    "tools/quality/run-client-managed-tests.py": "ae474a7377784636e86cf55643e3265143f41e2873cf30c5cf0adcd283edd141",
+    "tools/quality/run-client-presentation-tests.py": "140f13c4eb7c7ab599eb07169a4946eb345b8e6f6244cfd514cc1df9b97029b4",
+    "tools/quality/run-client-storage-tests.py": "07c372b1d157982ad7dfad858c202a6033410c9374ec1e00880a8e58c5a670cc",
+    "tools/quality/run-client-store-tests.py": "1932d6de3b0ccb949dc68348e3bd8d7b0eb86bde040f8809e9b2e932fc4477f7",
+    "tools/quality/run-client-theme-tests.py": "4a244008a21e782d9b202e6f8a00d0ef162408fddeacc9a8d8afa0c6b5d521f0",
+    "tools/quality/run-client-tls-probe.py": "23e8a73e9724ba435a9d7a47b5202a8e2260c39d9ca0681759adce2db9316ac2",
+    "tools/quality/run-phase35-client-tests.py": "e06d682f6cd9355edaac392bd29a76f761d82ad73b2e5becbe97850032898f36",
+    "tools/quality/run-sqlite-business-tests.py": "fee19b62e0ca7e955e51092f60b7daefb9caf7b2231905409ca72f042960c63f"
+  },
+  "review_artifacts": {
+    "migration-decisions.json": "e6a539b1fbe379bf840b6ca3f2442657cb58c5b8f87b7622723968880beccfbf",
+    "migration-ledger.tsv": "b28f35c5175d58b2a068e5f071f58e68c3283d552329e4268bdaac30c0d2a1cd",
+    "E4-source-review.json": "cb5d17b39e85d270a71e94f3c9b4e47852bef431f231469165d0c60bc980cfab",
+    "E4-CLOSEOUT.md": "19b2ca077d4b2cb0f6c8dfdabe5cb6233e8d84043aef54e54a259e2b4d5794e8"
+  },
+  "samples": {
+    "phinix.plugin-store.txt": "2a2466d880d79c7c1f4c67fa478d6e9ae30c935e22c6549a9ee8aa13b889e56a",
+    "builtin.chat.txt": "931cf357a93909dbdcee8c06d40cd61c0da7c4e0c2179f8e35adc18506a9802f",
+    "builtin.legacy-adapter.txt": "da62e49d619bc7645a6f6122d119ff945256dfe633f4a1bf8e3113b040e2f7cd",
+    "builtin.trade.txt": "efcb63c648202d6c0b05199c0882aa27ed9ed0ce064afead3c39ddc1066c6af8",
+    "builtin.inventory.txt": "d3908276c49f8d16ba7350ad28d29175deef2f500847411deeac3b5971b7f4cd",
+    "README.md": "90dbc26434a87f7dd7b150469760d30c9de09067cdfc4cf7c97290024b597a2c"
+  },
+  "results": {
+    "build16": [
+      {
+        "phase": "restore",
+        "command": [
+          "dotnet",
+          "restore",
+          "PhinixClient.sln",
+          "-p:Configuration=Release 1.6",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:MSBuildEnableWorkloadResolver=false",
+          "-m:1",
+          "-p:RestoreLockedMode=true"
+        ],
+        "exit": 0
+      },
+      {
+        "phase": "build",
+        "command": [
+          "dotnet",
+          "build",
+          "PhinixClient.sln",
+          "--no-restore",
+          "-p:Configuration=Release 1.6",
+          "-p:BuildInParallel=false",
+          "-p:NuGetAudit=false",
+          "-p:MSBuildEnableWorkloadResolver=false",
+          "-m:1"
+        ],
+        "exit": 0
+      }
+    ],
+    "build17": {
+      "exit": 0,
+      "source_projects": 28,
+      "scope": "Complete source dependency graph in generated net10 projects; original targets/packaging are not executed."
+    },
+    "errors": [
+      {
+        "framework": "net10.0",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net10.0",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "boundaries": [
+      {
+        "framework": "net10.0",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net10.0",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "framework": "net472",
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "business": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "presentation": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "managed": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "store": [
+      {
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "phase": "test",
+        "exit": 0
+      }
+    ],
+    "builtins": [
+      {
+        "suite": "LegacyTradeRuntimeTests",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "LegacyTradeRuntimeTests",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "suite": "ChatRegressionTests",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "ChatRegressionTests",
+        "phase": "test",
+        "exit": 0
+      },
+      {
+        "suite": "TradeOfferWireTests",
+        "phase": "build",
+        "exit": 0
+      },
+      {
+        "suite": "TradeOfferWireTests",
+        "phase": "test",
+        "exit": 0
+      }
+    ]
+  },
+  "final_incremental_builds": {
+    "net472": 0,
+    "net10": 0
+  },
+  "checks": {
+    "error_service_each_runtime": 92,
+    "boundaries_net10": 82,
+    "boundaries_net472": 76,
+    "sqlite_business": 89,
+    "presentation": 535,
+    "managed": 3436,
+    "store_operations_in_managed": 2225,
+    "complete_plugin_store": 1042,
+    "legacy": 89,
+    "chat_scenarios": 19,
+    "trade_wire": 28
+  },
+  "artifacts": {
+    "net10/PhinixClient": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/PhinixClient.dll",
+      "sha256": "4ddd3605045b5e0e3811d8beb99ac2b68d3ab0ee324067f198f807a2ce98ae04"
+    },
+    "net10/ClientExtensionAbstractions": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/ClientExtensionAbstractions.dll",
+      "sha256": "322508f188ed4b3da510b08ab358b8875a3767490a28a61799eeea8f934edd3d"
+    },
+    "net10/Utils": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/Utils.dll",
+      "sha256": "a220d52ff61386be991cdadf3ef3808dc5b88ce224ea2b9ead6ded21ab91d136"
+    },
+    "net10/InventoryExtension": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/InventoryExtension.dll",
+      "sha256": "026da7c6a79b9dea44071b60cfa474bac7c7c518d6e67a3448c9078014431111"
+    },
+    "net10/InventoryExtension.GameAdapter": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/InventoryExtension.GameAdapter.dll",
+      "sha256": "aea8cb88998090e6b252fbf190e06d25fe858a0ad1980a8357d3e3cf3449bbbb"
+    },
+    "net10/InventoryExtension.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/InventoryExtension.Client.dll",
+      "sha256": "52fb0fccf97f441a235510d6545ba5bdfbfae24a10f380df485a06a4c6d6f90c"
+    },
+    "net10/TradeExtension.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/TradeExtension.Client.dll",
+      "sha256": "511d990e24f3d581104887aabe71873e4823509722aacbaf252f6f6afb928996"
+    },
+    "net10/ChatExtension.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/ChatExtension.Client.dll",
+      "sha256": "289b9d231201c0979aed26c50a648c610bfbeadc4a9f94412347fee4b0488b15"
+    },
+    "net10/LegacyAdapter.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/LegacyAdapter.Client.dll",
+      "sha256": "0a820c1291bc8c250168637b1d6fec60f57480f3851eeb8cdbbe91c2f7e6e085"
+    },
+    "net10/PluginStore.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/PluginStore.Client.dll",
+      "sha256": "b83479afba8d30c1c18b7f15c2b2e0ca7247a6dd09fd7a1d9078757c84a95ebd"
+    },
+    "net10/LegacyRedPacketExtension.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/LegacyRedPacketExtension.Client.dll",
+      "sha256": "7f2cef8fb08b029af82bdbf08605c55d5153df7c55c8d6daabd05f61ce7c1dca"
+    },
+    "net10/LegacyTalentTradeExtension.Client": {
+      "path": "/tmp/phinix-e4-complete17/bin/Release/net10.0/LegacyTalentTradeExtension.Client.dll",
+      "sha256": "ac33c3858638becad468b5ee3a7aae2e54f95de35a09c650060bd91cbb289538"
+    },
+    "net472/PhinixClient": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Client/Source/bin/Release/PhinixClient.dll",
+      "sha256": "09f2f1a51aa1174977065f1bc72e102c8e560f217b20a80579a139c359129f8c"
+    },
+    "net472/ClientExtensionAbstractions": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Client/Source/bin/Release/ClientExtensionAbstractions.dll",
+      "sha256": "32120b26d98a5e07ae2b6060624d8858fda175bb0d3eb2644f1e1f1970841fc2"
+    },
+    "net472/Utils": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Client/Source/bin/Release/Utils.dll",
+      "sha256": "f60d36d7e3c919db2212a59cef853dea771858df21f24a08041c1ffd4e96ede6"
+    },
+    "net472/InventoryExtension.Client": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Extensions/Inventory/Client/bin/Release/net472/InventoryExtension.Client.dll",
+      "sha256": "2f2359e9027b4fb9de81cf2a537e7c398a978469a280860a95dba307de82f04e"
+    },
+    "net472/TradeExtension.Client": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Extensions/Trade/Client/bin/Release/TradeExtension.Client.dll",
+      "sha256": "5c54fc9f95fa5a8a17879e61d5c2e49361096162e964bbaf0047f12fea561f4f"
+    },
+    "net472/ChatExtension.Client": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Extensions/Chat/Client/bin/Release/ChatExtension.Client.dll",
+      "sha256": "682b803f622a329e8e484f92a889a173b27a659931c3f9092c2639623b19f84d"
+    },
+    "net472/LegacyAdapter.Client": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Extensions/LegacyAdapter/Client/bin/Release/LegacyAdapter.Client.dll",
+      "sha256": "e71809bce1d1f5d9a0ebe135ed50c32cbf1b73927f01f0835a2b3d7dfc9b00a6"
+    },
+    "net472/PluginStore.Client": {
+      "path": "/tmp/phinix-e4-complete16/Phinix-Rework/Extensions/PluginStore/Client/bin/Release/net472/PluginStore.Client.dll",
+      "sha256": "760590d325cda527a61bc5dd9609c9b73d849e68abf2730d791eb5801216ddb7"
+    }
+  },
+  "logs": {
+    "build16": {
+      "path": "/tmp/phinix-e4-complete16/build.log",
+      "sha256": "833f202988fa5cdf7fa96f3a5199630c284b5e4bc98c4adff334db6fdfc8c10b"
+    },
+    "build17": {
+      "path": "/tmp/phinix-e4-complete17/build.log",
+      "sha256": "969ca4cfd4e18343dc8542447a1f8ccf50d7a77f73fcbc55c75594593faefea1"
+    },
+    "build16_final": {
+      "path": "/tmp/e4-done16.log",
+      "sha256": "5bc7b98fa738ac946760ca65ff8d5a5eb990c4c37fc0e77edb585abdea1dfbbd"
+    },
+    "build17_final": {
+      "path": "/tmp/e4-done17.log",
+      "sha256": "32a2847d0ef1d0813f5ebd0fd0bd7d6027ed745c9c82236ed82dbaaa873e9584"
+    },
+    "errors/net472/test.log": {
+      "path": "/tmp/phinix-e4-complete-errors/net472/test.log",
+      "sha256": "21e53dd62f179f268c37ce2d0c26f97a336db9cae0c68f68961b3a4d295d4ee8"
+    },
+    "errors/net472/build.log": {
+      "path": "/tmp/phinix-e4-complete-errors/net472/build.log",
+      "sha256": "994871133c0ab01cba48809a4749f4a6bd23bf27d132e935912dda636e86854d"
+    },
+    "errors/net10.0/test.log": {
+      "path": "/tmp/phinix-e4-complete-errors/net10.0/test.log",
+      "sha256": "21e53dd62f179f268c37ce2d0c26f97a336db9cae0c68f68961b3a4d295d4ee8"
+    },
+    "errors/net10.0/build.log": {
+      "path": "/tmp/phinix-e4-complete-errors/net10.0/build.log",
+      "sha256": "444b632fc33cfb15e500e41b9520f2e9c7bbcecb6749cf5e9b2227b55da39b93"
+    },
+    "boundaries/net472/test.log": {
+      "path": "/tmp/phinix-e4-done-boundaries/net472/test.log",
+      "sha256": "0dc6e5e498b6255cee58ba7db4a16a2a980698b724a7070871258d57018288fc"
+    },
+    "boundaries/net472/build.log": {
+      "path": "/tmp/phinix-e4-done-boundaries/net472/build.log",
+      "sha256": "5523fe8a951b2f1f710ff40cb7e3b7cba94bf8e0fce45c2edc9d689d320e2d13"
+    },
+    "boundaries/net10.0/test.log": {
+      "path": "/tmp/phinix-e4-done-boundaries/net10.0/test.log",
+      "sha256": "02a27de979eb8c4f04785aab72aae2b1f69a48a9d0643df2627089b704039211"
+    },
+    "boundaries/net10.0/build.log": {
+      "path": "/tmp/phinix-e4-done-boundaries/net10.0/build.log",
+      "sha256": "7be0b8df9957a8b06401dfe29aacb4ec6fba2803505582403679f33e5273e6b6"
+    },
+    "business/test.log": {
+      "path": "/tmp/phinix-e4-done-business/test.log",
+      "sha256": "a7fe1ee8fd50fa621b775b53999b1e343865e4fefa9796e7ac190ed1d8821b7e"
+    },
+    "business/build.log": {
+      "path": "/tmp/phinix-e4-done-business/build.log",
+      "sha256": "b04ebfcb166e741c9bdc595c2f0fac604350da776ff15d98810e3d8a4be969cd"
+    },
+    "presentation/test.log": {
+      "path": "/tmp/phinix-e4-done-presentation/test.log",
+      "sha256": "d5c256b7a9ca899f3d1bdd26959371c6b081438839438ec708c042398d7a9b1a"
+    },
+    "presentation/build.log": {
+      "path": "/tmp/phinix-e4-done-presentation/build.log",
+      "sha256": "52ab3dbf3fb04d1ddf9f5bad9483d3249bcb7f9c60a9850ed072080d4a852842"
+    },
+    "managed/test.log": {
+      "path": "/tmp/phinix-e4-done-managed/test.log",
+      "sha256": "2c947e58550181f54d115ec9b4475c86dc5e1c6b0920a191d7f0d65bf179a320"
+    },
+    "managed/build.log": {
+      "path": "/tmp/phinix-e4-done-managed/build.log",
+      "sha256": "ff9920970940a5f39599d24e5ca280b6e9c5c69a491eb29304ede54d984848c5"
+    },
+    "store/test.log": {
+      "path": "/tmp/phinix-e4-store-v3/test.log",
+      "sha256": "d28133f55bcce29b61a172dde5881dda4505fed3bc5fa0298ea6beb7b8f43917"
+    },
+    "store/build.log": {
+      "path": "/tmp/phinix-e4-store-v3/build.log",
+      "sha256": "3388562308f7b150d7b75bbdef5225e296bb13da21d0a260d6b9383b06efb058"
+    },
+    "builtins/TradeOfferWireTests/test.log": {
+      "path": "/tmp/phinix-e4-done-builtins/TradeOfferWireTests/test.log",
+      "sha256": "68ddb230cdde12f833bd986cb1fcb639ef6df69d8fb68fba951c94cc7c93bfa8"
+    },
+    "builtins/TradeOfferWireTests/build.log": {
+      "path": "/tmp/phinix-e4-done-builtins/TradeOfferWireTests/build.log",
+      "sha256": "86e5cbd1d0a1621092a179afa99ca3e985330d9f23929fbefe2f98b7d3b7ea24"
+    },
+    "builtins/ChatRegressionTests/test.log": {
+      "path": "/tmp/phinix-e4-done-builtins/ChatRegressionTests/test.log",
+      "sha256": "cc16aa90ac584cf351db2cd0c3b69e72cbf1227f560fd21ace6811ad4e8ef86c"
+    },
+    "builtins/ChatRegressionTests/build.log": {
+      "path": "/tmp/phinix-e4-done-builtins/ChatRegressionTests/build.log",
+      "sha256": "de941260cdd082b03d01a3edfd324b4e9def77b696726f7560cc437879b8aafa"
+    },
+    "builtins/LegacyTradeRuntimeTests/test.log": {
+      "path": "/tmp/phinix-e4-done-builtins/LegacyTradeRuntimeTests/test.log",
+      "sha256": "c967a8bf3ac302675cb0eef2601cc6edda39ecc53a451db08e75215144a3f6f4"
+    },
+    "builtins/LegacyTradeRuntimeTests/build.log": {
+      "path": "/tmp/phinix-e4-done-builtins/LegacyTradeRuntimeTests/build.log",
+      "sha256": "f99fe5b86d306e0f579901221b0a236a1e31b5d20dc6945860ee02c48eeb0b92"
+    }
+  },
+  "build_manifests": {
+    "/tmp/phinix-e4-complete17/source-fingerprints.json": "cd94a3bb8d5c7116c110522feb5aeb8946542aa70d6de4ada510398de5c54de7",
+    "/tmp/phinix-e4-complete17/reference-fingerprints.json": "440442912dc974f80d7d491016cabced61381cd8620ec4e7ea355c946d9f9145",
+    "/tmp/phinix-e4-complete17/runtime-assets.json": "40120a4d33628f3a874bc2ec128d2bde547bc1b6c2676a5e7464c3d092c62c7a",
+    "/tmp/phinix-e4-complete16/source-fingerprints.json": "085acf810e65969a4772a3424c909b20bacb1ba47cc868789d6efc944a2ebeca",
+    "/tmp/phinix-e4-complete16/reference-fingerprints.json": "c1a3c5e8a0dacc8cfc5883d86f99cc4acbe3d56afd0b713ee148c396b8444452"
+  },
+  "limitations": [
+    "Synthetic copy reports and GUI stubs are not actual game popup/clipboard/propagation acceptance.",
+    "SQLite uses synthetic assets; no game objects or real service/network state changed.",
+    "Generated net10 dependency graph does not execute original net472 packaging targets; final release layout remains E5.",
+    "Mono retains existing Unity.Burst metadata warning; game references were not replaced.",
+    "Client/Common remain dirty, no commits or gitlink advance, Relay merge/push/release not performed.",
+    "Temporary outputs may be removed; results and SHA-256 persist here."
+  ]
+}
