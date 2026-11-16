@@ -1,8 +1,13 @@
 # RimWorld 1.7 迁移 Roadmap
 
-起始日期：2026-10-13；最新状态：2026-10-14。**两版 API3 本地联合候选 local-api3-20261014-05 已重建（保留加载修复，纠正1.7描边坐标），目录/绑定/语言白盒通过；1.7 第一轮游戏待测，正式双版本插件 ZIP 仍待实施。**
+起始日期：2026-10-13（状态更新至 2026-11-17）。
 
-本文件承接本轮真实源码、DLL 与 Player.log 评估。最初仅评估与规划，用户随后明确授权逐步实施，并在设计哲学复核后确认继续。优先新 API，1.6 由独立 adapter 保留；发现业务语义泄漏先收束。不使用旧版本 skill。当前实施仅修改可审查源码与检查工具，不部署正式包、不修改存档、不提交、推送或发布。
+> **状态更新（已完成核心交付）**：Host 迁移至 API 3 及 RimWorld 1.6（`net472`）/ 1.7（`net10.0`）双运行时支持已于 `2c228fe`（2026-10-15）与 `f7ea087`（2026-10-15）合并交付，配套双版本自动发布流程见 [Building-Dual-RimWorld.md](../../Building-Dual-RimWorld.md) 与 [Dual-Runtime-Automatic-Release-2026-10-15.md](Dual-Runtime-Automatic-Release-2026-10-15.md)。原 R17-10 ～ R17-71 分片过程文档已归并清理，核心完成项如下：
+> - **边界收束（R17-10 / R17-11）**：Trade 与 Inventory 游戏对象边界留在各自插件 game adapter，Host 公共呈现契约不暴露 Unity/Verse/Waylith 类型。
+> - **公共契约与后端（R17-20 ～ R17-30）**：Action Menu、Presentation Values/Image Slots/Row Leases、Theme Values/Registration、Window Boundary、Draw Context 与 1.7 Native Drawing（含描边坐标修复）及延迟框架引用全部就位。
+> - **双目标构建与打包（R17-71）**：单一产品版本、双 payload（`1.6/net472` + `1.7/net10.0`）单 ZIP 布局与 Host/Store 兼容版本校验完成闭环。
+
+本文件保留原始迁移目标、起点基线与所有权边界记录。
 
 ## 1. 目标与完成定义
 

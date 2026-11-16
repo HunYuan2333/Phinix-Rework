@@ -1,6 +1,8 @@
 # Phinix Rework UX/UI 重设计 Roadmap
 
-日期：2026-10-11，Asia/Singapore。状态：**用户已授权 API/Host renderer 基础实施；B1 基础与 B2 壳层/字段列表/首个成员流程源码及编译闭环已完成，游戏验收待测，完整业务迁移继续推进。后续 UI 重构按本文件分工接续，部署与发布继续延期。**
+日期：2026-10-11，Asia/Singapore（状态更新至 2026-11-17）。
+
+> **状态更新**：B1–B42 共享呈现契约、Host renderer 与 RimWorld 1.6 UX 重构已于 `783fcb0`（2026-10-13）合并完成，配套官方插件发布记录见 [UI-UX-Official-Releases-2026-10-13.json](UI-UX-Official-Releases-2026-10-13.json)（`3907d48` / `c6988e5`）；后续易用性增强（UX2）已于 `53c92ce` / `6fe404e` 交付。各批次零散构建 JSON 与单批游戏检查清单已归并清理，以下保留完整架构与各切片汇总记录。
 
 依据：[UX/UI/theme 审计报告](/home/hunyuan2333/Phinix/Phinix-Rework/docs/branch-local/audits/UI-UX-Redesign-Audit-2026-10-11.md)、[在线 Figma frame 1:4](https://www.figma.com/design/Mqxq3scgyAjpLFXbGJv78n/Phinix-Rework-Redesign?node-id=1-4)、[本地 .fig](</home/hunyuan2333/下载/Phinix Rework Redesign.fig>)。源码定位与完整主题 key 清单见审计 E01–E16 与附录 A。
 
