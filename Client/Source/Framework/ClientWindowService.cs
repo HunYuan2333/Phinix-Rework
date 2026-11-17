@@ -9,6 +9,8 @@ namespace PhinixClient.Framework
         private readonly ClientExtensionManagementWindowService management;
         private readonly Func<string,string,Exception,string> fault;
 
+        internal static bool IsReady => UnityData.IsInMainThread && Find.UIRoot != null && Find.WindowStack != null;
+
         public ClientWindowService(Func<string,string,Exception,string> fault = null)
         {
             this.fault = fault;
@@ -29,6 +31,7 @@ namespace PhinixClient.Framework
             }
 
             RequireMainThread();
+            if (!IsReady) throw new InvalidOperationException("Game window system is not ready.");
             try { Find.WindowStack.Add(window); }
             catch (Exception error)
             {

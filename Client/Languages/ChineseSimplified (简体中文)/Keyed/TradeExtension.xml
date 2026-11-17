@@ -2,10 +2,10 @@
 <LanguageData>
     <!-- Trade window -->
     <Phinix_trade_tradeTitle>与{0}交易</Phinix_trade_tradeTitle>
-    <Phinix_trade_ourOfferLabel>己方清单</Phinix_trade_ourOfferLabel>
-    <Phinix_trade_theirOfferLabel>对方清单</Phinix_trade_theirOfferLabel>
-    <Phinix_trade_confirmOurTradeCheckboxChecked>你已经确认</Phinix_trade_confirmOurTradeCheckboxChecked>
-    <Phinix_trade_confirmOurTradeCheckboxUnchecked>你尚未确认</Phinix_trade_confirmOurTradeCheckboxUnchecked>
+    <Phinix_trade_ourOfferLabel>己方报价</Phinix_trade_ourOfferLabel>
+    <Phinix_trade_theirOfferLabel>对方报价</Phinix_trade_theirOfferLabel>
+    <Phinix_trade_confirmOurTradeCheckboxChecked>已确认</Phinix_trade_confirmOurTradeCheckboxChecked>
+    <Phinix_trade_confirmOurTradeCheckboxUnchecked>未确认</Phinix_trade_confirmOurTradeCheckboxUnchecked>
     <Phinix_trade_confirmTheirTradeCheckboxChecked>{0}已确认</Phinix_trade_confirmTheirTradeCheckboxChecked>
     <Phinix_trade_confirmTheirTradeCheckboxUnchecked>{0}未确认</Phinix_trade_confirmTheirTradeCheckboxUnchecked>
     <Phinix_trade_confirmTrade>确认交易</Phinix_trade_confirmTrade>
@@ -17,8 +17,8 @@
     <Phinix_trade_noItemsAvailable>没有可用于交易的物品。</Phinix_trade_noItemsAvailable>
     <Phinix_trade_noItemsAvailableWithSearch>未搜索到相符的物品</Phinix_trade_noItemsAvailableWithSearch>
     <Phinix_trade_offerEmpty>报价为空 — 从下方选择物品添加</Phinix_trade_offerEmpty>
-    <Phinix_trade_missingDependencyWarning>对方物品引用了本机无法验证的定义或状态：\n\n{0}\n\n继续交易可能丢失配料、词条、名称或其他 Mod 数据。选择继续即表示你愿意承担本次交易的后果。是否仍然确认？</Phinix_trade_missingDependencyWarning>
-    <Phinix_trade_offerChangedDuringWarning>兼容性警告显示期间，交易内容已经变化。请重新检查并再次确认。</Phinix_trade_offerChangedDuringWarning>
+    <Phinix_trade_missingDependencyWarning>对方物品包含本机未知的数据或 Mod 内容：\n\n{0}\n\n继续交易可能丢失部分属性，是否确认？</Phinix_trade_missingDependencyWarning>
+    <Phinix_trade_offerChangedDuringWarning>交易内容已变化，请重新核对后再确认。</Phinix_trade_offerChangedDuringWarning>
 
     <!-- Trade window: item context menu -->
     <Phinix_trade_selectAll>全选</Phinix_trade_selectAll>
@@ -44,45 +44,45 @@
     <Phinix_trade_tradeCancelled_label>交易取消</Phinix_trade_tradeCancelled_label>
     <Phinix_trade_tradeCancelled_description>你的交易{0}被取消了。\n\n你的物品已经运回。</Phinix_trade_tradeCancelled_description>
     <Phinix_trade_tradeCancelledInventoryDescription>你与{0}的交易已取消，退回的物品已存入 Phinix 库存。</Phinix_trade_tradeCancelledInventoryDescription>
-    <Phinix_trade_inventoryDepositFailed>交易物品无法写入库存。交付仍处于待处理状态，稍后会重试。原因：{0}</Phinix_trade_inventoryDepositFailed>
-    <Phinix_trade_directDeliveryFailed>交易物品无法完成空投。客户端不会确认服务端结算，并会稍后重试。原因：{0}</Phinix_trade_directDeliveryFailed>
+    <Phinix_trade_inventoryDepositFailed>无法存入库存，稍后将重试。原因：{0}</Phinix_trade_inventoryDepositFailed>
+    <Phinix_trade_directDeliveryFailed>空投失败，稍后将重试。原因：{0}</Phinix_trade_directDeliveryFailed>
 
     <!-- Trade errors -->
     <Phinix_error_tradeCreationFailedTitle>交易创建失败</Phinix_error_tradeCreationFailedTitle>
     <Phinix_error_tradeCreationFailedMessage>无法开启一项交易：{0} ({1})</Phinix_error_tradeCreationFailedMessage>
     <Phinix_error_tradeUpdateFailedTitle>交易更新失败</Phinix_error_tradeUpdateFailedTitle>
-    <Phinix_error_tradeUpdateFailedMessage>无法更新你与{0}的交易: {1} ({2})\n本次更新未成功；此提示不代表物品已返还，请核对交易与库存状态。</Phinix_error_tradeUpdateFailedMessage>
+    <Phinix_error_tradeUpdateFailedMessage>无法更新与 {0} 的交易：{1} ({2})</Phinix_error_tradeUpdateFailedMessage>
     <Phinix_trade_listSearch>搜索对方或交易 ID</Phinix_trade_listSearch>
     <Phinix_trade_listDetails>交易详情</Phinix_trade_listDetails>
     <Phinix_trade_listSelectTrade>选择一笔交易查看当前报价状态。</Phinix_trade_listSelectTrade>
     <Phinix_trade_listStackCounts>本方报价：{0} 堆 · 对方报价：{1} 堆</Phinix_trade_listStackCounts>
-    <Phinix_trade_listCancelPending>已请求取消，等待结果。物品暂未返还。</Phinix_trade_listCancelPending>
-    <Phinix_trade_listCancelUncertain>取消提交失败或结果不确定，请核对实际交易状态。</Phinix_trade_listCancelUncertain>
+    <Phinix_trade_listCancelPending>正在取消交易，等待结果…</Phinix_trade_listCancelPending>
+    <Phinix_trade_listCancelUncertain>取消请求结果未确认，请核对交易状态。</Phinix_trade_listCancelUncertain>
     <Phinix_trade_listWaiting>等待结果</Phinix_trade_listWaiting>
-    <Phinix_trade_listCancelConfirmation>取消与 {0} 的交易？请等待取消结果和物品返还。</Phinix_trade_listCancelConfirmation>
+    <Phinix_trade_listCancelConfirmation>取消与 {0} 的交易？</Phinix_trade_listCancelConfirmation>
     <Phinix_trade_listKeepTrade>保留交易</Phinix_trade_listKeepTrade>
-    <Phinix_trade_listAuthorityNote>报价确认不等于交易完成。打开交易可编辑或确认报价。</Phinix_trade_listAuthorityNote>
-    <Phinix_trade_listDisconnected>连接已断开，等待新的交易快照。</Phinix_trade_listDisconnected>
-    <Phinix_trade_listFinished>已收到交易完成结果；本地物品交付由原流程单独处理。</Phinix_trade_listFinished>
-    <Phinix_trade_listPartyUnavailable>对方数据不可用，无法打开报价编辑。</Phinix_trade_listPartyUnavailable>
-    <Phinix_trade_listOfferPending>报价结果尚未确认，请勿重复提交。相关物品暂时保留。</Phinix_trade_listOfferPending>
+    <Phinix_trade_listAuthorityNote>打开交易可编辑或确认报价。</Phinix_trade_listAuthorityNote>
+    <Phinix_trade_listDisconnected>连接已断开，等待重新同步。</Phinix_trade_listDisconnected>
+    <Phinix_trade_listFinished>交易已完成，正在处理物品交付。</Phinix_trade_listFinished>
+    <Phinix_trade_listPartyUnavailable>对方数据不可用，暂无法编辑报价。</Phinix_trade_listPartyUnavailable>
+    <Phinix_trade_listOfferPending>报价处理中，请勿重复提交。</Phinix_trade_listOfferPending>
     <Phinix_trade_listOfferRecovery>报价操作</Phinix_trade_listOfferRecovery>
     <Phinix_trade_listRetrySettlement>重试本地处理</Phinix_trade_listRetrySettlement>
-    <Phinix_trade_listRetrySettlementConfirm>重试上次未完成的物品处理？不会重新发送报价；交付结果不明时无法重试。</Phinix_trade_listRetrySettlementConfirm>
+    <Phinix_trade_listRetrySettlementConfirm>重试上次未完成的物品处理？</Phinix_trade_listRetrySettlementConfirm>
     <Phinix_trade_listOffer_Preparing>正在准备报价</Phinix_trade_listOffer_Preparing>
     <Phinix_trade_listOffer_AwaitingResult>等待报价结果</Phinix_trade_listOffer_AwaitingResult>
     <Phinix_trade_listOffer_Unknown>报价结果或本地处理结果不确定</Phinix_trade_listOffer_Unknown>
     <Phinix_trade_listOffer_LocalSettlementPending>报价结果已确认，物品处理未完成</Phinix_trade_listOffer_LocalSettlementPending>
     <Phinix_trade_listEntryCounts>{0} 笔交易 · {1} 个报价操作</Phinix_trade_listEntryCounts>
-    <Phinix_trade_operation_TradeOfferLocalSettlementBlocked>本地物品处理受阻。解决所述原因后，可重试本地处理。</Phinix_trade_operation_TradeOfferLocalSettlementBlocked>
-    <Phinix_trade_operation_TradeOfferSendUncertain>报价提交失败或结果不确定。物品继续托管，等待明确结果。</Phinix_trade_operation_TradeOfferSendUncertain>
-    <Phinix_trade_operation_TradeResetResultNotEmpty>收到的结果未显示报价已清空，尚未返还物品。</Phinix_trade_operation_TradeResetResultNotEmpty>
-    <Phinix_trade_operation_TradeFinishedBeforeOfferResult>该报价结果明确前交易已结束，不自动返还托管物品。</Phinix_trade_operation_TradeFinishedBeforeOfferResult>
-    <Phinix_trade_operation_TradeOfferOwnerStopped>交易模块已停止，未解决的操作不会自动返还。</Phinix_trade_operation_TradeOfferOwnerStopped>
-    <Phinix_trade_operation_TradeOfferPreparationAborted>报价提交前准备失败，已暂存物品仍需本地处理。</Phinix_trade_operation_TradeOfferPreparationAborted>
-    <Phinix_trade_operation_TradeOfferLocalSettlementUncertain>本地交付结果不确定。重复执行可能重复发放，因此不能重试。</Phinix_trade_operation_TradeOfferLocalSettlementUncertain>
-    <Phinix_trade_operation_TradeOfferLocalSettlementThrew>本地处理出现异常，需要核对实际结果。</Phinix_trade_operation_TradeOfferLocalSettlementThrew>
-    <Phinix_trade_operation_TradeOfferGameScopeExpired>发起操作时的游戏或 Trade 生命周期已失效。未向当前游戏结算物品；此操作仍需恢复依据。</Phinix_trade_operation_TradeOfferGameScopeExpired>
+    <Phinix_trade_operation_TradeOfferLocalSettlementBlocked>本地物品处理受阻，解决后可重试。</Phinix_trade_operation_TradeOfferLocalSettlementBlocked>
+    <Phinix_trade_operation_TradeOfferSendUncertain>报价提交结果未确认，物品暂时保留。</Phinix_trade_operation_TradeOfferSendUncertain>
+    <Phinix_trade_operation_TradeResetResultNotEmpty>报价尚未清空，物品暂未返还。</Phinix_trade_operation_TradeResetResultNotEmpty>
+    <Phinix_trade_operation_TradeFinishedBeforeOfferResult>交易已在报价确认前结束，托管物品未自动返还。</Phinix_trade_operation_TradeFinishedBeforeOfferResult>
+    <Phinix_trade_operation_TradeOfferOwnerStopped>交易模块已停止。</Phinix_trade_operation_TradeOfferOwnerStopped>
+    <Phinix_trade_operation_TradeOfferPreparationAborted>报价准备失败，已暂存物品仍需处理。</Phinix_trade_operation_TradeOfferPreparationAborted>
+    <Phinix_trade_operation_TradeOfferLocalSettlementUncertain>本地交付结果未确认，为防重复发放已停用重试。</Phinix_trade_operation_TradeOfferLocalSettlementUncertain>
+    <Phinix_trade_operation_TradeOfferLocalSettlementThrew>本地处理出错，请核对结果。</Phinix_trade_operation_TradeOfferLocalSettlementThrew>
+    <Phinix_trade_operation_TradeOfferGameScopeExpired>发起操作时的游戏会话已失效，请在恢复记录中核对。</Phinix_trade_operation_TradeOfferGameScopeExpired>
     <Phinix_trade_quoteInvalid>物品记录无效</Phinix_trade_quoteInvalid>
     <Phinix_trade_quoteUnknown>定义不可用</Phinix_trade_quoteUnknown>
     <Phinix_trade_quoteMaterial>材料</Phinix_trade_quoteMaterial>
@@ -91,7 +91,7 @@
     <Phinix_trade_quoteContains>包含物品</Phinix_trade_quoteContains>
     <Phinix_trade_quoteHasState>附带物品状态</Phinix_trade_quoteHasState>
     <Phinix_trade_quoteInvalidQuantity>快照数量无效</Phinix_trade_quoteInvalidQuantity>
-    <Phinix_trade_quotePreviewNote>仅展示报价快照摘要，不解析附带状态；清单不代表已到账。</Phinix_trade_quotePreviewNote>
+    <Phinix_trade_quotePreviewNote>仅显示报价概览，交易完成后物品才会发放。</Phinix_trade_quotePreviewNote>
     <Phinix_trade_quoteEmpty>这一方的报价没有物品。</Phinix_trade_quoteEmpty>
     <Phinix_trade_quoteQuality_Awful>极差</Phinix_trade_quoteQuality_Awful>
     <Phinix_trade_quoteQuality_Poor>较差</Phinix_trade_quoteQuality_Poor>
@@ -101,17 +101,17 @@
     <Phinix_trade_quoteQuality_Masterwork>大师级</Phinix_trade_quoteQuality_Masterwork>
     <Phinix_trade_quoteQuality_Legendary>传奇级</Phinix_trade_quoteQuality_Legendary>
     <Phinix_trade_inventoryRecoveryTitle>库存报价预留</Phinix_trade_inventoryRecoveryTitle>
-    <Phinix_trade_inventoryRecoveryJournal>库存账本</Phinix_trade_inventoryRecoveryJournal>
+    <Phinix_trade_inventoryRecoveryJournal>预留记录</Phinix_trade_inventoryRecoveryJournal>
     <Phinix_trade_inventoryRecovery_Reserved>库存预留中</Phinix_trade_inventoryRecovery_Reserved>
     <Phinix_trade_inventoryRecovery_Uncertain>预留结果不确定</Phinix_trade_inventoryRecovery_Uncertain>
     <Phinix_trade_inventoryRecoveryReservation>预留 ID</Phinix_trade_inventoryRecoveryReservation>
     <Phinix_trade_inventoryRecoveryOperation>原操作 ID</Phinix_trade_inventoryRecoveryOperation>
-    <Phinix_trade_inventoryRecoveryEvidence>账本备注（不能证明交易结果）</Phinix_trade_inventoryRecoveryEvidence>
-    <Phinix_trade_inventoryRecoveryNote>这条账本记录不能证明报价已接受或拒绝。此处不自动解锁、退款或重试；地图物品托管与 Reset 返还是独立记录。</Phinix_trade_inventoryRecoveryNote>
+    <Phinix_trade_inventoryRecoveryEvidence>备注</Phinix_trade_inventoryRecoveryEvidence>
+    <Phinix_trade_inventoryRecoveryNote>此记录仅用于核对预留状态，不会自动解锁或返还物品。</Phinix_trade_inventoryRecoveryNote>
     <Phinix_trade_inventoryRecoveryCount>{0} 笔库存预留</Phinix_trade_inventoryRecoveryCount>
-    <Phinix_trade_inventoryRecoveryUnits>预留 codec 单位：{0}</Phinix_trade_inventoryRecoveryUnits>
+    <Phinix_trade_inventoryRecoveryUnits>预留数量：{0}</Phinix_trade_inventoryRecoveryUnits>
     <Phinix_trade_inventoryRecoveryLines>预留库存条目</Phinix_trade_inventoryRecoveryLines>
-    <Phinix_trade_inventoryRecoveryNoLines>此账本记录没有数量明细。</Phinix_trade_inventoryRecoveryNoLines>
+    <Phinix_trade_inventoryRecoveryNoLines>无数量明细。</Phinix_trade_inventoryRecoveryNoLines>
     <Phinix_trade_browsePrevious>上一页</Phinix_trade_browsePrevious>
     <Phinix_trade_browseNext>下一页</Phinix_trade_browseNext>
     <Phinix_trade_browsePage>第 {0} / {1} 页</Phinix_trade_browsePage>
@@ -128,19 +128,19 @@
   <Phinix_trade_editorUnits>草稿 {0} / 可用 {1}</Phinix_trade_editorUnits>
   <Phinix_trade_editorInventory>库存</Phinix_trade_editorInventory>
   <Phinix_trade_editorMap>地图</Phinix_trade_editorMap>
-  <Phinix_trade_editorDraftNote>数量是本地草稿，点击“更新”才加入报价。刷新物品会清除草稿；关闭窗口不取消交易。</Phinix_trade_editorDraftNote>
+  <Phinix_trade_editorDraftNote>修改数量后需点击“更新”提交；关闭窗口不会取消交易。</Phinix_trade_editorDraftNote>
   <Phinix_trade_editorConfirmNote>请核对双方清单。双方确认后，还需等待物品到账。</Phinix_trade_editorConfirmNote>
-  <Phinix_trade_editorCancelConfirm>取消这笔交易？请等待取消结果。关闭窗口不会取消交易或返还物品。</Phinix_trade_editorCancelConfirm>
-  <Phinix_trade_editorResetConfirm>清空己方报价？确认成功后才会返还物品；结果不明时，物品仍会保留。</Phinix_trade_editorResetConfirm>
+  <Phinix_trade_editorCancelConfirm>取消这笔交易？关闭窗口不会取消交易。</Phinix_trade_editorCancelConfirm>
+  <Phinix_trade_editorResetConfirm>清空己方报价？确认后将返还物品。</Phinix_trade_editorResetConfirm>
 <Phinix_trade_editorQuantityTools>数量快捷操作</Phinix_trade_editorQuantityTools>
-<Phinix_trade_editorPreparationFailed>请求准备失败。请查看交易操作记录；此提示不代表已取消或已返还。</Phinix_trade_editorPreparationFailed>
+<Phinix_trade_editorPreparationFailed>请求准备失败，请查看操作记录。</Phinix_trade_editorPreparationFailed>
 
   <Phinix_trade_editorSubmitQuote>提交报价</Phinix_trade_editorSubmitQuote>
   <Phinix_trade_editorCloseNote>关闭窗口只关闭视图，不取消交易。</Phinix_trade_editorCloseNote>
   <Phinix_trade_editorConfirmed>已确认</Phinix_trade_editorConfirmed>
   <Phinix_trade_editorUnconfirmed>未确认</Phinix_trade_editorUnconfirmed>
-  <Phinix_trade_editorLocalDraft>本地草稿 · 提交报价后等待确认；刷新物品会清空草稿。</Phinix_trade_editorLocalDraft>
-  <Phinix_trade_editorAcknowledgedQuote>当前报价 · 与本地草稿分开显示</Phinix_trade_editorAcknowledgedQuote>
+  <Phinix_trade_editorLocalDraft>本地草稿 · 点击“提交报价”生效（刷新会清空）</Phinix_trade_editorLocalDraft>
+  <Phinix_trade_editorAcknowledgedQuote>当前已提交报价</Phinix_trade_editorAcknowledgedQuote>
   <Phinix_trade_editorYouGive>你将交出</Phinix_trade_editorYouGive>
   <Phinix_trade_editorYouReceive>你将收到</Phinix_trade_editorYouReceive>
   <Phinix_trade_editorTradeActions>交易操作</Phinix_trade_editorTradeActions>
@@ -153,16 +153,16 @@
   <Phinix_trade_completionSave_Current>绑定当前已保存的游戏</Phinix_trade_completionSave_Current>
   <Phinix_trade_completionSave_Different>绑定其他存档，或当前存档不可用</Phinix_trade_completionSave_Different>
   <Phinix_trade_completionSave_Unbound>没有已记录的存档绑定</Phinix_trade_completionSave_Unbound>
-  <Phinix_trade_completionRecoveryNotice>此处仅展示记录，不证明物品已保存；不会自动补投或退款。</Phinix_trade_completionRecoveryNotice>
-  <Phinix_trade_completionRecoveryJournal>交付日志</Phinix_trade_completionRecoveryJournal>
+  <Phinix_trade_completionRecoveryNotice>仅用于核对交付状态，不会自动补发或退款。</Phinix_trade_completionRecoveryNotice>
+  <Phinix_trade_completionRecoveryJournal>交付记录</Phinix_trade_completionRecoveryJournal>
   <Phinix_trade_recoveryRecordCount>{0} 条待核对记录</Phinix_trade_recoveryRecordCount>
   <Phinix_trade_intentRecoveryTitle>已保存的交易操作</Phinix_trade_intentRecoveryTitle>
-  <Phinix_trade_intentRecoveryJournal>操作日志</Phinix_trade_intentRecoveryJournal>
-  <Phinix_trade_intentQuery>核对服务端原结果</Phinix_trade_intentQuery>
+  <Phinix_trade_intentRecoveryJournal>操作记录</Phinix_trade_intentRecoveryJournal>
+  <Phinix_trade_intentQuery>查询服务器结果</Phinix_trade_intentQuery>
   <Phinix_trade_intentQuerySubmitted>查询已提交，正在等待服务端结果。</Phinix_trade_intentQuerySubmitted>
-  <Phinix_trade_intentQueryFailed>本次查询未能完成，原操作保持不变。</Phinix_trade_intentQueryFailed>
-  <Phinix_trade_intentQueryUnavailable>请重连支持操作查询的服务端。</Phinix_trade_intentQueryUnavailable>
-  <Phinix_trade_intentRecoveryNotice>这里只核对服务端原结果。未找到、超时或断线不允许退款或重新发送物品；服务端提交成功也不证明游戏已保存交付。</Phinix_trade_intentRecoveryNotice>
+  <Phinix_trade_intentQueryFailed>查询失败，请重试。</Phinix_trade_intentQueryFailed>
+  <Phinix_trade_intentQueryUnavailable>当前服务器不支持查询。</Phinix_trade_intentQueryUnavailable>
+  <Phinix_trade_intentRecoveryNotice>用于向服务器查询原操作结果；查询失败或超时不会自动退款或重发。</Phinix_trade_intentRecoveryNotice>
   <Phinix_trade_intentState_Prepared>请求已保存，没有已记录的发送尝试</Phinix_trade_intentState_Prepared>
   <Phinix_trade_intentState_OutcomeUnknown>已尝试发送，原结果仍未知</Phinix_trade_intentState_OutcomeUnknown>
   <Phinix_trade_intentState_CommittedSuccess>服务端已提交成功，尚非游戏到账确认</Phinix_trade_intentState_CommittedSuccess>
@@ -177,10 +177,10 @@
   <Phinix_trade_intentLookup_InvalidRequest>最近一次查询被拒绝。</Phinix_trade_intentLookup_InvalidRequest>
   <Phinix_trade_intentState_ResponseSuccess>已记录服务端成功回执，尚未核对持久结果</Phinix_trade_intentState_ResponseSuccess>
   <Phinix_trade_intentState_ResponseFailure>已记录服务端拒绝回执，尚未核对持久结果</Phinix_trade_intentState_ResponseFailure>
-  <Phinix_trade_saveBeforeTrading>请先保存当前游戏，再提交物品或确认交易。本次操作尚未转移物品。</Phinix_trade_saveBeforeTrading>
-  <Phinix_trade_inventoryUnavailableBeforeTrading>当前库存尚未就绪，请先查看库存状态，再提交物品或确认交易。</Phinix_trade_inventoryUnavailableBeforeTrading>
-  <Phinix_trade_deliverySavePending>交易物品已保留，接收时当前存档尚未就绪，暂未交付。请先保存，再查看待核对交易。</Phinix_trade_deliverySavePending>
-  <Phinix_trade_deliveryScopePending>交易物品已保留；游戏或存档范围已改变，暂未发放。请查看待核对交易，避免重复操作。</Phinix_trade_deliveryScopePending>
-  <Phinix_trade_basicCompatibilityNotice>当前交易使用原版 Phinix 兼容规则：仅保留物品种类、数量、材质、品质、耐久及内含物，其他附加属性会丢弃。确认与交付采用原版较弱规则；服务端发出物品不代表对方游戏已保存到账。</Phinix_trade_basicCompatibilityNotice>
-  <Phinix_trade_deliveryDispatchFailed>本次交易的本地交付无法确认，物品可能未到账。其他交易可继续；不会自动重复投放。</Phinix_trade_deliveryDispatchFailed>
+  <Phinix_trade_saveBeforeTrading>请先保存当前游戏，再提交物品或确认交易。</Phinix_trade_saveBeforeTrading>
+  <Phinix_trade_inventoryUnavailableBeforeTrading>当前库存未就绪，请先检查库存状态。</Phinix_trade_inventoryUnavailableBeforeTrading>
+  <Phinix_trade_deliverySavePending>交易物品已保留，请先保存游戏并在“待核对交付”中查看。</Phinix_trade_deliverySavePending>
+  <Phinix_trade_deliveryScopePending>游戏或存档已切换，交易物品已保留，请在“待核对交付”中查看。</Phinix_trade_deliveryScopePending>
+  <Phinix_trade_basicCompatibilityNotice>当前使用旧版兼容模式：仅保留物品种类、数量、材质、品质、耐久及内含物，其余属性会丢弃。</Phinix_trade_basicCompatibilityNotice>
+  <Phinix_trade_deliveryDispatchFailed>本地交付未确认，物品可能未到账。</Phinix_trade_deliveryDispatchFailed>
 </LanguageData>

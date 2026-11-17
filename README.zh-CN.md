@@ -86,8 +86,8 @@ Phinix Rework 内置游戏内插件商店，玩家无需手动解压或修改模
 2. **安装插件**：
    - 选择所需插件，点击 **安装**（Install）。
    - **完全退出并重启 RimWorld**，以便游戏引擎加载新安装的程序集。
-3. **扩展管理**：
-   - 打开 **扩展管理**（Extension Manager）查看已安装插件清单。
+3. **插件管理**：
+   - 打开 **插件管理** 查看已安装插件清单。
    - 点击切换插件 **启用**（Enabled）或 **停用**（Disabled），或点击 **卸载**（Uninstall）。
    - 启停与卸载变更均在**下一次重启游戏后生效**。
 4. **网络加速切换**：
@@ -139,7 +139,7 @@ git submodule update --init --recursive
 
 ### 自动化测试
 
-运行无 UI 的自动化运行时测试套件（注意：自动化测试通过仅用于验证底层逻辑，不代表 Unity/RimWorld 游戏内实测通过）：
+运行无 UI 的自动化运行时测试套件：
 
 ```bash
 # 核心框架运行时回归
@@ -193,16 +193,14 @@ Output/phinix-rework/
 - [简体中文 skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-cn/SKILL.md)
 - [English skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-en/SKILL.md)
 
-选择一种语言，将该语言目录及其 `references/` 一起交给支持 skill 的 AI 工具，按工具支持的方式使用。外层 `phinix-rework-plugin-development/` 只是两个语言版本的分发目录，不是可单独安装的 skill。
-
-目前 skill 为开发引导草案。开始前确认目标宿主具备文档中的接口与本地安装工具；工作区修改、正式发行和游戏验收分别记录。现有发布 Actions、手动发行及 Index 流程继续可用，具体能力状态见对应 skill 的版本说明。
+选择一种语言，将该语言目录及其 `references/` 一起加载到支持 skill 的 AI 工具中即可（外层 `phinix-rework-plugin-development/` 为分发目录，不可单独安装）。
 
 ### 文档与参考
 
 - [插件开发指南](docs/插件开发指南.md) — 托管插件开发规范、生命周期与 DI 组合、打包与 Index 发布流程。
 - [设计哲学](docs/设计哲学.md) — 插件平权边界、三条通信管道与生命周期规范。
-- [兼容边界与故障恢复约束](docs/Compatibility-Boundaries.md) — 客户端与不同服务端版本的网络契约与恢复约束。
-- [客户端虚拟库存边界](docs/Inventory.md) — 虚拟库存暂存与日志恢复规范。
+- [兼容边界与故障恢复约束](docs/兼容边界与故障恢复约束.md) — 客户端与不同服务端版本的网络契约与恢复约束。
+- [客户端库存与恢复边界](docs/客户端库存与恢复边界.md) — 虚拟库存暂存与恢复边界规范。
 - [Phinix-Example-Plugin](https://github.com/HunYuan2333/Phinix-Example-Plugin) — 官方示例插件，展示 Tab 页面、设置面板与双语本地化。
 - [Phinix-Plugin-Index](https://github.com/HunYuan2333/Phinix-Plugin-Index) — 官方插件目录与收录仓库。
 

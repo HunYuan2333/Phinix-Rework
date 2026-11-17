@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <LanguageData>
   <Phinix_store_tab>商店</Phinix_store_tab>
-  <Phinix_store_management>扩展管理</Phinix_store_management>
+  <Phinix_store_management>插件管理</Phinix_store_management>
   <Phinix_store_sourceSettings>索引设置 / 重新载入</Phinix_store_sourceSettings>
   <Phinix_store_operationFailed>操作失败。</Phinix_store_operationFailed>
   <Phinix_store_selected>已选择</Phinix_store_selected>
@@ -60,7 +60,7 @@
   <Phinix_store_state_Managing>正在核对商店归属记录，并恢复未完成操作……</Phinix_store_state_Managing>
   <Phinix_store_state_Uninstalled>插件已卸载。请重启游戏以刷新 Mod 列表；存档和设置已保留。</Phinix_store_state_Uninstalled>
   <Phinix_store2_refresh>刷新商店</Phinix_store2_refresh>
-  <Phinix_store2_management>扩展管理</Phinix_store2_management>
+  <Phinix_store2_management>插件管理</Phinix_store2_management>
   <Phinix_store2_source>商店来源</Phinix_store2_source>
   <Phinix_store2_endpoint>商店地址</Phinix_store2_endpoint>
   <Phinix_store2_sourceId>来源 ID</Phinix_store2_sourceId>
@@ -74,7 +74,7 @@
   <Phinix_store2_externalMod>需要启用的 Mod：</Phinix_store2_externalMod>
   <Phinix_store2_installedState>安装状态：</Phinix_store2_installedState>
   <Phinix_store2_restartRequired>重启后生效</Phinix_store2_restartRequired>
-  <Phinix_store2_plan>查看依赖计划</Phinix_store2_plan>
+  <Phinix_store2_plan>检查依赖</Phinix_store2_plan>
   <Phinix_store2_downloadSize>本次下载：</Phinix_store2_downloadSize>
   <Phinix_store2_newPackage>将安装</Phinix_store2_newPackage>
   <Phinix_store2_existingPackage>已安装且已启用</Phinix_store2_existingPackage>
@@ -82,7 +82,7 @@
   <Phinix_store2_refreshFirst>点击“刷新商店”获取插件目录。</Phinix_store2_refreshFirst>
   <Phinix_store2_empty>没有匹配的包。</Phinix_store2_empty>
   <Phinix_store2_openWorkshop>打开创意工坊页面</Phinix_store2_openWorkshop>
-  <Phinix_store2_checkDownload>下载并校验（暂不安装）</Phinix_store2_checkDownload>
+  <Phinix_store2_checkDownload>仅下载校验</Phinix_store2_checkDownload>
   <Phinix_store2_install>安装插件</Phinix_store2_install>
   <Phinix_store2_enable>启用（重启生效）</Phinix_store2_enable>
   <Phinix_store2_disable>停用（重启生效）</Phinix_store2_disable>
@@ -90,35 +90,35 @@
   <Phinix_store2_cancel>取消当前任务</Phinix_store2_cancel>
   <Phinix_store2_blocked>操作受阻：</Phinix_store2_blocked>
   <Phinix_store2_legacyTools>旧 Mod 安装记录 / 清理工具</Phinix_store2_legacyTools>
-  <Phinix_store2_confirmInstall>将安装以下插件及依赖。DLL 插件由 Phinix 管理，重启游戏后启用。插件代码具有游戏进程权限，请只安装信任的发布者。</Phinix_store2_confirmInstall>
-  <Phinix_store2_confirmUninstall>卸载此插件？重启后移除插件文件，设置、数据和存档仍会保留。</Phinix_store2_confirmUninstall>
-  <Phinix_store2_reviewAgain>目录或计划已变化，请重新查看依赖计划。</Phinix_store2_reviewAgain>
+  <Phinix_store2_confirmInstall>确定安装以下插件及依赖？插件将在重启后启用，请只安装信任的来源。</Phinix_store2_confirmInstall>
+  <Phinix_store2_confirmUninstall>确定卸载此插件？重启后移除文件，设置与存档会保留。</Phinix_store2_confirmUninstall>
+  <Phinix_store2_reviewAgain>目录已更新，请重新检查依赖。</Phinix_store2_reviewAgain>
   <Phinix_store2_failed>操作失败：</Phinix_store2_failed>
   <Phinix_store2_request>排查编号：</Phinix_store2_request>
-  <Phinix_store2_offlineNotice>离线缓存仅可浏览，请联网刷新后安装。</Phinix_store2_offlineNotice>
+  <Phinix_store2_offlineNotice>离线模式下仅可浏览，请刷新后安装。</Phinix_store2_offlineNotice>
   <Phinix_store2_desired_Enabled>已启用</Phinix_store2_desired_Enabled>
   <Phinix_store2_desired_Disabled>已停用</Phinix_store2_desired_Disabled>
   <Phinix_store2_desired_PendingRemoval>待卸载</Phinix_store2_desired_PendingRemoval>
-  <Phinix_store2_desired_Unknown>状态未核实</Phinix_store2_desired_Unknown>
-  <Phinix_store2_state_Idle>尚未加载目录。</Phinix_store2_state_Idle>
+  <Phinix_store2_desired_Unknown>未确认</Phinix_store2_desired_Unknown>
+  <Phinix_store2_state_Idle>点击“刷新商店”加载列表。</Phinix_store2_state_Idle>
   <Phinix_store2_state_Reading>正在获取并核验目录…</Phinix_store2_state_Reading>
-  <Phinix_store2_state_Ready>目录与本地状态已刷新。</Phinix_store2_state_Ready>
+  <Phinix_store2_state_Ready>目录已刷新。</Phinix_store2_state_Ready>
   <Phinix_store2_state_Planning>正在核对依赖与兼容性…</Phinix_store2_state_Planning>
-  <Phinix_store2_state_PlanReady>依赖检查通过，继续安装或确认额外依赖。</Phinix_store2_state_PlanReady>
+  <Phinix_store2_state_PlanReady>依赖检查通过，可以安装。</Phinix_store2_state_PlanReady>
   <Phinix_store2_state_Downloading>正在下载并校验插件…</Phinix_store2_state_Downloading>
-  <Phinix_store2_state_Verified>下载及静态校验通过，尚未安装。</Phinix_store2_state_Verified>
-  <Phinix_store2_state_Installing>正在下载、复核和安装插件。提交后会完成整批安装。</Phinix_store2_state_Installing>
-  <Phinix_store2_state_Installed>安装完成。请重启游戏，再到扩展管理检查加载状态。</Phinix_store2_state_Installed>
-  <Phinix_store2_state_Managing>正在读取或保存管理状态…</Phinix_store2_state_Managing>
+  <Phinix_store2_state_Verified>校验通过，尚未安装。</Phinix_store2_state_Verified>
+  <Phinix_store2_state_Installing>正在下载并安装插件…</Phinix_store2_state_Installing>
+  <Phinix_store2_state_Installed>安装完成，请重启游戏生效。</Phinix_store2_state_Installed>
+  <Phinix_store2_state_Managing>正在保存设置…</Phinix_store2_state_Managing>
   <Phinix_store2_state_Failed>操作失败，请查看原因。</Phinix_store2_state_Failed>
-  <Phinix_store2_state_Canceled>任务已取消；已作出提交决定的安装会继续完成。</Phinix_store2_state_Canceled>
+  <Phinix_store2_state_Canceled>已取消（正在写入的安装会继续完成）。</Phinix_store2_state_Canceled>
   <Phinix_store2_state_Stopped>商店已关闭。</Phinix_store2_state_Stopped>
   <Phinix_store2_searchShort>搜索</Phinix_store2_searchShort>
   <Phinix_store2_localIdentityNotice>本地 Mod 检查未通过，处理以下文件后再查看依赖计划。</Phinix_store2_localIdentityNotice>
   <Phinix_store2_localMod>模组：</Phinix_store2_localMod>
   <Phinix_store2_localFile>模组内文件：</Phinix_store2_localFile>
   <Phinix_store2_localReason>检查原因：</Phinix_store2_localReason>
-  <Phinix_store2_referenceNotice>插件所需程序集身份与当前环境不匹配，请使用适配当前游戏/框架版本的包。</Phinix_store2_referenceNotice>
+  <Phinix_store2_referenceNotice>插件与当前游戏或 Phinix 版本不兼容，请安装适配版本。</Phinix_store2_referenceNotice>
   <Phinix_store2_referencingAssembly>插件程序集：</Phinix_store2_referencingAssembly>
   <Phinix_store2_requiredReference>所需引用：</Phinix_store2_requiredReference>
   <Phinix_store2_availableReferences>当前可用身份：</Phinix_store2_availableReferences>
@@ -132,33 +132,33 @@
   <Phinix_store2_noChangelog>开发者未提供更新日志。</Phinix_store2_noChangelog>
   <Phinix_store2_version>版本</Phinix_store2_version>
   <Phinix_store2_installedVersion>已安装版本：</Phinix_store2_installedVersion>
-  <Phinix_store2_foreignInstallation>此插件由其他仓库管理，请在扩展管理中操作。切换访问方式不会迁移安装。</Phinix_store2_foreignInstallation>
-  <Phinix_store2_replacementUnavailable>当前查看的是其他版本。暂未开放版本替换；下方操作针对已安装版本。</Phinix_store2_replacementUnavailable>
+  <Phinix_store2_foreignInstallation>此插件由其他仓库安装，请在“插件管理”中操作。</Phinix_store2_foreignInstallation>
+  <Phinix_store2_replacementUnavailable>暂不支持直接切换版本，下方操作针对当前已安装版本。</Phinix_store2_replacementUnavailable>
   <Phinix_store2_withdrawn>不可安装</Phinix_store2_withdrawn>
   <Phinix_store2_dependencyConfirmation>此次安装包含依赖。请确认以下插件，安装后重启游戏生效。</Phinix_store2_dependencyConfirmation>
   <Phinix_store2_failedFriendly>操作未完成，请打开错误详情查看原因。</Phinix_store2_failedFriendly>
   <Phinix_store2_errorDetails>错误详情</Phinix_store2_errorDetails>
   <Phinix_store2_networkFriendly>暂时无法连接商店，请切换 GitHub / CF 访问方式后重试。</Phinix_store2_networkFriendly>
-  <Phinix_store2_rateLimitedFriendly>当前访问线路已限流。GitHub 直连匿名 API 按出口 IP 共享每小时 60 次额度；可切换 CF 加速或等待额度重置，连续刷新不会恢复额度。</Phinix_store2_rateLimitedFriendly>
+  <Phinix_store2_rateLimitedFriendly>GitHub 直连已达请求上限（每小时 60 次），请切换为“CF 加速”或稍后重试。</Phinix_store2_rateLimitedFriendly>
   <Phinix_store2_compatibilityFriendly>插件或本地环境存在兼容性问题，请查看错误详情。</Phinix_store2_compatibilityFriendly>
   <Phinix_store2_catalogEmpty>商店暂未上架插件，可稍后刷新。</Phinix_store2_catalogEmpty>
   <Phinix_store2_managementDetails>为什么不可操作？</Phinix_store2_managementDetails>
-  <Phinix_store2_blockedFriendly>依赖关系或本地状态阻止了此操作，请先处理相关扩展。下面是排查详情。</Phinix_store2_blockedFriendly>
+  <Phinix_store2_blockedFriendly>依赖或当前状态阻止了此操作，请先处理相关扩展。</Phinix_store2_blockedFriendly>
   <Phinix_store2_progressChecking>正在检查插件包</Phinix_store2_progressChecking>
   <Phinix_store2_progressDownloading>正在下载</Phinix_store2_progressDownloading>
   <Phinix_store2_progressValidating>正在校验插件包</Phinix_store2_progressValidating>
   <Phinix_store2_progressRechecking>正在复核安装条件</Phinix_store2_progressRechecking>
   <Phinix_store2_progressCommitting>正在保存安装，完成后需重启</Phinix_store2_progressCommitting>
   <Phinix_store2_progressBytes>已下载 {0} / {1}</Phinix_store2_progressBytes>
-  <Phinix_store2_updateAvailable>有可用新版本，请查看更新说明；不会自动安装更新。</Phinix_store2_updateAvailable>
+  <Phinix_store2_updateAvailable>有可用更新，请查看更新日志。</Phinix_store2_updateAvailable>
   <Phinix_store2_updateNotice>{0} 个插件有新版本，点击查看商店。</Phinix_store2_updateNotice>
   <Phinix_store2_update>更新插件</Phinix_store2_update>
   <Phinix_store2_updatedPackage>将更新</Phinix_store2_updatedPackage>
-  <Phinix_store2_updateConfirmation>更新以下插件？重启后生效，设置保留；插件数据不会自动迁移或回退。</Phinix_store2_updateConfirmation>
-  <Phinix_store2_downgradeUnavailable>暂不支持直接覆盖安装旧版本。</Phinix_store2_downgradeUnavailable>
+  <Phinix_store2_updateConfirmation>更新以下插件？重启后生效，原有设置会保留。</Phinix_store2_updateConfirmation>
+  <Phinix_store2_downgradeUnavailable>暂不支持降级到旧版本。</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>更新前请先启用此插件；待卸载的插件不能更新。</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub 与 CF 提供同一目录，连接较慢时可切换访问方式。</Phinix_store2_accessExplanation>
-  <Phinix_store2_githubAccessGuidance>GitHub 直连使用匿名 API，按出口 IP 共享每小时 60 次额度。无法连接或限流时，请在连接方式菜单选择“CF 加速”。你主动选择的线路会保留。</Phinix_store2_githubAccessGuidance>
+  <Phinix_store2_githubAccessGuidance>GitHub 直连每小时限制 60 次匿名请求。若限流或无法连接，请在连接菜单切换“CF 加速”。</Phinix_store2_githubAccessGuidance>
   <Phinix_store2_filter0>全部状态</Phinix_store2_filter0>
   <Phinix_store2_filter1>已安装</Phinix_store2_filter1>
   <Phinix_store2_filter2>可更新</Phinix_store2_filter2>
@@ -178,7 +178,7 @@
   <Phinix_store2_officialBadge>Phinix 维护</Phinix_store2_officialBadge>
   <Phinix_store2_officialBadgeTip>由 Phinix 团队维护。</Phinix_store2_officialBadgeTip>
   <Phinix_store2_managedBadge>Phinix 托管</Phinix_store2_managedBadge>
-  <Phinix_store2_managedBadgeTip>DLL 插件由 Phinix 下载、启停和卸载；变更在重启游戏后生效。</Phinix_store2_managedBadgeTip>
+  <Phinix_store2_managedBadgeTip>由 Phinix 管理下载、启停与卸载，重启游戏生效。</Phinix_store2_managedBadgeTip>
   <Phinix_store2_workshopBadgeTip>完整 RimWorld 模组；通过 Steam 工坊订阅，并在游戏 Mod 列表管理。</Phinix_store2_workshopBadgeTip>
   <Phinix_store2_gameBrowserRequested>已请求打开 Steam 游戏内浏览器。</Phinix_store2_gameBrowserRequested>
   <Phinix_store2_externalBrowserRequested>Steam 覆盖层不可用，已请求打开系统浏览器。</Phinix_store2_externalBrowserRequested>
@@ -199,10 +199,10 @@
   <Phinix_store2_environmentFriendly>插件运行环境尚未就绪。请查看错误详情；刷新或重启仍无效时，请提供日志。</Phinix_store2_environmentFriendly>
   <Phinix_store2_environmentChangedFriendly>插件运行环境发生变化。请重启游戏，刷新商店后重新确认安装。</Phinix_store2_environmentChangedFriendly>
   <Phinix_store2_ownershipFriendly>无法确认托管插件的记录或文件归属。请查看错误详情并提供日志，先保留现有文件。</Phinix_store2_ownershipFriendly>
-  <Phinix_store2_dependencyFriendly>所需依赖缺失、被禁用或版本不兼容。请检查相关扩展后重新确认安装。</Phinix_store2_dependencyFriendly>
+  <Phinix_store2_dependencyFriendly>所需依赖缺失、被停用或版本不兼容。请检查相关插件后重新确认安装。</Phinix_store2_dependencyFriendly>
   <Phinix_store2_reviewFriendly>索引、计划或本地状态已变化。请在线刷新商店后重新确认操作。</Phinix_store2_reviewFriendly>
   <Phinix_store2_busyFriendly>已有商店操作正在进行。请等待完成，或取消后重试。</Phinix_store2_busyFriendly>
-  <Phinix_store2_unavailableFriendly>此条目当前不可安装，或已安装。请刷新商店并检查扩展管理。</Phinix_store2_unavailableFriendly>
+  <Phinix_store2_unavailableFriendly>此条目当前不可安装，或已安装。请刷新商店并检查插件管理。</Phinix_store2_unavailableFriendly>
   <Phinix_store2_contentFriendly>插件清单或文件未通过校验。请刷新商店后重试；仍失败时提供错误详情和日志。</Phinix_store2_contentFriendly>
   <Phinix_store2_inputFriendly>输入的地址、本地路径或来源标识无效。请检查商店设置和选择的本地文件。</Phinix_store2_inputFriendly>
   <Phinix_store2_currentState>当前运行：</Phinix_store2_currentState>
@@ -220,12 +220,12 @@
   <Phinix_store2_localImport>dev: 安装本地插件 ZIP</Phinix_store2_localImport>
   <Phinix_store2_localBadge>本地开发</Phinix_store2_localBadge>
   <Phinix_store2_installationSource>安装来源</Phinix_store2_installationSource>
-  <Phinix_store2_localBadgeTip>手动导入的开发包，未通过商店目录发布或认证。</Phinix_store2_localBadgeTip>
-  <Phinix_store2_installedOnlyTip>此已安装包不在当前商店目录中，管理操作依据本机已校验的安装记录。</Phinix_store2_installedOnlyTip>
+  <Phinix_store2_localBadgeTip>本地导入的开发版插件。</Phinix_store2_localBadgeTip>
+  <Phinix_store2_installedOnlyTip>此插件不在当前商店目录中，可在此管理已安装版本。</Phinix_store2_installedOnlyTip>
   <Phinix_store2_inventoryUnknown>安装包状态未确认，请刷新后再修改。</Phinix_store2_inventoryUnknown>
   <Phinix_store2_savedRefreshFailed>变更已保存，但安装状态刷新失败。请刷新确认，重启后生效。</Phinix_store2_savedRefreshFailed>
   <Phinix_store2_cancelRemoval>取消卸载</Phinix_store2_cancelRemoval>
-  <Phinix_store2_cancelRemovalTip>取消卸载后，下次启动仍保持停用；各模块的启停选择不会被清除。</Phinix_store2_cancelRemovalTip>
+  <Phinix_store2_cancelRemovalTip>取消卸载后，下次启动仍保持停用。</Phinix_store2_cancelRemovalTip>
   <Phinix_store2_localBrowse>浏览</Phinix_store2_localBrowse>
   <Phinix_store2_localSelect>选择 ZIP</Phinix_store2_localSelect>
   <Phinix_store2_localInvalidSelection>请选择现有 ZIP，或输入绝对目录路径。</Phinix_store2_localInvalidSelection>
@@ -238,12 +238,12 @@
   <Phinix_store2_LocalPackageAlreadyInstalled>相同 ZIP 摘要已经安装。</Phinix_store2_LocalPackageAlreadyInstalled>
   <Phinix_store2_LocalPackageDowngrade>不允许降低本地包版本。</Phinix_store2_LocalPackageDowngrade>
   <Phinix_store2_ManagedReplacementIdentityInvalid>替换前需要启用并验证现有包。</Phinix_store2_ManagedReplacementIdentityInvalid>
-  <Phinix_store2_copySummary>复制摘要</Phinix_store2_copySummary>
+  <Phinix_store2_copySummary>复制信息</Phinix_store2_copySummary>
   <Phinix_store2_localThemes>本地主题包</Phinix_store2_localThemes>
   <Phinix_store2_themeChooseZip>选择主题 ZIP</Phinix_store2_themeChooseZip>
   <Phinix_store2_themeSelector>主题选择器</Phinix_store2_themeSelector>
   <Phinix_store2_themeCandidate>已校验本地候选</Phinix_store2_themeCandidate>
-  <Phinix_store2_themeLocalSource>来源：本地文件，未经官方商店审核。安装后在选择器选择主题即可热加载。</Phinix_store2_themeLocalSource>
+  <Phinix_store2_themeLocalSource>本地主题包，安装后可在主题选择器中立即切换。</Phinix_store2_themeLocalSource>
   <Phinix_store2_themeRemoveConfirm>确认卸载该主题包？当前使用其中主题时将回退默认；用户配色覆盖保留。</Phinix_store2_themeRemoveConfirm>
   <Phinix_store2_themeRemoved>主题包已卸载，目录已刷新。</Phinix_store2_themeRemoved>
   <Phinix_store2_themeInstall>安装本地主题包</Phinix_store2_themeInstall>
@@ -261,7 +261,7 @@
   <Phinix_store2_kind2>主题</Phinix_store2_kind2>
   <Phinix_store2_themeBadge>主题包</Phinix_store2_themeBadge>
   <Phinix_store2_themeVariants>包含的主题</Phinix_store2_themeVariants>
-  <Phinix_store2_themeInstallNotice>安装主题包后不会自动应用，请安装后选择配色。</Phinix_store2_themeInstallNotice>
+  <Phinix_store2_themeInstallNotice>安装后不会自动切换，请在主题设置中选择使用。</Phinix_store2_themeInstallNotice>
   <Phinix_store2_themeRequiresHost>请先更新 Phinix Rework 主模组，再安装此主题。</Phinix_store2_themeRequiresHost>
   <Phinix_store2_themeSourceConflict>此主题来自其他来源。请先卸载，再安装商店版本。</Phinix_store2_themeSourceConflict>
   <Phinix_store2_themeFeedUnavailable>主题目录暂时不可用，仍可使用插件目录和已安装主题。</Phinix_store2_themeFeedUnavailable>

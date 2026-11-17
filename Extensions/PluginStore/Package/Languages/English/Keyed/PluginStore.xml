@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <LanguageData>
   <Phinix_store_tab>Store</Phinix_store_tab>
-  <Phinix_store_management>Extension management</Phinix_store_management>
+  <Phinix_store_management>Plugin management</Phinix_store_management>
   <Phinix_store_sourceSettings>Index settings / reload</Phinix_store_sourceSettings>
   <Phinix_store_operationFailed>Operation failed.</Phinix_store_operationFailed>
   <Phinix_store_selected>Selected</Phinix_store_selected>
@@ -33,7 +33,7 @@
   <Phinix_store_state_Planning>Resolving dependencies…</Phinix_store_state_Planning>
   <Phinix_store_state_PlanReady>Dependency plan ready.</Phinix_store_state_PlanReady>
   <Phinix_store_state_Failed>Operation failed. The previous valid index remains available.</Phinix_store_state_Failed>
-  <Phinix_store_state_Cancelled>Operation cancelled.</Phinix_store_state_Cancelled>
+  <Phinix_store_state_Cancelled>Operation canceled.</Phinix_store_state_Cancelled>
   <Phinix_store_state_Shutdown>Plugin store has stopped.</Phinix_store_state_Shutdown>
   <Phinix_store_endpoint>Repository HTTPS origin</Phinix_store_endpoint>
   <Phinix_store_remoteSource>Repository source ID</Phinix_store_remoteSource>
@@ -60,7 +60,7 @@
   <Phinix_store_state_Managing>Checking owned packages and recovering unfinished operations…</Phinix_store_state_Managing>
   <Phinix_store_state_Uninstalled>Package uninstalled. Restart RimWorld to refresh its mod list. Saves and settings were preserved.</Phinix_store_state_Uninstalled>
   <Phinix_store2_refresh>Refresh store</Phinix_store2_refresh>
-  <Phinix_store2_management>Extension manager</Phinix_store2_management>
+  <Phinix_store2_management>Plugin management</Phinix_store2_management>
   <Phinix_store2_source>Repository settings</Phinix_store2_source>
   <Phinix_store2_endpoint>Repository address</Phinix_store2_endpoint>
   <Phinix_store2_sourceId>Source ID</Phinix_store2_sourceId>
@@ -74,7 +74,7 @@
   <Phinix_store2_externalMod>Required active mod:</Phinix_store2_externalMod>
   <Phinix_store2_installedState>Installed state:</Phinix_store2_installedState>
   <Phinix_store2_restartRequired>Restart required</Phinix_store2_restartRequired>
-  <Phinix_store2_plan>Review dependencies</Phinix_store2_plan>
+  <Phinix_store2_plan>Check dependencies</Phinix_store2_plan>
   <Phinix_store2_downloadSize>Download:</Phinix_store2_downloadSize>
   <Phinix_store2_newPackage>New installation</Phinix_store2_newPackage>
   <Phinix_store2_existingPackage>Installed and enabled</Phinix_store2_existingPackage>
@@ -82,7 +82,7 @@
   <Phinix_store2_refreshFirst>Refresh the store to load its catalog.</Phinix_store2_refreshFirst>
   <Phinix_store2_empty>No matching packages.</Phinix_store2_empty>
   <Phinix_store2_openWorkshop>Open Workshop page</Phinix_store2_openWorkshop>
-  <Phinix_store2_checkDownload>Download and verify (no installation)</Phinix_store2_checkDownload>
+  <Phinix_store2_checkDownload>Download &amp; verify only</Phinix_store2_checkDownload>
   <Phinix_store2_install>Install plugin</Phinix_store2_install>
   <Phinix_store2_enable>Enable on restart</Phinix_store2_enable>
   <Phinix_store2_disable>Disable on restart</Phinix_store2_disable>
@@ -90,35 +90,35 @@
   <Phinix_store2_cancel>Cancel task</Phinix_store2_cancel>
   <Phinix_store2_blocked>Action blocked:</Phinix_store2_blocked>
   <Phinix_store2_legacyTools>Legacy mod records / cleanup</Phinix_store2_legacyTools>
-  <Phinix_store2_confirmInstall>Install these plugins and dependencies. Phinix manages their DLL files and enables them after a game restart. Plugin code has game-process access; install only publishers you trust.</Phinix_store2_confirmInstall>
-  <Phinix_store2_confirmUninstall>Uninstall this plugin? Its files will be removed on restart. Settings, data and saves are retained.</Phinix_store2_confirmUninstall>
-  <Phinix_store2_reviewAgain>The catalog or plan changed. Review dependencies again.</Phinix_store2_reviewAgain>
+  <Phinix_store2_confirmInstall>Install these plugins and dependencies? They take effect after restart. Install only from trusted sources.</Phinix_store2_confirmInstall>
+  <Phinix_store2_confirmUninstall>Uninstall this plugin? Files are removed after restart; settings and saves are kept.</Phinix_store2_confirmUninstall>
+  <Phinix_store2_reviewAgain>Catalog updated. Please check dependencies again.</Phinix_store2_reviewAgain>
   <Phinix_store2_failed>Operation failed:</Phinix_store2_failed>
   <Phinix_store2_request>Diagnostic request ID:</Phinix_store2_request>
-  <Phinix_store2_offlineNotice>Offline cache is for browsing. Refresh online before installing.</Phinix_store2_offlineNotice>
+  <Phinix_store2_offlineNotice>Offline mode is browse-only. Refresh online to install.</Phinix_store2_offlineNotice>
   <Phinix_store2_desired_Enabled>Enabled</Phinix_store2_desired_Enabled>
   <Phinix_store2_desired_Disabled>Disabled</Phinix_store2_desired_Disabled>
   <Phinix_store2_desired_PendingRemoval>Pending removal</Phinix_store2_desired_PendingRemoval>
-  <Phinix_store2_desired_Unknown>Unverified state</Phinix_store2_desired_Unknown>
-  <Phinix_store2_state_Idle>No catalog loaded.</Phinix_store2_state_Idle>
+  <Phinix_store2_desired_Unknown>Unconfirmed</Phinix_store2_desired_Unknown>
+  <Phinix_store2_state_Idle>Click Refresh store to load plugins.</Phinix_store2_state_Idle>
   <Phinix_store2_state_Reading>Fetching and verifying the catalog…</Phinix_store2_state_Reading>
-  <Phinix_store2_state_Ready>Catalog and local state refreshed.</Phinix_store2_state_Ready>
+  <Phinix_store2_state_Ready>Catalog refreshed.</Phinix_store2_state_Ready>
   <Phinix_store2_state_Planning>Checking dependencies and compatibility…</Phinix_store2_state_Planning>
-  <Phinix_store2_state_PlanReady>Dependency checks passed. Continue installation or confirm dependencies.</Phinix_store2_state_PlanReady>
+  <Phinix_store2_state_PlanReady>Dependencies look good. Ready to install.</Phinix_store2_state_PlanReady>
   <Phinix_store2_state_Downloading>Downloading and verifying plugins…</Phinix_store2_state_Downloading>
-  <Phinix_store2_state_Verified>Download and static validation passed. Not installed yet.</Phinix_store2_state_Verified>
-  <Phinix_store2_state_Installing>Downloading, rechecking and installing. A decided commit completes the entire batch.</Phinix_store2_state_Installing>
-  <Phinix_store2_state_Installed>Installed. Restart the game and check loading in the extension manager.</Phinix_store2_state_Installed>
-  <Phinix_store2_state_Managing>Reading or saving managed state…</Phinix_store2_state_Managing>
+  <Phinix_store2_state_Verified>Verified, not installed yet.</Phinix_store2_state_Verified>
+  <Phinix_store2_state_Installing>Downloading and installing…</Phinix_store2_state_Installing>
+  <Phinix_store2_state_Installed>Installed. Restart the game to apply.</Phinix_store2_state_Installed>
+  <Phinix_store2_state_Managing>Saving changes…</Phinix_store2_state_Managing>
   <Phinix_store2_state_Failed>Operation failed. Review the reason.</Phinix_store2_state_Failed>
-  <Phinix_store2_state_Canceled>Task canceled. An installation with a durable commit decision will finish.</Phinix_store2_state_Canceled>
+  <Phinix_store2_state_Canceled>Canceled (any install already committing will finish).</Phinix_store2_state_Canceled>
   <Phinix_store2_state_Stopped>Store stopped.</Phinix_store2_state_Stopped>
   <Phinix_store2_searchShort>Search</Phinix_store2_searchShort>
   <Phinix_store2_localIdentityNotice>Local mod inspection needs attention before a plan can be created.</Phinix_store2_localIdentityNotice>
   <Phinix_store2_localMod>Mod:</Phinix_store2_localMod>
   <Phinix_store2_localFile>File within mod:</Phinix_store2_localFile>
   <Phinix_store2_localReason>Inspection reason:</Phinix_store2_localReason>
-  <Phinix_store2_referenceNotice>The plugin requires a different CLR assembly identity. Use a package built for this game/framework version.</Phinix_store2_referenceNotice>
+  <Phinix_store2_referenceNotice>This plugin is incompatible with your current game or Phinix version.</Phinix_store2_referenceNotice>
   <Phinix_store2_referencingAssembly>Plugin assembly:</Phinix_store2_referencingAssembly>
   <Phinix_store2_requiredReference>Required reference:</Phinix_store2_requiredReference>
   <Phinix_store2_availableReferences>Available identity:</Phinix_store2_availableReferences>
@@ -132,33 +132,33 @@
   <Phinix_store2_noChangelog>No changelog supplied.</Phinix_store2_noChangelog>
   <Phinix_store2_version>Version</Phinix_store2_version>
   <Phinix_store2_installedVersion>Installed version:</Phinix_store2_installedVersion>
-  <Phinix_store2_foreignInstallation>This plugin is managed by another repository. Use Extension manager to manage it; switching access methods does not move installations.</Phinix_store2_foreignInstallation>
-  <Phinix_store2_replacementUnavailable>You are viewing another version. Version replacement is not available yet; the controls below manage the installed version.</Phinix_store2_replacementUnavailable>
+  <Phinix_store2_foreignInstallation>Managed by another repository. Use Plugin management to modify it.</Phinix_store2_foreignInstallation>
+  <Phinix_store2_replacementUnavailable>Switching versions is not supported yet. Controls below apply to the installed version.</Phinix_store2_replacementUnavailable>
   <Phinix_store2_withdrawn>Unavailable for installation</Phinix_store2_withdrawn>
   <Phinix_store2_dependencyConfirmation>This installation includes dependencies. Confirm the following plugins; they take effect after restarting the game.</Phinix_store2_dependencyConfirmation>
   <Phinix_store2_failedFriendly>The operation could not be completed. Open error details for help.</Phinix_store2_failedFriendly>
   <Phinix_store2_errorDetails>Error details</Phinix_store2_errorDetails>
   <Phinix_store2_networkFriendly>Cannot reach the repository. Switch GitHub / CF access and retry.</Phinix_store2_networkFriendly>
-  <Phinix_store2_rateLimitedFriendly>The current access route is rate-limited. For GitHub direct, anonymous API access is shared by public IP (60 requests/hour). Switch to CF acceleration or wait for the reset time; repeated refreshes will not restore quota.</Phinix_store2_rateLimitedFriendly>
+  <Phinix_store2_rateLimitedFriendly>GitHub direct is rate-limited (60 requests/hour). Switch to CF acceleration or try again later.</Phinix_store2_rateLimitedFriendly>
   <Phinix_store2_compatibilityFriendly>This plugin or the local environment needs a compatibility check. See error details.</Phinix_store2_compatibilityFriendly>
   <Phinix_store2_catalogEmpty>No plugins are listed yet. Refresh later.</Phinix_store2_catalogEmpty>
   <Phinix_store2_managementDetails>Why is this unavailable?</Phinix_store2_managementDetails>
-  <Phinix_store2_blockedFriendly>A dependency or local state prevents this action. Manage related extensions first; technical details follow.</Phinix_store2_blockedFriendly>
+  <Phinix_store2_blockedFriendly>Blocked by dependencies or current state. Manage related extensions first.</Phinix_store2_blockedFriendly>
   <Phinix_store2_progressChecking>Checking package</Phinix_store2_progressChecking>
   <Phinix_store2_progressDownloading>Downloading</Phinix_store2_progressDownloading>
   <Phinix_store2_progressValidating>Verifying package</Phinix_store2_progressValidating>
   <Phinix_store2_progressRechecking>Checking before installation</Phinix_store2_progressRechecking>
   <Phinix_store2_progressCommitting>Saving installation; restart required after completion</Phinix_store2_progressCommitting>
   <Phinix_store2_progressBytes>Downloaded {0} / {1}</Phinix_store2_progressBytes>
-  <Phinix_store2_updateAvailable>A newer version is available. Review its changelog; updates are never installed automatically.</Phinix_store2_updateAvailable>
+  <Phinix_store2_updateAvailable>Update available. Check the changelog.</Phinix_store2_updateAvailable>
   <Phinix_store2_updateNotice>Updates are available for {0} plugins. Click to open the store.</Phinix_store2_updateNotice>
   <Phinix_store2_update>Update plugin</Phinix_store2_update>
   <Phinix_store2_updatedPackage>Will update</Phinix_store2_updatedPackage>
-  <Phinix_store2_updateConfirmation>Update these plugins? Changes take effect on restart and settings are retained. Plugin data is not automatically migrated or rolled back.</Phinix_store2_updateConfirmation>
-  <Phinix_store2_downgradeUnavailable>Installing an older version over this package is unavailable.</Phinix_store2_downgradeUnavailable>
+  <Phinix_store2_updateConfirmation>Update these plugins? Takes effect after restart; settings are kept.</Phinix_store2_updateConfirmation>
+  <Phinix_store2_downgradeUnavailable>Downgrading to an older version is not supported.</Phinix_store2_downgradeUnavailable>
   <Phinix_store2_enableBeforeUpdate>Enable this package before updating; packages awaiting removal cannot be updated.</Phinix_store2_enableBeforeUpdate>
   <Phinix_store2_accessExplanation>GitHub and CF show the same catalog. Switch access if the connection is slow.</Phinix_store2_accessExplanation>
-  <Phinix_store2_githubAccessGuidance>GitHub direct uses anonymous API access shared by public IP (60 requests/hour). If unavailable or rate-limited, select CF acceleration from the connection menu. Your explicit choice is preserved.</Phinix_store2_githubAccessGuidance>
+  <Phinix_store2_githubAccessGuidance>GitHub direct allows 60 anonymous requests/hour. Switch to CF acceleration in Connection if rate-limited.</Phinix_store2_githubAccessGuidance>
   <Phinix_store2_filter0>All</Phinix_store2_filter0>
   <Phinix_store2_filter1>Installed</Phinix_store2_filter1>
   <Phinix_store2_filter2>Updates</Phinix_store2_filter2>
@@ -178,7 +178,7 @@
   <Phinix_store2_officialBadge>Phinix maintained</Phinix_store2_officialBadge>
   <Phinix_store2_officialBadgeTip>Maintained by the Phinix team.</Phinix_store2_officialBadgeTip>
   <Phinix_store2_managedBadge>Phinix managed</Phinix_store2_managedBadge>
-  <Phinix_store2_managedBadgeTip>Install, enable and remove this DLL plugin through Phinix. Changes take effect after restarting the game.</Phinix_store2_managedBadgeTip>
+  <Phinix_store2_managedBadgeTip>Managed by Phinix. Changes apply after restart.</Phinix_store2_managedBadgeTip>
   <Phinix_store2_workshopBadgeTip>This is a full RimWorld mod. Subscribe and manage it through Steam Workshop and the game mod list.</Phinix_store2_workshopBadgeTip>
   <Phinix_store2_gameBrowserRequested>Requested the Steam overlay browser.</Phinix_store2_gameBrowserRequested>
   <Phinix_store2_externalBrowserRequested>Requested the system browser; the Steam overlay is unavailable.</Phinix_store2_externalBrowserRequested>
@@ -220,12 +220,12 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_localImport>dev: Install local plugin ZIP</Phinix_store2_localImport>
   <Phinix_store2_localBadge>Local development</Phinix_store2_localBadge>
   <Phinix_store2_installationSource>Installation source</Phinix_store2_installationSource>
-  <Phinix_store2_localBadgeTip>Manually imported development package. Not published or approved by the store.</Phinix_store2_localBadgeTip>
-  <Phinix_store2_installedOnlyTip>Installed package not listed by the current store. Management uses the verified local installation record.</Phinix_store2_installedOnlyTip>
+  <Phinix_store2_localBadgeTip>Locally imported development plugin.</Phinix_store2_localBadgeTip>
+  <Phinix_store2_installedOnlyTip>Not listed in the current catalog; managed locally.</Phinix_store2_installedOnlyTip>
   <Phinix_store2_inventoryUnknown>Package state unconfirmed. Refresh before making changes.</Phinix_store2_inventoryUnknown>
   <Phinix_store2_savedRefreshFailed>Changes saved, but package state could not be refreshed. Refresh to confirm; restart to apply.</Phinix_store2_savedRefreshFailed>
   <Phinix_store2_cancelRemoval>Cancel uninstall</Phinix_store2_cancelRemoval>
-  <Phinix_store2_cancelRemovalTip>Cancel uninstall and keep the package disabled for next start. Individual module choices are preserved.</Phinix_store2_cancelRemovalTip>
+  <Phinix_store2_cancelRemovalTip>Cancel uninstall and keep disabled for next start.</Phinix_store2_cancelRemovalTip>
   <Phinix_store2_localBrowse>Browse</Phinix_store2_localBrowse>
   <Phinix_store2_localSelect>Select ZIP</Phinix_store2_localSelect>
   <Phinix_store2_localInvalidSelection>Select an existing ZIP or enter an absolute directory path.</Phinix_store2_localInvalidSelection>
@@ -238,12 +238,12 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_LocalPackageAlreadyInstalled>This ZIP digest is already installed.</Phinix_store2_LocalPackageAlreadyInstalled>
   <Phinix_store2_LocalPackageDowngrade>Local package version downgrade is not allowed.</Phinix_store2_LocalPackageDowngrade>
   <Phinix_store2_ManagedReplacementIdentityInvalid>The existing package must be enabled and verified before replacing it.</Phinix_store2_ManagedReplacementIdentityInvalid>
-  <Phinix_store2_copySummary>Copy summary</Phinix_store2_copySummary>
+  <Phinix_store2_copySummary>Copy details</Phinix_store2_copySummary>
   <Phinix_store2_localThemes>Local theme packages</Phinix_store2_localThemes>
   <Phinix_store2_themeChooseZip>Choose theme ZIP</Phinix_store2_themeChooseZip>
   <Phinix_store2_themeSelector>Theme selector</Phinix_store2_themeSelector>
   <Phinix_store2_themeCandidate>Local candidate verified</Phinix_store2_themeCandidate>
-  <Phinix_store2_themeLocalSource>Source: local file, without official store approval. Select its theme after installation to apply it immediately.</Phinix_store2_themeLocalSource>
+  <Phinix_store2_themeLocalSource>Local theme package. Select it in Theme settings after installing.</Phinix_store2_themeLocalSource>
   <Phinix_store2_themeRemoveConfirm>Uninstall this theme package? Its selected theme returns to default. User overrides are preserved.</Phinix_store2_themeRemoveConfirm>
   <Phinix_store2_themeRemoved>Theme package removed; catalog refreshed.</Phinix_store2_themeRemoved>
   <Phinix_store2_themeInstall>Install local theme package</Phinix_store2_themeInstall>
@@ -261,7 +261,7 @@ If GitHub is unreachable, click "GitHub direct" in the store and try "CF acceler
   <Phinix_store2_kind2>Themes</Phinix_store2_kind2>
   <Phinix_store2_themeBadge>Theme package</Phinix_store2_themeBadge>
   <Phinix_store2_themeVariants>Included themes</Phinix_store2_themeVariants>
-  <Phinix_store2_themeInstallNotice>Installs the theme package without applying it. Select a theme after installation.</Phinix_store2_themeInstallNotice>
+  <Phinix_store2_themeInstallNotice>Installs without applying automatically. Select it in Theme settings.</Phinix_store2_themeInstallNotice>
   <Phinix_store2_themeRequiresHost>Update the main Phinix Rework mod before installing this theme.</Phinix_store2_themeRequiresHost>
   <Phinix_store2_themeSourceConflict>This theme was imported from another source. Remove it before installing the catalog package.</Phinix_store2_themeSourceConflict>
   <Phinix_store2_themeFeedUnavailable>The theme catalog is unavailable. Plugins and installed themes remain available.</Phinix_store2_themeFeedUnavailable>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using Utils.Framework;
 using Utils.Framework.ManagedExtensions;
@@ -10,6 +11,8 @@ internal static partial class Program
 {
     private static void ManagementRegression(Dictionary<string,byte[]> files)
     {
+        ManagementGateAuditRegression(files);
+        RuntimePatchRemovalRegression(files);
         string root=Path.Combine(Path.GetTempPath(),"phinix-management-"+Guid.NewGuid().ToString("N"));
         var facts=Facts(files); var logs=new List<ManagedExtensionRuntimeAudit>();
         try
@@ -109,5 +112,83 @@ internal static partial class Program
             }
         }
         finally { if(Directory.Exists(root)) Directory.Delete(root,true); }
+    }
+
+    private sealed class AuditHostAssembly : Assembly
+    {
+        internal AssemblyName[] References = new AssemblyName[0];
+        public override AssemblyName GetName() => new AssemblyName("Fixture.Audit.Host, Version=1.0.0.0");
+        public override AssemblyName[] GetReferencedAssemblies() => References;
+        public override bool IsDynamic => false;
+    }
+
+    private static void ManagementGateAuditRegression(Dictionary<string,byte[]> files)
+    {
+        string root=Path.Combine(Path.GetTempPath(),"phinix-gate-audit-"+Guid.NewGuid().ToString("N"));
+        var paths=new ManagedExtensionPaths(root);var logs=new List<ManagedExtensionRuntimeAudit>();
+        try
+        {
+            using(var runtime=EmptyRuntime(paths,Facts(files),logs))
+            {
+                Assert(runtime.Install(InstallationRequest(files),new string[0],CancellationToken.None).Succeeded,"Prepare gate diagnostic package");
+                var row=runtime.Refresh(new string[0],CancellationToken.None).Packages.Single();
+                var host=new AuditHostAssembly {References=new[]{new AssemblyName(row.Package.Manifest.Assemblies.First().Name+", Version=1.0.0.0")}};
+                // Simulate the CLR reference view that a patched, pre-existing host can expose.
+                ((HashSet<Assembly>)typeof(ManagedExtensionRuntime).GetField("baseline",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(runtime)).Add(host);
+                typeof(ManagedExtensionRuntime).GetMethod("CaptureBaselineReferences",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(runtime,new object[]{host});
+                logs.Clear();
+                var blocked=runtime.Refresh(new string[0],CancellationToken.None).Packages.Single();
+                Assert(blocked.DisableBlockCode=="ManagedHostAssemblyDependent" && blocked.RemovalBlockCode==blocked.DisableBlockCode,"Diagnostic observation preserves both dependency decisions");
+                runtime.Refresh(new string[0],CancellationToken.None);
+                var gates=logs.Where(e=>e.Stage=="management-gate").ToArray();
+                Assert(gates.Length==2 && gates.Any(e=>e.Operation=="disable") && gates.Any(e=>e.Operation=="removal"),"Repeated refresh logs each blocked action once");
+                Assert(gates.All(e=>e.Package.PackageId==row.Package.PackageId && e.ReferenceFailure.ReferencingAssembly=="Fixture.Audit.Host" && e.ReferenceFailure.RequiredReference.StartsWith(row.Package.Manifest.Assemblies.First().Name+",")),"Gate logs identify target and actual referencing assembly");
+                string json=ManagedExtensionAuditJson.Format(gates[0]);
+                Assert(json.Contains("\"operation\":") && json.Contains("Fixture.Audit.Host") && !json.Contains(root),"Structured gate details contain no local data path");
+                var rejected=runtime.ChangeDesiredState(blocked.Package,ManagedExtensionDesiredState.PendingRemoval,new string[0],CancellationToken.None);
+                Assert(!rejected.Succeeded && rejected.Code=="ManagedHostAssemblyDependent" && logs.Any(e=>e.Operation=="SetDesiredState/PendingRemoval"),"Rejected state writes retain their original result and log the attempted intent");
+                host.References[0].Name="Fixture.Mutated.Reference";
+                host.References=new AssemblyName[0];
+                var stillBlocked=runtime.Refresh(new string[0],CancellationToken.None).Packages.Single();
+                Assert(stillBlocked.RemovalBlockCode=="ManagedHostAssemblyDependent" && logs.Count(e=>e.Stage=="management-gate")==2,"True startup dependencies stay protected even when live metadata and its original name objects change");
+            }
+        }
+        finally {if(Directory.Exists(root))Directory.Delete(root,true);}
+    }
+
+    private static void RuntimePatchRemovalRegression(Dictionary<string,byte[]> files)
+    {
+        string root=Path.Combine(Path.GetTempPath(),"phinix-patch-removal-"+Guid.NewGuid().ToString("N"));
+        var paths=new ManagedExtensionPaths(root);var logs=new List<ManagedExtensionRuntimeAudit>();
+        string data=Path.Combine(paths.SaveDataRoot,"Phinix","ExtensionData","test.managed","keep.txt");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(data));File.WriteAllText(data,"keep");
+            using(var runtime=EmptyRuntime(paths,Facts(files),logs))
+            {
+                var host=new AuditHostAssembly();
+                ((HashSet<Assembly>)typeof(ManagedExtensionRuntime).GetField("baseline",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(runtime)).Add(host);
+                typeof(ManagedExtensionRuntime).GetMethod("CaptureBaselineReferences",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(runtime,new object[]{host});
+                Assert(runtime.Install(InstallationRequest(files),new string[0],CancellationToken.None).Succeeded,"Prepare a package before a simulated live patch");
+                var installed=runtime.Refresh(new string[0],CancellationToken.None).Packages.Single().Package;
+                host.References=new[]{new AssemblyName(installed.Manifest.Assemblies.First().Name+", Version=1.0.0.0")};
+                typeof(ManagedExtensionRuntime).GetMethod("CaptureBaselineReferences",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(runtime,new object[]{host});
+                var patched=runtime.Refresh(new string[0],CancellationToken.None).Packages.Single();
+                Assert(patched.DisableBlockCode==null && patched.RemovalBlockCode==null,"References imported after the startup snapshot do not block restart intents or overwrite the snapshot");
+                string transaction=Path.Combine(paths.TransactionsDirectory,"pending.json");Directory.CreateDirectory(paths.TransactionsDirectory);File.WriteAllText(transaction,"preserve");
+                runtime.Refresh(new string[0],CancellationToken.None);runtime.Refresh(new string[0],CancellationToken.None);File.Delete(transaction);
+                runtime.Refresh(new string[0],CancellationToken.None);runtime.Refresh(new string[0],CancellationToken.None);
+                Assert(logs.Count(e=>e.Code=="ManagedGateCleared")==4,"Transient guards still log one clear per action");
+                var disabled=runtime.ChangeDesiredState(patched.Package,ManagedExtensionDesiredState.Disabled,new string[0],CancellationToken.None);
+                Assert(disabled.Succeeded,"A live patched reference does not block disable on restart");
+                var current=runtime.Refresh(new string[0],CancellationToken.None).Packages.Single();
+                var removed=runtime.ChangeDesiredState(current.Package,ManagedExtensionDesiredState.PendingRemoval,new string[0],CancellationToken.None);
+                Assert(removed.Succeeded && Directory.Exists(paths.GetPackageDirectory(current.Package.SourceId,current.Package.PackageId)),"Uninstall intent is saved while current-session files remain available");
+            }
+            using(var restarted=EmptyRuntime(paths,Facts(files),logs))
+                Assert(restarted.Refresh(new string[0],CancellationToken.None).Packages.Count==0 && logs.Any(e=>e.Code=="RemovalCompleted"),"A clean next startup completes the requested removal");
+            Assert(File.ReadAllText(data)=="keep","Restart removal preserves extension settings/data");
+        }
+        finally {if(Directory.Exists(root))Directory.Delete(root,true);}
     }
 }

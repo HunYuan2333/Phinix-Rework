@@ -218,7 +218,7 @@ namespace PhinixClient
             settingsContext = new ClientSettingsContextAdapter(this);
             windowService = new ClientWindowService(errors.ReportBoundary);
             errorNotifications = new ClientErrorNotificationController(errors,
-                () => UnityData.IsInMainThread && !LongEventHandler.AnyEventNowOrWaiting && Find.WindowStack != null,
+                () => ClientWindowService.IsReady && !LongEventHandler.AnyEventNowOrWaiting,
                 () => errorWindow?.IsOpen == true,
                 () => { errorWindow = new ClientErrorWindow(errors, errorNotifications); windowService.Open(errorWindow); });
             userEventStream = new ClientUserEventStream(errors.ReportSensitiveBoundary);
@@ -829,7 +829,9 @@ namespace PhinixClient
                 }
             }
             gameScopes?.Publish();
-            mainThreadDispatcher?.DrainPendingActions();
+            // Root.Update may precede UIRoot.Init during startup. Keep accepted callbacks
+            // queued until their game/UI boundary exists; never acknowledge a skipped window.
+            if (ClientWindowService.IsReady) mainThreadDispatcher?.DrainPendingActions();
             if(localizationService != null && !ReferenceEquals(localizationGameLanguage,LanguageDatabase.activeLanguage))
             {
                 localizationGameLanguage=LanguageDatabase.activeLanguage;

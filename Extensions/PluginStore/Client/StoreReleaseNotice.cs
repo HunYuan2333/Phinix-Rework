@@ -31,17 +31,20 @@ namespace Phinix.PluginStore
                 if(wasShown()) return;
                 defer(()=> {
                     if(!active || expected!=generation) return;
+                    string phase="ReadShownMarker";
                     try
                     {
                         if(wasShown()) return;
+                        phase="OpenWindow";
                         show();
                         // Persist only after the main-thread window request succeeds.
+                        phase="PersistShownMarker";
                         markShown();
                     }
-                    catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/Start", ex);  Report(ex); }
+                    catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/"+phase, ex);  Report(ex); }
                 });
             }
-            catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/Start", ex);  Report(ex); }
+            catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StoreReleaseNotice/Queue", ex);  Report(ex); }
         }
         internal void Stop() { active=false; generation++; }
         private void Report(Exception exception)

@@ -96,7 +96,7 @@ for game in ['1.6', '1.7']:
         records.append({'game': game, 'packageId': package_id, 'targetFramework': tfm,
                         'version': '0.0.0', 'scope': 'local validation only',
                         'manifest': json.loads((local / 'validate.log').read_text())})
-metadata = inspect(sorted(package.rglob('*.dll')))
+metadata = inspect(sorted(path for path in package.rglob('*.dll') if 'Native' not in path.relative_to(package).parts))
 for game in ['1.6', '1.7']:
     selected = [row for row in metadata if Path(row['path']).is_relative_to(package / game)]
     names = {row['identity'].split(',', 1)[0]: row for row in selected}

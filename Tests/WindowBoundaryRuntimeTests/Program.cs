@@ -16,7 +16,12 @@ namespace Verse
             Added.Add(window); window.IsOpen = true;
         }
     }
-    public static class Find { public static readonly WindowStack WindowStack = new WindowStack(); }
+    public static class Find
+    {
+        public static object UIRoot = new object();
+        public static WindowStack Stack = new WindowStack();
+        public static WindowStack WindowStack => UIRoot == null ? null : Stack;
+    }
 }
 namespace PhinixClient.Framework
 {
@@ -37,6 +42,16 @@ internal static class Program
     {
         var service = new ClientWindowService();
         var owned = new Verse.Window();
+        Verse.Find.UIRoot = null;
+        Check(!ClientWindowService.IsReady, "Root updates before UI initialization are not window-ready.");
+        Reject(() => service.Open(owned));
+        Check(Verse.Find.Stack.Added.Count == 0 && !owned.IsOpen, "Unavailable UI never acknowledges or opens a window.");
+        Verse.Find.UIRoot = new object();
+        var stack = Verse.Find.Stack; Verse.Find.Stack = null;
+        Check(!ClientWindowService.IsReady, "A root without a window stack is still not ready.");
+        Reject(() => service.Open(owned));
+        Verse.Find.Stack = stack;
+        Check(ClientWindowService.IsReady, "The next ready frame may execute the original accepted window request.");
         service.Open(owned);
         Check(ReferenceEquals(Verse.Find.WindowStack.Added[0], owned), "Exact owner window reaches the stack.");
         Verse.UnityData.IsInMainThread = false;

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
 <Phinix_members_toggleBlocked>展开 / 收起已屏蔽成员</Phinix_members_toggleBlocked>
-<Phinix_members_tradeUnavailable>交易能力不可用，其他成员操作仍可使用。</Phinix_members_tradeUnavailable>
+<Phinix_members_tradeUnavailable>当前无法发起交易。</Phinix_members_tradeUnavailable>
 <Phinix_members_search>搜索成员</Phinix_members_search>
 <Phinix_members_noMatches>没有匹配的成员。</Phinix_members_noMatches>
 <Phinix_members_empty>暂无可显示的成员。</Phinix_members_empty>
@@ -11,8 +11,8 @@
 <Phinix_chat_actions_previousLinks>上一页链接</Phinix_chat_actions_previousLinks>
 <Phinix_chat_actions_nextLinks>下一页链接</Phinix_chat_actions_nextLinks>
 <Phinix_chat_actions_retryImage>重试加载图片</Phinix_chat_actions_retryImage>
-<Phinix_chat_actions_imageFailure>图片加载失败，点击查看重试操作。</Phinix_chat_actions_imageFailure>
-<Phinix_chat_actions_imageUnavailable>图片无法解码，点击查看原图操作。</Phinix_chat_actions_imageUnavailable>
+<Phinix_chat_actions_imageFailure>图片加载失败，点击重试。</Phinix_chat_actions_imageFailure>
+<Phinix_chat_actions_imageUnavailable>无法显示图片，点击查看原图。</Phinix_chat_actions_imageUnavailable>
   <Phinix_members_showBlocked>显示已屏蔽</Phinix_members_showBlocked>
   <Phinix_members_hideBlocked>收起已屏蔽</Phinix_members_hideBlocked>
   <Phinix_members_memberActions>更多操作</Phinix_members_memberActions>
