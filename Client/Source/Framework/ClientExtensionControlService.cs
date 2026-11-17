@@ -1,4 +1,5 @@
 using System;
+using Connections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -18,7 +19,7 @@ namespace PhinixClient.Framework
         private readonly Func<int> settingsVersion;
         private readonly Func<IEnumerable<string>> readDisabled, readActive, readFailed;
         private readonly Action<string,bool> saveModule;
-        private readonly Action<Exception> diagnostic;
+        private readonly ClientConnectionDiagnostics diagnostic;
         private string[] disabled,active=new string[0],failed=new string[0];
         private int settingsSeen, busy;
         private long revision;
@@ -36,7 +37,7 @@ namespace PhinixClient.Framework
             this.management=management??throw new ArgumentNullException(nameof(management));
             this.installation=installation??throw new ArgumentNullException(nameof(installation));
             this.isMainThread=isMainThread; this.settingsVersion=settingsVersion; this.readDisabled=readDisabled;
-            this.saveModule=saveModule; this.readActive=readActive; this.readFailed=readFailed; this.diagnostic=diagnostic;
+            this.saveModule=saveModule; this.readActive=readActive; this.readFailed=readFailed; this.diagnostic=new ClientConnectionDiagnostics(diagnostic==null?(Action<string,Exception>)null:(operation,error)=>diagnostic(error));
             RequireMainThread(); settingsSeen=settingsVersion(); disabled=Copy(readDisabled());
         }
         public ManagedExtensionRuntimeSnapshot Snapshot => management.Snapshot;
@@ -65,6 +66,7 @@ namespace PhinixClient.Framework
             if(string.IsNullOrWhiteSpace(id)) return new ClientExtensionControlResult(false,"InvalidModuleId");
             if(state.Revision!=expectedRevision) return new ClientExtensionControlResult(false,"ManagedStateChanged");
             if(Interlocked.CompareExchange(ref busy,1,0)!=0) return new ClientExtensionControlResult(false,"StoreBusy");
+            bool saved=false;
             try
             {
                 lock(gate)
@@ -77,15 +79,15 @@ namespace PhinixClient.Framework
                 if(owner!=null && owner.ModuleSettingsBlockCode!=null) return new ClientExtensionControlResult(false,owner.ModuleSettingsBlockCode);
                 if(state.DisabledModuleIds.Contains(id,StringComparer.OrdinalIgnoreCase)==!enabled)
                     return new ClientExtensionControlResult(true,"ManagedStateUnchanged");
-                saveModule(id,!enabled);
+                saveModule(id,!enabled);saved=true;
                 Capture();
                 return new ClientExtensionControlResult(true,"ManagedStateSaved");
             }
             catch(Exception error)
             {
                 lock(gate) { known=false; Changed(); }
-                try { diagnostic?.Invoke(error); } catch { }
-                return new ClientExtensionControlResult(false,"ManagedModuleSettingsWriteFailed");
+                diagnostic.Report(saved?"ModuleSettingsSavedRefreshFailed":"ModuleSettingsWriteFailed",error);
+                return new ClientExtensionControlResult(saved,saved?"ManagedStateSavedRefreshFailed":"ManagedModuleSettingsWriteFailed");
             }
             finally { lock(gate) { Volatile.Write(ref busy,0); cached=null; } }
         }

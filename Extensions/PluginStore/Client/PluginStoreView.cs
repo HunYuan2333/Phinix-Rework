@@ -69,7 +69,7 @@ namespace Phinix.PluginStore
                 if (layout.Management.height > 0f && Widgets.ButtonText(layout.Management, managementLabel))
                 {
                     try { localError = null; dirty = true; management.OpenExtensionManagerWindow(); }
-                    catch (Exception ex) { Fail(ex); }
+                    catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/Draw", ex);  Fail(ex); }
                 }
                 BoundedLabel(layout.Selection, selectionText, selectionHeight);
                 try
@@ -187,7 +187,7 @@ namespace Phinix.PluginStore
                 settings.Set("plugin-store.localSourceId", sourceId);
                 _ = controller.ReadLocalIndex(filePath, sourceId);
             }
-            catch (Exception ex) { Fail(ex); }
+            catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/Load", ex);  Fail(ex); }
         }
 
         private void LoadRepository(bool offline)
@@ -205,7 +205,7 @@ namespace Phinix.PluginStore
                 if (offline) _ = controller.ReadCachedRepository(endpoint, directory);
                 else _ = controller.RefreshRepository(endpoint, directory);
             }
-            catch (Exception ex) { Fail(ex); }
+            catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/LoadRepository", ex);  Fail(ex); }
         }
 
         private void Plan()
@@ -216,7 +216,7 @@ namespace Phinix.PluginStore
                 StoreEnvironmentInput input = StoreEnvironmentAdapter.FromSnapshot(environment.Capture());
                 _ = controller.CreatePlan(selected.Id, selected.Version.ToString(), input, displayedCatalog);
             }
-            catch (Exception ex) { Fail(ex); }
+            catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/Plan", ex);  Fail(ex); }
         }
 
         private void CheckDownloads()
@@ -228,14 +228,14 @@ namespace Phinix.PluginStore
                 if (captured.Paths == null) throw new StoreValidationException("EnvironmentUnavailable", "Game save-data paths are unavailable.");
                 _ = controller.CheckPlanDownloads(snapshot.Plan, captured.Paths);
             }
-            catch (Exception ex) { Fail(ex); }
+            catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/CheckDownloads", ex);  Fail(ex); }
         }
 
         private void ReadManaged()
         {
             localError = null; dirty = true;
             try { _ = controller.ReadManagedPackages(environment.Capture()); }
-            catch (Exception ex) { Fail(ex); }
+            catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/ReadManaged", ex);  Fail(ex); }
         }
 
         private void ConfirmInstall()
@@ -246,7 +246,7 @@ namespace Phinix.PluginStore
             {
                 localError = null; dirty = true;
                 try { _ = controller.InstallPackages(reviewed, environment.Capture()); }
-                catch (Exception ex) { Fail(ex); }
+                catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/ConfirmInstall", ex);  Fail(ex); }
             }));
         }
 
@@ -257,7 +257,7 @@ namespace Phinix.PluginStore
             {
                 localError = null; dirty = true;
                 try { _ = controller.UninstallPackage(folder, environment.Capture()); }
-                catch (Exception ex) { Fail(ex); }
+                catch (Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("PluginStoreView/ConfirmUninstall", ex);  Fail(ex); }
             }));
         }
 

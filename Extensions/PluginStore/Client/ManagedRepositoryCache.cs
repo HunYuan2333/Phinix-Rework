@@ -45,9 +45,9 @@ namespace Phinix.PluginStore
         public ManagedRepositoryCacheEntry TryRead(CancellationToken token)
         {
             try { return Read(token); }
-            catch (StoreValidationException) { return null; }
-            catch (IOException) { return null; }
-            catch (UnauthorizedAccessException) { return null; }
+            catch (StoreValidationException boundaryError179) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryCache/TryRead", boundaryError179);  return null; }
+            catch (IOException boundaryError180) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryCache/TryRead", boundaryError180);  return null; }
+            catch (UnauthorizedAccessException boundaryError181) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryCache/TryRead", boundaryError181);  return null; }
         }
         public ManagedRepositoryCacheEntry Read(CancellationToken token)
         {
@@ -98,9 +98,9 @@ namespace Phinix.PluginStore
                 token.ThrowIfCancellationRequested(); CheckLinks();
                 return new RepositoryCacheWrite(temporary, FilePath);
             }
-            catch
-            {
-                if (File.Exists(temporary)) File.Delete(temporary);
+            catch (System.Exception boundaryError182)
+            { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryCache/Stage", boundaryError182);
+                if (File.Exists(temporary)) global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("ManagedRepositoryCache/Stage/Cleanup", () => { File.Delete(temporary); });
                 throw;
             }
         }
@@ -122,7 +122,7 @@ namespace Phinix.PluginStore
         private static string Decode(byte[] bytes)
         {
             try { return new UTF8Encoding(false, true).GetString(bytes); }
-            catch (DecoderFallbackException ex) { throw new StoreValidationException("InvalidCache", "Cache contains invalid UTF-8.", ex); }
+            catch (DecoderFallbackException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedRepositoryCache/Decode", ex);  throw new StoreValidationException("InvalidCache", "Cache contains invalid UTF-8.", ex); }
         }
         private static void WriteBlock(BinaryWriter writer, byte[] bytes) { writer.Write(bytes.Length); writer.Write(bytes); }
         private static StoreValidationException Invalid() { return new StoreValidationException("InvalidCache", "Browsing cache is incomplete, corrupt or belongs to another endpoint/source."); }

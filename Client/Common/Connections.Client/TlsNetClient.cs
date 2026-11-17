@@ -13,7 +13,7 @@ using ServerTransport;
 using Utils;
 namespace Connections
 {
-    public sealed class TlsNetClient : IClientTransport, IValidatedClientTransport
+    public sealed class TlsNetClient : IClientTransport, IValidatedClientTransport, IClientRelayTransport
     {
         private readonly object gate=new(),lifecycle=new();
         private readonly Dictionary<string,NetCommon.PacketHandlerDelegate> handlers=new();
@@ -38,9 +38,12 @@ namespace Connections
         }
         private const int Maximum=1024*1024,QueueBytes=4*1024*1024;
         public TlsNetClient(string serverName,string base64Pin,string rootCertificateFile=null,X509RevocationMode revocation=X509RevocationMode.Online)
+            : this(null,serverName,base64Pin,rootCertificateFile,revocation) { }
+        public TlsNetClient(Action<string,Exception> report,string serverName,string base64Pin,string rootCertificateFile=null,X509RevocationMode revocation=X509RevocationMode.Online)
         {
+            diagnostics=new ClientConnectionDiagnostics(report);
             if(string.IsNullOrWhiteSpace(serverName)||serverName.Length>253)throw new ArgumentException("Trusted TLS server name required.");
-            try {pin=Convert.FromBase64String(base64Pin);}catch(FormatException){throw new ArgumentException("Trusted TLS SPKI SHA-256 pin is invalid.");}
+            try {pin=Convert.FromBase64String(base64Pin);}catch(FormatException error){throw new ArgumentException("Trusted TLS SPKI SHA-256 pin is invalid.", nameof(base64Pin), error);}
             if(pin.Length!=32)throw new ArgumentException("Trusted TLS SPKI SHA-256 pin is invalid.");
             this.serverName=serverName;this.rootCertificateFile=rootCertificateFile;this.revocation=revocation;
         }
@@ -52,7 +55,22 @@ namespace Connections
         public event EventHandler OnDisconnect;
         public event EventHandler<LogEventArgs> OnLogEntry;
         public void RaiseLogEntry(LogEventArgs args)=>OnLogEntry?.Invoke(this,args);
-        private void Report(Exception error){try {RaiseLogEntry(new LogEventArgs("TLS connection failed: "+error.GetType().Name,LogLevel.WARNING));}catch {}}
+        private readonly ClientConnectionDiagnostics diagnostics;
+        private void Report(Exception error) => diagnostics.Report("TlsConnectionFailed",error);
+        private void NotifyDisconnected()
+        {
+            var callbacks=OnDisconnect;
+            if(callbacks!=null)foreach(EventHandler callback in callbacks.GetInvocationList())
+                try {callback(this,EventArgs.Empty);}catch(Exception error){diagnostics.Report("TlsDisconnectObserverFailed",error);}
+        }
+        private bool ExpectedCancellation(Lifetime state, OperationCanceledException error)
+            // The channel uses a linked per-frame deadline token, so token identity differs.
+            // A frame deadline alone remains a fault while the connection is active.
+            => state.Stop.IsCancellationRequested && error.CancellationToken.IsCancellationRequested;
+        private void StopSafely(Lifetime state)
+        { try {RequestStop(state);}catch(Exception error){diagnostics.Report("TlsStopFailed",error);} }
+        private async Task DisposeChannel(Lifetime state)
+        { try { await state.Channel.DisposeAsync(); } catch(Exception error) { diagnostics.Report("TlsChannelCleanupFailed",error); } }
         public void RegisterPacketHandler(string module,NetCommon.PacketHandlerDelegate handler)
         {lock(gate){if(module.StartsWith("$transport.",StringComparison.Ordinal))throw new ArgumentException("Reserved transport module.");if(handlers.ContainsKey(module))throw new PacketHandlerAlreadyRegisteredException(module);handlers.Add(module,handler);}}
         public void UnregisterPacketHandler(string module){lock(gate)handlers.Remove(module);}
@@ -79,13 +97,19 @@ namespace Connections
                         channel=TlsPacketChannel.ConnectAsync(socket.GetStream(),serverName,pin,root,
                             revocation:revocation,maximum:Maximum,cancellation:deadline.Token).GetAwaiter().GetResult();
                     }
-                    finally {root?.Dispose();}
+                    finally {try {root?.Dispose();}catch(Exception error){diagnostics.Report("TlsCertificateCleanupFailed",error);}}
                     var state=new Lifetime(socket,channel,"tls://"+serverName+":"+port);
                     lock(gate){current=state;state.Runner=Run(state);}
                     try {OnConnecting?.Invoke(this,EventArgs.Empty);}
                     finally {state.Start.TrySetResult();}
                 }
-                catch {channel?.DisposeAsync().GetAwaiter().GetResult();socket.Dispose();throw;}
+                catch(Exception error)
+                {
+                    diagnostics.Report("TlsConnectFailed",error);
+                    try {channel?.DisposeAsync().GetAwaiter().GetResult();}catch(Exception cleanup){diagnostics.Report("TlsConnectChannelCleanupFailed",cleanup);}
+                    try {socket.Dispose();}catch(Exception cleanup){diagnostics.Report("TlsConnectSocketCleanupFailed",cleanup);}
+                    throw;
+                }
             }
         }
         private async Task Write(Lifetime state)
@@ -95,12 +119,16 @@ namespace Connections
                 await foreach(byte[] body in state.Outgoing.Reader.ReadAllAsync(state.Stop.Token))
                 {try {await state.Channel.WriteAsync(body,state.Stop.Token);}finally {lock(gate)state.Bytes-=body.Length;}}
             }
-            finally {await state.Channel.DisposeAsync();}
+            catch(OperationCanceledException error)when(ExpectedCancellation(state,error)){ }
+            catch(Exception error){diagnostics.Report("TlsWriteFailed",error);StopSafely(state);}
+            finally {await DisposeChannel(state);}
         }
         private async Task Ping(Lifetime state)
         {
             try {while(true){await Task.Delay(TimeSpan.FromSeconds(5),state.Stop.Token);Send("$transport.ping",Array.Empty<byte>());}}
-            finally {await state.Channel.DisposeAsync();}
+            catch(OperationCanceledException error)when(ExpectedCancellation(state,error)){ }
+            catch(Exception error){diagnostics.Report("TlsPingFailed",error);StopSafely(state);}
+            finally {await DisposeChannel(state);}
         }
         private async Task Run(Lifetime state)
         {
@@ -108,7 +136,7 @@ namespace Connections
             var writing=Write(state);var pinging=Ping(state);
             try
             {
-                while(true)
+                while(!state.Stop.IsCancellationRequested)
                 {
                     byte[] body=await state.Channel.ReadAsync(state.Stop.Token);if(body==null)break;
                     var packet=TlsModulePacket.Decode(body);
@@ -124,14 +152,17 @@ namespace Connections
                     }
                 }
             }
-            catch(Exception)when(state.Stop.IsCancellationRequested){ }
+            catch(OperationCanceledException error)when(ExpectedCancellation(state,error)){ }
             catch(Exception error){Report(error);}
             finally
             {
-                RequestStop(state);
-                try {await Task.WhenAll(writing,pinging);}catch(Exception)when(state.Stop.IsCancellationRequested){ }
-                dispatching=true;try {OnDisconnect?.Invoke(this,EventArgs.Empty);}catch(Exception error){Report(error);}finally {dispatching=false;}
-                try {await state.Cancellation;}finally {state.Stop.Dispose();}
+                StopSafely(state);
+                // Both child tasks observe their own failures before cleanup; don't discard
+                // non-cancellation faults just because shutdown has already been requested.
+                try {await Task.WhenAll(writing,pinging);}catch(Exception error){diagnostics.Report("TlsWorkersFailed",error);}
+                dispatching=true;try {NotifyDisconnected();}catch(Exception error){Report(error);}finally {dispatching=false;}
+                try {await state.Cancellation;}catch(Exception error){diagnostics.Report("TlsCancellationCallbackFailed",error);}
+                finally {try {state.Stop.Dispose();}catch(Exception error){diagnostics.Report("TlsCancellationCleanupFailed",error);}}
             }
         }
         private void RequestStop(Lifetime state)
@@ -157,6 +188,19 @@ namespace Connections
                 var state=current;if(state==null||state.Closed)throw new NotConnectedException();
                 if(state.Bytes>QueueBytes-body.Length||!state.Outgoing.Writer.TryWrite(body))throw new IOException("TLS send queue is full; packet was not admitted.");
                 state.Bytes+=body.Length;
+            }
+        }
+        public bool TrySendRelay(string module,byte[] payload)
+        {
+            if(payload==null||payload.Length>64*1024)return false;
+            byte[] body;
+            try{body=TlsModulePacket.Encode(module,payload,Maximum);}
+            catch(Exception error){diagnostics.Report("TlsRelayPreparationFailed",error);return false;}
+            lock(gate)
+            {
+                var state=current;if(state==null||state.Closed)return false;
+                if(state.Bytes>QueueBytes-body.Length||!state.Outgoing.Writer.TryWrite(body))return false;
+                state.Bytes+=body.Length;return true;
             }
         }
         public void Dispose(){if(dispatching)throw new InvalidOperationException("Dispose must run outside a packet callback.");lock(lifecycle){CloseAndWait();disposed=true;}}

@@ -44,53 +44,24 @@ namespace Phinix.TradeExtension.Client
     }
 
     // Receipt evidence only: never a game-save ACK, refund authority, or automatic replay queue.
-    internal sealed partial class TradeCompletionInbox
+    internal sealed partial class TradeCompletionInbox : IDisposable
     {
-        private const int MaxRecord = 4 * 1024 * 1024, MaxTotal = 32 * 1024 * 1024, MaxRecords = 4096;
+        private const int MaxRecord = 64 * 1024 * 1024;
+        private readonly TradeSqliteRecords records;
         private readonly string directory;
         private readonly object gate = new object();
         private long revision;
         public long Revision => Interlocked.Read(ref revision);
-        [DllImport("libc", SetLastError=true)] private static extern int chmod(string path, uint mode);
-        public TradeCompletionInbox(string directory)
+        public TradeCompletionInbox(string directory, PhinixClient.Storage.IClientDatabaseService storage=null, Action<string> warning=null) : this(directory,storage,warning,null) { }
+        public TradeCompletionInbox(string directory, PhinixClient.Storage.IClientDatabaseService storage, Action<string> warning, Action<string,Exception> report)
         {
-            if (!Path.IsPathRooted(directory)) throw new ArgumentException("Absolute inbox path required.");
-            this.directory = Path.GetFullPath(directory);
-            CheckEvidencePath(this.directory);Directory.CreateDirectory(this.directory); Private(this.directory, 448);
-            ReadAll();ValidateDeliveryEvidence(); // Corrupt records remain in place and prevent activation.
-            foreach (var path in Directory.GetFiles(this.directory,"*.attempt").Concat(Directory.GetFiles(this.directory,"*.result")))
-            {
-                string receipt = Path.ChangeExtension(path,".receipt");
-                if (!File.Exists(receipt)) throw new InvalidDataException("Orphan delivery evidence.");
-                var record = Read(receipt);
-                var attempt=ReadAttempt(Path.ChangeExtension(path,".attempt"),record,null,"Attempted");
-                if (path.EndsWith(".result",StringComparison.Ordinal)) ReadAttempt(path,record,attempt.Mode,null);
-            }
-            foreach(var path in Directory.GetFiles(this.directory,"*.binding")) ReadBinding(path,Read(Path.ChangeExtension(path,".receipt")));
+            this.directory=Path.GetFullPath(directory);
+            records=new TradeSqliteRecords(storage,this.directory,"completions",warning,report);
+            ReadAll();
         }
-        private static void CheckEvidencePath(string path)
-        {
-            // Inspect every lexical ancestor; never resolve a link into a trusted path.
-            string current=Path.GetFullPath(path);int depth=0;
-            while(current!=null)
-            {
-                try
-                {
-                    if((File.GetAttributes(current)&FileAttributes.ReparsePoint)!=0)
-                        throw new IOException("Trade evidence path contains an unsupported filesystem link.");
-                }
-                catch(FileNotFoundException) { }
-                catch(DirectoryNotFoundException) { }
-                current=Directory.GetParent(current)?.FullName;
-                if(++depth>256)throw new IOException("Trade evidence path cannot be verified.");
-            }
-        }
-        private static void Private(string path, uint mode)
-        {
-            CheckEvidencePath(path);
-            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new IOException("Inbox links are unsupported.");
-            if (Path.DirectorySeparatorChar == '/' && chmod(path, mode) != 0) throw new IOException("Cannot protect completion inbox.");
-        }
+        public void Dispose()=>records.Dispose();
+        internal bool IsTerminal(string endpoint,string recipient,string trade,bool completed)
+            =>records.IsTerminal(Path.Combine(directory,Key(new TradeCompletionReceipt{Endpoint=endpoint,Recipient=recipient,TradeId=trade,Completed=completed})+".receipt"));
         private static void Identity(string value, int max)
         { if (string.IsNullOrWhiteSpace(value) || value.Length > max || value.Any(char.IsControl)) throw new InvalidDataException("Invalid receipt identity."); }
         private static void Validate(TradeCompletionReceipt record)
@@ -108,9 +79,8 @@ namespace Phinix.TradeExtension.Client
         { Endpoint=r.Endpoint, Recipient=r.Recipient, TradeId=r.TradeId, Completed=r.Completed, OtherParty=r.OtherParty, Items=r.Items }));
         private TradeCompletionReceipt Read(string path)
         {
-            if (new FileInfo(path).Length > MaxRecord) throw new InvalidDataException("Receipt exceeds budget.");
-            Private(path,384);
-            var r=FrameworkSerialization.DeserializePayload<TradeCompletionReceipt>(File.ReadAllText(path,Encoding.UTF8)); Validate(r);
+            if (records.Read(path).Length > MaxRecord) throw new InvalidDataException("Receipt exceeds budget.");
+            var r=FrameworkSerialization.DeserializePayload<TradeCompletionReceipt>(records.Text(path)); Validate(r);
             if (r.Fingerprint != Fingerprint(r)) throw new InvalidDataException("Receipt content hash mismatch.");
             if (Path.GetFileName(path)!=Key(r)+".receipt") throw new InvalidDataException("Receipt identity mismatch.");
             return r;
@@ -119,10 +89,21 @@ namespace Phinix.TradeExtension.Client
         {
             lock(gate)
             {
-                CheckEvidencePath(directory);
-                var files=Directory.GetFiles(directory,"*.receipt");
-                if (files.Length>MaxRecords || files.Sum(p=>new FileInfo(p).Length)>MaxTotal) throw new InvalidDataException("Inbox exceeds budget.");
-                return files.OrderBy(p=>p,StringComparer.Ordinal).Select(Read).ToArray();
+                var result=new List<TradeCompletionReceipt>();
+                foreach(string path in records.Keys(".receipt"))
+                    try
+                    {
+                        var receipt=Read(path);
+                        if(records.Exists(Path.ChangeExtension(path,".attempt")))ReadAttempt(Path.ChangeExtension(path,".attempt"),receipt,null,"Attempted");
+                        if(records.Exists(Path.ChangeExtension(path,".result")))ReadAttempt(Path.ChangeExtension(path,".result"),receipt,null,null);
+                        if(records.Exists(Path.ChangeExtension(path,".binding")))ReadBinding(Path.ChangeExtension(path,".binding"),receipt);
+                        if(records.Exists(Path.ChangeExtension(path,".plan")))InventoryPlan(receipt);
+                        if(records.Exists(Path.ChangeExtension(path,".delivery")))ReadDelivery(Path.ChangeExtension(path,".delivery"),receipt);
+                        if(records.Exists(Path.ChangeExtension(path,".checkpoint")))ReadDelivery(Path.ChangeExtension(path,".checkpoint"),receipt);
+                        result.Add(receipt);
+                    }
+                    catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeCompletionInbox/ReadAll", error); records.Quarantine(path,error);}
+                return result.ToArray();
             }
         }
 
@@ -142,9 +123,8 @@ namespace Phinix.TradeExtension.Client
         {ReceiptFingerprint=r.ReceiptFingerprint,SaveIdentity=r.SaveIdentity}));
         private TradeCompletionSaveBinding ReadBinding(string path,TradeCompletionReceipt receipt)
         {
-            if(new FileInfo(path).Length>4096) throw new InvalidDataException("Save binding exceeds budget.");
-            Private(path,384);
-            var binding=FrameworkSerialization.DeserializePayload<TradeCompletionSaveBinding>(File.ReadAllText(path,Encoding.UTF8));
+            if(records.Read(path).Length>4096) throw new InvalidDataException("Save binding exceeds budget.");
+            var binding=FrameworkSerialization.DeserializePayload<TradeCompletionSaveBinding>(records.Text(path));
             if(binding==null || binding.Schema!=1 || binding.ReceiptFingerprint!=receipt.Fingerprint ||
                 !IsSaveIdentity(binding.SaveIdentity) || binding.Fingerprint!=BindingHash(binding))
                 throw new InvalidDataException("Invalid completion save binding.");
@@ -158,13 +138,13 @@ namespace Phinix.TradeExtension.Client
                 if(!IsSaveIdentity(saveIdentity)) throw new InvalidDataException("Saved game identity required.");
                 var receipt=FindReceipt(endpoint,recipient,trade,completed);
                 string path=Path.Combine(directory,Key(receipt)+".binding");
-                if(File.Exists(path))
+                if(records.Exists(path))
                 {
                     if(ReadBinding(path,receipt).SaveIdentity!=saveIdentity) throw new InvalidDataException("Completion belongs to another save.");
                     return;
                 }
                 // Historical attempts cannot be retrospectively assigned to whichever save is open.
-                if(File.Exists(Path.ChangeExtension(path,".attempt"))) throw new InvalidDataException("Unbound historical attempt requires reconciliation.");
+                if(records.Exists(Path.ChangeExtension(path,".attempt"))) throw new InvalidDataException("Unbound historical attempt requires reconciliation.");
                 var binding=new TradeCompletionSaveBinding {ReceiptFingerprint=receipt.Fingerprint,SaveIdentity=saveIdentity};
                 binding.Fingerprint=BindingHash(binding);
                 PublishBytes(path,Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(binding)));
@@ -175,7 +155,7 @@ namespace Phinix.TradeExtension.Client
             lock(gate)
             {
                 var receipt=FindReceipt(endpoint,recipient,trade,completed);string path=Path.Combine(directory,Key(receipt)+".binding");
-                if(!File.Exists(path)) return "Unbound";
+                if(!records.Exists(path)) return "Unbound";
                 return ReadBinding(path,receipt).SaveIdentity==currentSave?"Current":"Different";
             }
         }
@@ -183,9 +163,8 @@ namespace Phinix.TradeExtension.Client
         { ReceiptFingerprint=r.ReceiptFingerprint,Mode=r.Mode,State=r.State }));
         private TradeCompletionAttempt ReadAttempt(string path,TradeCompletionReceipt receipt,string mode,string state)
         {
-            if(new FileInfo(path).Length>4096) throw new InvalidDataException("Delivery evidence exceeds budget.");
-            Private(path,384);
-            var r=FrameworkSerialization.DeserializePayload<TradeCompletionAttempt>(File.ReadAllText(path,Encoding.UTF8));
+            if(records.Read(path).Length>4096) throw new InvalidDataException("Delivery evidence exceeds budget.");
+            var r=FrameworkSerialization.DeserializePayload<TradeCompletionAttempt>(records.Text(path));
             if(r==null || r.Schema!=1 || r.ReceiptFingerprint!=receipt.Fingerprint ||
                 (r.Mode!="Inventory" && r.Mode!="Direct") ||
                 (r.State!="Attempted" && r.State!="ReturnedSuccess" && r.State!="ReturnedFailure") ||
@@ -201,20 +180,7 @@ namespace Phinix.TradeExtension.Client
             PublishBytes(path,bytes);
         }
         private void PublishBytes(string path,byte[] bytes)
-        {
-            CheckEvidencePath(path);
-            if(Directory.GetFiles(directory).Where(f=>!f.Contains(".tmp-")).Sum(f=>new FileInfo(f).Length)+bytes.Length>128L*1024*1024)throw new IOException("Completion evidence storage is full.");
-            string temporary=path+".tmp-"+Guid.NewGuid().ToString("N");
-            try
-            {
-                CheckEvidencePath(temporary);
-                using(var stream=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None))
-                {Private(temporary,384);stream.Write(bytes,0,bytes.Length);stream.Flush(true);}
-                CheckEvidencePath(temporary);CheckEvidencePath(path);File.Move(temporary,path);
-                Interlocked.Increment(ref revision);
-            }
-            finally {CheckEvidencePath(temporary);if(File.Exists(temporary))File.Delete(temporary);}
-        }
+        { records.Put(path,bytes);Interlocked.Increment(ref revision); }
         // An existing attempt means Unknown/reconciliation, never permission to invoke delivery again.
         public bool TryBeginDelivery(string endpoint,string recipient,string trade,bool completed,bool inventory)
         {
@@ -222,7 +188,7 @@ namespace Phinix.TradeExtension.Client
             {
                 var receipt=FindReceipt(endpoint,recipient,trade,completed);
                 string path=Path.Combine(directory,Key(receipt)+".attempt");
-                if(File.Exists(path)) {ReadAttempt(path,receipt,null,"Attempted");return false;}
+                if(records.Exists(path)) {ReadAttempt(path,receipt,null,"Attempted");return false;}
                 PublishAttempt(path,new TradeCompletionAttempt {ReceiptFingerprint=receipt.Fingerprint,Mode=inventory?"Inventory":"Direct",State="Attempted"});
                 return true;
             }
@@ -235,7 +201,7 @@ namespace Phinix.TradeExtension.Client
                 var receipt=FindReceipt(endpoint,recipient,trade,completed);
                 string mode=inventory?"Inventory":"Direct",path=Path.Combine(directory,Key(receipt)+".result"),state=succeeded?"ReturnedSuccess":"ReturnedFailure";
                 ReadAttempt(Path.ChangeExtension(path,".attempt"),receipt,mode,"Attempted");
-                if(File.Exists(path)) {ReadAttempt(path,receipt,mode,state);return;}
+                if(records.Exists(path)) {ReadAttempt(path,receipt,mode,state);return;}
                 PublishAttempt(path,new TradeCompletionAttempt {ReceiptFingerprint=receipt.Fingerprint,Mode=mode,State=state});
             }
         }
@@ -245,10 +211,10 @@ namespace Phinix.TradeExtension.Client
             {
                 var receipt=FindReceipt(endpoint,recipient,trade,completed);
                 string path=Path.Combine(directory,Key(receipt)+".attempt");
-                if(!File.Exists(path)) return "Received";
+                if(!records.Exists(path)) return "Received";
                 var attempt=ReadAttempt(path,receipt,null,"Attempted");
                 string result=Path.ChangeExtension(path,".result");
-                return File.Exists(result)?ReadAttempt(result,receipt,attempt.Mode,null).State:attempt.State;
+                return records.Exists(result)?ReadAttempt(result,receipt,attempt.Mode,null).State:attempt.State;
             }
         }
         // True publishes once to this live delivery owner; recorded duplicates require reconciliation.
@@ -256,33 +222,34 @@ namespace Phinix.TradeExtension.Client
         {
             lock(gate)
             {
-                CheckEvidencePath(directory);
                 var record=new TradeCompletionReceipt { Endpoint=endpoint,Recipient=recipient,TradeId=trade,Completed=completed,OtherParty=other,Items=(items??Array.Empty<FrameworkItemPayload>()).ToArray() };
                 Validate(record); record.Fingerprint=Fingerprint(record); string json=Json(record); byte[] bytes=Encoding.UTF8.GetBytes(json);
                 if (bytes.Length>MaxRecord) throw new InvalidDataException("Receipt exceeds budget.");
                 string target=Path.Combine(directory,Key(record)+".receipt");
-                if (File.Exists(target))
+                var opposite=new TradeCompletionReceipt{Endpoint=endpoint,Recipient=recipient,TradeId=trade,Completed=!completed};
+                if(records.Exists(Path.Combine(directory,Key(opposite)+".receipt")))
+                    throw new InvalidDataException("Trade already has the opposite terminal outcome.");
+                if(records.WasTerminal(target,bytes))return false;
+                if (records.Exists(target))
                 {
                     if (Json(Read(target))!=json) throw new InvalidDataException("Completion receipt conflicts with recorded batch.");
                     return false;
                 }
-                CheckEvidencePath(directory);
-                var files=Directory.GetFiles(directory,"*.receipt");
+                var files=records.Keys(".receipt",subject:TradeSqliteRecords.Scope(recipient,trade));
                 // Endpoint changes and contradictory terminal events do not grant a second delivery.
                 if (files.Select(Read).Any(r => string.Equals(r.Recipient,recipient,StringComparison.OrdinalIgnoreCase) && string.Equals(r.TradeId,trade,StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidDataException("Receipt scope or terminal outcome changed; reconciliation required.");
-                if (files.Length>=MaxRecords || files.Sum(p=>new FileInfo(p).Length)+bytes.Length>MaxTotal) throw new IOException("Completion inbox is full.");
-                string temporary=target+".tmp-"+Guid.NewGuid().ToString("N");
-                try
-                {
-                    CheckEvidencePath(temporary);
-                    using(var stream=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None))
-                    { Private(temporary,384); stream.Write(bytes,0,bytes.Length); stream.Flush(true); }
-                    CheckEvidencePath(temporary);CheckEvidencePath(target);File.Move(temporary,target);
-                    Interlocked.Increment(ref revision);
-                    return true;
-                }
-                finally { CheckEvidencePath(temporary);if(File.Exists(temporary)) File.Delete(temporary); }
+                PublishBytes(target,bytes);return true;
+            }
+        }
+
+        internal void CompleteLocally(string endpoint,string principal,string trade,bool completed)
+        {
+            lock(gate)
+            {
+                var receipt=FindReceipt(endpoint,principal,trade,completed);
+                // Negotiated delivery receipts keep their compactable data until server confirmation.
+                if(DeliveryReceipt(receipt)==null)records.Archive(Path.Combine(directory,Key(receipt)+".receipt"));
             }
         }
     }

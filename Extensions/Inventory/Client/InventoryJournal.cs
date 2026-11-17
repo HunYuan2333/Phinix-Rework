@@ -98,7 +98,7 @@ namespace Phinix.InventoryExtension.Client
                         {
                             // A complete, conflicting record is evidence, never a torn-write exception.
                             InventoryState candidate = null;
-                            try { candidate = Parse(line); } catch { }
+                            try { candidate = Parse(line); } catch (System.Exception boundaryError57) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournal/InventoryJournal", boundaryError57);  }
                             if (candidate != null) throw;
                             ignoredTornTail = true; break;
                         }
@@ -108,7 +108,7 @@ namespace Phinix.InventoryExtension.Client
                 else if (!endsWithNewline) CompleteRecordBoundary(path);
                 HasPendingRecovery = sawFuture;
             }
-            catch (Exception error) { Fault("Load", error.GetType().Name + ": " + SafeReason(error)); }
+            catch (Exception error) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournal/InventoryJournal", error);  Fault("Load", error.GetType().Name + ": " + SafeReason(error)); }
         }
 
         // Only a live, healthy attachment may create a new path-scoped journal after Save As.
@@ -170,7 +170,7 @@ namespace Phinix.InventoryExtension.Client
                     transferred = true;
                     return opened;
                 }
-                finally { if (!transferred) lease.Dispose(); }
+                finally { if (!transferred) InventoryDiagnostics.Cleanup("InventoryJournal/TransferCleanup",()=>lease.Dispose()); }
             }
         }
 
@@ -257,7 +257,7 @@ namespace Phinix.InventoryExtension.Client
                     { output.Write(bytes, 0, bytes.Length); output.Flush(true); }
                     latest = state; committedSequence = state.Sequence; LastError = null; return true;
                 }
-                catch (Exception error) { return Reject("Append", error.GetType().Name + ": " + SafeReason(error), true); }
+                catch (Exception error) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournal/TryAppend", error);  return Reject("Append", error.GetType().Name + ": " + SafeReason(error), true); }
             }
         }
 
@@ -308,7 +308,7 @@ namespace Phinix.InventoryExtension.Client
                     return true;
                 }
                 catch (Exception error)
-                {
+                { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournal/TryCheckpoint", error);
                     CheckpointError = "Checkpoint: " + error.GetType().Name + ": " + SafeReason(error);
                     Report(CheckpointError); return false;
                 }
@@ -329,7 +329,7 @@ namespace Phinix.InventoryExtension.Client
                     using (var empty = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) empty.Flush(true);
                     latest = null; HasPendingRecovery = false; return true;
                 }
-                catch (Exception error) { Fault("RejectRecovery", error.GetType().Name + ": " + SafeReason(error)); return false; }
+                catch (Exception error) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournal/RejectRecovery", error);  Fault("RejectRecovery", error.GetType().Name + ": " + SafeReason(error)); return false; }
             }
         }
         internal static string Fingerprint(InventoryState state) => Hash(Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(state)));
@@ -340,7 +340,7 @@ namespace Phinix.InventoryExtension.Client
         private void Report(string message)
         {
             try { diagnostic?.Invoke("journal=" + Path.GetFileName(path) + ", sequence=" + committedSequence + ", " + message); }
-            catch (Exception) { /* A diagnostic observer cannot change persistence or recovery outcomes. */ }
+            catch (Exception boundaryError62) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournal/Report", boundaryError62);  /* A diagnostic observer cannot change persistence or recovery outcomes. */ }
         }
         // Exception messages from serializers/IO can include raw paths or payloads; report only owned validation messages.
         private static string SafeReason(Exception error) => error is InvalidDataException ? error.Message : "Persistence operation failed; code=" + error.HResult.ToString("X8") + "; original evidence retained.";

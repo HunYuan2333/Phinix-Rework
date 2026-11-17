@@ -51,16 +51,17 @@ namespace PhinixClient
         }
         private void Export()
         {
+            bool saved=false;
             try
             {
                 string full=Path.GetFullPath(path);
-                exporter.ExportPackage(draft,new ClientThemeExportInfo(id,name,author,version),full);
+                exporter.ExportPackage(draft,new ClientThemeExportInfo(id,name,author,version),full);saved=true;
                 // Metadata persistence is secondary: a written ZIP must remain a successful export.
                 try {settings.Set(key+"id",id);settings.Set(key+"name",name);settings.Set(key+"author",author);settings.Set(key+"version",version);}
-                catch(Exception){Verse.Log.Warning("[Phinix] ThemeExportMetadataSaveFailed");}
+                catch(Exception error){ClientHostDiagnostics.Report(error,"ThemeExportMetadataSaveFailed",false);}
                 exported(full);Close();
             }
-            catch(Exception ex){error=(ex as ManagedExtensionValidationException)?.Code??ex.Message;Invalidate();}
+            catch(Exception ex){ClientHostDiagnostics.Report(ex,saved?"ThemeExportSavedRefreshFailed":"ThemeExportFailed");error=saved?L("Phinix_theme_exportSavedRefreshFailed"):(ex as ManagedExtensionValidationException)?.Code??L("Phinix_theme_operationFailed");Invalidate();}
         }
     }
 }

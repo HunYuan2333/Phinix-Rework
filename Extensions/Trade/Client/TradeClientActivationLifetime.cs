@@ -6,20 +6,6 @@ using Utils.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
-    internal static class TradeLifetimeCleanup
-    {
-        internal static void Try(Action release, List<Exception> failures)
-        {
-            try { release(); }
-            catch (Exception error) { failures.Add(error); }
-        }
-
-        internal static void ThrowIfFailed(List<Exception> failures)
-        {
-            if (failures.Count != 0) throw new AggregateException("Trade lifetime cleanup failed.", failures);
-        }
-    }
-
     internal sealed class TradeInventoryRegistrations : IDisposable
     {
         private IDisposable codec;
@@ -34,9 +20,9 @@ namespace Phinix.TradeExtension.Client
                 this.source = inventory.RegisterSourcePresenter(source);
             }
             catch (Exception error)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeClientActivationLifetime/TradeInventoryRegistrations", error);
                 try { Dispose(); }
-                catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                catch (Exception cleanup) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeClientActivationLifetime/TradeInventoryRegistrations", cleanup);  throw new AggregateException(error, cleanup); }
                 throw;
             }
         }
@@ -94,9 +80,9 @@ namespace Phinix.TradeExtension.Client
                 settings.OnSettingChanged += callbacks.SettingChanged;
             }
             catch (Exception error)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeClientActivationLifetime/TradeConnectionSubscriptions", error);
                 try { Dispose(); }
-                catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                catch (Exception cleanup) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeClientActivationLifetime/TradeConnectionSubscriptions", cleanup);  throw new AggregateException(error, cleanup); }
                 throw;
             }
         }

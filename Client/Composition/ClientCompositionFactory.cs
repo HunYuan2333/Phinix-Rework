@@ -44,10 +44,12 @@ namespace PhinixClient.Framework
                 scopes.Add(scope);
                 return scope;
             }
-            catch
+            catch (Exception error)
             {
+                Report(error);
                 builder.Close();
-                scope.Dispose();
+                try { scope.Dispose(); }
+                catch (Exception cleanup) { Report(cleanup); }
                 throw;
             }
         }

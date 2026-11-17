@@ -15,6 +15,9 @@ namespace Phinix.TradeExtension.Client
     public sealed class BuiltInTradeClientExtension : ClientExtensionModule, IActivatablePhinixExtensionModule, ICapabilityProvider, IClientCommandHandler, IClientOutgoingCommandHandler
     {
         private IClientCompositionScope composition;
+        private IClientErrorReporter errorReporter;
+        private void ReportFailure(string operation,Exception error,bool notify=true)
+            => errorReporter.ReportSensitive(error,"TradeFailure",operation,notify);
         private IClientCompositionScope activationComposition;
         private volatile bool activated;
         private int activationGeneration;
@@ -46,6 +49,8 @@ namespace Phinix.TradeExtension.Client
         private TradeInventoryRegistrations inventoryRegistrations;
         private TradeInventoryDelivery inventoryDelivery;
         private TradeOfferOperations offerOperations;
+        private TradeIntentJournal persistentIntents;
+        private TradeCompletionInbox persistentCompletions;
         private TradeInventoryRecovery inventoryRecovery;
         private IInventoryReadApi inventoryReadApi;
         private IInventoryReservationApi inventoryReservationApi;
@@ -73,7 +78,7 @@ namespace Phinix.TradeExtension.Client
             tradeFacade = composition.Resolve<IClientTradeService>();
             tradeUiHostContext = composition.Resolve<ClientTradeUiHostContext>();
             offerOperations=new TradeOfferOperations(tradeFacade,tradeUiHostContext.RunOnMainThread,
-                message=>hostLog?.Invoke(message,LogLevel.ERROR),()=>UnityData.IsInMainThread);
+                message=>hostLog?.Invoke(message,LogLevel.ERROR),()=>UnityData.IsInMainThread,(operation,error)=>ReportFailure(operation,error));
             inventoryRecovery=new TradeInventoryRecovery(()=>UnityData.IsInMainThread,()=>Verse.Current.Game);
             tradeUiHostContext.ConfigureOfferOperations(offerOperations,itemPipeline);
             ((FrameworkClientTradeServiceAdapter)tradeFacade).SetOfferSubmissionGuard(offerOperations.CanSubmit);
@@ -104,6 +109,9 @@ namespace Phinix.TradeExtension.Client
             }
 
             if (activated) return;
+            IClientErrorService moduleErrorService;
+            TradeDiagnostics.Scope.Bind(hostContext.TryGetService(out moduleErrorService)?moduleErrorService.ForModule(this):null);
+            if(hostContext.TryGetService<IClientErrorService>(out var errors))errorReporter=errors.ForModule(this);
             if (composition == null) throw new InvalidOperationException("Trade must be composed before activation.");
             int generation = System.Threading.Interlocked.Increment(ref activationGeneration);
             activated = true;
@@ -128,11 +136,15 @@ namespace Phinix.TradeExtension.Client
                 settingsContext = hostContext.GetRequiredService<IClientSettingsContext>();
                 var completionPaths = hostContext.GetRequiredService<ClientEnvironmentPaths>();
                 var connection = hostContext.GetRequiredService<IClientConnectionIdentity>();
-                var completionJournal=new TradeCompletionInbox(System.IO.Path.Combine(completionPaths.GetExtensionDataDirectory(ExtensionId), "completion-inbox"));
+                var storage=hostContext.GetRequiredService<PhinixClient.Storage.IClientDatabaseService>();
+                Action<string> storageWarning=message=>hostLog?.Invoke("[Trade storage] "+message,LogLevel.WARNING);
+                var completionJournal=persistentCompletions=new TradeCompletionInbox(System.IO.Path.Combine(completionPaths.GetExtensionDataDirectory(ExtensionId), "completion-inbox"),storage,storageWarning,(operation,error)=>ReportFailure(operation,error));
                 Func<string> completionEndpoint=() => sessionContext.Authenticated && sessionContext.LoggedIn ? connection.RemoteEndpoint : null;
                 ((PhinixFrameworkTradeClientService)tradeApi).ConfigureCompletionInbox(
                     completionJournal,completionEndpoint);
-                var intentJournal = new TradeIntentJournal(System.IO.Path.Combine(completionPaths.GetExtensionDataDirectory(ExtensionId), "operation-intents"));
+                ((PhinixFrameworkTradeClientService)tradeApi).TerminalAcknowledgement=acknowledgeCompletion;
+                var intentJournal = persistentIntents = new TradeIntentJournal(System.IO.Path.Combine(completionPaths.GetExtensionDataDirectory(ExtensionId), "operation-intents"),storage,storageWarning,(operation,error)=>ReportFailure(operation,error));
+                offerOperations.Settled=token=>intentJournal.MarkSettled(completionEndpoint(),sessionContext?.Uuid,token);
                 var intentAdapter = (FrameworkClientTradeServiceAdapter)tradeFacade;
                 intentAdapter.ConfigureIntentJournal(intentJournal, completionEndpoint);
                 deliveryReceipts=new TradeDeliveryReceiptClient(completionJournal,completionEndpoint,()=>sessionContext.Uuid,()=>sessionContext.SessionId,
@@ -234,6 +246,8 @@ namespace Phinix.TradeExtension.Client
 
                 syncAcceptingTrades();
                 defaultTradeBehaviour?.ConfigureCompletionJournal(completionJournal,completionEndpoint);
+                defaultTradeBehaviour?.ConfigureDeliveryTasks(recoveryTasks.ForModule(this));
+                ((PhinixFrameworkTradeClientService)tradeApi).CompletionFailure=reason=>defaultTradeBehaviour?.QueueDeliveryWarning(reason);
                 // Missing host support retains the inbox without binding/delivering nonempty batches.
                 hostContext.TryGetService<IClientGameScopeService>(out var gameScopes);
                 defaultTradeBehaviour?.ConfigureGameScopes(gameScopes);
@@ -244,15 +258,17 @@ namespace Phinix.TradeExtension.Client
                 defaultTradeBehaviour?.Start();
             }
             catch (Exception error)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("BuiltInTradeClientExtension/Activate", error);
                 try { Shutdown(hostContext); }
-                catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                catch (Exception cleanup) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("BuiltInTradeClientExtension/Activate", cleanup);  throw new AggregateException(error, cleanup); }
                 throw;
             }
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            try {
+
             activated = false;
             if (currentTheme != null && themeChanged != null) currentTheme.Changed -= themeChanged;
             currentTheme = null; themeChanged = null;
@@ -273,6 +289,8 @@ namespace Phinix.TradeExtension.Client
             composition = null;
             TradeLifetimeCleanup.Try(() => oldActivation?.Dispose(), failures);
             TradeLifetimeCleanup.Try(() => oldComposition?.Dispose(), failures);
+            TradeLifetimeCleanup.Try(()=>persistentIntents?.Dispose(),failures); persistentIntents=null;
+            TradeLifetimeCleanup.Try(()=>persistentCompletions?.Dispose(),failures); persistentCompletions=null;
             inventoryRegistrations = null;
             inventoryDelivery = null;
             inventoryReadApi = null;
@@ -297,6 +315,8 @@ namespace Phinix.TradeExtension.Client
             settingChangedHandler = null;
             hostLog = null;
             TradeLifetimeCleanup.ThrowIfFailed(failures);
+
+            } finally { TradeDiagnostics.Scope.Unbind(); }
         }
 
         private void EnsureActivationServices(ExtensionHostContext hostContext)

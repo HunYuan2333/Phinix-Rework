@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from host_package import validate_managed_scan
 
 
 def digest(path):
@@ -50,10 +51,11 @@ def main():
         parser.error('Output must be isolated from repository and inputs.')
     if output.exists() and any(output.iterdir()):
         parser.error('Choose fresh output; existing output is never replaced.')
-    net16_files = sorted((args.host16 / 'Common').rglob('*.dll'))
+    net16_files = sorted(p for p in (args.host16 / 'Common').rglob('*.dll') if 'Native' not in p.parts)
     net16_files += sorted((args.host16 / '1.6/Assemblies').glob('*.dll'))
     if not net16_files:
         parser.error('Missing complete net472 package.')
+    validate_managed_scan(net16_files)
     rows16 = metadata(net16_files, args.audit)
     by16 = {identity_name(row): row for row in rows16}
     if len(by16) != len(rows16):
@@ -162,7 +164,18 @@ def main():
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(row['path'], destination)
         copied.append({'version': '1.7', 'path': str(relative), 'sha256': digest(destination)})
-    audit_rows = metadata(sorted(package.rglob('*.dll')), args.audit)
+    native17=json.loads((args.graph17/'native-assets.json').read_text())
+    for version in ['1.6','1.7']:
+        for relative,entry in native17.items():
+            source=Path(entry['source']) if version=='1.7' else args.host16/'Common/Native'/relative
+            if not source.is_file() or digest(source)!=entry['sha256']:
+                raise ValueError('Missing or mismatched native dependency: '+str(source))
+            destination=package/version/'Native'/relative
+            destination.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,destination)
+            copied.append({'version':version,'path':str(destination.relative_to(package)),'sha256':digest(destination),'native':True})
+    managed_files = sorted(p for p in package.rglob('*.dll') if 'Native' not in p.parts)
+    validate_managed_scan(managed_files)
+    audit_rows = metadata(managed_files, args.audit)
     closure = []
     for version in ['1.6', '1.7']:
         rows = [row for row in audit_rows if Path(row['path']).is_relative_to(package / version)]

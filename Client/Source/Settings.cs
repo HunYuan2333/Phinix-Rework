@@ -175,8 +175,9 @@ namespace PhinixClient
                 {
                     return (T)Convert.ChangeType(value, typeof(T));
                 }
-                catch
+                catch (Exception error)
                 {
+                    ClientHostDiagnostics.Report(error,"SettingConversionFailed",false);
                     return defaultValue;
                 }
             }
@@ -224,9 +225,10 @@ namespace PhinixClient
             try { AcceptChanges(); }
             catch(Exception error)
             {
+                ClientHostDiagnostics.Report(error,"ModuleSettingsSaveFailed");
                 SetExtensionDisabled(extensionId,previous);
                 try { AcceptChanges(); }
-                catch(Exception rollback) { throw new AggregateException("Extension module settings recovery failed.",error,rollback); }
+                catch(Exception rollback) { ClientHostDiagnostics.Report(rollback,"ModuleSettingsRollbackFailed",false); throw new AggregateException("Extension module settings recovery failed.",error,rollback); }
                 throw;
             }
         }

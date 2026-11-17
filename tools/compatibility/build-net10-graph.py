@@ -85,7 +85,7 @@ with (out/'build.log').open('w') as log:r=subprocess.run(['dotnet','build',str(p
 (out/'results.json').write_text(json.dumps({'exit':r.returncode,'source_projects':len(nodes),'scope':'Complete source dependency graph in generated net10 projects; original targets/packaging are not executed.'},indent=2));print('net10 source graph:',len(nodes),'projects, exit',r.returncode,'log',out/'build.log')
 if r.returncode==0:
  import shutil
- stage=out/'infrastructure';stage.mkdir();assets_manifest={}
+ stage=out/'infrastructure';stage.mkdir();assets_manifest={};native_manifest={}
  for node in graph:
   name=node['name'];dll=out/name/'bin/Release/net10.0'/(name+'.dll');filename='02-Protobuf.dll' if name=='Google.Protobuf' else name+'.dll'
   shutil.copy2(dll,stage/filename);assets_manifest[filename]={'source':str(dll),'sha256':hashlib.sha256(dll.read_bytes()).hexdigest()}
@@ -94,6 +94,13 @@ if r.returncode==0:
    for library,entry in entries.items():
     if entry.get('type')!='package':continue
     info=assets['libraries'][library]
+    for relative,native in entry.get('runtimeTargets',{}).items():
+     if native.get('assetType')!='native' or native.get('rid') not in ['win-x86','win-x64','win-arm64','linux-x64','linux-arm64','osx-x64','osx-arm64']:continue
+     source=next((Path(folder)/info['path']/relative for folder in assets['packageFolders'] if (Path(folder)/info['path']/relative).is_file()),None)
+     if source is None:raise RuntimeError('Missing native SQLite runtime '+relative)
+     digest=hashlib.sha256(source.read_bytes()).hexdigest()
+     if relative in native_manifest and native_manifest[relative]['sha256']!=digest:raise RuntimeError('Conflicting native asset '+relative)
+     native_manifest[relative]={'source':str(source),'sha256':digest,'package':library}
     for relative in entry.get('runtime',{}):
      filename=Path(relative).name
      if not filename.endswith('.dll') or (game/filename).is_file():continue
@@ -105,4 +112,5 @@ if r.returncode==0:
      shutil.copy2(source,stage/filename);assets_manifest[filename]={'source':str(source),'sha256':digest,'package':library}
  source=repo/'Dependencies/Phinix.Common/libs/netstandard2.0/LiteNetLib.dll';shutil.copy2(source,stage/source.name);assets_manifest[source.name]={'source':str(source),'sha256':hashlib.sha256(source.read_bytes()).hexdigest()}
  (out/'runtime-assets.json').write_text(json.dumps(assets_manifest,indent=2))
+ (out/'native-assets.json').write_text(json.dumps(native_manifest,indent=2))
 raise SystemExit(r.returncode)

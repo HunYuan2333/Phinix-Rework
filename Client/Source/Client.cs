@@ -77,6 +77,7 @@ namespace PhinixClient
         }
         // 缓存解析结果——设计哲学 §8.3 要求属性 getter 不做实时查询/分配。
         // 扩展注册后不会变化，因此解析一次后永不过期。
+        private PhinixClient.Storage.ClientDatabaseService databaseService;
         private IReadOnlyList<IMainTabProvider> cachedMainTabProviders;
         private IReadOnlyList<IServerSidebarProvider> cachedSidebarProviders;
         private IReadOnlyList<INoticeBannerProvider> cachedBannerProviders;
@@ -132,14 +133,18 @@ namespace PhinixClient
             else
             {
                 try { Settings.SaveExtensionModuleIntent(id,!enabled); result=new ClientExtensionControlResult(true,"ManagedStateSaved"); }
-                catch(Exception error) { Verse.Log.Error("[Phinix] Module settings save failed: "+error); result=new ClientExtensionControlResult(false,"ManagedModuleSettingsWriteFailed"); }
+                catch(Exception error) { ClientHostDiagnostics.Report(error,"ModuleSettingsSaveFailed"); result=new ClientExtensionControlResult(false,"ManagedModuleSettingsWriteFailed"); }
             }
-            if(!result.Succeeded) Messages.Message("Phinix_managed_commandFailed".Translate(result.Code),MessageTypeDefOf.RejectInput);
+            if(result.Code=="ManagedStateSavedRefreshFailed") Messages.Message("Phinix_managed_stateSavedRefreshFailed".Translate(),MessageTypeDefOf.RejectInput);
+            else if(!result.Succeeded) Messages.Message("Phinix_managed_commandFailed".Translate(result.Code),MessageTypeDefOf.RejectInput);
             return result;
         }
         private ClientUserEventStream userEventStream;
         private ClientShellEventStream shellEventStream;
         private ClientMainThreadDispatcher mainThreadDispatcher;
+        private readonly ClientErrorService errors;
+        private readonly ClientErrorNotificationController errorNotifications;
+        private ClientErrorWindow errorWindow;
         private ClientGameScopeService gameScopes;
         private readonly IClientGameWindowService windowService;
         private readonly IClientSettingsContext settingsContext;
@@ -179,6 +184,9 @@ namespace PhinixClient
         public Client(ModContentPack content) : base(content)
         {
             Instance = this;
+            errors = new ClientErrorService("Host: " + Version + "\nGame: " + VersionControl.CurrentVersionString +
+                "\nRuntime: " + Environment.Version, () => UnityData.IsInMainThread, null,
+                (message,level) => Log(new LogEventArgs(message, level)));
 
             // Apply Harmony patches
             new HarmonyLib.Harmony(PackageId).PatchAll();
@@ -194,8 +202,12 @@ namespace PhinixClient
                 Settings.GetExtensionSetting("transport.mode", "udp"),
                 Settings.GetExtensionSetting("transport.tls.serverName", address),
                 Settings.GetExtensionSetting("transport.tls.spkiPin", ""),
-                Settings.GetExtensionSetting("transport.tls.rootCertificateFile", "")); });
-            authenticator = new ClientAuthenticator(netClient, getCredentials, "PhinixCredentials.bin", deferHistoricalCredentials: Settings.GetExtensionSetting("identity.mode", "legacy") == "passwordless");
+                Settings.GetExtensionSetting("transport.tls.rootCertificateFile", ""),
+                (operation, error) => errors.ReportSensitiveBoundary("transport", operation, error)); },
+                (operation, error) => errors.ReportSensitiveBoundary("transport", operation, error));
+            authenticator = new ClientAuthenticator(netClient, getCredentials, "PhinixCredentials.bin",
+                Settings.GetExtensionSetting("identity.mode", "legacy") == "passwordless",
+                (operation, error) => errors.ReportSensitiveBoundary("authentication", operation, error));
 #if PHINIX_RIMWORLD_17
             authenticator.ConfigureModernIdentity(() => Settings.GetExtensionSetting("identity.mode", "legacy") == "passwordless",
                 System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData, System.Environment.SpecialFolderOption.DoNotVerify), "Phinix-Rework", "identities-v1"));
@@ -204,10 +216,14 @@ namespace PhinixClient
             IClientUserDirectory frameworkUserDirectory = new ClientFrameworkUserDirectoryAdapter(userManager);
             IClientSessionContext sessionContext = new ClientSessionContextAdapter(authenticator, userManager, () => netClient.RemoteEndpoint);
             settingsContext = new ClientSettingsContextAdapter(this);
-            windowService = new ClientWindowService();
-            userEventStream = new ClientUserEventStream();
-            shellEventStream = new ClientShellEventStream();
-            mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)), () => UnityData.IsInMainThread);
+            windowService = new ClientWindowService(errors.ReportBoundary);
+            errorNotifications = new ClientErrorNotificationController(errors,
+                () => ClientWindowService.IsReady && !LongEventHandler.AnyEventNowOrWaiting,
+                () => errorWindow?.IsOpen == true,
+                () => { errorWindow = new ClientErrorWindow(errors, errorNotifications); windowService.Open(errorWindow); });
+            userEventStream = new ClientUserEventStream(errors.ReportSensitiveBoundary);
+            shellEventStream = new ClientShellEventStream(errors.ReportSensitiveBoundary);
+            mainThreadDispatcher = new ClientMainThreadDispatcher((message, level) => Log(new LogEventArgs(message, level)), () => UnityData.IsInMainThread, errors.ReportTask);
             gameScopes = new ClientGameScopeService(() => Current.Game, () => UnityData.IsInMainThread);
             // Mod constructors run on the loading thread. Publish in Update,
             // before draining queued extension startup and delivery callbacks.
@@ -216,6 +232,7 @@ namespace PhinixClient
             {
                 HostKind = "client",
                 Log = (message, level) => Log(new LogEventArgs(message, level)),
+                StructuredLog = entry => { if(entry?.Exception != null) errors.ReportStructured(entry); else if(entry != null) Log(new LogEventArgs(entry.ToDisplayMessage(), entry.Level)); },
                 StorageProvider = new FileSystemExtensionStorageProvider(System.IO.Path.Combine("framework-extensions", "client"))
             };
             extensionHostContext.AddService(userManager);
@@ -227,6 +244,7 @@ namespace PhinixClient
             extensionHostContext.AddService<IClientShellEventStream>(shellEventStream);
             extensionHostContext.AddService<IClientMainThreadDispatcher>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientTaskService>(mainThreadDispatcher);
+            extensionHostContext.AddService<IClientErrorService>(errors);
             extensionHostContext.AddService<IClientGameScopeService>(gameScopes);
             extensionHostContext.AddService<IClientDispatcherDiagnostics>(mainThreadDispatcher);
             extensionHostContext.AddService<IClientGameWindowService>(windowService);
@@ -237,7 +255,7 @@ namespace PhinixClient
                 () => UnityData.IsInMainThread,
                 () => Verse.Steam.SteamManager.Initialized && Steamworks.SteamUtils.IsOverlayEnabled(),
                 url => Steamworks.SteamFriends.ActivateGameOverlayToWebPage(url), Application.OpenURL,
-                message => extensionHostContext.Log?.Invoke("Client link: " + message, LogLevel.INFO)));
+                message => extensionHostContext.Log?.Invoke("Client link: " + message, LogLevel.INFO), errors.ReportSensitiveBoundary));
             extensionHostContext.AddService<Action>(((IClientSettingsWindowService)windowService).OpenSettingsWindow);
             extensionHostContext.AddService<Action<bool>>(acceptingTrades => userManager.UpdateSelf(acceptingTrades: acceptingTrades));
             // 注册原始模块传输能力 —— 任何插件都能用此接口直接操作 NetClient 的原始模块通信
@@ -258,9 +276,11 @@ namespace PhinixClient
             processExitHandler = (_, __) =>
             {
                 // ProcessExit can run after Unity's main thread has stopped. Only
-                // release game-independent host resources here.
-                try { try { (themeWindowService as IDisposable)?.Dispose(); } finally { localizationService?.Dispose(); } }
-                finally { apiDirectory?.Dispose(); themePackages?.Dispose(); managedExtensionRuntime?.Dispose(); }
+                // release game-independent host resources here. Window/localization/API
+                // scope cleanup belongs to StopExtensions on Application.quitting.
+                ClientHostDiagnostics.Cleanup(()=>themePackages?.Dispose(),"ProcessExitThemePackagesCleanupFailed");
+                ClientHostDiagnostics.Cleanup(()=>managedExtensionRuntime?.Dispose(),"ProcessExitManagedCleanupFailed");
+                ClientHostDiagnostics.Cleanup(()=>databaseService?.Dispose(),"ProcessExitDatabaseCleanupFailed");
             };
             AppDomain.CurrentDomain.ProcessExit += processExitHandler;
             quittingHandler = () =>
@@ -378,9 +398,11 @@ namespace PhinixClient
                 string themeDirectory = System.IO.Path.Combine(GenFilePaths.SaveDataFolderPath, "Phinix", "Themes");
                 var uiTheme = new UiTheme(System.IO.Path.Combine(GenFilePaths.SaveDataFolderPath, "Phinix", "theme-settings.xml"), themeDirectory,
                     () => ThemeSources.Discover(modRoot, themeDirectory).Concat(themePackages?.Sources() ?? Enumerable.Empty<ThemeSource>()), message => Verse.Log.Warning("[Phinix] " + message),
-                    () => { if (!UnityData.IsInMainThread) throw new InvalidOperationException("Theme mutations require the game main thread."); });
+                    () => { if (!UnityData.IsInMainThread) throw new InvalidOperationException("Theme mutations require the game main thread."); },
+                    (operation,error) => errors.ReportSensitiveBoundary("theme",operation,error));
                 Theme = uiTheme;
-                themePackages = new ClientThemePackageService(uiTheme, GenFilePaths.SaveDataFolderPath, message => Verse.Log.Warning("[Phinix] " + message));
+                themePackages = new ClientThemePackageService(uiTheme, GenFilePaths.SaveDataFolderPath, message => Verse.Log.Warning("[Phinix] " + message),
+                    (operation,error) => errors.ReportSensitiveBoundary("theme",operation,error));
                 extensionHostContext.AddService<IClientThemePackageService>(themePackages);
                 extensionHostContext.AddService<IClientThemePackageExporter>(uiTheme);
                 uiTheme.Refresh();
@@ -398,11 +420,11 @@ namespace PhinixClient
                         // Always pass through to the log handler so warnings/errors are visible
                         // even when DevMode is off
                         Log(new LogEventArgs(message, level));
-                    });
+                    }, extensionHostContext.StructuredLog);
 
                 // Capture game facts on the main thread, then prepare the generic owned domain.
-                List<Type> hostModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes();
-                ExtensionDependencyGraph hostGraph = ExtensionDependencyGraph.Build(hostModuleTypes);
+                List<Type> hostModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes(null, extensionHostContext.StructuredLog);
+                ExtensionDependencyGraph hostGraph = ExtensionDependencyGraph.Build(hostModuleTypes, extensionHostContext.StructuredLog);
                 var hostPolicy = new StaticActivationPolicy(Settings.DisabledExtensions, hostGraph);
                 var hostIds = hostModuleTypes.Select(type => type.GetCustomAttribute<PhinixExtensionAttribute>()?.ExtensionId ?? type.Name).ToArray();
                 var availableIds = hostIds.Where(id => hostPolicy.ShouldActivate(id,out _)).ToArray();
@@ -410,9 +432,12 @@ namespace PhinixClient
                 {
                     var paths = new ClientEnvironmentPaths(GenFilePaths.ModsFolderPath,GenFilePaths.SaveDataFolderPath);
                     extensionHostContext.AddService(paths);
+                    databaseService = new PhinixClient.Storage.ClientDatabaseService(paths.GetExtensionDataDirectory,
+                        (owner,operation,error)=>errors.ReportSensitiveBoundary(owner,operation,error));
+                    extensionHostContext.AddService<PhinixClient.Storage.IClientDatabaseService>(databaseService);
                     managedExtensionRuntime = new ManagedExtensionRuntime(paths.ManagedExtensions,
                         entry => Verse.Log.Message("[Phinix] " + ManagedExtensionAuditJson.Format(entry)),
-                        error => { if(Prefs.DevMode) Verse.Log.Warning("[Phinix] Managed extension internal diagnostic: " + error); },
+                        error => errors.ReportSensitiveBoundary("host","ManagedExtensionRuntimeFailed",error),
                         identity => ClientRuntimeAssemblyFacts.ResolveFrameworkReference(new AssemblyName(identity.FullName)));
                     extensionHostContext.AddService<IManagedExtensionInventoryService>(managedExtensionRuntime);
 
@@ -429,12 +454,12 @@ namespace PhinixClient
                         Settings.SaveExtensionModuleIntent,
                         ()=> (frameworkClient?.ExtensionResults??Array.Empty<ExtensionDiscoveryResult>()).Where(r=>r.State==ExtensionModuleState.Active).Select(r=>r.ExtensionId),
                         ()=> (frameworkClient?.ExtensionResults??Array.Empty<ExtensionDiscoveryResult>()).Where(r=>r.State==ExtensionModuleState.Failed).Select(r=>r.ExtensionId),
-                        error=>Verse.Log.Error("[Phinix] Managed module settings save failed: "+error));
+                        error=>errors.ReportSensitiveBoundary("host","ModuleSettingsOperationFailed",error));
                     try { extensionControls.Refresh(Settings.DisabledExtensions,CancellationToken.None); }
                     catch(Exception error)
                     {
                         Verse.Log.Warning("[Phinix] ManagedInventoryUnavailable; startup discovery is retained; refresh management to retry. " + error.GetType().Name);
-                        if(Prefs.DevMode) Verse.Log.Warning(error.ToString());
+                        errors.ReportSensitiveBoundary("host","ManagedInventoryUnavailable",error);
                     }
                     extensionHostContext.AddService<IManagedExtensionManagementService>(extensionControls);
                     extensionHostContext.AddService<IManagedExtensionInstallationService>(extensionControls);
@@ -443,15 +468,15 @@ namespace PhinixClient
                 catch(Exception error)
                 {
                     Verse.Log.Warning("[Phinix] ManagedStartupUnavailable; built-in discovery continues. " + error.GetType().Name);
-                    if(Prefs.DevMode) Verse.Log.Warning(error.ToString());
-                    extensionControls?.Dispose(); extensionControls=null;
-                    managedExtensionRuntime?.Dispose();
+                    errors.ReportSensitiveBoundary("host","ManagedStartupUnavailable",error);
+                    ClientHostDiagnostics.Cleanup(()=>extensionControls?.Dispose(),"ManagedControlStartupCleanupFailed");extensionControls=null;
+                    ClientHostDiagnostics.Cleanup(()=>managedExtensionRuntime?.Dispose(),"ManagedRuntimeStartupCleanupFailed");
                 }
 
                 // 构建扩展依赖图（纯反射，不实例化模块）——在 DiscoverExtensions 之前就绪
                 // 《插件启用禁用与扩展管理实施方案》§4.7：host 先 ScanCandidateModuleTypes
                 // → Build graph → 构造 policy → 注册服务
-                List<Type> candidateModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes(managedExtensionRuntime);
+                List<Type> candidateModuleTypes = PhinixExtensionRegistry.ScanCandidateModuleTypes(managedExtensionRuntime, extensionHostContext.StructuredLog);
                 localizationService = new ClientLocalizationService(candidateModuleTypes,
                     type =>
                     {
@@ -461,19 +486,19 @@ namespace PhinixClient
                         if(ResolveModPackageId(type.Assembly) == null) throw new InvalidOperationException("LocalizationOwnerUnavailable");
                         return ExtensionLocalizationCatalog.LoadCompanion(type.Assembly.Location,type.Assembly.GetName().Name,CancellationToken.None);
                     }, () => UnityData.IsInMainThread,
-                    (module,code,file,key) => Verse.Log.Message("[Phinix] " + ClientLocalizationService.AuditJson(module,code,file,key)));
+                    (module,code,file,key) => Verse.Log.Message("[Phinix] " + ClientLocalizationService.AuditJson(module,code,file,key)), errors.ReportBoundary);
                 localizationGameLanguage=LanguageDatabase.activeLanguage;
                 localizationService.UpdateLanguage(ClientGameLanguage.CurrentLocale());
                 extensionHostContext.AddService<IClientLocalizationService>(localizationService);
                 var extensionPoints=new ClientExtensionPointService(() => UnityData.IsInMainThread,
-                    message => Verse.Log.Warning("[Phinix] "+message));
+                    message => Verse.Log.Warning("[Phinix] "+message), errors.ReportBoundary);
                 extensionPoints.SetModuleTypes(candidateModuleTypes.Concat(new[] {typeof(HostThemePresentationOwner)}));
                 extensionHostContext.AddService<IClientExtensionPointService>(extensionPoints);
-                var lifetimeService=new ClientLifetimeService(()=>UnityData.IsInMainThread,message=>Verse.Log.Warning("[Phinix] "+message));
+                var lifetimeService=new ClientLifetimeService(()=>UnityData.IsInMainThread,message=>Verse.Log.Warning("[Phinix] "+message), errors.ReportBoundary);
                 lifetimeService.SetModuleTypes(candidateModuleTypes.Concat(new[] {typeof(HostThemePresentationOwner)}));
                 extensionHostContext.AddService<IClientLifetimeService>(lifetimeService);
                 var presentationService=new ClientPresentationService(
-                    lifetimeService, uiTheme, () => UnityData.IsInMainThread, message => Verse.Log.Warning("[Phinix] " + message));
+                    lifetimeService, uiTheme, () => UnityData.IsInMainThread, message => Verse.Log.Warning("[Phinix] " + message), errors.ReportBoundary);
                 extensionHostContext.AddService<IClientPresentationService>(presentationService);
                 themeWindows.ConfigurePresentation(presentationService,extensionPoints,lifetimeService);
                 nicknameWindows = new ClientNicknameWindowService(themeWindows.HostPresentation, uiTheme, CaptureNicknameFacts, SaveNickname, name => userManager.UpdateSelf(name));
@@ -481,8 +506,8 @@ namespace PhinixClient
                 extensionHostContext.AddService<IClientApiDirectory>(apiDirectory);
                 uiTheme.SetModuleTypes(candidateModuleTypes);
                 mainThreadDispatcher.SetModuleTypes(candidateModuleTypes);
-                extensionHostContext.AddService<IExtensionModuleLifecycleObserver>(new ClientModuleLifecycleObservers(localizationService, uiTheme, mainThreadDispatcher, extensionPoints,lifetimeService));
-                ExtensionDependencyGraph dependencyGraph = ExtensionDependencyGraph.Build(candidateModuleTypes);
+                extensionHostContext.AddService<IExtensionModuleLifecycleObserver>(new ClientModuleLifecycleObservers(errors, localizationService, uiTheme, mainThreadDispatcher, extensionPoints,lifetimeService));
+                ExtensionDependencyGraph dependencyGraph = ExtensionDependencyGraph.Build(candidateModuleTypes, extensionHostContext.StructuredLog);
                 foreach (string graphWarning in dependencyGraph.BuildWarnings)
                 {
                     Verse.Log.Warning($"[Phinix] {graphWarning}");
@@ -505,7 +530,8 @@ namespace PhinixClient
                 extensionHostContext.ApiRegistry.RegisterApi<IClientSettingsPanelProvider>("builtin.host", new ThemeSettingsPanel(uiTheme, themeWindows));
 
                 Verse.Log.Message("[Phinix] Constructing framework client and discovering extensions...");
-                frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext);
+                frameworkClient = new PhinixFrameworkClient(netClient, authenticator, userManager, extensionHostContext,
+                    (operation, error) => errors.ReportSensitiveBoundary("framework", operation, error, false));
                 frameworkClient.Start();
                 managedExtensionRuntime?.RecordLifecycle(frameworkClient.ExtensionResults);
                 Verse.Log.Message($"[Phinix] Framework client ready. MainTabProviders={MainTabProviders.Count}, SidebarProviders={SidebarProviders.Count}");
@@ -536,15 +562,17 @@ namespace PhinixClient
             }
             catch(Exception error)
             {
-                StopExtensions();
-                Verse.Log.Error("[Phinix] ExtensionStartupFailed: " + error);
+                // Freeze the primary cause before cleanup, which may fail independently.
+                errors.ReportHost(error, "ExtensionStartupFailed", "InitializeExtensions");
+                try { StopExtensions(); }
+                catch (Exception cleanup) { errors.ReportHost(cleanup, "StartupCleanupFailed", "StopExtensions", false); }
             }
         }
 
         private void StopExtensions()
         {
             if (!UnityData.IsInMainThread) throw new InvalidOperationException("Extension shutdown requires the main thread.");
-            gameScopes?.Stop();
+            ClientHostDiagnostics.Cleanup(()=>gameScopes?.Stop(),"GameScopesStopFailed");
             authenticator.OnLogEntry -= ILoggableHandler;
             userManager.OnLogEntry -= ILoggableHandler;
             if (frameworkClient != null) frameworkClient.OnLogEntry -= ILoggableHandler;
@@ -553,15 +581,18 @@ namespace PhinixClient
                 frameworkClient?.Shutdown();
                 managedExtensionRuntime?.RecordLifecycle(frameworkClient?.ExtensionResults);
             }
-            catch (Exception error) { Verse.Log.Error("[Phinix] ExtensionShutdownFailed: " + error); }
+            catch (Exception error) { errors.ReportSensitiveBoundary("host","ExtensionShutdownFailed",error); }
             finally
             {
-                try { try { nicknameWindows?.Dispose(); nicknameWindows = null; } finally { try { (themeWindowService as IDisposable)?.Dispose(); } finally { localizationService?.Dispose(); } } }
-                finally
-                {
-                    try { apiDirectory?.Dispose(); themePackages?.Dispose(); extensionControls?.Dispose(); managedExtensionRuntime?.Dispose(); }
-                    finally { extensionAssemblyScope?.Dispose(); extensionAssemblyScope = null; }
-                }
+                ClientHostDiagnostics.Cleanup(()=>nicknameWindows?.Dispose(),"NicknameShutdownFailed");nicknameWindows=null;
+                ClientHostDiagnostics.Cleanup(()=>(themeWindowService as IDisposable)?.Dispose(),"ThemeShutdownFailed");
+                ClientHostDiagnostics.Cleanup(()=>localizationService?.Dispose(),"LocalizationShutdownFailed");
+                ClientHostDiagnostics.Cleanup(()=>apiDirectory?.Dispose(),"ApiDirectoryShutdownFailed");
+                ClientHostDiagnostics.Cleanup(()=>themePackages?.Dispose(),"ThemePackagesShutdownFailed");
+                ClientHostDiagnostics.Cleanup(()=>extensionControls?.Dispose(),"ExtensionControlsShutdownFailed");
+                ClientHostDiagnostics.Cleanup(()=>managedExtensionRuntime?.Dispose(),"ManagedRuntimeShutdownFailed");
+                ClientHostDiagnostics.Cleanup(()=>databaseService?.Dispose(),"DatabaseShutdownFailed");databaseService=null;
+                ClientHostDiagnostics.Cleanup(()=>extensionAssemblyScope?.Dispose(),"AssemblyScopeShutdownFailed");extensionAssemblyScope=null;
             }
         }
 
@@ -614,6 +645,18 @@ namespace PhinixClient
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            // This recovery entry must also work when startup failed before the theme was installed.
+            if (Theme == null)
+            {
+                using (new ClientGuiScope(true))
+                {
+                    UnityEngine.GUI.enabled = true;
+                    UnityEngine.GUI.color = Color.white;
+                    if (Widgets.ButtonText(new Rect(inRect.x, inRect.y, Mathf.Min(320f, inRect.width), 36f), "Phinix_errorReport_recent".Translate()))
+                        errorNotifications?.Show();
+                }
+                return;
+            }
             using (HostThemeDrawing.BeginDraw())
             using (new ClientGuiScope(true))
             {
@@ -645,6 +688,9 @@ namespace PhinixClient
             {
                 listing.Begin(viewRect);
 
+                if (ClientWidgets.Button(listing.GetRect(32f), "Phinix_errorReport_recent".Translate(), HostThemeDrawing.Current))
+                    errorNotifications?.Show();
+
                 listing.Label("Phinix_modSettings_serverAddressTitle".Translate());
                 Settings.ServerAddress = ClientWidgets.TextField(listing.GetRect(30f), Settings.ServerAddress, HostThemeDrawing.Current, controlName: "phinix.settings.address");
 
@@ -672,7 +718,7 @@ namespace PhinixClient
                             if (!handle.TryGet(out var panel)) continue;
                             float order = 0; string id = handle.OwnerId + "/" + handle.RegistrationId;
                             try { order = panel.Order; id = handle.OwnerId + "/" + panel.SectionId; }
-                            catch (Exception error) { if (settingsProviderFailures.Add(id)) Verse.Log.Warning("[Phinix] Settings metadata failed: " + error); }
+                            catch (Exception error) { errors.ReportSensitiveBoundary(handle.OwnerId,"SettingsMetadataFailed",error);if (settingsProviderFailures.Add(id)) Verse.Log.Warning("[Phinix] Settings metadata failed; see recent errors."); }
                             sortedSettingsPanels.Add(panel); settingsPanelOrders[panel] = order; settingsPanelIds[panel] = id;
                         }
                         sortedSettingsPanels.Sort((left, right) => { int result = settingsPanelOrders[left].CompareTo(settingsPanelOrders[right]); return result != 0 ? result : string.CompareOrdinal(settingsPanelIds[left], settingsPanelIds[right]); });
@@ -713,7 +759,8 @@ namespace PhinixClient
                         }
                         catch (Exception ex)
                         {
-                            if (settingsProviderFailures.Add(panel.GetType().FullName)) Verse.Log.Warning("[Phinix] Settings panel failed: " + ex);
+                            errors.ReportSensitiveBoundary(panel.GetType().Assembly.GetName().Name,"SettingsPanelFailed",ex);
+                            if (settingsProviderFailures.Add(panel.GetType().FullName)) Verse.Log.Warning("[Phinix] Settings panel failed; see recent errors.");
                             ClientWidgets.Label(listing.GetRect(32), "Phinix_shell_providerFailed".Translate(), HostThemeDrawing.Current, true);
                         }
                     }
@@ -725,7 +772,7 @@ namespace PhinixClient
                     modSettingsContentHeight = Mathf.Max(inRect.height, measuredHeight);
                 }
             }
-            finally { try { listing.End(); } finally { Widgets.EndScrollView(); } }
+            finally { ClientHostDiagnostics.Cleanup(()=>listing.End(),"SettingsLayoutCleanupFailed");ClientHostDiagnostics.Cleanup(()=>Widgets.EndScrollView(),"SettingsScrollCleanupFailed"); }
             ClientWidgets.ScrollbarDecoration(inRect,modSettingsScrollPosition,viewRect,HostThemeDrawing.Current);
         }
 
@@ -769,6 +816,8 @@ namespace PhinixClient
         /// <seealso cref="Patches.RootPatch.Update"/>
         public void Update()
         {
+            // Before business dispatch, so a full queue or failed plugin cannot starve error notifications.
+            errorNotifications?.Pump();
             lock (soundQueueLock)
             {
                 // Check if we have sounds to play
@@ -780,12 +829,23 @@ namespace PhinixClient
                 }
             }
             gameScopes?.Publish();
-            mainThreadDispatcher?.DrainPendingActions();
+            // Root.Update may precede UIRoot.Init during startup. Keep accepted callbacks
+            // queued until their game/UI boundary exists; never acknowledge a skipped window.
+            if (ClientWindowService.IsReady) mainThreadDispatcher?.DrainPendingActions();
             if(localizationService != null && !ReferenceEquals(localizationGameLanguage,LanguageDatabase.activeLanguage))
             {
                 localizationGameLanguage=LanguageDatabase.activeLanguage;
                 localizationService.UpdateLanguage(ClientGameLanguage.CurrentLocale());
             }
+        }
+
+        internal void ReportHostFailure(Exception error, string operation, bool notify = true)
+            => errors.ReportSensitiveBoundary("host", operation, error, notify);
+
+        internal void ReportUpdateFailure(Exception error)
+        {
+            // RootPatch immediately rethrows the same exception to RimWorld; avoid printing it a second time here.
+            errors?.ReportHost(error, "HostUpdateFailed", "HostUpdate", true, false);
         }
 
         /// <summary>
@@ -809,7 +869,7 @@ namespace PhinixClient
             {
                 connectionAttemptPending = false;
                 connectionAttemptFailed = true;
-                Verse.Log.Error($"[Phinix] Could not connect to {address}:{port}: {ex}");
+                errors.ReportSensitiveBoundary("transport","ConnectFailed",ex);
                 mainThreadDispatcher?.Enqueue(() => windowService?.Open(new Dialog_MessageBox(
                     title: "Phinix_error_connectionFailedTitle".Translate(),
                     text: "Phinix_error_connectionFailedMessage".Translate(address, port))));
@@ -845,7 +905,7 @@ namespace PhinixClient
             if (!UnityData.IsInMainThread) throw new InvalidOperationException("Nickname save requires the game main thread.");
             string previous = Settings.DisplayName;
             try { Settings.DisplayName = name; Settings.AcceptChanges(); }
-            catch { Settings.DisplayName = previous; throw; }
+            catch(Exception error) {errors.ReportSensitiveBoundary("host","NicknameSettingsSaveFailed",error);Settings.DisplayName=previous;throw;}
         }
 
         internal void OpenNicknameEditor()
@@ -902,7 +962,7 @@ namespace PhinixClient
             catch (Exception ex)
             {
                 // Assembly.Location can throw in some contexts; log and return null
-                Verse.Log.Warning($"[Phinix] ResolveModPackageId failed for assembly '{assembly.FullName}': {ex.Message}");
+                ClientHostDiagnostics.Report(ex,"ResolveModPackageIdFailed",false);
             }
 
             return null;

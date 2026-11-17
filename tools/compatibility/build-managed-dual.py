@@ -43,7 +43,7 @@ for game,tfm in [('1.6','net472'),('1.7','net10.0')]:
  if game=='1.6':
   plugin_build=work/'build16'/plugin.name
   dlls=[next(path for path in plugin_build.rglob(n+'.dll') if 'bin/Release/net472' in path.as_posix()) for n in assembly_names]
-  hostfiles=list((snapshot/'Output/phinix-rework').rglob('*.dll'))
+  hostfiles=[path for path in (snapshot/'Output/phinix-rework').rglob('*.dll') if 'Native' not in path.parts]
  else:
   dlls=[work/'build17'/n/'bin/Release/net10.0'/(n+'.dll') for n in assembly_names]
   assets=json.loads((work/'build17/runtime-assets.json').read_text());hostfiles=[Path(v['source']) for v in assets.values()]

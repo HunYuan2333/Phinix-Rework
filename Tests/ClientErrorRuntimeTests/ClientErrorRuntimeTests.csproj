@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <NuGetAudit>false</NuGetAudit>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs" Link="Production/ErrorContract.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientTaskService.cs" Link="Production/TaskContract.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientErrorService.cs" Link="Production/Errors.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientErrorNotificationController.cs" Link="Production/Notifications.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientMainThreadDispatcher.cs" Link="Production/Dispatcher.cs" />
+    <Compile Include="../../Client/Source/Patches/RootPatch.cs" Link="Production/RootPatch.cs" />
+    <Compile Include="../../Client/Source/UI/ClientErrorWindow.cs" Link="Production/Window.cs" />
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientLifetimeService.cs" Link="Production/LifetimeContract.cs" />
+    <Compile Include="../../Client/PresentationContracts/Framework/IClientExtensionPoints.cs" Link="Production/ContributionContract.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientLifetimeService.cs" Link="Production/Lifetimes.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientExtensionPointService.cs" Link="Production/Contributions.cs" />
+    <Compile Include="../../Client/Source/Framework/ClientUserEventStream.cs" Link="Production/Events.cs" />
+    <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/ExtensionDiagnostics.cs" Link="Production/DiagnosticFanout.cs" />
+  </ItemGroup>
+</Project>

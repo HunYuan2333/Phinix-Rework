@@ -36,7 +36,7 @@ namespace Phinix.TradeExtension.Client
             if(presentation==null)throw new InvalidOperationException("TradeOfferPresentationUnavailable");
             presentation.Add(presentationId,this);
             try {view=presentation.Renderer.Open(presentation.Owner,presentationId);UpdatePresentation();}
-            catch {ClosePresentation();throw;}
+            catch (System.Exception boundaryError258) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindowPresentation/OpenPresentation", boundaryError258); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindowPresentation/OpenPresentation/Cleanup", () => { ClosePresentation(); });throw;}
         }
         private void ClosePresentation()
         {var old=view;view=null;old?.Dispose();presentation?.Remove(presentationId);presentation=null;}
@@ -144,7 +144,7 @@ namespace Phinix.TradeExtension.Client
                 view.Publish(new ClientPresentationPage(presentationId,"",ticket,sections).WithSplitView(new ClientPresentationSplitView(2,L("ourOfferLabel"),L("theirOfferLabel"),.5f).WithFixedHeaders(1,0,0).WithSharedFooter(2,trade.ItemsOnOffer.Length==0&&trade.OtherPartyItemsOnOffer.Length==0?.65f:.6f,1)),owned,current);
                 shownTheme=tv;shownPoints=pv;shownLanguage=lang;shownResult=view.LastActionResult;
             }
-            catch {presentationDirty=true;owned.Dispose();throw;}
+            catch (System.Exception boundaryError259) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeWindowPresentation/UpdatePresentation", boundaryError259); presentationDirty=true;global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeWindowPresentation/UpdatePresentation/Cleanup", () => { owned.Dispose(); });throw;}
         }
         private void ClearQuantityDrafts(){rowDrafts.Clear();rowErrors.Clear();stableItemRows.Clear();quantityDraft="0";quantityError=null;}
         private static string DefLabel(string id)=>string.IsNullOrEmpty(id)?null:DefDatabase<ThingDef>.GetNamedSilentFail(id)?.label;

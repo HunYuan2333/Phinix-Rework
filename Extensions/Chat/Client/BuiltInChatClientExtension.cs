@@ -135,6 +135,8 @@ namespace Phinix.ChatExtension.Client
             }
 
             hostLog = hostContext?.Log;
+            IClientErrorService moduleErrorService;
+            ChatDiagnostics.Scope.Bind(hostContext.TryGetService(out moduleErrorService)?moduleErrorService.ForModule(this):null);
 
             IClientTheme theme = hostContext.GetRequiredService<IClientTheme>();
             themeRegistration = hostContext.GetRequiredService<IClientThemeRegistry>().RegisterModule(this, "chat", "Phinix_theme_owner_chat");
@@ -216,8 +218,8 @@ namespace Phinix.ChatExtension.Client
                                 }
                             }
                             catch (Exception ex)
-                            {
-                                hostLog?.Invoke($"Failed to raise chat mention letter: {ex.Message}", LogLevel.WARNING);
+                            { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("BuiltInChatClientExtension/Activate", ex);
+                                global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("BuiltInChatClientExtension/Activate/LogObserver", () => { hostLog?.Invoke($"Failed to raise chat mention letter: {"Operation failed; see the error report."}", LogLevel.WARNING); });
                             }
                         });
                     }
@@ -280,6 +282,8 @@ namespace Phinix.ChatExtension.Client
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            try {
+
             active = false;
             System.Threading.Interlocked.Increment(ref callbackGeneration);
             if (lifecycle != null && compatibilityChangedHandler != null)
@@ -298,20 +302,23 @@ namespace Phinix.ChatExtension.Client
                 Cleanup(() => userEventStream.Disconnected -= disconnectHandler, hostContext);
             }
 
-            if (currentTheme != null && themeChanged != null) currentTheme.Changed -= themeChanged;
-            currentTheme = null; themeChanged = null;
-            ChatTheme.Release();
-            themeRegistration?.Dispose(); themeRegistration = null;
-            composition?.Dispose();
-            composition = null;
+            ChatDiagnostics.Cleanup("Chat/ThemeSubscriptionCleanup",()=>{if(currentTheme!=null && themeChanged!=null)currentTheme.Changed-=themeChanged;});
+            currentTheme=null;themeChanged=null;
+            ChatDiagnostics.Cleanup("Chat/ThemeCleanup",()=>ChatTheme.Release());
+            var oldTheme=themeRegistration;themeRegistration=null;
+            ChatDiagnostics.Cleanup("Chat/ThemeRegistrationCleanup",()=>oldTheme?.Dispose());
+            var oldComposition=composition;composition=null;
+            ChatDiagnostics.Cleanup("Chat/CompositionCleanup",()=>oldComposition?.Dispose());
+
+            } finally { ChatDiagnostics.Scope.Unbind(); }
         }
 
         private static void Cleanup(Action cleanup, ExtensionHostContext host)
         {
             try { cleanup(); }
             catch (Exception error)
-            {
-                try { host?.Log?.Invoke("Chat cleanup failed: " + error, LogLevel.WARNING); } catch { }
+            { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("BuiltInChatClientExtension/Cleanup", error);
+                try { global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("BuiltInChatClientExtension/Cleanup/LogObserver", () => { host?.Log?.Invoke("Chat cleanup failed: " + error.GetType().Name, LogLevel.WARNING); }); } catch (System.Exception boundaryError18) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("BuiltInChatClientExtension/Cleanup", boundaryError18);  }
             }
         }
 

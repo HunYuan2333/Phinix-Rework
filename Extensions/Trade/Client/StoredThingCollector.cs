@@ -24,7 +24,7 @@ namespace Phinix.TradeExtension.Client
                 mapSnapshot = maps?.Where(map => map != null).ToList() ?? new List<Map>();
             }
             catch (Exception exception)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StoredThingCollector/Collect", exception);
                 LogFailure(log, "Failed to enumerate maps while collecting tradable items.", exception);
                 return collectedThings;
             }
@@ -58,7 +58,7 @@ namespace Phinix.TradeExtension.Client
                 }
             }
             catch (Exception exception)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StoredThingCollector/CollectAllMapItems", exception);
                 LogFailure(log, $"Failed to enumerate all things on map '{map}'.", exception);
             }
         }
@@ -79,7 +79,7 @@ namespace Phinix.TradeExtension.Client
                     .ToList() ?? new List<SlotGroup>();
             }
             catch (Exception exception)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StoredThingCollector/CollectStoredMapItems", exception);
                 LogFailure(log, $"Failed to enumerate storage groups on map '{map}'; using map-level fallback.", exception);
                 CollectStoredMapItemsFallback(map, collectedThings, collectedThingIds, collectedUnassignedThings, log);
                 return;
@@ -97,7 +97,7 @@ namespace Phinix.TradeExtension.Client
                     }
                 }
                 catch (Exception exception)
-                {
+                { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StoredThingCollector/CollectStoredMapItems", exception);
                     fallbackRequired = true;
                     LogFailure(
                         log,
@@ -125,7 +125,7 @@ namespace Phinix.TradeExtension.Client
                 mapThings = map.listerThings.AllThings.ToList();
             }
             catch (Exception exception)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StoredThingCollector/CollectStoredMapItemsFallback", exception);
                 LogFailure(log, $"Failed to snapshot things for storage fallback on map '{map}'.", exception);
                 return;
             }
@@ -147,7 +147,7 @@ namespace Phinix.TradeExtension.Client
                     }
                 }
                 catch (Exception exception)
-                {
+                { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StoredThingCollector/CollectStoredMapItemsFallback", exception);
                     failedPredicates++;
                     firstFailure = firstFailure ?? exception;
                 }

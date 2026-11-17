@@ -16,11 +16,11 @@ namespace Phinix.InventoryExtension.Client
             Texture texture = null;
             if (key.Length > 0)
                 try { texture = DefDatabase<ThingDef>.GetNamedSilentFail(key)?.uiIcon; }
-                catch { /* Optional visual metadata cannot make an inventory record unusable. */ }
+                catch (System.Exception boundaryError30) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryIconCache/Get", boundaryError30);  /* Optional visual metadata cannot make an inventory record unusable. */ }
             if (texture == null)
             {
                 try { texture = DefDatabase<ThingDef>.GetNamedSilentFail("UnknownItem")?.uiIcon; }
-                catch { }
+                catch (System.Exception boundaryError31) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryIconCache/Get", boundaryError31);  }
             }
             image = ClientTextureImage.FromTexture(texture ?? BaseContent.BadTex);
             images.Add(key, image);

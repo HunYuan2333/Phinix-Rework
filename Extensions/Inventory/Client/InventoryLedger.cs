@@ -104,8 +104,8 @@ namespace Phinix.InventoryExtension.Client
                 restored.Reservations = new List<InventoryReservationRecord>();
             if (restored == null || restored.Entries == null || restored.Commits == null ||
                 restored.Schedules == null || restored.Sequence < 0 ||
-                restored.Entries.Count > MaxEntryCount || restored.Commits.Count > MaxCommitCount ||
-                restored.Schedules.Count > MaxEntryCount || restored.Reservations.Count > MaxReservationCount)
+                restored.Entries.Count > MaxEntryCount ||
+                restored.Schedules.Count > MaxEntryCount)
                 throw new InvalidDataException("Inventory snapshot has invalid bounds.");
             HashSet<string> entryIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (InventoryEntry entry in restored.Entries)
@@ -149,6 +149,7 @@ namespace Phinix.InventoryExtension.Client
             foreach (InventoryReservationRecord reservation in restored.Reservations)
             {
                 if (reservation == null || string.IsNullOrWhiteSpace(reservation.ReservationId) ||
+                    !Enum.IsDefined(typeof(InventoryReservationState), reservation.State) ||
                     !reservationIds.Add(reservation.ReservationId) || string.IsNullOrWhiteSpace(reservation.OperationId) ||
                     !operationIds.Add(reservation.OperationId) || string.IsNullOrWhiteSpace(reservation.RequestHash) ||
                     string.IsNullOrWhiteSpace(reservation.OwnerExtensionId) || reservation.OwnerExtensionId.Length > 100 ||
@@ -260,8 +261,6 @@ namespace Phinix.InventoryExtension.Client
                     codec.Version != item.CodecVersion || !codec.CanStore(item))
                     return Result(InventoryDepositStatus.Rejected, "Item codec or payload is unavailable.", InventoryFailureCode.CodecUnavailable);
             }
-            if (state.Commits.Count >= MaxCommitCount)
-                return Result(InventoryDepositStatus.Rejected, "Inventory transaction limit reached.", InventoryFailureCode.CapacityExceeded);
 
             proposed = Clone(state);
             foreach (InventoryItem item in deposit.Items)
@@ -362,16 +361,13 @@ namespace Phinix.InventoryExtension.Client
                         "Reservation operation ID was reused with different content.",
                         InventoryFailureCode.Conflict, ToReservation(prior));
                 if (prior.State == InventoryReservationState.Committed ||
-                    prior.State == InventoryReservationState.Restored)
+                    prior.State == InventoryReservationState.Restored || prior.State == InventoryReservationState.Abandoned)
                     return ReservationResult(InventoryReservationResultStatus.Conflict,
                         "Reservation operation is already finalized.",
                         InventoryFailureCode.Conflict, ToReservation(prior));
                 return ReservationResult(InventoryReservationResultStatus.AlreadyReserved, null,
                     InventoryFailureCode.None, ToReservation(prior));
             }
-            if (state.Reservations.Count >= MaxReservationCount)
-                return ReservationResult(InventoryReservationResultStatus.Rejected,
-                    "Inventory reservation limit reached.", InventoryFailureCode.CapacityExceeded, null);
 
             Dictionary<string, long> locked = ActiveLockedQuantities();
             foreach (InventoryReservationLine line in request.Lines)
@@ -421,18 +417,19 @@ namespace Phinix.InventoryExtension.Client
                 ? InventoryReservationState.Committed
                 : resolution == InventoryReservationResolution.Restore
                     ? InventoryReservationState.Restored
+                    : resolution == InventoryReservationResolution.Abandon ? InventoryReservationState.Abandoned
                     : InventoryReservationState.Uncertain;
             if (existing.State == target)
                 return ResolutionResult(true, null, InventoryFailureCode.None, ToReservation(existing));
             if (existing.State == InventoryReservationState.Committed ||
-                existing.State == InventoryReservationState.Restored)
+                existing.State == InventoryReservationState.Restored || existing.State == InventoryReservationState.Abandoned)
                 return ResolutionResult(false, "Inventory reservation is already finalized.",
                     InventoryFailureCode.Conflict, ToReservation(existing));
 
             proposed = Clone(state);
             InventoryReservationRecord record = proposed.Reservations.First(candidate =>
                 candidate.ReservationId == reservationId);
-            if (resolution == InventoryReservationResolution.Commit)
+            if (resolution == InventoryReservationResolution.Commit || resolution == InventoryReservationResolution.Abandon)
             {
                 foreach (InventoryReservationLine line in record.Lines)
                 {
@@ -520,7 +517,7 @@ namespace Phinix.InventoryExtension.Client
             state = committed;
         }
 
-        private static InventoryState Clone(InventoryState source)
+        internal static InventoryState Clone(InventoryState source)
         {
             return new InventoryState
             {

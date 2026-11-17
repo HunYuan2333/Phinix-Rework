@@ -39,7 +39,7 @@ namespace Phinix.PluginStore
         private void Refresh()
         {packages.Refresh();rows=packages.Packages.ToArray();if(selection!=null && !rows.Any(p=>p.Manifest.PackageId==selection)) selection=null;message=string.Join("\n",packages.Diagnostics.Take(3));messageTone=message.Length==0?ClientPresentationTone.Neutral:ClientPresentationTone.Warning;Invalidate();}
         private void Run(Action action)
-        {try {if(Available) action();}catch(Exception ex) {message=(ex as ManagedExtensionValidationException)?.Code??ex.Message;messageTone=ClientPresentationTone.Error;}finally {Invalidate();}}
+        {try {if(Available) action();}catch(Exception ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("LocalThemePackagesWindow/Run", ex); message=(ex as ManagedExtensionValidationException)?.Code??"Operation failed; see the error report.";messageTone=ClientPresentationTone.Error;}finally {Invalidate();}}
         protected override void HandleInput(ClientPresentationInput input)
         {if(input.Id=="themes" && input.Kind==ClientPresentationInputKind.RowSelected) selection=input.Value;}
         private void Choose()

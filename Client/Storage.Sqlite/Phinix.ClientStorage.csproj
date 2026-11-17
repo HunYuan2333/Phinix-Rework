@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><LangVersion>7.3</LangVersion><AssemblyName>Phinix.ClientStorage</AssemblyName><CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Storage.Contracts/ClientStorage.Contracts.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="[10.0.13]" />
+    <PackageReference Include="SQLitePCLRaw.provider.e_sqlite3" Version="[2.1.13]" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="[2.1.13]" GeneratePathProperty="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/win-x86/native/*"><Link>runtimes/win-x86/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/win-x64/native/*"><Link>runtimes/win-x64/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/win-arm64/native/*"><Link>runtimes/win-arm64/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/linux-x64/native/*"><Link>runtimes/linux-x64/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/linux-arm64/native/*"><Link>runtimes/linux-arm64/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/osx-x64/native/*"><Link>runtimes/osx-x64/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="$(PkgSQLitePCLRaw_lib_e_sqlite3)/runtimes/osx-arm64/native/*"><Link>runtimes/osx-arm64/native/%(Filename)%(Extension)</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+  </ItemGroup>
+</Project>

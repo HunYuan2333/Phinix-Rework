@@ -31,7 +31,7 @@ namespace Phinix.TradeExtension.Client
                 var b=new TradeReservationBinding {IntentChecksum=intent.Checksum,SaveIdentity=status.SaveIdentity,JournalIdentity=status.JournalIdentity,ReservationId=reservation.ReservationId,
                     ReservationOperation=reservation.OperationId,ItemsJson=FrameworkSerialization.SerializePayload(reservation.Items)};b.Checksum=ReservationHash(b);
                 string path=Path.ChangeExtension(PathFor(intent),".reservation");string json=FrameworkSerialization.SerializePayload(b);
-                if(File.Exists(path)){Private(path,384);if(File.ReadAllText(path)!=json)throw new InvalidDataException("Reservation binding conflicts.");return;}
+                if(records.Exists(path)){if(records.Text(path)!=json)throw new InvalidDataException("Reservation binding conflicts.");return;}
                 // Same private, flushed, non-overwriting publication as original intent evidence.
                 byte[] bytes=System.Text.Encoding.UTF8.GetBytes(json);
                 if(bytes.Length>MaxRecord)throw new IOException("Reservation binding exceeds budget.");
@@ -42,16 +42,23 @@ namespace Phinix.TradeExtension.Client
         {
             lock(gate)
             {
-                string path=Path.ChangeExtension(PathFor(intent),".reservation");if(!File.Exists(path))return null;
-                Private(path,384);if(new FileInfo(path).Length>MaxRecord)throw new InvalidDataException("Reservation binding exceeds budget.");
-                var b=FrameworkSerialization.DeserializePayload<TradeReservationBinding>(File.ReadAllText(path));
+                string path=Path.ChangeExtension(PathFor(intent),".reservation");if(!records.Exists(path))return null;
+                if(records.Read(path).Length>MaxRecord)throw new InvalidDataException("Reservation binding exceeds budget.");
+                var b=FrameworkSerialization.DeserializePayload<TradeReservationBinding>(records.Text(path));
                 if(b==null||b.IntentChecksum!=intent.Checksum||b.Checksum!=ReservationHash(b)||b.SaveIdentity?.Length!=64||!Guid.TryParseExact(b.JournalIdentity,"N",out _))throw new InvalidDataException("Invalid reservation binding.");
                 return b;
             }
         }
-        internal TradeOperationQueryResponse DurableResult(TradeIntentRecord intent)
-        {lock(gate)return File.Exists(Path.ChangeExtension(PathFor(intent),".query"))?ReadQuery(intent):null;}
+        internal bool? DurableOutcome(TradeIntentRecord intent)
+        {
+            lock(gate)
+            {
+                if(records.Exists(Path.ChangeExtension(PathFor(intent),".query")))return ReadQuery(intent).Success;
+                if(records.Exists(Path.ChangeExtension(PathFor(intent),".result")))return ReadResult(intent).Success;
+                return null;
+            }
+        }
         private void ValidateReservationEvidence()
-        {foreach(string path in Directory.GetFiles(directory,"*.reservation"))ReservationBinding(ReadFile(Path.ChangeExtension(path,".intent")));}
+        {foreach(string path in records.Keys(".reservation"))ReservationBinding(ReadFile(Path.ChangeExtension(path,".intent")));}
     }
 }

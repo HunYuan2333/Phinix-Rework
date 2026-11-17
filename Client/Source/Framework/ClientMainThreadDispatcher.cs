@@ -17,13 +17,15 @@ namespace PhinixClient.Framework
         private readonly object syncRoot = new object();
         private readonly Action<string, LogLevel> log;
         private readonly Func<bool> isMainThread;
+        private readonly Func<string, string, Exception, string> reportError;
         private readonly HashSet<Type> moduleTypes = new HashSet<Type>();
         private readonly HashSet<IPhinixExtensionModule> modules = new HashSet<IPhinixExtensionModule>(ModuleIdentity.Instance);
         private readonly Dictionary<IPhinixExtensionModule, List<Scope>> scopes = new Dictionary<IPhinixExtensionModule, List<Scope>>(ModuleIdentity.Instance);
         private long droppedCount, sequence;
 
-        public ClientMainThreadDispatcher(Action<string, LogLevel> log = null, Func<bool> isMainThread = null)
-        { this.log=log; this.isMainThread=isMainThread??(()=>true); }
+        public ClientMainThreadDispatcher(Action<string, LogLevel> log = null, Func<bool> isMainThread = null,
+            Func<string, string, Exception, string> reportError = null)
+        { this.log=log; this.isMainThread=isMainThread??(()=>true); this.reportError=reportError; }
         public int PendingCount { get { lock(syncRoot) return pendingActions.Count; } }
         public long DroppedCount { get { lock(syncRoot) return droppedCount; } }
 
@@ -74,6 +76,16 @@ namespace PhinixClient.Framework
             if(action==null) throw new ArgumentNullException(nameof(action));
             lock(syncRoot)
             {
+                if(pendingActions.Count>=MaxPendingActions)
+                {
+                    int count=pendingActions.Count;
+                    for(int i=0;i<count;i++)
+                    {
+                        var queued=pendingActions.Dequeue();
+                        if(queued.Token.IsCancellationRequested) queued.Complete(ClientTaskState.Canceled,"RequestCanceled");
+                        else pendingActions.Enqueue(queued);
+                    }
+                }
                 var record=new Record(++sequence,scope,action,token);
                 if(scope!=null && scope.Closed) record.Complete(ClientTaskState.Rejected,"ScopeClosed");
                 else if(token.IsCancellationRequested) record.Complete(ClientTaskState.Canceled,"RequestCanceled");
@@ -117,7 +129,11 @@ namespace PhinixClient.Framework
                 catch(Exception error)
                 {
                     record.Complete(ClientTaskState.Failed,"CallbackFailed");
-                    Report("Main-thread callback failed: owner="+record.ModuleId+", task="+record.Id+", exception="+error.GetType().Name,LogLevel.ERROR);
+                    string errorId = null;
+                    try { errorId = reportError?.Invoke(record.ModuleId, "MainThreadTask/" + record.Id, error); }
+                    catch { /* A failed diagnostic sink cannot replace the callback failure or stop the queue. */ }
+                    if (errorId == null)
+                        Report("Main-thread callback failed: owner="+record.ModuleId+", task="+record.Id+", exception="+error,LogLevel.ERROR);
                 }
             }
         }

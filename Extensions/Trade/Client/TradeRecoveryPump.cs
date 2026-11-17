@@ -61,21 +61,21 @@ namespace Phinix.TradeExtension.Client
                         submissionFailureReported=false;
                     }
                     catch(Exception error)
-                    {
+                    { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeRecoveryPump/Pulse", error);
                         // Submission has not invoked business work. Keep this page,
                         // but report once until a submission succeeds.
                         if(!submissionFailureReported){submissionFailureReported=true;failure="Recovery scheduling failed: "+error.GetType().Name;}
                     }
                 }
             }
-            if(failure!=null){try{log?.Invoke(failure);}catch{/* diagnostics cannot escape the timer */}}
+            if(failure!=null){try{log?.Invoke(failure);}catch (System.Exception boundaryError250){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeRecoveryPump/Pulse", boundaryError250); /* diagnostics cannot escape the timer */}}
         }
         public void Dispose()
         {
             Timer owned;
             lock(gate)
             {stopped=true;owned=timer;timer=null;pending=null;inFlight=null;continuation=null;requested=false;}
-            try{owned?.Dispose();}finally{tasks.Dispose();}
+            try{TradeDiagnostics.Cleanup("TradeRecoveryPump/TimerCleanup",()=>owned?.Dispose());}finally{TradeDiagnostics.Cleanup("TradeRecoveryPump/TaskCleanup",()=>tasks.Dispose());}
         }
     }
 }

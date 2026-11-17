@@ -40,7 +40,7 @@ namespace Phinix.InventoryExtension.Client
                 });
                 Refresh();
             }
-            catch { scope?.Dispose(); view.Dispose(); throw; }
+            catch (System.Exception boundaryError25) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryDeliveryChoiceDialog/InventoryDeliveryChoiceDialog", boundaryError25);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryDeliveryChoiceDialog/InventoryDeliveryChoiceDialog/Cleanup", () => { scope?.Dispose(); }); global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryDeliveryChoiceDialog/InventoryDeliveryChoiceDialog/Cleanup", () => { view.Dispose(); }); throw; }
         }
         private static string L(string key) => ("Phinix_inventory_" + key).Translate();
         protected override void SetInitialSizeAndPosition() { base.SetInitialSizeAndPosition(); Clamp(); }
@@ -75,7 +75,7 @@ namespace Phinix.InventoryExtension.Client
                     new ClientPresentationSection("footer", "", L("deliveryChoiceFooter"), extras)
                 }), set, current);
             }
-            catch { set.Dispose(); throw; }
+            catch (System.Exception boundaryError26) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryDeliveryChoiceDialog/Refresh", boundaryError26);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryDeliveryChoiceDialog/Refresh/Cleanup", () => { set.Dispose(); }); throw; }
             language = nextLanguage; pointRevision = nextPoints; result = nextResult;
         }
         public override void DoWindowContents(Rect rect) { view.Draw(new ClientPresentationBounds(rect.x, rect.y, rect.width, rect.height)); }
@@ -84,8 +84,9 @@ namespace Phinix.InventoryExtension.Client
         public void Dispose()
         {
             if (closed) return; closed = true;
-            try { view.Dispose(); }
-            finally { try { scope.Dispose(); } finally { if (!choiceMade) dismiss?.Invoke(); } }
+            InventoryDiagnostics.Cleanup("InventoryDeliveryChoiceDialog/ViewCleanup",()=>view.Dispose());
+            InventoryDiagnostics.Cleanup("InventoryDeliveryChoiceDialog/ScopeCleanup",()=>scope.Dispose());
+            if(!choiceMade)InventoryDiagnostics.Cleanup("InventoryDeliveryChoiceDialog/Dismiss",()=>dismiss?.Invoke());
         }
     }
 }

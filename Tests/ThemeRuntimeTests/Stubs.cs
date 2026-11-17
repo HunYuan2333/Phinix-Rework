@@ -85,3 +85,5 @@ namespace PhinixClient.Framework
     }
 }
 namespace UnityEngine { public enum EventType { Repaint } public sealed class Event { public static Event current; public EventType type; } }
+
+namespace PhinixClient { internal static class ClientHostDiagnostics { internal static void Report(System.Exception error,string operation,bool notify=true) { } } }

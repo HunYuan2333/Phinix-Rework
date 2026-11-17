@@ -196,13 +196,20 @@ namespace PhinixClient
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
             string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            Exception primary=null;
             try
             {
-                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                { document.Save(stream); if (stream.Length > MaximumBytes) throw new InvalidDataException("Theme file size limit."); stream.Flush(true); }
+                var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);Exception writing=null;
+                try {document.Save(stream);if(stream.Length>MaximumBytes)throw new InvalidDataException("Theme file size limit.");stream.Flush(true);}
+                catch(Exception error){writing=error;throw;}
+                finally {try{stream.Dispose();}catch(Exception cleanup){if(writing!=null)throw new AggregateException("Theme write and stream cleanup failed.",writing,cleanup);throw;}}
                 if (File.Exists(path)) File.Replace(temporary, path, backupExisting ? path + ".previous" : null); else File.Move(temporary, path);
             }
-            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            catch(Exception error){primary=error;throw;}
+            finally {
+                try {if(File.Exists(temporary))File.Delete(temporary);}
+                catch(Exception cleanup){if(primary!=null)throw new AggregateException("Theme save and temporary cleanup failed.",primary,cleanup);throw;}
+            }
         }
     }
 }

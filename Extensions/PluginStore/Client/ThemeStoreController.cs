@@ -78,13 +78,14 @@ namespace Phinix.PluginStore
                 _=Task.Run(async ()=>
                 {
                     try {await work(source.Token).ConfigureAwait(false);}
+                    catch(OperationCanceledException) when(source.IsCancellationRequested) { }
                     catch(Exception ex)
-                    {lock(gate) {if(!disposed) error=ex is OperationCanceledException?"RepositoryTimeout":(ex as StoreValidationException)?.Code??(ex as Utils.Framework.ManagedExtensions.ManagedExtensionValidationException)?.Code??"ThemeRepositoryFailed";}}
-                    finally {lock(gate) {if(ReferenceEquals(running,source)) {running=null;revision++;} source.Dispose();}}
+                    { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ThemeStoreController/Start", ex); lock(gate) {if(!disposed) error=ex is OperationCanceledException?"RepositoryTimeout":(ex as StoreValidationException)?.Code??(ex as Utils.Framework.ManagedExtensions.ManagedExtensionValidationException)?.Code??"ThemeRepositoryFailed";}}
+                    finally {lock(gate) {if(ReferenceEquals(running,source)) {running=null;revision++;} PluginStoreDiagnostics.Cleanup("ThemeStoreController/SourceCleanup",()=>source.Dispose());}}
                 });
             }
         }
         public void Dispose()
-        {lock(gate) {if(disposed)return;disposed=true;ready=null;try {running?.Cancel();}catch(AggregateException) {}revision++;}}
+        {lock(gate) {if(disposed)return;disposed=true;ready=null;try {running?.Cancel();}catch(AggregateException boundaryError177) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ThemeStoreController/Dispose", boundaryError177); }revision++;}}
     }
 }

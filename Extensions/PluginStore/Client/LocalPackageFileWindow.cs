@@ -53,7 +53,7 @@ namespace Phinix.PluginStore
                 {message=T("localInvalidSelection");Invalidate();return;}
                 selected(full);Close();
             }
-            catch(Exception) {message=T("localInvalidSelection");Invalidate();}
+            catch(Exception boundaryError167) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("LocalPackageFileWindow/Select", boundaryError167); message=T("localInvalidSelection");Invalidate();}
         }
         private void Browse(string selectedPath)
         {
@@ -75,7 +75,7 @@ namespace Phinix.PluginStore
                 }
                 path=full;entries=items.OrderBy(e=>e,StringComparer.OrdinalIgnoreCase).ToArray();folders=nextFolders;message="";
             }
-            catch(Exception) {message=T("localInvalidSelection");}
+            catch(Exception boundaryError168) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("LocalPackageFileWindow/Browse", boundaryError168); message=T("localInvalidSelection");}
             Invalidate();
         }
     }

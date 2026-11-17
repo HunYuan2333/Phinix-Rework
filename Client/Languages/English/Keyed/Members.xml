@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
 <Phinix_members_toggleBlocked>Show / collapse blocked members</Phinix_members_toggleBlocked>
-<Phinix_members_tradeUnavailable>Trade capability is unavailable. Other member actions remain available.</Phinix_members_tradeUnavailable>
+<Phinix_members_tradeUnavailable>Trading is currently unavailable.</Phinix_members_tradeUnavailable>
 <Phinix_members_search>Search members</Phinix_members_search>
 <Phinix_members_noMatches>No matching members.</Phinix_members_noMatches>
 <Phinix_members_empty>No members to display.</Phinix_members_empty>
@@ -11,8 +11,8 @@
 <Phinix_chat_actions_previousLinks>Previous links</Phinix_chat_actions_previousLinks>
 <Phinix_chat_actions_nextLinks>More links</Phinix_chat_actions_nextLinks>
 <Phinix_chat_actions_retryImage>Retry image</Phinix_chat_actions_retryImage>
-<Phinix_chat_actions_imageFailure>Image failed to load. Click to view retry actions.</Phinix_chat_actions_imageFailure>
-<Phinix_chat_actions_imageUnavailable>Image could not be decoded. Click to view original-image actions.</Phinix_chat_actions_imageUnavailable>
+<Phinix_chat_actions_imageFailure>Image failed to load. Click to retry.</Phinix_chat_actions_imageFailure>
+<Phinix_chat_actions_imageUnavailable>Cannot display image. Click to open original.</Phinix_chat_actions_imageUnavailable>
   <Phinix_members_showBlocked>Show blocked</Phinix_members_showBlocked>
   <Phinix_members_hideBlocked>Hide blocked</Phinix_members_hideBlocked>
   <Phinix_members_memberActions>More actions</Phinix_members_memberActions>

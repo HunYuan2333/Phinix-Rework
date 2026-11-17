@@ -135,7 +135,7 @@ namespace PhinixClient
         private void ClearOverride(string key,bool inherit)
         {ThemeDraftValues.Clear(session.Draft,session.Inputs,key,inherit);session.HexInputs.Remove(key);session.InvalidHex.Remove(key);Invalidate();}
         private void Run(Action action)
-        {try {action();}catch(Exception error){message=error.Message;messageTone=ClientPresentationTone.Error;}finally {Invalidate();}}
+        {try {action();}catch(Exception error){ClientHostDiagnostics.Report(error,"ThemeActionFailed");message=L("Phinix_theme_operationFailed");messageTone=ClientPresentationTone.Error;}finally {Invalidate();}}
         private void ChooseTheme()
         {if(selector?.IsOpen==true)return;selector=new ThemeSelectorWindow(Services,Theme,catalog,()=>IsOpen,id=>Select(id),session.Draft.ThemeId);Find.WindowStack.Add(selector);}
         private void ExportTheme()

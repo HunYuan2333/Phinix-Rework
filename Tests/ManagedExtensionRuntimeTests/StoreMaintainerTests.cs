@@ -6,6 +6,12 @@ using Phinix.PluginStore;
 
 internal static partial class Program
 {
+    private sealed class WorkshopVersionReporter : PhinixClient.Framework.IClientSensitiveErrorReporter
+    {
+        internal int Reports;
+        public string Report(Exception error,string code,string operation,bool notify=true) { Reports++; return null; }
+        public string ReportSensitive(Exception error,string code,string operation,bool notify=true) { Reports++; return null; }
+    }
     private static void StoreMaintainerRegression(Dictionary<string,byte[]> files)
     {
         string config=File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"StorePresentation","maintainers.json"));
@@ -17,6 +23,13 @@ internal static partial class Program
         Func<string[],ManagedStoreCatalogSnapshot> catalog=items=>ManagedStoreCatalogReader.Read(
             Utf8(ManagedCatalog(items).Replace("\"sourceId\":\"test.source\"","\"sourceId\":\"phinix.official\"")),"phinix.official");
         var trusted=catalog(new[]{listing,workshop});
+        var versionReporter=new WorkshopVersionReporter();PluginStoreDiagnostics.Scope.Bind(versionReporter);
+        try
+        {
+            var unversioned=new ManagedStoreEntryGroup(trusted.Packages.Where(p=>p.IsWorkshop).Select(p=>new ManagedStoreEntry("workshop",p,null)));
+            Assert(unversioned.Preferred.IsWorkshop && unversioned.Preferred.Version=="?" && versionReporter.Reports==0, "Unversioned Workshop entries sort without producing a false exception report.");
+        }
+        finally {PluginStoreDiagnostics.Scope.Bind(null);}
         var github=new RepositoryEndpoint(RepositoryProfile.Official,RepositoryAccessMethod.GitHub);
         var cf=new RepositoryEndpoint(RepositoryProfile.Official,RepositoryAccessMethod.Cloudflare);
         foreach(var record in trusted.Packages)

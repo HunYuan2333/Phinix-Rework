@@ -21,6 +21,7 @@
     <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(RimWorldDepDir)/UnityEngine.TextRenderingModule.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../../Client/Storage.Contracts/ClientStorage.Contracts.csproj" />
     <ProjectReference Include="../Contracts/InventoryExtension.csproj" />
     <ProjectReference Include="../GameAdapter/InventoryExtension.GameAdapter.csproj" />
     <ProjectReference Include="../../../Client/PresentationContracts/ClientPresentation.Contracts.csproj" />

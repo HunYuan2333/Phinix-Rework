@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs" Link="Production/IClientErrorService.cs" />
+    <Compile Include="../../Extensions/Inventory/GameAdapter/InventoryDiagnostics.cs" Link="Production/InventoryDiagnostics.cs" />
+    <Compile Include="../../Extensions/Trade/Client/TradeDiagnostics.cs" Link="Production/TradeDiagnostics.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PluginStoreDiagnostics.cs" Link="Production/PluginStoreDiagnostics.cs" />
+<Compile Include="../../Client/Common/Connections.Client/ClientConnectionDiagnostics.cs" Link="Production/ClientConnectionDiagnostics.cs" />
     <Compile Include="../../Extensions/Inventory/Contracts/InventoryContracts.cs" />
     <Compile Include="../../Extensions/Inventory/Client/InventoryTab.cs" />
     <Compile Include="../../Extensions/Inventory/Client/InventoryPlansWindow.cs" />

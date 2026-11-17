@@ -30,7 +30,7 @@ namespace Phinix.InventoryExtension.Client
                 }
             }
             catch (Exception error)
-            {
+            { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournalCompatibility/TryMaintain", error);
                 // Never expose full player paths, snapshot contents or payloads.
                 Report(report, "[Inventory][Compatibility] History retained; saved proof unavailable: " + error.GetType().Name + ".", true);
                 return false;
@@ -39,7 +39,7 @@ namespace Phinix.InventoryExtension.Client
         private static void Report(Action<string, bool> report, string message, bool warning)
         {
             try { report?.Invoke(message, warning); }
-            catch (Exception) { /* Diagnostics cannot change a completed maintenance outcome. */ }
+            catch (Exception boundaryError64) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryJournalCompatibility/Report", boundaryError64);  /* Diagnostics cannot change a completed maintenance outcome. */ }
         }
     }
 }

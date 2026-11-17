@@ -6,7 +6,7 @@
   <Phinix_inventory_entryCount>{0} 组物品</Phinix_inventory_entryCount>
   <Phinix_inventory_groupTitle>{0} · 可用 {1} 个</Phinix_inventory_groupTitle>
   <Phinix_inventory_groupSummary>{0} 份记录 · 各自保留状态</Phinix_inventory_groupSummary>
-  <Phinix_inventory_groupHint>展开可逐份提取或设置每日计划。各份物品的耐久、腐烂进度和特殊状态分别保留；锁定数量不计入可用总数。</Phinix_inventory_groupHint>
+  <Phinix_inventory_groupHint>展开可逐份提取或设置每日计划；锁定数量不计入可用总数。</Phinix_inventory_groupHint>
   <Phinix_inventory_expand>展开各堆</Phinix_inventory_expand>
   <Phinix_inventory_collapse>收起</Phinix_inventory_collapse>
   <Phinix_inventory_wholeStack>按整堆提取，每份 {0} 个</Phinix_inventory_wholeStack>
@@ -14,7 +14,7 @@
   <Phinix_inventory_scheduleStackQuantity>每天提取份数（每份 {0} 个）</Phinix_inventory_scheduleStackQuantity>
   <Phinix_inventory_entryId>库存记录：{0}</Phinix_inventory_entryId>
   <Phinix_inventory_balance>× {0}</Phinix_inventory_balance>
-  <Phinix_inventory_transferPending>有 {0} 笔发送等待确认，相关物品暂时锁定。</Phinix_inventory_transferPending>
+  <Phinix_inventory_transferPending>有 {0} 笔发送处理中，相关物品暂时锁定。</Phinix_inventory_transferPending>
   <Phinix_inventory_originUnavailable>来源信息不可用</Phinix_inventory_originUnavailable>
   <Phinix_inventory_empty>库存还是空的。\n选择“存入库存”后，收到的交易和红包物品会出现在这里。</Phinix_inventory_empty>
   <Phinix_inventory_extractStack>提取</Phinix_inventory_extractStack>
@@ -48,13 +48,13 @@
   <Phinix_inventory_pawnStored>单位已存入 Phinix 库存。</Phinix_inventory_pawnStored>
   <Phinix_inventory_pawnsStored>单位已存入 Phinix 库存。</Phinix_inventory_pawnsStored>
   <Phinix_inventory_recoveryTitle>发现待恢复的库存记录</Phinix_inventory_recoveryTitle>
-  <Phinix_inventory_recoveryWarning>本地库存记录比当前存档更新。请确认这些记录是否属于这次游戏；Phinix 不会自动合并，以免重复物品。</Phinix_inventory_recoveryWarning>
+  <Phinix_inventory_recoveryWarning>本地库存记录比当前存档更新，请确认是否属于本局游戏，以免重复生成物品。</Phinix_inventory_recoveryWarning>
   <Phinix_inventory_recover>恢复库存记录</Phinix_inventory_recover>
   <Phinix_inventory_keepSave>保留当前存档</Phinix_inventory_keepSave>
   <Phinix_inventory_recoverFailed>恢复失败，库存保持只读。</Phinix_inventory_recoverFailed>
   <Phinix_inventory_operationFailed>库存变更无法保存。</Phinix_inventory_operationFailed>
   <Phinix_inventory_pendingTitle>需要确认上次提取结果</Phinix_inventory_pendingTitle>
-  <Phinix_inventory_pendingWarning>上次提取在确认交付前中断。请检查地图上是否已有空投仓，再选择对应结果；确认前库存会保持锁定。</Phinix_inventory_pendingWarning>
+  <Phinix_inventory_pendingWarning>上次提取在确认前中断，请检查地图上是否已收到物品；确认前库存将保持锁定。</Phinix_inventory_pendingWarning>
   <Phinix_inventory_markDelivered>地图上已有物品</Phinix_inventory_markDelivered>
   <Phinix_inventory_restoreBalance>地图上没有物品</Phinix_inventory_restoreBalance>
   <Phinix_inventory_unavailableTitle>库存暂不可用</Phinix_inventory_unavailableTitle>
@@ -70,16 +70,16 @@
   <Phinix_inventory_deliveryInventoryButton>使用物品库存</Phinix_inventory_deliveryInventoryButton>
   <Phinix_inventory_deliverySettingTitle>交易与红包的接收方式</Phinix_inventory_deliverySettingTitle>
   <Phinix_inventory_deliverySettingDesc>全局设置，跨存档保存；切换后立即生效。人才交易保持独立，不受此选项影响。</Phinix_inventory_deliverySettingDesc>
-  <Phinix_inventory_batchInvalid>选择已变化、数量无效或已有批量提取正在执行。请重新选择。</Phinix_inventory_batchInvalid>
-  <Phinix_inventory_batchStopped>已停止剩余提取。已经交付的物品不撤销。</Phinix_inventory_batchStopped>
+  <Phinix_inventory_batchInvalid>选择已变化或已有批量提取正在进行，请重新选择。</Phinix_inventory_batchInvalid>
+  <Phinix_inventory_batchStopped>已停止剩余提取（已发放的物品保留）。</Phinix_inventory_batchStopped>
   <Phinix_inventory_batchChanged>存档、投放地图或库存已变化，已停止剩余提取。</Phinix_inventory_batchChanged>
   <Phinix_inventory_batchTitle>提取同类物品</Phinix_inventory_batchTitle>
   <Phinix_inventory_batchRecords>本批记录数（每份记录提取全部可用数量）</Phinix_inventory_batchRecords>
   <Phinix_inventory_batchSome>提取一批</Phinix_inventory_batchSome>
   <Phinix_inventory_batchAll>提取本类全部</Phinix_inventory_batchAll>
   <Phinix_inventory_batchSelection>本类有 {0} 份可提取记录；各自物品状态保持独立。</Phinix_inventory_batchSelection>
-  <Phinix_inventory_batchConfirm>将提取本类 {0} 份记录的全部可用物品，按帧逐堆交付。关闭页面不会停止；失败时停止剩余操作。已交付部分保留，未执行部分留在库存。</Phinix_inventory_batchConfirm>
-  <Phinix_inventory_batchPerformance>大量物品的还原、落地和日志写入可能引起卡顿，并需要较长时间；复杂模组物品单堆处理也可能较慢。建议先提取较小批次。</Phinix_inventory_batchPerformance>
+  <Phinix_inventory_batchConfirm>将提取本类 {0} 份记录的全部可用物品（按帧逐堆发放，关闭页面不会中断）。</Phinix_inventory_batchConfirm>
+  <Phinix_inventory_batchPerformance>大量物品还原与落地可能引起短暂卡顿，建议分批提取。</Phinix_inventory_batchPerformance>
   <Phinix_inventory_batchProgressTitle>批量提取状态</Phinix_inventory_batchProgressTitle>
   <Phinix_inventory_batchProgress>已完成记录 {0}/{1} · 已交付 {2} 个库存单位</Phinix_inventory_batchProgress>
   <Phinix_inventory_batchRunning>正在逐堆交付。可关闭页面，或停止剩余提取。</Phinix_inventory_batchRunning>
@@ -88,20 +88,20 @@
   <Phinix_inventory_searchPlaceholder>搜索物品或来源</Phinix_inventory_searchPlaceholder>
   <Phinix_inventory_searchNoMatches>没有匹配的物品。</Phinix_inventory_searchNoMatches>
   <Phinix_inventory_searchSelectionHidden>当前编辑的物品不在搜索结果中。</Phinix_inventory_searchSelectionHidden>
-  <Phinix_inventory_searchGroupCleared>搜索已更改，已取消分组选择；批量提取时请重新选择分组。</Phinix_inventory_searchGroupCleared>
+  <Phinix_inventory_searchGroupCleared>搜索已更改，请重新选择分组。</Phinix_inventory_searchGroupCleared>
   <Phinix_inventory_page>第 {0} / {1} 页</Phinix_inventory_page>
   <Phinix_inventory_previousPage>上一页</Phinix_inventory_previousPage>
   <Phinix_inventory_nextPage>下一页</Phinix_inventory_nextPage>
   <Phinix_inventory_inlineQuantity>提取数量</Phinix_inventory_inlineQuantity>
   <Phinix_inventory_inlineWholeUnits>提取份数（每份 {0} 件）</Phinix_inventory_inlineWholeUnits>
   <Phinix_inventory_inlineSelected>当前查看</Phinix_inventory_inlineSelected>
-  <Phinix_inventory_inlineReview>本次交付需要核对。请先确认已到账数量，再修改剩余数量后提取。</Phinix_inventory_inlineReview>
+  <Phinix_inventory_inlineReview>上次提取结果待确认，请核对已收到数量后再继续。</Phinix_inventory_inlineReview>
   <Phinix_inventory_inlineQuantityInvalid>请输入 1～{0} 的数量。</Phinix_inventory_inlineQuantityInvalid>
-  <Phinix_inventory_inlinePartial>已确认提取 {0} / {1} 件，数量框已保留尚未提取的部分。{2}</Phinix_inventory_inlinePartial>
+  <Phinix_inventory_inlinePartial>已提取 {0} / {1} 件，剩余数量已保留在输入框中。{2}</Phinix_inventory_inlinePartial>
   <Phinix_inventory_inlineFailed>提取已停止</Phinix_inventory_inlineFailed>
   <Phinix_inventory_inlineSucceeded>提取成功</Phinix_inventory_inlineSucceeded>
-  <Phinix_inventory_inlineUnitChanged>物品提取单位已变化，请核对每份件数并重新填写数量。</Phinix_inventory_inlineUnitChanged>
-  <Phinix_inventory_inlineUncertainPartial>已确认提取 {0} / {1} 件，其余交付状态需要核对，不会自动重试。{2}</Phinix_inventory_inlineUncertainPartial>
+  <Phinix_inventory_inlineUnitChanged>物品堆叠单位已变化，请重新填写数量。</Phinix_inventory_inlineUnitChanged>
+  <Phinix_inventory_inlineUncertainPartial>已确认提取 {0} / {1} 件，其余部分请核对地图状态。{2}</Phinix_inventory_inlineUncertainPartial>
   <Phinix_inventory_inlineUnavailable>当前没有可提取的余额。</Phinix_inventory_inlineUnavailable>
   <Phinix_inventory_managePlans>每日计划（{0}）</Phinix_inventory_managePlans>
   <Phinix_inventory_plansTitle>每日提取计划</Phinix_inventory_plansTitle>
@@ -112,19 +112,31 @@
   <Phinix_inventory_plansDetails>来源详情</Phinix_inventory_plansDetails>
   <Phinix_inventory_plansHideDetails>收起详情</Phinix_inventory_plansHideDetails>
   <Phinix_inventory_plansRemoveConfirm>移除此每日计划？已提取的物品不会受影响。</Phinix_inventory_plansRemoveConfirm>
-  <Phinix_inventory_plansBlocked>库存正在核对或批量提取，暂不能修改计划。</Phinix_inventory_plansBlocked>
+  <Phinix_inventory_plansBlocked>库存正在同步或批量提取中，暂不可修改计划。</Phinix_inventory_plansBlocked>
   <Phinix_inventory_planMissingItem>这条库存记录已不存在。</Phinix_inventory_planMissingItem>
   <Phinix_inventory_planRemaining>本次尚需提取 {0} 件</Phinix_inventory_planRemaining>
-  <Phinix_inventory_planCodecMissing>此物品的处理插件未就绪。请启用来源插件并重启游戏。</Phinix_inventory_planCodecMissing>
-  <Phinix_inventory_planCodecVersion>来源插件无法读取此库存记录的版本，请使用兼容的插件版本。</Phinix_inventory_planCodecVersion>
-  <Phinix_inventory_planItemUnreadable>来源插件无法读取此物品数据。请保留存档，并附游戏日志反馈此错误。</Phinix_inventory_planItemUnreadable>
-  <Phinix_inventory_planSaveFailed>计划未能保存。请保留当前窗口，并检查库存状态。</Phinix_inventory_planSaveFailed>
+  <Phinix_inventory_planCodecMissing>缺少处理该物品的插件，请启用对应插件并重启游戏。</Phinix_inventory_planCodecMissing>
+  <Phinix_inventory_planCodecVersion>来源插件版本不兼容，请更新或切换兼容版本。</Phinix_inventory_planCodecVersion>
+  <Phinix_inventory_planItemUnreadable>无法读取此物品数据，请保留存档并附日志反馈。</Phinix_inventory_planItemUnreadable>
+  <Phinix_inventory_planSaveFailed>计划保存失败，请重试。</Phinix_inventory_planSaveFailed>
   <Phinix_inventory_keepReadOnly>保持只读</Phinix_inventory_keepReadOnly>
-  <Phinix_inventory_readOnlyKept>库存保持只读，未修改文件或物品。</Phinix_inventory_readOnlyKept>
+  <Phinix_inventory_readOnlyKept>已保持只读模式。</Phinix_inventory_readOnlyKept>
   <Phinix_inventory_discardHistory>放弃恢复（不安全）</Phinix_inventory_discardHistory>
   <Phinix_inventory_discardHistoryConfirm>我了解风险，放弃恢复</Phinix_inventory_discardHistoryConfirm>
-  <Phinix_inventory_discardHistoryWarning>仅使用当前存档内已保存的库存，并放弃存档之后的本地日志恢复。这可能造成物品丢失、重复，或使本地库存与服务端交易结果不一致；已完成的交易不会撤销。原日志和身份标记会保留备份，但备份不保证能够恢复。不会自动退款或重发物品。不接受这些风险，请选择“保持只读”。</Phinix_inventory_discardHistoryWarning>
-  <Phinix_inventory_savedSnapshotRestored>已放弃后续日志恢复，当前使用存档内库存；原日志证据已保留备份。</Phinix_inventory_savedSnapshotRestored>
-  <Phinix_inventory_saveProofRequired>需要可读取且身份与内容一致的存档证明。</Phinix_inventory_saveProofRequired>
-  <Phinix_inventory_faultExplanation>库存日志无法安全核对。建议保持只读；也可选择“放弃恢复（不安全）”，承担风险并使用存档内已保存的库存。</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_discardHistoryWarning>放弃恢复后续变动，仅使用当前存档中的库存。\n这可能导致物品丢失、重复或与交易记录不一致。如需保留安全状态，请选择“保持只读”。</Phinix_inventory_discardHistoryWarning>
+  <Phinix_inventory_savedSnapshotRestored>已恢复为存档内库存（原记录已备份）。</Phinix_inventory_savedSnapshotRestored>
+  <Phinix_inventory_saveProofRequired>需要匹配的存档文件才能继续。</Phinix_inventory_saveProofRequired>
+  <Phinix_inventory_faultExplanation>库存数据库暂时不可用，已有数据不会丢失，请重试打开。</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_legacyImported>旧存档库存已导入共享库存，保存游戏后将清理旧数据。</Phinix_inventory_legacyImported>
+  <Phinix_inventory_legacyBranchSkipped>该存档已迁移过，本次继续使用共享库存。</Phinix_inventory_legacyBranchSkipped>
+  <Phinix_inventory_legacyImportConflict>旧库存与现有记录冲突，未自动导入，共享库存仍可正常使用。</Phinix_inventory_legacyImportConflict>
+  <Phinix_inventory_interruptedAbandoned>已放弃上次未完成的提取，相关数量已扣除（物品可能丢失）。</Phinix_inventory_interruptedAbandoned>
+  <Phinix_inventory_abandonExtraction>放弃本次提取（可能丢失物品）</Phinix_inventory_abandonExtraction>
+  <Phinix_inventory_abandonReservations>放弃未决预留</Phinix_inventory_abandonReservations>
+  <Phinix_inventory_abandonReservationsWarning>放弃后将扣除这些预留数量且不再等待恢复（物品可能丢失），确定继续？</Phinix_inventory_abandonReservationsWarning>
+  <Phinix_inventory_reservationsAbandoned>已放弃未决预留，相关数量已扣除（物品可能丢失）。</Phinix_inventory_reservationsAbandoned>
+  <Phinix_inventory_retryDatabase>重试打开库存数据库</Phinix_inventory_retryDatabase>
+  <Phinix_inventory_databaseChanged>共享库存数据库已变更，将继续使用本机当前库存。</Phinix_inventory_databaseChanged>
+  <Phinix_inventory_migrationTitle>库存已升级</Phinix_inventory_migrationTitle>
+  <Phinix_inventory_migrationMessage>旧库存已迁移至全局共享库存：\n\n1. 本机所有存档共用同一份库存，不再随单个存档变化。\n2. 读档或回档不会回滚库存物品。</Phinix_inventory_migrationMessage>
 </LanguageData>

@@ -118,7 +118,7 @@ namespace Phinix.ChatExtension.Client
                     new ClientPresentationComposer(new ClientPresentationTextField("message", "", text, "Phinix_chat_composePlaceholder".Translate(), 4096),
                         new ClientPresentationAction("builtin.chat.send", send, ClientButtonKind.Primary), ClientTextureImage.FromTexture(sendIcon), extras)), actions, current);
             }
-            catch { actions.Dispose(); throw; }
+            catch (System.Exception boundaryError8) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("ChatMainTabProvider/RefreshComposer", boundaryError8);  global::Phinix.ChatExtension.Client.ChatDiagnostics.Cleanup("ChatMainTabProvider/RefreshComposer/Cleanup", () => { actions.Dispose(); }); throw; }
             publishedMessage = message; publishedReply = reply; publishedLanguage = language; publishedOnline = online; publishedResult = result; publishedPoints = contributionRevision;
         }
         public void Dispose() { ViewClosed(); actionScope?.Dispose(); actionScope = null; composerPoint = null; module = null; sendIcon = null; }

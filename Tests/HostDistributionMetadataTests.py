@@ -1,4 +1,4 @@
-"""Package metadata/resources tests. Sentinel DLL bytes do not verify CLR behavior."""
+"""Package metadata/resources and recursive managed-scan boundary tests; no game startup."""
 import importlib.util
 from pathlib import Path
 import shutil
@@ -20,7 +20,8 @@ class DistributionMetadataTests(unittest.TestCase):
         about = ET.parse(layout / 'About/About.xml'); versions = about.getroot().find('supportedVersions'); versions.clear()
         for game in ['1.6', '1.7']:
             ET.SubElement(versions, 'li').text = game
-            dll = layout / game / 'Assemblies/13-PhinixClient.dll'; dll.parent.mkdir(parents=True); dll.write_bytes(b'sentinel')
+            dll = layout / game / 'Assemblies/13-PhinixClient.dll'; dll.parent.mkdir(parents=True)
+            shutil.copyfile(ROOT / 'Dependencies/Phinix.Common/libs/netstandard2.0/LiteNetLib.dll', dll)
         about.write(layout / 'About/About.xml', encoding='utf-8')
         (layout / 'LoadFolders.xml').write_text('<loadFolders><v1.6><li>/</li><li>1.6</li></v1.6><v1.7><li>/</li><li>1.7</li></v1.7></loadFolders>')
         return layout
@@ -54,6 +55,20 @@ class DistributionMetadataTests(unittest.TestCase):
             root = Path(temporary); layout = self.fixture(root)
             p = layout / 'LoadFolders.xml'; p.write_text(p.read_text().replace('<li>1.7</li>', '<li>1.6</li>'))
             with self.assertRaisesRegex(ValueError, 'Mixed runtime'): self.verify(root, layout)
+
+    def test_native_dll_in_nested_assemblies_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); layout = self.fixture(root)
+            native = layout / '1.7/Assemblies/runtimes/win-arm64/native/e_sqlite3.dll'
+            native.parent.mkdir(parents=True); native.write_bytes(b'MZ native library without CLR metadata')
+            with self.assertRaisesRegex(ValueError, 'Native DLL'): self.verify(root, layout)
+
+    def test_native_dll_outside_assembly_scan_is_allowed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); layout = self.fixture(root)
+            native = layout / '1.7/Native/runtimes/win-arm64/native/e_sqlite3.dll'
+            native.parent.mkdir(parents=True); native.write_bytes(b'MZ native library without CLR metadata')
+            self.verify(root, layout)
 
 
 if __name__ == '__main__': unittest.main()

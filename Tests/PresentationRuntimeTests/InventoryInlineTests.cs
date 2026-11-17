@@ -122,12 +122,17 @@ namespace Phinix.InventoryExtension.Client
     internal sealed class InventoryTheme { public IClientThemeReader Current=>null; }
     internal sealed class InventoryIconCache {public void Clear(){} public IClientPresentationImage Get(string id)=>null;}
     // Fake only the authoritative delivery port. UI projection, grouping, drafts, public models and Host are production sources.
+    internal static class InventorySaveIdentityPatch { internal static string CurrentPath;internal static int Generation; }
     internal sealed class BuiltInInventoryClientExtension
     {
         public readonly List<InventoryEntry> Entries=new List<InventoryEntry>();
         public event EventHandler InventoryChanged,AvailabilityChanged;
         internal long ItemsPerUnit=1,Available=-1;
         internal long Version;internal bool HasPendingExtraction,HasPendingRecovery;internal string Fault;
+        internal string StorageNotice;internal bool HasUncertainReservations;internal int DatabaseRetries,AbandonedExtractions,AbandonedReservations;
+        public bool AbandonPendingExtraction(){if(!HasPendingExtraction)return false;HasPendingExtraction=false;AbandonedExtractions++;Change();return true;}
+        public void RetryDatabase(){DatabaseRetries++;Fault=null;Change();}
+        public bool AbandonUncertainReservations(){if(!HasUncertainReservations)return false;HasUncertainReservations=false;AbandonedReservations++;Change();return true;}
         internal InventoryBatchProgress BatchProgress;internal int Extractions;internal long LastQuantity,DeliverNext=-1;internal string LastEntry;internal bool UncertainNext;
         internal void Change(){Version++;InventoryChanged?.Invoke(this,EventArgs.Empty);AvailabilityChanged?.Invoke(this,EventArgs.Empty);}
         public IReadOnlyList<InventoryEntry> GetSnapshot()=>Entries.ToArray();

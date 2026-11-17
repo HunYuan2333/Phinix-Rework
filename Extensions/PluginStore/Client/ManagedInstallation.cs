@@ -89,12 +89,12 @@ namespace Phinix.PluginStore
             foreach (string dir in new[] { mods, records, journals, work }) { CheckLinks(dir); if (!readOnly) Directory.CreateDirectory(dir); CheckLinks(dir); }
             if (readOnly) return; // Planning needs verified facts, not writable Mods.
             try { lease = new FileStream(Path.Combine(work, "store.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException ex) { throw new StoreValidationException("InstallationBusy", "Another store operation owns this Mods directory.", ex); }
+            catch (IOException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedInstallation/ManagedInstallation", ex);  throw new StoreValidationException("InstallationBusy", "Another store operation owns this Mods directory.", ex); }
             try
             {
                 ProbeWritable(mods); ProbeWritable(records); ProbeWritable(journals); ProbeWritable(work);
             }
-            catch { Dispose(); throw; }
+            catch (System.Exception boundaryError110) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedInstallation/ManagedInstallation", boundaryError110);  global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("ManagedInstallation/ManagedInstallation/Cleanup", () => { Dispose(); }); throw; }
         }
 
         internal static string FolderName(string source, string id)
@@ -579,8 +579,8 @@ namespace Phinix.PluginStore
                     using (var frozen = new MemoryStream(bytes, false)) return (T)new DataContractJsonSerializer(typeof(T)).ReadObject(frozen);
                 }
             }
-            catch (StoreValidationException ex) when (ex.Code == "InvalidJson") { throw new StoreValidationException("InvalidInstallationRecord", "Installation metadata is corrupt; files were preserved.", ex); }
-            catch (SerializationException ex) { throw new StoreValidationException("InvalidInstallationRecord", "Installation metadata is corrupt; files were preserved.", ex); }
+            catch (StoreValidationException ex) when (ex.Code == "InvalidJson") { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedInstallation/Read", ex);  throw new StoreValidationException("InvalidInstallationRecord", "Installation metadata is corrupt; files were preserved.", ex); }
+            catch (SerializationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedInstallation/Read", ex);  throw new StoreValidationException("InvalidInstallationRecord", "Installation metadata is corrupt; files were preserved.", ex); }
         }
         private static void Write<T>(string path, T value, int limit)
         {
@@ -596,7 +596,7 @@ namespace Phinix.PluginStore
                 CheckLinks(path);
                 if (File.Exists(path)) File.Replace(tmp, path, null); else File.Move(tmp, path);
             }
-            finally { if (File.Exists(tmp)) File.Delete(tmp); }
+            finally { PluginStoreDiagnostics.Cleanup("ManagedInstallation/TemporaryCleanup",()=>{if(File.Exists(tmp))File.Delete(tmp);}); }
         }
         private static bool SamePath(string a, string b) => string.Equals(a, b, ClientPathOwnership.Comparison);
         private static bool IsTransaction(string value) => value != null && System.Text.RegularExpressions.Regex.IsMatch(value, "\\A[a-f0-9]{32}\\z");
@@ -632,7 +632,7 @@ namespace Phinix.PluginStore
                     audit?.Event("install.preparation_cleaned");
                 }
             }
-            finally { lease?.Dispose(); lease = null; }
+            finally { PluginStoreDiagnostics.Cleanup("ManagedInstallation/LeaseCleanup",()=>lease?.Dispose()); lease=null; }
         }
     }
 }

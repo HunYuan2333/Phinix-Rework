@@ -54,8 +54,8 @@ namespace Phinix.TradeExtension.Client
         private static string DeliveryHash(TradeDeliveryBinding b)=>Hash(FrameworkSerialization.SerializePayload(new TradeDeliveryBinding {ReceiptFingerprint=b.ReceiptFingerprint,Request=b.Request}));
         private TradeDeliveryBinding ReadDelivery(string path,TradeCompletionReceipt r)
         {
-            Private(path,384);if(new FileInfo(path).Length>8192)throw new InvalidDataException("Delivery binding exceeds budget.");
-            var b=FrameworkSerialization.DeserializePayload<TradeDeliveryBinding>(File.ReadAllText(path,Encoding.UTF8));var q=b?.Request;
+            if(records.Read(path).Length>8192)throw new InvalidDataException("Delivery binding exceeds budget.");
+            var b=FrameworkSerialization.DeserializePayload<TradeDeliveryBinding>(records.Text(path));var q=b?.Request;
             ValidateDelivery(b,r);
             return b;
         }
@@ -76,14 +76,14 @@ namespace Phinix.TradeExtension.Client
                 string path=EvidencePath(r,request.Kind=="SavedInventory"?".checkpoint":".delivery");
                 if(request.Kind=="SavedInventory")
                 {var original=ReadDelivery(EvidencePath(r,".delivery"),r);if(original.Request.DeliveryId!=request.DeliveryId || SaveBinding(endpoint,recipient,r.TradeId,r.Completed,request.SaveIdentity)!="Current")throw new InvalidDataException("Checkpoint scope mismatch.");}
-                if(File.Exists(path)){if(FrameworkSerialization.SerializePayload(ReadDelivery(path,r))!=FrameworkSerialization.SerializePayload(b))throw new InvalidDataException("Delivery evidence conflicts.");return;}
+                if(records.Exists(path)){if(FrameworkSerialization.SerializePayload(ReadDelivery(path,r))!=FrameworkSerialization.SerializePayload(b))throw new InvalidDataException("Delivery evidence conflicts.");return;}
                 // Validate bytes with the same full receipt constraints before publication.
                 if(request.PayloadFingerprint!=TradeDeliveryProtocol.Fingerprint(request.DeliveryId,recipient,new FrameworkTradeCompletionEvent {TradeId=r.TradeId,OtherPartyUuid=r.OtherParty,Items=r.Items.ToList(),Cancelled=!r.Completed}))throw new InvalidDataException("Delivery fingerprint mismatch.");
                 PublishBytes(path,Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(b)));
             }
         }
         internal TradeDeliveryReceiptRequest DeliveryReceipt(TradeCompletionReceipt r)
-        {lock(gate){string path=EvidencePath(r,".checkpoint");if(!File.Exists(path))path=EvidencePath(r,".delivery");return File.Exists(path)?ReadDelivery(path,r).Request:null;}}
+        {lock(gate){string path=EvidencePath(r,".checkpoint");if(!records.Exists(path))path=EvidencePath(r,".delivery");return records.Exists(path)?ReadDelivery(path,r).Request:null;}}
         internal void RecordServerObservation(string endpoint,string principal,TradeDeliveryReceiptRequest request,TradeDeliveryReceiptResponse response)
         {
             lock(gate)
@@ -94,6 +94,7 @@ namespace Phinix.TradeExtension.Client
                 // Server status is displayed separately from the immutable local success/attempt evidence.
                 observations[r.Fingerprint]=state+response.State+(response.DeliveryStates==null?"":"; "+string.Join(", ",response.DeliveryStates));
                 System.Threading.Interlocked.Increment(ref revision);
+                if(response.Accepted&&response.State=="Confirmed")records.Archive(EvidencePath(r,".receipt"));
             }
         }
         private readonly Dictionary<string,string> observations=new Dictionary<string,string>(StringComparer.Ordinal);
@@ -111,12 +112,12 @@ namespace Phinix.TradeExtension.Client
             lock(gate)
             {
                 var r=FindReceipt(endpoint,recipient,trade,completed);var binding=ReadBinding(EvidencePath(r,".binding"),r);
-                if(File.Exists(EvidencePath(r,".attempt")))ReadAttempt(EvidencePath(r,".attempt"),r,"Inventory","Attempted");
+                if(records.Exists(EvidencePath(r,".attempt")))ReadAttempt(EvidencePath(r,".attempt"),r,"Inventory","Attempted");
                 if(!Guid.TryParseExact(journalIdentity,"N",out _)||deposit==null)throw new InvalidDataException("Durable inventory journal required.");
                 var p=new TradeInventoryPlan {ReceiptFingerprint=r.Fingerprint,SaveIdentity=binding.SaveIdentity,JournalIdentity=journalIdentity,DepositJson=FrameworkSerialization.SerializePayload(deposit)};p.Fingerprint=PlanHash(p);
                 ValidatePlan(p,r);
                 byte[] bytes=Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(p));if(bytes.Length>MaxRecord)throw new InvalidDataException("Inventory plan exceeds budget.");
-                string path=EvidencePath(r,".plan");if(File.Exists(path)){if(File.ReadAllText(path,Encoding.UTF8)!=Encoding.UTF8.GetString(bytes))throw new InvalidDataException("Inventory plan conflicts.");return;}
+                string path=EvidencePath(r,".plan");if(records.Exists(path)){if(records.Text(path)!=Encoding.UTF8.GetString(bytes))throw new InvalidDataException("Inventory plan conflicts.");return;}
                 PublishBytes(path,bytes);
             }
         }
@@ -134,16 +135,16 @@ namespace Phinix.TradeExtension.Client
         {
             lock(gate)
             {
-                string path=EvidencePath(r,".plan");if(!File.Exists(path))return null;Private(path,384);if(new FileInfo(path).Length>MaxRecord)throw new InvalidDataException("Inventory plan exceeds budget.");
-                var p=FrameworkSerialization.DeserializePayload<TradeInventoryPlan>(File.ReadAllText(path,Encoding.UTF8));
+                string path=EvidencePath(r,".plan");if(!records.Exists(path))return null;if(records.Read(path).Length>MaxRecord)throw new InvalidDataException("Inventory plan exceeds budget.");
+                var p=FrameworkSerialization.DeserializePayload<TradeInventoryPlan>(records.Text(path));
                 if(p?.Schema!=1||p.ReceiptFingerprint!=r.Fingerprint||p.Fingerprint!=PlanHash(p)||!Guid.TryParseExact(p.JournalIdentity,"N",out _)||
                     ReadBinding(EvidencePath(r,".binding"),r).SaveIdentity!=p.SaveIdentity)throw new InvalidDataException("Invalid frozen inventory plan.");
-                if(File.Exists(EvidencePath(r,".attempt")))ReadAttempt(EvidencePath(r,".attempt"),r,"Inventory","Attempted");ValidatePlan(p,r);return p;
+                if(records.Exists(EvidencePath(r,".attempt")))ReadAttempt(EvidencePath(r,".attempt"),r,"Inventory","Attempted");ValidatePlan(p,r);return p;
             }
         }
         private void ValidateDeliveryEvidence()
         {
-            foreach(var path in Directory.GetFiles(directory,"*.delivery").Concat(Directory.GetFiles(directory,"*.checkpoint")).Concat(Directory.GetFiles(directory,"*.plan")))
+            foreach(var path in records.Keys(".delivery").Concat(records.Keys(".checkpoint")).Concat(records.Keys(".plan")))
             {var r=Read(Path.ChangeExtension(path,".receipt"));if(path.EndsWith(".plan",StringComparison.Ordinal))InventoryPlan(r);else {var binding=ReadDelivery(path,r);if(path.EndsWith(".checkpoint",StringComparison.Ordinal))
                 {var original=ReadDelivery(EvidencePath(r,".delivery"),r);if(original.Request.DeliveryId!=binding.Request.DeliveryId||SaveBinding(r.Endpoint,r.Recipient,r.TradeId,r.Completed,binding.Request.SaveIdentity)!="Current")throw new InvalidDataException("Orphan checkpoint.");}}}
         }
@@ -198,7 +199,7 @@ namespace Phinix.TradeExtension.Client
                     pending.Add(id,new Pending {Session=p.SessionId,Endpoint=endpoint(),Principal=p.SenderUuid,Request=request});
                 }
                 if(!send(p))lock(gate)pending.Remove(id);}
-            catch(Exception error){log?.Invoke("Delivery receipt remains durable; transport="+error.GetType().Name);}
+            catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeDeliveryReceipts/Send", error); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeDeliveryReceipts/Send/LogObserver", () => { log?.Invoke("Delivery receipt remains durable; transport="+error.GetType().Name); });}
         }
     }
 }

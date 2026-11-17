@@ -211,6 +211,12 @@ internal static class Program
         structured.MentionedUuids.Add("remote");
         module.HandleOutgoingMessage(new FrameworkPacket { MessageType = Phinix.ChatExtension.FrameworkChatProtocol.MessageType, PayloadBytes = structured.ToByteArray() }, null);
         Assert(transport.Sent.Last().Message.Contains("quote") && transport.Sent.Last().Message.Contains("remote") && transport.Sent.Last().Message.Contains("reply text"), "Legacy projection preserves reply and mention context as explicit text.");
+        var sendFailure=new InvalidOperationException("Synthetic chat failure after dispatch");
+        transport.AfterSend=sendFailure;int sentBefore=transport.Sent.Count,echoBefore=sink.Messages.Count;Exception propagated=null;
+        try{module.HandleOutgoingText("send then fail",null);}catch(Exception error){propagated=error;}
+        Assert(ReferenceEquals(sendFailure,propagated) && propagated.StackTrace.Contains("ChatTransport.Send"),"Legacy Chat preserves the original send exception instance and transport frame.");
+        Assert(transport.Sent.Count==sentBefore+1 && sink.Messages.Count==echoBefore,"Possibly sent Legacy Chat is sent once and never produces a successful local echo.");
+        transport.AfterSend=null;
         lifecycle.Change(FrameworkCompatibilityMode.Unknown);
         Assert(transport.Handlers.ContainsKey("Chat") && transport.Handlers.ContainsKey("Trading"), "Reconnect keeps login handlers ready for the next login history.");
         transport.Receive(history);
@@ -288,7 +294,9 @@ internal static class Program
             if (FailUnregistration) throw new InvalidOperationException("Injected unregister failure after removal");
         }
         internal readonly List<Chat.ChatMessagePacket> Sent = new List<Chat.ChatMessagePacket>();
-        public void Send(string module, byte[] data) { Sent.Add(Google.Protobuf.WellKnownTypes.Any.Parser.ParseFrom(data).Unpack<Chat.ChatMessagePacket>()); }
+        internal Exception AfterSend;
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        public void Send(string module, byte[] data) { Sent.Add(Google.Protobuf.WellKnownTypes.Any.Parser.ParseFrom(data).Unpack<Chat.ChatMessagePacket>());if(AfterSend!=null)throw AfterSend; }
         internal void ReceiveTrade(IMessage packet) { Handlers["Trading"]("Trading", "server", ProtobufPacketHelper.Pack(packet).ToByteArray()); }
         internal void Receive(IMessage packet) { Handlers["Chat"]("Chat", "server", ProtobufPacketHelper.Pack(packet).ToByteArray()); }
     }

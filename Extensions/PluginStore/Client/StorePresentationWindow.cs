@@ -40,7 +40,7 @@ namespace Phinix.PluginStore
         {
             base.PreOpen();if(!Available) return;
             try {presentation=renderer.Open(owner,PageId);RebuildPresentation();}
-            catch {var failed=presentation;presentation=null;failed?.Dispose();throw;}
+            catch (System.Exception boundaryError174) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StorePresentationWindow/PreOpen", boundaryError174); var failed=presentation;presentation=null;global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("StorePresentationWindow/PreOpen/Cleanup", () => { failed?.Dispose(); });throw;}
         }
         public override void WindowUpdate()
         {
@@ -78,7 +78,7 @@ namespace Phinix.PluginStore
                 if(fixedHeaderSections>0) page=page.WithFixedHeaderSections(fixedHeaderSections);
                 presentation.Publish(page,actions,current);
             }
-            catch {dirty=true;actions.Dispose();throw;}
+            catch (System.Exception boundaryError175) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("StorePresentationWindow/Publish", boundaryError175); dirty=true;global::Phinix.PluginStore.PluginStoreDiagnostics.Cleanup("StorePresentationWindow/Publish/Cleanup", () => { actions.Dispose(); });throw;}
             language=nextLanguage;pointRevision=nextPoints;result=nextResult;
         }
     }

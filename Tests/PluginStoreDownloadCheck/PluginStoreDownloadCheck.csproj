@@ -11,6 +11,8 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs" Link="Production/IClientErrorService.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PluginStoreDiagnostics.cs" Link="Production/PluginStoreDiagnostics.cs" />
     <Compile Include="../../Dependencies/Phinix.Common/Common/Utils/Framework/Themes/*.cs" Link="Production/Themes/%(Filename)%(Extension)" />
     <!-- Link the actual client transport and validators; no game/host implementation. -->
     <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PackageVersion.cs" />

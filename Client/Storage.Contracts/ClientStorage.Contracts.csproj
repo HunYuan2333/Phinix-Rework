@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net472</TargetFramework><LangVersion>7.3</LangVersion><AssemblyName>ClientStorage.Contracts</AssemblyName></PropertyGroup>
+</Project>

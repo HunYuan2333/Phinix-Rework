@@ -44,10 +44,12 @@ namespace PhinixClient.Framework
                 PhinixExtensionRegistry.ActivateExtensions(Extensions, hostContext);
                 started = true;
             }
-            catch
+            catch (Exception error)
             {
+                ExtensionDiagnostics.Report(hostContext, "framework", "ClientRuntimeStartFailed", error);
                 starting = false;
-                Stop();
+                try { Stop(); }
+                catch (Exception cleanup) { ExtensionDiagnostics.Report(hostContext, "framework", "ClientRuntimeStartCleanupFailed", cleanup); }
                 throw;
             }
             finally

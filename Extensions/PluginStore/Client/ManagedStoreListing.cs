@@ -42,10 +42,17 @@ namespace Phinix.PluginStore
     {
         internal ManagedStoreEntryGroup(IEnumerable<ManagedStoreEntry> entries)
         {
-            Versions=StoreCollections.Freeze(entries.OrderByDescending(p=>VersionKey(p.Version)));
+            Versions=StoreCollections.Freeze(entries.OrderByDescending(VersionKey));
             Preferred=Versions.FirstOrDefault(p=>p.State=="active")??Versions.First();
         }
-        private static ManagedExtensionVersion VersionKey(string text) { try {return ManagedExtensionVersion.Parse(text);}catch {return ManagedExtensionVersion.Parse("0.0.0");} }
+        private static ManagedExtensionVersion VersionKey(ManagedStoreEntry entry)
+        {
+            // Workshop subscriptions have no Phinix package version. Their display
+            // placeholder is not malformed package metadata or an exceptional failure.
+            if (entry.IsWorkshop) return ManagedExtensionVersion.Parse("0.0.0");
+            try { return ManagedExtensionVersion.Parse(entry.Version); }
+            catch (System.Exception error) { PluginStoreDiagnostics.Report("ManagedStoreListing/VersionKey", error); return ManagedExtensionVersion.Parse("0.0.0"); }
+        }
         internal ReadOnlyCollection<ManagedStoreEntry> Versions { get; }
         internal ManagedStoreEntry Preferred { get; }
     }

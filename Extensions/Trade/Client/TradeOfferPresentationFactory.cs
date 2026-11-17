@@ -20,7 +20,7 @@ namespace Phinix.TradeExtension.Client
             Owner=owner;Renderer=renderer;Points=points;Theme=theme;scope=points.ForModule(owner);
             try {Point=scope.DefineActions<TradeOfferPresentationActionContext>(TradeOfferPresentationActionContext.PointId);
                 scope.ContributeActions<TradeOfferPresentationActionContext>(TradeOfferPresentationActionContext.PointId,c=>windows.TryGetValue(c.PageId,out var w)?w.PresentationActions():Array.Empty<ClientActionDefinition>());}
-            catch {scope.Dispose();throw;}
+            catch (System.Exception boundaryError215) { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeOfferPresentationFactory/TradeOfferPresentationFactory", boundaryError215); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeOfferPresentationFactory/TradeOfferPresentationFactory/Cleanup", () => { scope.Dispose(); });throw;}
         }
         internal void Add(string id,TradeWindow window)=>windows.Add(id,window);
         internal void Remove(string id)=>windows.Remove(id);

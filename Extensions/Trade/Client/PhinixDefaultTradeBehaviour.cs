@@ -66,6 +66,20 @@ namespace Phinix.TradeExtension.Client
             this.notifyDeliveryFailure=notifyDeliveryFailure??((key,reason)=>Messages.Message(key.Translate(reason),MessageTypeDefOf.RejectInput,false));
         }
 
+        private IClientTaskScope deliveryTasks;
+        private TradeRecoveryPump noticePump;
+        private string dispatchWarning;
+        internal void QueueDeliveryWarning(string reason)
+        {System.Threading.Interlocked.Exchange(ref dispatchWarning,reason);noticePump?.Request();}
+        internal void ConfigureDeliveryTasks(IClientTaskScope tasks)
+        {
+            if(started)throw new InvalidOperationException("Configure tasks before activation.");
+            deliveryTasks=tasks;
+            noticePump=new TradeRecoveryPump(tasks,()=>{
+                string message=System.Threading.Interlocked.Exchange(ref dispatchWarning,null);
+                if(started&&message!=null)notifyDeliveryFailure("Phinix_trade_deliveryDispatchFailed",message);
+            },message=>log?.Invoke(new LogEventArgs(message,LogLevel.WARNING)));
+        }
         private volatile bool started;
         private int generation;
 
@@ -74,6 +88,7 @@ namespace Phinix.TradeExtension.Client
             if (started) return;
             System.Threading.Interlocked.Increment(ref generation);
             started = true;
+            noticePump?.Start();
             tradeService.OnTradeCreationRequested += onTradeCreationRequested;
             tradeService.OnTradeCreationSuccess += onTradeCreationSuccess;
             tradeService.OnTradeCreationFailure += onTradeCreationFailure;
@@ -98,6 +113,7 @@ namespace Phinix.TradeExtension.Client
             TradeLifetimeCleanup.Try(() => tradeService.OnTradeUpdateFailure -= onTradeUpdateFailure, failures);
             TradeLifetimeCleanup.Try(() => inventoryReadApi.AvailabilityChanged -= onInventoryAvailabilityChanged, failures);
             TradeLifetimeCleanup.Try(() => settingsContext.OnSettingChanged -= onSettingChanged, failures);
+            noticePump?.Dispose();noticePump=null;deliveryTasks=null;
             pendingCompletions.Clear();
             lock (waitingLock) waitingForTradeCreationWith.Clear();
             TradeLifetimeCleanup.ThrowIfFailed(failures);
@@ -109,7 +125,14 @@ namespace Phinix.TradeExtension.Client
         {
             if (!started) return;
             int expected = generation;
-            dispatcher.Enqueue(() => { if (started && expected == generation) action(); });
+            Action work=() => { if (started && expected == generation) action(); };
+            if(deliveryTasks==null){dispatcher.Enqueue(work);return;}
+            var submitted=deliveryTasks.Submit(work).Capture();
+            if(submitted.State==ClientTaskState.Rejected||submitted.State==ClientTaskState.Canceled)
+            {
+                log?.Invoke(new LogEventArgs("[Trade] Main-thread action was not scheduled: "+submitted.Code,LogLevel.WARNING));
+                QueueDeliveryWarning(submitted.Code??"Unavailable");
+            }
         }
 
         private void onTradeCreationRequested(object sender, TradeCreationEventArgs args)
@@ -146,10 +169,10 @@ namespace Phinix.TradeExtension.Client
                 });
             }
             catch (Exception ex)
-            {
-                log?.Invoke(new LogEventArgs(
-                    $"[PhinixDefaultTradeBehaviour] onTradeCreationSuccess threw: {ex}",
-                    LogLevel.ERROR));
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixDefaultTradeBehaviour/onTradeCreationSuccess", ex);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/onTradeCreationSuccess/LogObserver", () => { log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeCreationSuccess threw: {ex.GetType().Name}",
+                    LogLevel.ERROR)); });
             }
         }
 
@@ -171,10 +194,10 @@ namespace Phinix.TradeExtension.Client
                         text: "Phinix_error_tradeCreationFailedMessage".Translate(args.FailureMessage, args.FailureReason.ToString()))));
             }
             catch (Exception ex)
-            {
-                log?.Invoke(new LogEventArgs(
-                    $"[PhinixDefaultTradeBehaviour] onTradeCreationFailure threw: {ex}",
-                    LogLevel.ERROR));
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixDefaultTradeBehaviour/onTradeCreationFailure", ex);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/onTradeCreationFailure/LogObserver", () => { log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeCreationFailure threw: {ex.GetType().Name}",
+                    LogLevel.ERROR)); });
             }
         }
 
@@ -217,10 +240,10 @@ namespace Phinix.TradeExtension.Client
                 });
             }
             catch (Exception ex)
-            {
-                log?.Invoke(new LogEventArgs(
-                    $"[PhinixDefaultTradeBehaviour] depositCompletion threw: {ex}",
-                    LogLevel.ERROR));
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixDefaultTradeBehaviour/depositCompletion", ex);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/depositCompletion/LogObserver", () => { log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] depositCompletion threw: {ex.GetType().Name}",
+                    LogLevel.ERROR)); });
             }
         }
 
@@ -311,6 +334,7 @@ namespace Phinix.TradeExtension.Client
 
                 pendingCompletions.Remove(key);
                 acknowledgeCompletion?.Invoke(pending.Args.TradeId, !pending.Completed);
+                completionJournal.CompleteLocally(pending.Endpoint,pending.Recipient,pending.Args.TradeId,pending.Completed);
                 // Empty direct completions have no map/pod target, just like empty inventory deposits.
                 if (!pending.Display || useInventory && inventoryResult.Status == InventoryDepositStatus.AlreadyCommitted ||
                     !useInventory && directResult.Map == null) return;
@@ -329,20 +353,20 @@ namespace Phinix.TradeExtension.Client
                     useInventory ? null : new LookTargets(directResult.DropSpot, directResult.Map));
             }
             catch (Exception ex)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixDefaultTradeBehaviour/tryDepositPending", ex);
                 if(pending.ReconciliationOnly)
                 {
                     // This immutable receive scope cannot become valid on a later save.
                     // Keep Received/Unbound evidence and report once, without repeated retries/stacks.
-                    log?.Invoke(new LogEventArgs("[Trade] Delivery retained for reconciliation: "+pending.HoldMessageKey+"; trade="+pending.Args.TradeId,LogLevel.WARNING));
-                    if(notifyFailure)notifyDeliveryFailure(pending.HoldMessageKey,string.Empty);
+                    global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/tryDepositPending/LogObserver", () => { log?.Invoke(new LogEventArgs("[Trade] Delivery retained for reconciliation: "+pending.HoldMessageKey+"; trade="+pending.Args.TradeId,LogLevel.WARNING)); });
+                    if(notifyFailure)global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/tryDepositPending/LogObserver", () => { notifyDeliveryFailure(pending.HoldMessageKey,string.Empty); });
                     return;
                 }
-                log?.Invoke(new LogEventArgs(
-                    $"[Trade] Delivery did not complete for '{pending.Args.TradeId}'; retained for reconciliation: {ex}",
-                    LogLevel.ERROR));
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/tryDepositPending/LogObserver", () => { log?.Invoke(new LogEventArgs(
+                    $"[Trade] Delivery did not complete for '{pending.Args.TradeId}'; retained for reconciliation: {ex.GetType().Name}",
+                    LogLevel.ERROR)); });
                 if (notifyFailure)
-                    notifyDeliveryFailure("Phinix_trade_inventoryDepositFailed",ex.Message);
+                    global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/tryDepositPending/LogObserver", () => { notifyDeliveryFailure("Phinix_trade_inventoryDepositFailed","Operation failed; see the error report."); });
             }
         }
 
@@ -392,10 +416,10 @@ namespace Phinix.TradeExtension.Client
                         text: "Phinix_error_tradeUpdateFailedMessage".Translate(displayName, args.FailureMessage, args.FailureReason.ToString()))));
             }
             catch (Exception ex)
-            {
-                log?.Invoke(new LogEventArgs(
-                    $"[PhinixDefaultTradeBehaviour] onTradeUpdateFailure threw: {ex}",
-                    LogLevel.ERROR));
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixDefaultTradeBehaviour/onTradeUpdateFailure", ex);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixDefaultTradeBehaviour/onTradeUpdateFailure/LogObserver", () => { log?.Invoke(new LogEventArgs(
+                    $"[PhinixDefaultTradeBehaviour] onTradeUpdateFailure threw: {ex.GetType().Name}",
+                    LogLevel.ERROR)); });
             }
         }
 

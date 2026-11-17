@@ -141,13 +141,13 @@ namespace Phinix.ChatExtension.Client
             {
                 if (!started || current != System.Threading.Volatile.Read(ref generation)) return;
                 try { Deliver(sender, args); }
-                catch (System.Exception ex) { Report("Chat message conversion failed: " + ex); }
+                catch (System.Exception ex) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("FrameworkClientChatServiceAdapter/onDisplayMessageReceived", ex);  Report("Chat message conversion failed: " + ex.GetType().Name); }
             });
         }
 
         private void Report(string message)
         {
-            try { log(message, Utils.LogLevel.WARNING); } catch { }
+            try { log(message, Utils.LogLevel.WARNING); } catch (System.Exception boundaryError5) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("FrameworkClientChatServiceAdapter/Report", boundaryError5);  }
         }
 
         private void Deliver(object sender, FrameworkDisplayMessageEventArgs args)
@@ -177,7 +177,7 @@ namespace Phinix.ChatExtension.Client
             {
                 if (!started) break;
                 try { handler(sender, messageArgs); }
-                catch (System.Exception ex) { Report("Chat message subscriber failed: " + ex); }
+                catch (System.Exception ex) { global::Phinix.ChatExtension.Client.ChatDiagnostics.Report("FrameworkClientChatServiceAdapter/Deliver", ex);  Report("Chat message subscriber failed: " + ex.GetType().Name); }
             }
         }
     }

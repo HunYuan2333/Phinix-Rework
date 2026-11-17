@@ -1,4 +1,5 @@
 using System;
+using Connections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,10 +19,13 @@ namespace PhinixClient
         private ManagedThemePackageStore store;
         private IReadOnlyList<InstalledThemePackage> packages=new InstalledThemePackage[0];
         private IReadOnlyList<string> diagnostics=new string[0];
-        internal ClientThemePackageService(UiTheme theme,string saveRoot,Action<string> log)
+        private readonly ClientConnectionDiagnostics faults;
+        internal ClientThemePackageService(UiTheme theme,string saveRoot,Action<string> log) : this(theme,saveRoot,log,null) { }
+        internal ClientThemePackageService(UiTheme theme,string saveRoot,Action<string> log,Action<string,Exception> report)
         {
+            faults=new ClientConnectionDiagnostics(report);
             this.theme=theme;this.saveRoot=saveRoot;this.log=log;
-            try { store=new ManagedThemePackageStore(saveRoot,theme.CompletePackageRemoval); Refresh(); }
+            try { store=new ManagedThemePackageStore(saveRoot,theme.CompletePackageRemoval,faults.Report); Refresh(); }
             catch(Exception error) { SetFailure(error); }
         }
         public IReadOnlyList<InstalledThemePackage> Packages => packages;
@@ -31,7 +35,7 @@ namespace PhinixClient
         {
             MainThread(); if(store==null) return;
             var inventory=store.Refresh(CancellationToken.None);packages=inventory.Packages;diagnostics=inventory.Diagnostics;
-            foreach(var diagnostic in diagnostics) log?.Invoke(diagnostic);
+            foreach(var diagnostic in diagnostics) WriteLog(diagnostic);
             theme.Refresh();
         }
         public ThemePackage Inspect(string absolutePath)
@@ -49,13 +53,13 @@ namespace PhinixClient
         {
             MainThread();RequireStore();
             try {store.Install(package,expectedInstalledArtifact,Client.CompatibilityVersion,CheckDllConflict,CancellationToken.None);}
-            catch
+            catch(Exception error)
             {
-                Refresh();
-                if(diagnostics.Count==0 && packages.Any(p=>p.ArtifactSha256==package.Sha256 && p.Manifest.PackageId==package.Manifest.PackageId)) return;
+                bool refreshed=RefreshAfterFailure(error,"ThemePackageInstallFailed");
+                if(refreshed && diagnostics.Count==0 && packages.Any(p=>p.ArtifactSha256==package.Sha256 && p.Manifest.PackageId==package.Manifest.PackageId)) return;
                 throw;
             }
-            Refresh();
+            RefreshCommitted();
         }
         private void CheckDllConflict(string id)
         {
@@ -67,13 +71,13 @@ namespace PhinixClient
         {
             MainThread();RequireStore();
             try {store.Remove(packageId,expectedInstalledArtifact,theme.CapturePackageRemovalIntent(packageId),CancellationToken.None);}
-            catch
+            catch(Exception error)
             {
-                Refresh();
-                if(diagnostics.Count==0 && !packages.Any(p=>p.Manifest.PackageId==packageId)) return;
+                bool refreshed=RefreshAfterFailure(error,"ThemePackageRemoveFailed");
+                if(refreshed && diagnostics.Count==0 && !packages.Any(p=>p.Manifest.PackageId==packageId)) return;
                 throw;
             }
-            Refresh();
+            RefreshCommitted();
         }
         internal IEnumerable<ThemeSource> Sources()
         {
@@ -85,8 +89,18 @@ namespace PhinixClient
                         Document=package.CopyDocument(variant.Path),Name=variant.Name,Author=package.Manifest.Author};
             }
         }
+        private bool RefreshAfterFailure(Exception primary,string operation)
+        {
+            faults.Report(operation,primary);
+            try {Refresh();return true;}
+            catch(Exception cleanup) {faults.Report("ThemePackageFailureRefreshFailed",cleanup);return false;}
+        }
+        private void RefreshCommitted()
+        {try {Refresh();}catch(Exception error){faults.Report("ThemePackageSavedRefreshFailed",error);throw;}}
+        private void WriteLog(string message)
+        {try {log?.Invoke(message);}catch(Exception error){faults.Report("ThemePackageLogObserverFailed",error);}}
         private void RequireStore() {if(store==null) throw new InvalidOperationException(string.Join("\n",diagnostics));}
-        private void SetFailure(Exception error) {diagnostics=Array.AsReadOnly(new[]{(error as ManagedExtensionValidationException)?.Code??"ThemeStoreUnavailable"});log?.Invoke(diagnostics[0]);}
+        private void SetFailure(Exception error) {faults.Report("ThemeStoreUnavailable",error);diagnostics=Array.AsReadOnly(new[]{(error as ManagedExtensionValidationException)?.Code??"ThemeStoreUnavailable"});WriteLog(diagnostics[0]);}
         public void Dispose() {store?.Dispose();store=null;packages=new InstalledThemePackage[0];}
     }
 }

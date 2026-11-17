@@ -43,6 +43,9 @@ internal static partial class Program
                 var loaded=new ClientEnvironmentSnapshot(baseline.Paths,baseline.HostModRoot,"1.6","0.9.7","1.5.0",baseline.InstalledMods,
                     baseline.LoadedAssemblies.Concat(new[]{new ClientLoadedAssemblySnapshot("Fixture.Managed.Plugin","1.2.3.4",mod)}),baseline.Modules,new string[0]);
                 StoreReject("CandidateAssemblyConflict",()=>new ManagedStorePlanner(catalog,loaded,inventory,endpoint).Plan(catalog.Packages.Single(),CancellationToken.None));
+                StoreValidationException preserved=null;
+                try{new ManagedStorePlanner(catalog,loaded,inventory,endpoint).Plan(catalog.Packages.Single(),CancellationToken.None);}catch(StoreValidationException error){preserved=error;}
+                Assert(preserved?.Code=="CandidateAssemblyConflict" && preserved.StackTrace.Contains("ManagedStorePlanner.Search"),"Managed dependency backtracking preserves original caught validation frames");
                 var incomplete=new ClientEnvironmentSnapshot(baseline.Paths,baseline.HostModRoot,"1.6","0.9.7","1.5.0",baseline.InstalledMods,baseline.LoadedAssemblies,baseline.Modules,new[]{"AssemblyIdentityUnavailable"});
                 StoreReject("IncompleteEnvironment",()=>new ManagedStorePlanner(catalog,incomplete,inventory,endpoint).Plan(catalog.Packages.Single(),CancellationToken.None));
                 using(var controller=new ManagedStoreController(runtime,runtime))

@@ -3,7 +3,7 @@
     <!-- Tab labels -->
     <Phinix_tabs_chat>Chat</Phinix_tabs_chat>
     <Phinix_tabs_trades>Trades</Phinix_tabs_trades>
-    <Phinix_extensions_management>Extension management</Phinix_extensions_management>
+    <Phinix_extensions_management>Plugin management</Phinix_extensions_management>
     <Phinix_tabs_extensions>Extensions</Phinix_tabs_extensions>
 
     <!-- Settings -->
@@ -64,7 +64,7 @@
     <Phinix_extensions_state_disabled>Disabled</Phinix_extensions_state_disabled>
     <Phinix_extensions_state_dependencyDisabled>Disabled (dependency)</Phinix_extensions_state_dependencyDisabled>
     <Phinix_extensions_state_unknown>Unknown</Phinix_extensions_state_unknown>
-    <Phinix_extensions_warningsPresent>{0} extension(s) have warnings. Open Extension management.</Phinix_extensions_warningsPresent>
+    <Phinix_extensions_warningsPresent>{0} plugin(s) have warnings. Open Plugin management.</Phinix_extensions_warningsPresent>
     <Phinix_extensions_summaryActiveTotal>{0} active / {1} total</Phinix_extensions_summaryActiveTotal>
     <Phinix_extensions_summaryDisabled>{0} disabled</Phinix_extensions_summaryDisabled>
     <Phinix_extensions_summaryDepDisabled>{0} disabled by dependencies</Phinix_extensions_summaryDepDisabled>
@@ -83,44 +83,44 @@
     <Phinix_modSettings_extensionsSectionTitle>Extensions</Phinix_modSettings_extensionsSectionTitle>
     <Phinix_modSettings_extensionsRestartRequired>Changes take effect after restart</Phinix_modSettings_extensionsRestartRequired>
   <Phinix_managed_modulesTab>Modules</Phinix_managed_modulesTab>
-  <Phinix_managed_packagesTab>Managed packages</Phinix_managed_packagesTab>
+  <Phinix_managed_packagesTab>Plugin packages</Phinix_managed_packagesTab>
   <Phinix_managed_refresh>Refresh</Phinix_managed_refresh>
-  <Phinix_managed_empty>No managed packages. Managed store installation is coming in the next batch. Bundled extensions remain on the Modules page.</Phinix_managed_empty>
-  <Phinix_managed_confirmRemoval>Mark {0} for removal? After restarting the game, only verified package code is removed. Settings, plugin data and saves are retained. Current-session modules remain unchanged.</Phinix_managed_confirmRemoval>
-  <Phinix_managed_remove>Remove</Phinix_managed_remove>
-  <Phinix_managed_cancelRemoval>Cancel removal</Phinix_managed_cancelRemoval>
+  <Phinix_managed_empty>No installed plugin packages. Built-in features are managed under Modules.</Phinix_managed_empty>
+  <Phinix_managed_confirmRemoval>Uninstall {0}? Plugin files will be removed after restart. Settings and saves are kept.</Phinix_managed_confirmRemoval>
+  <Phinix_managed_remove>Uninstall</Phinix_managed_remove>
+  <Phinix_managed_cancelRemoval>Cancel uninstall</Phinix_managed_cancelRemoval>
   <Phinix_managed_enable>Enable</Phinix_managed_enable>
   <Phinix_managed_disable>Disable</Phinix_managed_disable>
   <Phinix_managed_moduleActions>Modules</Phinix_managed_moduleActions>
-  <Phinix_managed_loaded>Bytes loaded</Phinix_managed_loaded>
+  <Phinix_managed_loaded>Loaded</Phinix_managed_loaded>
   <Phinix_managed_unloaded>Not loaded</Phinix_managed_unloaded>
-  <Phinix_managed_state>This startup: {0}; package intent: {1}</Phinix_managed_state>
+  <Phinix_managed_state>Current: {0} · Next startup: {1}</Phinix_managed_state>
   <Phinix_managed_restartPending>Restart pending</Phinix_managed_restartPending>
-  <Phinix_managed_verified>Owned files verified.</Phinix_managed_verified>
-  <Phinix_managed_restartExplanation>Package loading and module activation are separate. Changes apply after restart; module switches are available through Modules.</Phinix_managed_restartExplanation>
+  <Phinix_managed_verified>Files verified</Phinix_managed_verified>
+  <Phinix_managed_restartExplanation>Enable, disable, and uninstall apply after restart. Use Modules to toggle individual features.</Phinix_managed_restartExplanation>
   <Phinix_managed_desired_Enabled>Enabled</Phinix_managed_desired_Enabled>
   <Phinix_managed_desired_Disabled>Disabled</Phinix_managed_desired_Disabled>
-  <Phinix_managed_desired_PendingRemoval>Pending removal</Phinix_managed_desired_PendingRemoval>
+  <Phinix_managed_desired_PendingRemoval>Pending uninstall</Phinix_managed_desired_PendingRemoval>
   <Phinix_managed_desired_Unknown>Unknown</Phinix_managed_desired_Unknown>
-  <Phinix_managed_working>Validating…</Phinix_managed_working>
-  <Phinix_managed_ready>Managed inventory ready.</Phinix_managed_ready>
-  <Phinix_managed_saved>Intent saved; effective after restart.</Phinix_managed_saved>
-  <Phinix_managed_savedRefreshFailed>Intent saved, but refresh failed. Refresh again.</Phinix_managed_savedRefreshFailed>
-  <Phinix_managed_dependents>Dependents prevent this operation.</Phinix_managed_dependents>
-  <Phinix_managed_stale>Package or intent changed. Refresh and retry.</Phinix_managed_stale>
-  <Phinix_managed_transaction>An unfinished transaction requires restart recovery or log inspection.</Phinix_managed_transaction>
-  <Phinix_managed_canceled>Operation canceled.</Phinix_managed_canceled>
-  <Phinix_managed_startupDisabled>Package was excluded at this startup.</Phinix_managed_startupDisabled>
-  <Phinix_managed_diagnostic>Diagnostic: {0}</Phinix_managed_diagnostic>
-  <Phinix_managed_allModulesDisabled>All package modules are disabled. Enable the required modules through Modules first.</Phinix_managed_allModulesDisabled>
-  <Phinix_managed_missingDependency>A required package or module is missing, disabled or unavailable.</Phinix_managed_missingDependency>
-  <Phinix_managed_incompatible>Incompatible with the current game or host version.</Phinix_managed_incompatible>
-  <Phinix_managed_writeUncertain>The write outcome is uncertain. Refresh to check desired state and inspect logs.</Phinix_managed_writeUncertain>
-  <Phinix_extensions_disabledSettingRecovery>Not loaded: this saved disable setting can be cleared here, including after uninstall. Enabling an installed module takes effect after restart.</Phinix_extensions_disabledSettingRecovery>
-  <Phinix_managed_moduleIntent>modules disabled: {0}/{1}</Phinix_managed_moduleIntent>
-  <Phinix_managed_commandFailed>Unable to save extension state: {0}. Refresh and retry.</Phinix_managed_commandFailed>
-  <Phinix_managed_moduleWriteFailed>Module settings could not be saved. Refresh to check state before retrying.</Phinix_managed_moduleWriteFailed>
-  <Phinix_managed_packageGate>The package is disabled, pending removal or unavailable. Check package management first; saved module choices are retained.</Phinix_managed_packageGate>
+  <Phinix_managed_working>Checking…</Phinix_managed_working>
+  <Phinix_managed_ready>Ready</Phinix_managed_ready>
+  <Phinix_managed_saved>Saved. Takes effect after restart.</Phinix_managed_saved>
+  <Phinix_managed_savedRefreshFailed>Saved, but failed to refresh the list. Please refresh manually.</Phinix_managed_savedRefreshFailed>
+  <Phinix_managed_dependents>Other plugins depend on this package.</Phinix_managed_dependents>
+  <Phinix_managed_stale>Package state changed. Refresh and try again.</Phinix_managed_stale>
+  <Phinix_managed_transaction>An unfinished install or uninstall is pending. Restart the game to complete it.</Phinix_managed_transaction>
+  <Phinix_managed_canceled>Canceled</Phinix_managed_canceled>
+  <Phinix_managed_startupDisabled>Not loaded at this startup</Phinix_managed_startupDisabled>
+  <Phinix_managed_diagnostic>Details: {0}</Phinix_managed_diagnostic>
+  <Phinix_managed_allModulesDisabled>All modules in this package are disabled. Enable them under Modules first.</Phinix_managed_allModulesDisabled>
+  <Phinix_managed_missingDependency>A required plugin or module is missing or disabled.</Phinix_managed_missingDependency>
+  <Phinix_managed_incompatible>Incompatible with your current game or Phinix version.</Phinix_managed_incompatible>
+  <Phinix_managed_writeUncertain>Could not confirm whether changes were saved. Refresh to check the current state.</Phinix_managed_writeUncertain>
+  <Phinix_extensions_disabledSettingRecovery>Not loaded. You can clear its saved disable setting here; enabling takes effect after restart.</Phinix_extensions_disabledSettingRecovery>
+  <Phinix_managed_moduleIntent>Disabled modules: {0}/{1}</Phinix_managed_moduleIntent>
+  <Phinix_managed_commandFailed>Could not save changes: {0}. Refresh and try again.</Phinix_managed_commandFailed>
+  <Phinix_managed_moduleWriteFailed>Could not save module settings. Refresh and try again.</Phinix_managed_moduleWriteFailed>
+  <Phinix_managed_packageGate>This package is disabled or pending uninstall. Enable it under Plugin packages first.</Phinix_managed_packageGate>
   <Phinix_managed_current_Unknown>Unknown</Phinix_managed_current_Unknown>
   <Phinix_managed_current_Inactive>Inactive</Phinix_managed_current_Inactive>
   <Phinix_managed_current_Active>Active</Phinix_managed_current_Active>
@@ -131,6 +131,6 @@
   <Phinix_managed_next_PartiallyDisabled>Partly disabled next start</Phinix_managed_next_PartiallyDisabled>
   <Phinix_managed_next_Disabled>Disabled next start</Phinix_managed_next_Disabled>
   <Phinix_managed_next_PendingRemoval>Remove next start</Phinix_managed_next_PendingRemoval>
-  <Phinix_managed_copySummary>Copy summary</Phinix_managed_copySummary>
-  <Phinix_managed_localDevelopment>Local development</Phinix_managed_localDevelopment>
+  <Phinix_managed_copySummary>Copy details</Phinix_managed_copySummary>
+  <Phinix_managed_localDevelopment>Local dev</Phinix_managed_localDevelopment>
 </LanguageData>

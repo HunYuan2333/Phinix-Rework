@@ -37,6 +37,7 @@ namespace Phinix.PluginStore
         }
         internal StoreFailureInfo Failure(string name,string stage,Exception error,string fallback="StoreOperationFailed")
         {
+            PluginStoreDiagnostics.Report("Repository/"+stage,error);
             var failure=StoreFailureInfo.FromException(error,fallback);
             var validation=error as StoreValidationException;
             var reference=validation?.ReferenceFailure??(error as Utils.Framework.ManagedExtensions.ManagedExtensionValidationException)?.ReferenceFailure;
@@ -75,7 +76,7 @@ namespace Phinix.PluginStore
                     sink(Encoding.UTF8.GetString(output.ToArray()));
                 }
             }
-            catch { /* Diagnostics cannot change download/cache authority or task outcome. */ }
+            catch (System.Exception boundaryError195) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("RepositoryDiagnostics/Event", boundaryError195);  /* Diagnostics cannot change download/cache authority or task outcome. */ }
         }
         private static long? Bound(long? value,long maximum) { return value>=0 && value<=maximum?value:null; }
         private static string LocalFile(string relative)

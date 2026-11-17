@@ -17,6 +17,8 @@ namespace Phinix.TradeExtension.Client
         private TradeDeliveryReceiptClient deliveryReceipts;
         internal void ConfigureDeliveryReceipts(TradeDeliveryReceiptClient receipts){deliveryReceipts=receipts;}
         private Func<string> completionEndpoint;
+        internal Action<string,bool> TerminalAcknowledgement;
+        internal Action<string> CompletionFailure;
         private IClientGameScopeService completionGameScopes;
         private IInventoryReceiveScopeApi completionReceiveScopes;
         internal void ConfigureReceiveScopes(IInventoryReceiveScopeApi scopes) { completionReceiveScopes=scopes; }
@@ -586,23 +588,46 @@ namespace Phinix.TradeExtension.Client
         {
             FrameworkItemPayload[] payloads = (items ?? Array.Empty<FrameworkItemPayload>()).ToArray();
             bool first=completionInbox==null || completionInbox.Record(endpoint, principal, tradeId, success, otherPartyUuid, payloads);
-            afterPersist?.Invoke();
             if (!first)
             {
+                if(completionInbox?.IsTerminal(endpoint,principal,tradeId,success)==true)
+                    TerminalAcknowledgement?.Invoke(tradeId,!success);
+                else afterPersist?.Invoke();
                 log?.Invoke(new LogEventArgs("[Trade] Completion already recorded; retained for reconciliation, no automatic redelivery.", LogLevel.WARNING));
                 return;
             }
-            TradeItemSnapshot[] snapshots = DecodeTradeItems(payloads);
+            afterPersist?.Invoke();
+            TradeItemSnapshot[] snapshots;
+            try{snapshots = DecodeTradeItems(payloads);}
+            catch(Exception error)
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixFrameworkTradeClientService/CompleteCaptured", error);
+                CompletionFailure?.Invoke(error.GetType().Name);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixFrameworkTradeClientService/CompleteCaptured/LogObserver", () => { log?.Invoke(new LogEventArgs("[Trade] Completion payload retained without delivery: "+error.GetType().Name,LogLevel.ERROR)); });
+                return;
+            }
             if (string.IsNullOrEmpty(tradeId)) return;
 
             bool hadTrade = repository.TryGet(tradeId, out _);
             repository.Remove(tradeId);
-            if (hadTrade) RepositoryChanged?.Invoke(this, EventArgs.Empty);
+            if (hadTrade) RaiseSafely(RepositoryChanged, EventArgs.Empty);
 
             TradeCompletionEventArgs args = new ScopedTradeCompletionEventArgs(
                 tradeId, success, otherPartyUuid ?? string.Empty, snapshots, payloads, gameScope,saveScope);
-            if (success) OnTradeCompleted?.Invoke(this, args);
-            else OnTradeCancelled?.Invoke(this, args);
+            if (success) RaiseSafely(OnTradeCompleted, args);
+            else RaiseSafely(OnTradeCancelled, args);
+        }
+
+        private void RaiseSafely<T>(EventHandler<T> handlers,T args) where T:EventArgs
+        {
+            if(handlers==null)return;
+            foreach(EventHandler<T> handler in handlers.GetInvocationList())
+                try{handler(this,args);}catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixFrameworkTradeClientService/RaiseSafely", error); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixFrameworkTradeClientService/RaiseSafely/LogObserver", () => { log?.Invoke(new LogEventArgs("[Trade] Event subscriber failed: "+error.GetType().Name,LogLevel.ERROR)); });}
+        }
+        private void RaiseSafely(EventHandler handlers,EventArgs args)
+        {
+            if(handlers==null)return;
+            foreach(EventHandler handler in handlers.GetInvocationList())
+                try{handler(this,args);}catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("PhinixFrameworkTradeClientService/RaiseSafely", error); global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("PhinixFrameworkTradeClientService/RaiseSafely/LogObserver", () => { log?.Invoke(new LogEventArgs("[Trade] Event subscriber failed: "+error.GetType().Name,LogLevel.ERROR)); });}
         }
 
         private bool HasLocalDeltaParticipants(FrameworkTradeStateSnapshot snapshot)

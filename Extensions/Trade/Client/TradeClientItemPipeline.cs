@@ -122,7 +122,7 @@ namespace Phinix.TradeExtension.Client
                     ?? throw new InvalidOperationException($"Item codec '{codec.CodecId}' returned no payload.");
             }
             catch (Exception exception)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeClientItemPipeline/encodeTradeItem", exception);
                 throw new InvalidOperationException($"The entire trade update was rejected because item encoding failed (codec '{codec?.CodecId ?? "unresolved"}').", exception);
             }
         }
@@ -145,12 +145,12 @@ namespace Phinix.TradeExtension.Client
                 return codec.Decode(payload, codecContext) as Thing ?? buildUnknownItem(payload.CodecId);
             }
             catch (Exception exception)
-            {
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeClientItemPipeline/decodePayloadOrUnknown", exception);
                 if (string.Equals(payload?.CodecId, StatefulTradeItemProtocol.ScribeCodecId, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidOperationException("Stateful trade item decoding failed; delivery was rejected to prevent item-state loss.", exception);
                 }
-                codecContext.Log?.Invoke($"Failed to decode item payload with codec '{codec.CodecId}': {exception.Message}", LogLevel.WARNING);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("TradeClientItemPipeline/decodePayloadOrUnknown/LogObserver", () => { codecContext.Log?.Invoke($"Failed to decode item payload with codec '{codec.CodecId}': {"Operation failed; see the error report."}", LogLevel.WARNING); });
                 return buildUnknownItem(payload?.CodecId ?? codec.CodecId);
             }
         }

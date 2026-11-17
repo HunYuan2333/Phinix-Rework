@@ -6,7 +6,7 @@
   <Phinix_inventory_entryCount>{0} groups</Phinix_inventory_entryCount>
   <Phinix_inventory_groupTitle>{0} · {1} available</Phinix_inventory_groupTitle>
   <Phinix_inventory_groupSummary>{0} records · states kept separately</Phinix_inventory_groupSummary>
-  <Phinix_inventory_groupHint>Expand to withdraw individual records or set a daily plan. Durability, rot and special states remain separate; locked quantities are excluded from the available total.</Phinix_inventory_groupHint>
+  <Phinix_inventory_groupHint>Expand to extract individually or set a daily plan. Locked items are excluded.</Phinix_inventory_groupHint>
   <Phinix_inventory_expand>Show stacks</Phinix_inventory_expand>
   <Phinix_inventory_collapse>Collapse</Phinix_inventory_collapse>
   <Phinix_inventory_wholeStack>Extract whole stacks: {0} items each</Phinix_inventory_wholeStack>
@@ -14,7 +14,7 @@
   <Phinix_inventory_scheduleStackQuantity>Stacks per day ({0} items each)</Phinix_inventory_scheduleStackQuantity>
   <Phinix_inventory_entryId>Inventory record: {0}</Phinix_inventory_entryId>
   <Phinix_inventory_balance>× {0}</Phinix_inventory_balance>
-  <Phinix_inventory_transferPending>{0} sends are awaiting confirmation. Their items remain locked.</Phinix_inventory_transferPending>
+  <Phinix_inventory_transferPending>{0} outgoing transfer(s) pending; affected items are locked.</Phinix_inventory_transferPending>
   <Phinix_inventory_originUnavailable>Source details unavailable</Phinix_inventory_originUnavailable>
   <Phinix_inventory_empty>Your inventory is empty.\nChoose “Store in inventory” to keep incoming trade and red-packet items here.</Phinix_inventory_empty>
   <Phinix_inventory_extractStack>Extract</Phinix_inventory_extractStack>
@@ -31,8 +31,8 @@
   <Phinix_inventory_scheduleEditorTitle>Daily extraction for “{0}”</Phinix_inventory_scheduleEditorTitle>
   <Phinix_inventory_scheduleQuantity>Quantity per day</Phinix_inventory_scheduleQuantity>
   <Phinix_inventory_scheduleTime>Time of day (tick 0–59999)</Phinix_inventory_scheduleTime>
-  <Phinix_inventory_savePlan>Save schedule</Phinix_inventory_savePlan>
-  <Phinix_inventory_removePlan>Cancel schedule</Phinix_inventory_removePlan>
+  <Phinix_inventory_savePlan>Save plan</Phinix_inventory_savePlan>
+  <Phinix_inventory_removePlan>Remove plan</Phinix_inventory_removePlan>
   <Phinix_inventory_planSummary>{0} daily · tick {1}</Phinix_inventory_planSummary>
   <Phinix_inventory_planSaved>Daily extraction saved.</Phinix_inventory_planSaved>
   <Phinix_inventory_planRemoved>Daily extraction removed.</Phinix_inventory_planRemoved>
@@ -48,13 +48,13 @@
   <Phinix_inventory_pawnStored>Unit stored in Phinix inventory.</Phinix_inventory_pawnStored>
   <Phinix_inventory_pawnsStored>Units stored in Phinix inventory.</Phinix_inventory_pawnsStored>
   <Phinix_inventory_recoveryTitle>Inventory records need review</Phinix_inventory_recoveryTitle>
-  <Phinix_inventory_recoveryWarning>Local inventory records are newer than this save. Confirm that they belong to this game. Phinix will not merge them automatically, which prevents duplicate items.</Phinix_inventory_recoveryWarning>
+  <Phinix_inventory_recoveryWarning>Local inventory records are newer than this save. Confirm they belong to this game to avoid duplicates.</Phinix_inventory_recoveryWarning>
   <Phinix_inventory_recover>Restore inventory records</Phinix_inventory_recover>
   <Phinix_inventory_keepSave>Keep this save</Phinix_inventory_keepSave>
   <Phinix_inventory_recoverFailed>Recovery failed; inventory remains read only.</Phinix_inventory_recoverFailed>
   <Phinix_inventory_operationFailed>The inventory change could not be saved.</Phinix_inventory_operationFailed>
   <Phinix_inventory_pendingTitle>Confirm the previous extraction</Phinix_inventory_pendingTitle>
-  <Phinix_inventory_pendingWarning>The previous extraction stopped before delivery could be confirmed. Check the map for its drop pod, then choose the matching result. Inventory remains locked until you confirm.</Phinix_inventory_pendingWarning>
+  <Phinix_inventory_pendingWarning>The previous extraction was interrupted. Check the map for delivered items; inventory stays locked until confirmed.</Phinix_inventory_pendingWarning>
   <Phinix_inventory_markDelivered>Items are on the map</Phinix_inventory_markDelivered>
   <Phinix_inventory_restoreBalance>No items were delivered</Phinix_inventory_restoreBalance>
   <Phinix_inventory_unavailableTitle>Inventory unavailable</Phinix_inventory_unavailableTitle>
@@ -70,16 +70,16 @@
   <Phinix_inventory_deliveryInventoryButton>Use item inventory</Phinix_inventory_deliveryInventoryButton>
   <Phinix_inventory_deliverySettingTitle>Receiving trade and red-packet items</Phinix_inventory_deliverySettingTitle>
   <Phinix_inventory_deliverySettingDesc>This global choice is shared across saves and takes effect immediately. Talent trading remains independent.</Phinix_inventory_deliverySettingDesc>
-  <Phinix_inventory_batchInvalid>Selection changed, invalid count, or another batch is running. Select again.</Phinix_inventory_batchInvalid>
-  <Phinix_inventory_batchStopped>Remaining extraction stopped. Delivered items are kept.</Phinix_inventory_batchStopped>
+  <Phinix_inventory_batchInvalid>Selection changed or another batch is running. Select again.</Phinix_inventory_batchInvalid>
+  <Phinix_inventory_batchStopped>Stopped remaining extraction (delivered items are kept).</Phinix_inventory_batchStopped>
   <Phinix_inventory_batchChanged>Save, delivery map or inventory changed. Remaining extraction stopped.</Phinix_inventory_batchChanged>
   <Phinix_inventory_batchTitle>Extract this group</Phinix_inventory_batchTitle>
   <Phinix_inventory_batchRecords>Records per batch (all available units from each record)</Phinix_inventory_batchRecords>
   <Phinix_inventory_batchSome>Extract batch</Phinix_inventory_batchSome>
   <Phinix_inventory_batchAll>Extract whole group</Phinix_inventory_batchAll>
   <Phinix_inventory_batchSelection>{0} available records in this group; individual states are preserved.</Phinix_inventory_batchSelection>
-  <Phinix_inventory_batchConfirm>Extract all available items from {0} records, one legal stack per frame. Closing the view does not stop it. Failure stops remaining work; delivered items stay delivered and untouched records stay in inventory.</Phinix_inventory_batchConfirm>
-  <Phinix_inventory_batchPerformance>Large batches can cause stalls during restoration, delivery and journal writes, and may take time. Complex modded items can also be slow per stack. Consider a smaller batch first.</Phinix_inventory_batchPerformance>
+  <Phinix_inventory_batchConfirm>Extract all available items from {0} records (one stack per frame; continues if closed).</Phinix_inventory_batchConfirm>
+  <Phinix_inventory_batchPerformance>Large batches may cause brief stalls. Consider extracting in smaller batches.</Phinix_inventory_batchPerformance>
   <Phinix_inventory_batchProgressTitle>Batch extraction status</Phinix_inventory_batchProgressTitle>
   <Phinix_inventory_batchProgress>Completed records {0}/{1} · {2} inventory units delivered</Phinix_inventory_batchProgress>
   <Phinix_inventory_batchRunning>Delivering one stack per frame. You may close the view or stop remaining work.</Phinix_inventory_batchRunning>
@@ -88,20 +88,20 @@
   <Phinix_inventory_searchPlaceholder>Search items or sources</Phinix_inventory_searchPlaceholder>
   <Phinix_inventory_searchNoMatches>No matching items.</Phinix_inventory_searchNoMatches>
   <Phinix_inventory_searchSelectionHidden>The item being edited is outside these search results.</Phinix_inventory_searchSelectionHidden>
-  <Phinix_inventory_searchGroupCleared>Search changed. The group selection was cleared; select a group again for batch extraction.</Phinix_inventory_searchGroupCleared>
+  <Phinix_inventory_searchGroupCleared>Search changed. Please reselect the group.</Phinix_inventory_searchGroupCleared>
   <Phinix_inventory_page>Page {0} / {1}</Phinix_inventory_page>
   <Phinix_inventory_previousPage>Previous</Phinix_inventory_previousPage>
   <Phinix_inventory_nextPage>Next</Phinix_inventory_nextPage>
   <Phinix_inventory_inlineQuantity>Quantity</Phinix_inventory_inlineQuantity>
   <Phinix_inventory_inlineWholeUnits>Whole units ({0} items each)</Phinix_inventory_inlineWholeUnits>
   <Phinix_inventory_inlineSelected>Details open</Phinix_inventory_inlineSelected>
-  <Phinix_inventory_inlineReview>Delivery needed reconciliation. Check the delivered amount, then edit the remaining quantity before extracting again.</Phinix_inventory_inlineReview>
+  <Phinix_inventory_inlineReview>Previous extraction needs confirmation. Check delivered items before extracting again.</Phinix_inventory_inlineReview>
   <Phinix_inventory_inlineQuantityInvalid>Enter a quantity from 1 to {0}.</Phinix_inventory_inlineQuantityInvalid>
-  <Phinix_inventory_inlinePartial>Confirmed delivered: {0} of {1} items. Only the undelivered quantity remains in the field. {2}</Phinix_inventory_inlinePartial>
+  <Phinix_inventory_inlinePartial>Extracted {0} of {1} items; remaining quantity kept in the field. {2}</Phinix_inventory_inlinePartial>
   <Phinix_inventory_inlineFailed>Extraction stopped</Phinix_inventory_inlineFailed>
   <Phinix_inventory_inlineSucceeded>Extracted</Phinix_inventory_inlineSucceeded>
-  <Phinix_inventory_inlineUnitChanged>The extraction unit changed. Review the unit size, then edit the quantity before extracting.</Phinix_inventory_inlineUnitChanged>
-  <Phinix_inventory_inlineUncertainPartial>Confirmed delivered: {0} of {1} items. The rest needs reconciliation; no automatic retry. {2}</Phinix_inventory_inlineUncertainPartial>
+  <Phinix_inventory_inlineUnitChanged>Stack unit changed. Please re-enter the quantity.</Phinix_inventory_inlineUnitChanged>
+  <Phinix_inventory_inlineUncertainPartial>Confirmed {0} of {1} items; check the map for the rest. {2}</Phinix_inventory_inlineUncertainPartial>
   <Phinix_inventory_inlineUnavailable>No quantity is currently available to extract.</Phinix_inventory_inlineUnavailable>
   <Phinix_inventory_managePlans>Daily plans ({0})</Phinix_inventory_managePlans>
   <Phinix_inventory_plansTitle>Daily extraction plans</Phinix_inventory_plansTitle>
@@ -112,19 +112,31 @@
   <Phinix_inventory_plansDetails>Source details</Phinix_inventory_plansDetails>
   <Phinix_inventory_plansHideDetails>Hide details</Phinix_inventory_plansHideDetails>
   <Phinix_inventory_plansRemoveConfirm>Remove this daily plan? Items already extracted will not be changed.</Phinix_inventory_plansRemoveConfirm>
-  <Phinix_inventory_plansBlocked>Inventory reconciliation or batch extraction is in progress. Plans are temporarily read only.</Phinix_inventory_plansBlocked>
+  <Phinix_inventory_plansBlocked>Inventory is busy or locked. Plans cannot be edited right now.</Phinix_inventory_plansBlocked>
   <Phinix_inventory_planMissingItem>The inventory record is no longer available.</Phinix_inventory_planMissingItem>
   <Phinix_inventory_planRemaining>{0} items still due in this run</Phinix_inventory_planRemaining>
-  <Phinix_inventory_planCodecMissing>The plugin for this item is not active. Enable its source plugin and restart the game.</Phinix_inventory_planCodecMissing>
-  <Phinix_inventory_planCodecVersion>The source plugin cannot read this inventory record version. Use a compatible plugin version.</Phinix_inventory_planCodecVersion>
-  <Phinix_inventory_planItemUnreadable>The source plugin could not read this item. Keep the save and report this error with the game log.</Phinix_inventory_planItemUnreadable>
-  <Phinix_inventory_planSaveFailed>The plan could not be saved. Keep this window open and check the inventory status.</Phinix_inventory_planSaveFailed>
+  <Phinix_inventory_planCodecMissing>Missing plugin for this item. Enable the source plugin and restart.</Phinix_inventory_planCodecMissing>
+  <Phinix_inventory_planCodecVersion>Incompatible plugin version for this item.</Phinix_inventory_planCodecVersion>
+  <Phinix_inventory_planItemUnreadable>Could not read item data. Keep the save and report with your game log.</Phinix_inventory_planItemUnreadable>
+  <Phinix_inventory_planSaveFailed>Could not save plan. Please try again.</Phinix_inventory_planSaveFailed>
   <Phinix_inventory_keepReadOnly>Keep read-only</Phinix_inventory_keepReadOnly>
-  <Phinix_inventory_readOnlyKept>Inventory remains read-only. No files or items were changed.</Phinix_inventory_readOnlyKept>
+  <Phinix_inventory_readOnlyKept>Kept read-only.</Phinix_inventory_readOnlyKept>
   <Phinix_inventory_discardHistory>Abandon recovery (unsafe)</Phinix_inventory_discardHistory>
   <Phinix_inventory_discardHistoryConfirm>I understand the risks; abandon recovery</Phinix_inventory_discardHistoryConfirm>
-  <Phinix_inventory_discardHistoryWarning>Use only the inventory stored in this save and abandon recovery of later local journal changes. This can cause item loss, duplication, or disagreement with server trade results. Completed trades will not be reversed. The journal and authority files will be backed up, but a backup does not guarantee recovery. No automatic refund or resend will occur. Choose Keep read-only if you do not accept these risks.</Phinix_inventory_discardHistoryWarning>
-  <Phinix_inventory_savedSnapshotRestored>Later journal recovery was abandoned. The saved inventory is now in use; original evidence was retained in a backup.</Phinix_inventory_savedSnapshotRestored>
-  <Phinix_inventory_saveProofRequired>Save identity and a readable matching save are required.</Phinix_inventory_saveProofRequired>
-  <Phinix_inventory_faultExplanation>The inventory journal could not be verified. Keeping it read-only is recommended. Abandon recovery (unsafe) uses the inventory stored in this save at your own risk.</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_discardHistoryWarning>Use only the inventory stored in this save and discard later local changes.\nThis may cause item loss, duplication, or mismatch with trade records. Choose Keep read-only if unsure.</Phinix_inventory_discardHistoryWarning>
+  <Phinix_inventory_savedSnapshotRestored>Restored saved inventory (previous records backed up).</Phinix_inventory_savedSnapshotRestored>
+  <Phinix_inventory_saveProofRequired>A matching readable save file is required.</Phinix_inventory_saveProofRequired>
+  <Phinix_inventory_faultExplanation>Inventory database is temporarily unavailable. Existing data is safe; try reopening.</Phinix_inventory_faultExplanation>
+  <Phinix_inventory_legacyImported>Legacy save inventory imported into shared inventory. Old data will be cleared on next save.</Phinix_inventory_legacyImported>
+  <Phinix_inventory_legacyBranchSkipped>This save was already migrated; continuing with shared inventory.</Phinix_inventory_legacyBranchSkipped>
+  <Phinix_inventory_legacyImportConflict>Legacy inventory conflicts with existing records and was skipped. Shared inventory remains active.</Phinix_inventory_legacyImportConflict>
+  <Phinix_inventory_interruptedAbandoned>Abandoned interrupted extraction; reserved quantity deducted (items may be lost).</Phinix_inventory_interruptedAbandoned>
+  <Phinix_inventory_abandonExtraction>Abandon this extraction (items may be lost)</Phinix_inventory_abandonExtraction>
+  <Phinix_inventory_abandonReservations>Abandon uncertain reservations</Phinix_inventory_abandonReservations>
+  <Phinix_inventory_abandonReservationsWarning>Abandoning deducts these reserved quantities and stops recovery (items may be lost). Continue?</Phinix_inventory_abandonReservationsWarning>
+  <Phinix_inventory_reservationsAbandoned>Abandoned pending reservations; quantities deducted (items may be lost).</Phinix_inventory_reservationsAbandoned>
+  <Phinix_inventory_retryDatabase>Retry opening inventory database</Phinix_inventory_retryDatabase>
+  <Phinix_inventory_databaseChanged>Shared inventory database changed; continuing with this computer's inventory.</Phinix_inventory_databaseChanged>
+  <Phinix_inventory_migrationTitle>Inventory upgraded</Phinix_inventory_migrationTitle>
+  <Phinix_inventory_migrationMessage>Your inventory has been upgraded to shared storage:\n\n1. All saves on this computer now share the same inventory.\n2. Loading or rolling back a save no longer reverts your inventory.</Phinix_inventory_migrationMessage>
 </LanguageData>

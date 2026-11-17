@@ -29,7 +29,7 @@ namespace Phinix.LegacyAdapter.Client
         private readonly Action<string, LogLevel> log;
         private void Report(string message, LogLevel level)
         {
-            try { log?.Invoke(message, level); } catch { /* Diagnostics cannot change dispatch. */ }
+            try { log?.Invoke(message, level); } catch (System.Exception boundaryError82) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyChatProtocolAdapter/Report", boundaryError82);  /* Diagnostics cannot change dispatch. */ }
         }
         private volatile bool handlersRegistered;
 
@@ -84,9 +84,9 @@ namespace Phinix.LegacyAdapter.Client
                 return true;
             }
             catch (Exception ex)
-            {
-                Report($"[LegacyAdapter] Failed to send legacy chat message: {ex.Message}", LogLevel.WARNING);
-                return false;
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyChatProtocolAdapter/SendChatMessage", ex);
+                Report($"[LegacyAdapter] Failed to send legacy chat message: {"Operation failed; see the error report."}", LogLevel.WARNING);
+                throw;
             }
         }
 
@@ -125,8 +125,8 @@ namespace Phinix.LegacyAdapter.Client
                 }
             }
             catch (Exception ex)
-            {
-                Report($"[LegacyAdapter] Error handling legacy chat packet: {ex.Message}", LogLevel.WARNING);
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyChatProtocolAdapter/OnLegacyChatPacketReceived", ex);
+                Report($"[LegacyAdapter] Error handling legacy chat packet: {"Operation failed; see the error report."}", LogLevel.WARNING);
             }
         }
 
@@ -143,8 +143,8 @@ namespace Phinix.LegacyAdapter.Client
                 packet = parsedMessage.Unpack<T>();
             }
             catch (Exception ex)
-            {
-                Report($"[LegacyAdapter] Failed to unpack {typeof(T).Name}: {ex.Message}", LogLevel.WARNING);
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyChatProtocolAdapter/SafeUnpackAndHandle", ex);
+                Report($"[LegacyAdapter] Failed to unpack {typeof(T).Name}: {"Operation failed; see the error report."}", LogLevel.WARNING);
                 return;
             }
 
@@ -155,8 +155,8 @@ namespace Phinix.LegacyAdapter.Client
                 handler(packet);
             }
             catch (Exception ex)
-            {
-                Report($"[LegacyAdapter] Error in {typeof(T).Name} handler: {ex.Message}", LogLevel.WARNING);
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyChatProtocolAdapter/SafeUnpackAndHandle", ex);
+                Report($"[LegacyAdapter] Error in {typeof(T).Name} handler: {"Operation failed; see the error report."}", LogLevel.WARNING);
             }
         }
 

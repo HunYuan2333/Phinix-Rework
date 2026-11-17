@@ -37,7 +37,7 @@ namespace Phinix.InventoryExtension.Client
                     new ClientActionDefinition("inventory", L("deliveryInventoryButton"), () => settings.Set(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.Inventory), context.Mode == InventoryDeliveryPreference.Inventory ? L("deliveryInventory") : null)
                 });
             }
-            catch { Dispose(); throw; }
+            catch (System.Exception boundaryError27) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventorySettingsPanel/Start", boundaryError27);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventorySettingsPanel/Start/Cleanup", () => { Dispose(); }); throw; }
         }
         private static string L(string key) => ("Phinix_inventory_" + key).Translate();
         private string CurrentMode => settings.Get(InventoryDeliveryPreference.SettingKey, InventoryDeliveryPreference.DirectDrop);
@@ -58,7 +58,7 @@ namespace Phinix.InventoryExtension.Client
                         L(InventoryDeliveryPreference.UsesInventory(nextMode) ? "deliveryInventory" : "deliveryDirect") + "\n\n" + L("deliveryDirectDesc") + "\n\n" + L("deliveryInventoryDesc") + "\n\n" + L("deliverySettingDesc"), bindings, nextResult != null && !nextResult.Completed ? new ClientPresentationStatus(L("operationFailed"), ClientPresentationTone.Error) : null)
                 }), actions, current);
             }
-            catch { actions.Dispose(); throw; }
+            catch (System.Exception boundaryError28) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventorySettingsPanel/Refresh", boundaryError28);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventorySettingsPanel/Refresh/Cleanup", () => { actions.Dispose(); }); throw; }
             mode = nextMode; language = nextLanguage; pointRevision = nextPoints; result = nextResult;
         }
         public float GetQuickSettingsHeight(float width) => 320;

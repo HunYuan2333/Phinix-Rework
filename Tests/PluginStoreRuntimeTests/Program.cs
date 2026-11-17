@@ -195,7 +195,8 @@ internal static partial class Program
     private static void Failures()
     {
         Dictionary<string, object> a = Package("a", "1.0.0", Dep("b", "1.0.0"));
-        Expect("MissingPackage", () => Plan(Read(a), "a"));
+        var missingDependency = Expect("MissingPackage", () => Plan(Read(a), "a"));
+        Assert(missingDependency.StackTrace.Contains("DependencyPlanner.Search"),"Dependency backtracking preserves the original caught candidate failure frames.");
         Dictionary<string, object> b = Package("b", "1.0.0", Dep("a", "1.0.0"));
         Expect("DependencyCycle", () => Plan(Read(a, b), "a"));
         b["dependencies"] = new object[0]; b["state"] = "withdrawn";
@@ -359,6 +360,16 @@ internal static partial class Program
             release.Set(); Task.WhenAll(first, second).GetAwaiter().GetResult();
             browser.ReadIndex(t => good, Source).GetAwaiter().GetResult();
             Assert(browser.Snapshot.State == StoreBrowserState.CatalogReady, "Finishing stale readers releases capacity for later requests.");
+        }
+        using (var browser = new StoreBrowserController())
+        {
+            for(int i=0;i<4;i++)
+                browser.ReadIndex(token=>
+                {
+                    token.Register(()=>{throw new InvalidOperationException("synthetic cancellation callback");});
+                    return good;
+                },Source).GetAwaiter().GetResult();
+            Assert(browser.Snapshot.State==StoreBrowserState.CatalogReady,"Throwing cancellation callbacks cannot leak worker slots or block subsequent reads.");
         }
         string temp = Path.Combine(Path.GetTempPath(), "PhinixOversizeIndex", Guid.NewGuid().ToString("N"), "index.json");
         Directory.CreateDirectory(Path.GetDirectoryName(temp));

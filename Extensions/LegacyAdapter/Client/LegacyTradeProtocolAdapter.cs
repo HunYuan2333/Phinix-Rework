@@ -64,7 +64,7 @@ namespace Phinix.LegacyAdapter.Client
             selectedMode = lifecycle?.CompatibilityMode ?? FrameworkCompatibilityMode.Legacy;
             this.log = (message, level) =>
             {
-                try { log?.Invoke(message, level); } catch { /* Diagnostics do not determine protocol results. */ }
+                try { log?.Invoke(message, level); } catch (System.Exception boundaryError87) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/LegacyTradeProtocolAdapter", boundaryError87);  /* Diagnostics do not determine protocol results. */ }
             };
         }
 
@@ -99,7 +99,7 @@ namespace Phinix.LegacyAdapter.Client
                             if (packet.Completion != null) packet.Completion();
                             else HandleSelectedPacket(TradingModuleName, string.Empty, packet.Bytes);
                         }
-                        catch (Exception error) { log?.Invoke("[LegacyAdapter] Deferred original packet failed: " + error, LogLevel.ERROR); }
+                        catch (Exception error) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/SelectMode", error);  global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("LegacyTradeProtocolAdapter/SelectMode/LogObserver", () => { log?.Invoke("[LegacyAdapter] Deferred original packet failed: " + error.GetType().Name, LogLevel.ERROR); }); }
                     }
             }
         }
@@ -189,10 +189,10 @@ namespace Phinix.LegacyAdapter.Client
                             SendUpdateItems(payload.TradeId, items, token);
                         }
                         catch (Exception ex)
-                        {
+                        { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/SendLegacyPacket", ex);
                             if (!(ex is TradeSendOutcomeUnknownException))
                             {
-                                resultApi.CompleteTradeUpdate(payload.TradeId, token, TradeFailureReason.InternalServerError, ex.Message);
+                                global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("LegacyTradeProtocolAdapter/SendLegacyPacket/LogObserver", () => { resultApi.CompleteTradeUpdate(payload.TradeId, token, TradeFailureReason.InternalServerError, "Operation failed; see the error report."); });
                             }
                             throw;
                         }
@@ -253,12 +253,12 @@ namespace Phinix.LegacyAdapter.Client
             {
                 legacyTransport.Send(TradingModuleName, packedBytes);
             }
-            catch (NotConnectedException)
-            {
+            catch (NotConnectedException boundaryError90)
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/SendUpdateItems", boundaryError90);
                 throw;
             }
             catch (Exception ex)
-            {
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/SendUpdateItems", ex);
                 throw new TradeSendOutcomeUnknownException(ex);
             }
         }
@@ -320,7 +320,7 @@ namespace Phinix.LegacyAdapter.Client
                         earlyPackets.Add(pending);
                         earlyBytes += data.Length;
                     }
-                    catch (Exception error) { log?.Invoke("[LegacyAdapter] Invalid early original packet: " + error, LogLevel.ERROR); }
+                    catch (Exception error) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/OnLegacyTradePacketReceived", error);  global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("LegacyTradeProtocolAdapter/OnLegacyTradePacketReceived/LogObserver", () => { log?.Invoke("[LegacyAdapter] Invalid early original packet: " + error.GetType().Name, LogLevel.ERROR); }); }
                     return;
                 }
                 HandleSelectedPacket(module, connectionId, data);
@@ -361,8 +361,8 @@ namespace Phinix.LegacyAdapter.Client
                 }
             }
             catch (Exception ex)
-            {
-                log?.Invoke($"[LegacyAdapter] Error handling legacy trade packet: {ex}", LogLevel.ERROR);
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/HandleSelectedPacket", ex);
+                global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("LegacyTradeProtocolAdapter/HandleSelectedPacket/LogObserver", () => { log?.Invoke($"[LegacyAdapter] Error handling legacy trade packet: {ex.GetType().Name}", LogLevel.ERROR); });
             }
         }
 
@@ -1056,10 +1056,10 @@ namespace Phinix.LegacyAdapter.Client
                 return ConvertVanillaItemDataToProtoThing(itemData);
             }
             catch (Exception ex)
-            {
-                log?.Invoke(
-                    $"[LegacyAdapter] ConvertFromFrameworkVanillaItemData: item[{index}] failed: {ex}",
-                    LogLevel.WARNING);
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/ConvertFromFrameworkVanillaItemData", ex);
+                global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("LegacyTradeProtocolAdapter/ConvertFromFrameworkVanillaItemData/LogObserver", () => { log?.Invoke(
+                    $"[LegacyAdapter] ConvertFromFrameworkVanillaItemData: item[{index}] failed: {ex.GetType().Name}",
+                    LogLevel.WARNING); });
                 return null;
             }
         }
@@ -1073,10 +1073,10 @@ namespace Phinix.LegacyAdapter.Client
                 return Trading.ProtoThing.Parser.ParseJson(payloadJson);
             }
             catch (Exception ex)
-            {
-                log?.Invoke(
-                    $"[LegacyAdapter] ConvertFromPayloadJson: item[{index}] ParseJson failed: {ex}",
-                    LogLevel.WARNING);
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("LegacyTradeProtocolAdapter/ConvertFromPayloadJson", ex);
+                global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("LegacyTradeProtocolAdapter/ConvertFromPayloadJson/LogObserver", () => { log?.Invoke(
+                    $"[LegacyAdapter] ConvertFromPayloadJson: item[{index}] ParseJson failed: {ex.GetType().Name}",
+                    LogLevel.WARNING); });
                 return null;
             }
         }

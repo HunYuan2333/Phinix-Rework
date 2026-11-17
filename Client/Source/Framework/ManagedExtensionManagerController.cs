@@ -1,4 +1,5 @@
 using System;
+using Connections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,12 +12,14 @@ namespace PhinixClient.Framework
     internal sealed class ManagedExtensionManagerController : IDisposable
     {
         private sealed class Outcome
-        { internal ManagedExtensionManagementSnapshot Snapshot; internal ManagedExtensionStateChangeResult Change; internal string Code; internal Exception Error; }
-        private readonly Action<Exception> internalError;
+        { internal ManagedExtensionManagementSnapshot Snapshot; internal ManagedExtensionStateChangeResult Change; internal string Code; }
+        private readonly ClientConnectionDiagnostics diagnostics;
         private Task<Outcome> task;
         private CancellationTokenSource cancellation;
         private bool disposed;
-        public ManagedExtensionManagerController(Action<Exception> internalError = null) { this.internalError=internalError; }
+        // The reporter is thread-safe: it runs at the worker boundary, including after Dispose.
+        public ManagedExtensionManagerController(Action<Exception> internalError = null)
+        { diagnostics=new ClientConnectionDiagnostics(internalError == null ? (Action<string,Exception>)null : (operation,error)=>internalError(error)); }
         public ManagedExtensionManagementSnapshot Snapshot { get; private set; }
         public bool InventoryKnown { get; private set; }
         public bool Busy => task!=null;
@@ -44,11 +47,11 @@ namespace PhinixClient.Framework
                     result.Snapshot=service.Refresh(captured,token);
                     result.Code=result.Change?.Code??"ManagedInventoryReady";
                 }
-                catch(OperationCanceledException) { result.Code=result.Change?.Succeeded==true?result.Change.Code:"ManagedOperationCanceled"; }
+                catch(OperationCanceledException) when(token.IsCancellationRequested) { result.Code=result.Change?.Succeeded==true?result.Change.Code:"ManagedOperationCanceled"; }
                 catch(Exception ex)
                 {
                     result.Code=result.Change?.Succeeded==true?"ManagedStateSavedRefreshFailed":"ManagedInventoryReadFailed";
-                    result.Error=ex;
+                    diagnostics.Report(result.Code,ex);
                 }
                 return result;
             });
@@ -60,13 +63,19 @@ namespace PhinixClient.Framework
             if(result.Snapshot!=null) Snapshot=result.Snapshot;
             InventoryKnown=result.Snapshot!=null;
             LastChange=result.Change; MessageCode=result.Code; Version++;
-            if(result.Error!=null) try { internalError?.Invoke(result.Error); } catch { }
             return true;
         }
         public void Dispose()
         {
-            if(disposed) return; disposed=true; cancellation?.Cancel(); cancellation?.Dispose(); cancellation=null;
+            if(disposed) return; disposed=true;
+            var owned=cancellation; cancellation=null;
             task=null; Snapshot=null; LastChange=null; InventoryKnown=false;
+            try { owned?.Cancel(); }
+            catch(Exception error) { diagnostics.Report("ManagedOperationCancelFailed",error); }
+            finally {
+                try { owned?.Dispose(); }
+                catch(Exception error) { diagnostics.Report("ManagedOperationCancellationCleanupFailed",error); }
+            }
         }
     }
 }

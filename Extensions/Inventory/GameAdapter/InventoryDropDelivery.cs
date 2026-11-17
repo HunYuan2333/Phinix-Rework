@@ -32,8 +32,8 @@ namespace Phinix.InventoryExtension
                 }
             }
             catch (Exception exception)
-            {
-                reason = "A safe drop-pod landing cell could not be resolved: " + exception.Message;
+            { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryDropDelivery/TryResolveTradeDropTarget", exception);
+                reason = "A safe drop-pod landing cell could not be resolved: " + "Operation failed; see the error report.";
                 return false;
             }
 
@@ -59,12 +59,12 @@ namespace Phinix.InventoryExtension
                 RimWorld.DropPodUtility.DropThingsNear(dropSpot, map, materialized, canRoofPunch: false);
             }
             catch (Exception exception)
-            {
+            { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryDropDelivery/DeliverThings", exception);
                 InventoryDeliveryResult custody = InspectCustody(materialized, map, dropSpot);
                 custody.Status = custody.Status == InventoryDeliveryStatus.Rejected
                     ? InventoryDeliveryStatus.Rejected
                     : InventoryDeliveryStatus.Uncertain;
-                custody.Reason = "Drop-pod delivery threw an exception: " + exception.Message;
+                custody.Reason = "Drop-pod delivery threw an exception: " + "Operation failed; see the error report.";
                 return custody;
             }
 
@@ -90,8 +90,8 @@ namespace Phinix.InventoryExtension
                     string.Join(" | ", entries));
             }
             catch (Exception exception)
-            {
-                Verse.Log.Warning("[Phinix][P5Drop] Could not inspect custody: " + exception.GetType().Name);
+            { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventoryDropDelivery/TraceP5Drop", exception);
+                global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventoryDropDelivery/TraceP5Drop/LogObserver", () => { Verse.Log.Warning("[Phinix][P5Drop] Could not inspect custody: " + exception.GetType().Name); });
             }
         }
 

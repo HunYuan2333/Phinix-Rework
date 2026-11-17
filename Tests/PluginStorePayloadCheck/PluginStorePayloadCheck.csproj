@@ -4,6 +4,8 @@
     <ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Client/ClientExtensionAbstractions/Framework/IClientErrorService.cs" Link="Production/IClientErrorService.cs" />
+    <Compile Include="../../Extensions/PluginStore/Client/PluginStoreDiagnostics.cs" Link="Production/PluginStoreDiagnostics.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageVersion.cs" Link="Production/PackageVersion.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/PackageModels.cs" Link="Production/PackageModels.cs" />
     <Compile Include="../../Extensions/PluginStore/Client/CatalogReader.cs" Link="Production/CatalogReader.cs" />

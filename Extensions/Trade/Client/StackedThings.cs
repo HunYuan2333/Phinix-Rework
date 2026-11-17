@@ -145,9 +145,9 @@ namespace Phinix.TradeExtension.Client
                     }
                 }
             }
-            catch
-            {
-                PoppedThing.RestoreAll(poppedThings, null, nameof(StackedThings));
+            catch (System.Exception boundaryError197)
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StackedThings/PopSelectedWithOrigins", boundaryError197);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("StackedThings/PopSelectedWithOrigins/Cleanup", () => { PoppedThing.RestoreAll(poppedThings, null, nameof(StackedThings)); });
                 throw;
             }
 
@@ -238,10 +238,10 @@ namespace Phinix.TradeExtension.Client
                                 }
                             }
                             catch (System.Exception exception)
-                            {
-                                log?.Invoke(
-                                    $"[StackedThings] Failed to compare stackability for thing '{item.ThingID}'; using an isolated stack.{System.Environment.NewLine}{exception}",
-                                    LogLevel.WARNING);
+                            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StackedThings/GroupThings", exception);
+                                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("StackedThings/GroupThings/LogObserver", () => { log?.Invoke(
+                                    $"[StackedThings] Failed to compare stackability for thing '{item.ThingID}'; using an isolated stack.{System.Environment.NewLine}{exception.GetType().Name}",
+                                    LogLevel.WARNING); });
                             }
                         }
 
@@ -257,10 +257,10 @@ namespace Phinix.TradeExtension.Client
                 }
             }
             catch (System.Exception exception)
-            {
-                log?.Invoke(
-                    $"[StackedThings] Item enumeration failed; returning the groups collected so far.{System.Environment.NewLine}{exception}",
-                    LogLevel.WARNING);
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("StackedThings/GroupThings", exception);
+                global::Phinix.TradeExtension.Client.TradeDiagnostics.Cleanup("StackedThings/GroupThings/LogObserver", () => { log?.Invoke(
+                    $"[StackedThings] Item enumeration failed; returning the groups collected so far.{System.Environment.NewLine}{exception.GetType().Name}",
+                    LogLevel.WARNING); });
             }
 
             return groupedItems.SelectMany(pair => pair.Value).ToList();

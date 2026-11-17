@@ -55,6 +55,8 @@ namespace Phinix.LegacyAdapter.Client
         public void Activate(ExtensionHostContext hostContext)
         {
             if (composition != null) return;
+            IClientErrorService moduleErrorService;
+            LegacyAdapterDiagnostics.Scope.Bind(hostContext.TryGetService(out moduleErrorService)?moduleErrorService.ForModule(this):null);
             try
             {
                 legacyTransport = hostContext.GetRequiredService<ILegacyModuleTransport>();
@@ -64,7 +66,7 @@ namespace Phinix.LegacyAdapter.Client
                 hostContext.TryGetService(out users);
                 log = (message, level) =>
                 {
-                    try { hostContext.Log?.Invoke(message, level); } catch { /* Diagnostic isolation. */ }
+                    try { hostContext.Log?.Invoke(message, level); } catch (System.Exception boundaryError73) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("BuiltInLegacyAdapterClientExtension/Activate", boundaryError73);  /* Diagnostic isolation. */ }
                 };
 
                 if (!hostContext.ApiRegistry.TryResolve<IFrameworkTradeClientApi>(out tradeApi))
@@ -95,21 +97,25 @@ namespace Phinix.LegacyAdapter.Client
                 session.Start();
             }
             catch (Exception error)
-            {
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("BuiltInLegacyAdapterClientExtension/Activate", error);
                 try { Shutdown(hostContext); }
-                catch (Exception cleanup) { throw new AggregateException(error, cleanup); }
+                catch (Exception cleanup) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("BuiltInLegacyAdapterClientExtension/Activate", cleanup);  throw new AggregateException(error, cleanup); }
                 throw;
             }
         }
 
         public void Shutdown(ExtensionHostContext hostContext)
         {
+            try {
+
             var owned = composition;
             composition = null;
             chatAdapter = null; tradeAdapter = null; session = null;
             legacyTransport = null; lifecycle = null; displaySink = null; sessionContext = null;
             tradeApi = null; tradeStateInput = null; log = null; users = null;
             owned?.Dispose();
+
+            } finally { LegacyAdapterDiagnostics.Scope.Unbind(); }
         }
 
         // ========== IClientMessageHandler (Chat) ==========
@@ -173,9 +179,9 @@ namespace Phinix.LegacyAdapter.Client
                 });
             }
             catch (Exception error)
-            {
+            { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("BuiltInLegacyAdapterClientExtension/SendMessage", error);
                 // Dispatch already succeeded; an observer failure must not invite another send.
-                try { log?.Invoke("[LegacyAdapter] Chat echo failed after dispatch: " + error, LogLevel.WARNING); } catch { }
+                try { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Cleanup("BuiltInLegacyAdapterClientExtension/SendMessage/LogObserver", () => { log?.Invoke("[LegacyAdapter] Chat echo failed after dispatch: " + error.GetType().Name, LogLevel.WARNING); }); } catch (System.Exception boundaryError77) { global::Phinix.LegacyAdapter.Client.LegacyAdapterDiagnostics.Report("BuiltInLegacyAdapterClientExtension/SendMessage", boundaryError77);  }
             }
         }
 

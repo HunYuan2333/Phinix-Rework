@@ -1,4 +1,5 @@
 using System;
+using Connections;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -33,8 +34,12 @@ namespace PhinixClient
         private IReadOnlyList<ClientThemeFloat> parameters = new ClientThemeFloat[0];
         private IReadOnlyList<string> diagnostics = new string[0];
         private string selected = "builtin.default";
+        private readonly ClientConnectionDiagnostics faults;
         public UiTheme(string settingsFile, string userDirectory, Func<IEnumerable<ThemeSource>> sources, Action<string> diagnostic, Action requireMainThread = null)
+            : this(settingsFile,userDirectory,sources,diagnostic,requireMainThread,null) { }
+        public UiTheme(string settingsFile, string userDirectory, Func<IEnumerable<ThemeSource>> sources, Action<string> diagnostic, Action requireMainThread, Action<string,Exception> fault)
         {
+            faults = new ClientConnectionDiagnostics(fault);
             this.requireMainThread = requireMainThread ?? (() => { });
             this.requireMainThread();
             this.settingsFile = settingsFile; this.userDirectory = userDirectory; this.sources = sources; this.diagnostic = diagnostic;
@@ -84,6 +89,8 @@ namespace PhinixClient
             }
             ReadSettings(); Refresh();
         }
+        private void WriteDiagnostic(string message)
+        { try { diagnostic?.Invoke(message); } catch(Exception error) { faults.Report("ThemeDiagnosticObserverFailed",error); } }
         public long Version => effective.Version;
         public ClientThemeSnapshot Capture() => effective;
         public event Action Changed;
@@ -150,7 +157,7 @@ namespace PhinixClient
             ThemeSource[] inputs;
             try { inputs = sources().Take(1024).ToArray(); }
             catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
-            { diagnostics = Array.AsReadOnly(new[] { "theme.discovery: " + error.Message }); diagnostic?.Invoke(diagnostics[0]); return; }
+            { faults.Report("ThemeDiscoveryFailed",error); diagnostics = Array.AsReadOnly(new[] { "ThemeDiscoveryFailed" }); WriteDiagnostic(diagnostics[0]); return; }
             var next = new Dictionary<string, ThemeDefinition>(StringComparer.Ordinal);
             next.Add("builtin.default", new ThemeDefinition { Info = new ClientThemeInfo("builtin.default", "Phinix_theme_default" , "Phinix Rework", "builtin") });
             var errors = new List<string>(); var imported = new ThemeDefinition { Info = new ClientThemeInfo("user.migrated", "Phinix_theme_migrated", "", "user") };
@@ -172,7 +179,7 @@ namespace PhinixClient
                     }
                 }
                 catch (Exception error) when (error is InvalidDataException || error is IOException || error is System.Xml.XmlException || error is UnauthorizedAccessException || error is ArgumentException)
-                { errors.Add(source.Id + ": " + error.Message); }
+                { faults.Report("ThemeInputRejected",error); errors.Add(source.Id + ": ThemeInputRejected"); }
             }
             if (!File.Exists(settingsFile) && hasPrevious && !next.ContainsKey("user/migrated.xml"))
             {
@@ -183,7 +190,7 @@ namespace PhinixClient
                     next[imported.Info.Id] = imported;
                     Persist(imported.Info.Id, profiles); selected = imported.Info.Id;
                 }
-                catch (Exception error) when (error is InvalidDataException || error is IOException || error is UnauthorizedAccessException || error is ArgumentException) { errors.Add("theme.migration: " + error.Message); }
+                catch (Exception error) when (error is InvalidDataException || error is IOException || error is UnauthorizedAccessException || error is ArgumentException) { faults.Report("ThemeMigrationFailed",error); errors.Add("ThemeMigrationFailed"); }
             }
             // Keep the active, previously verified theme when its replacement fails parsing.
             foreach (string id in new[] { "builtin.default", selected }.Distinct(StringComparer.Ordinal))
@@ -277,7 +284,7 @@ namespace PhinixClient
             editable = Array.AsReadOnly(definitions.Values.OrderBy(d => d.Owner, StringComparer.Ordinal).ThenBy(d => d.Key, StringComparer.Ordinal).ToArray());
             parameters = Array.AsReadOnly(floatDefinitions.Values.OrderBy(d => d.Owner, StringComparer.Ordinal).ThenBy(d => d.Key, StringComparer.Ordinal).ToArray());
             effective = next;
-            if (Changed != null) foreach (Action subscriber in Changed.GetInvocationList()) try { subscriber(); } catch (Exception e) { diagnostic?.Invoke("Theme observer failed: " + e.Message); }
+            if (Changed != null) foreach (Action subscriber in Changed.GetInvocationList()) try { subscriber(); } catch (Exception e) { faults.Report("ThemeObserverFailed",e); }
         }
         private void Rebuild() { Publish(ResolveSnapshot(definitions, floatDefinitions)); }
         public ClientThemeDraft Edit(string themeId)
@@ -349,7 +356,7 @@ namespace PhinixClient
                 foreach (var profile in input.Profiles) profiles.Add(profile.Key, profile.Value);
             }
             catch (Exception e) when (e is InvalidDataException || e is IOException || e is System.Xml.XmlException || e is FormatException || e is ArgumentException || e is OverflowException)
-            { diagnostic?.Invoke("Theme settings rejected: " + e.Message); }
+            { faults.Report("ThemeSettingsRejected",e); WriteDiagnostic("ThemeSettingsRejected"); }
         }
         public void Import(string path)
         {

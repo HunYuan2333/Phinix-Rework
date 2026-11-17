@@ -3,10 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using PhinixClient.Trade;
+using PhinixClient.Framework;
 
 namespace Phinix.TradeExtension.Client
 {
     internal enum TradeOfferSettlement { Done, Blocked, Uncertain }
+    // Only thrown while preparing/validating a request, before any transport side effect.
+    internal sealed class TradeRequestNotSentException : Exception
+    {
+        internal TradeRequestNotSentException(Exception cause) : base("Trade request preparation failed before dispatch.", cause) { }
+    }
     // Business callbacks own escrow, never the view. Exactly one operation per trade until resolved.
     internal sealed class TradeOfferOperations : ITradeOfferOperationApi, IDisposable
     {
@@ -31,8 +37,15 @@ namespace Phinix.TradeExtension.Client
         private int generation;
         private long revision;
         private Pending[] portLeases=Array.Empty<Pending>();
+        internal Action<string> Settled;
+        private readonly Action<string,Exception> report;
         internal TradeOfferOperations(IClientTradeService service,Action<Action> dispatch,Action<string> log,Func<bool> mainThread)
-        {this.service=service;this.dispatch=dispatch;this.log=log;this.mainThread=mainThread;}
+            :this(service,dispatch,log,mainThread,null) { }
+        internal TradeOfferOperations(IClientTradeService service,Action<Action> dispatch,Action<string> log,Func<bool> mainThread,Action<string,Exception> report)
+        {this.service=service;this.dispatch=dispatch;this.log=log;this.mainThread=mainThread;this.report=report;}
+        private void Report(string operation,Exception error)=>ClientErrorReporting.DeliverSensitive(report,operation,error);
+        private void WriteLog(string message)
+        {try{log?.Invoke(message);}catch(Exception error){Report("TradeOfferLogObserverFailed",error);}}
         internal void Start()
         {
             if(active)return;active=true;generation++;
@@ -65,10 +78,17 @@ namespace Phinix.TradeExtension.Client
             p.Attempted=true;p.State=TradeOfferOperationState.AwaitingResult;Touch();
             p.SendingThread=Thread.CurrentThread.ManagedThreadId;p.Sending=true;
             try {send(token);return true;}
+            catch(TradeRequestNotSentException error)
+            {
+                Report("TradeOfferPreparationAborted",error);
+                p.Accepted=false;p.AbortedBeforeSend=true;p.Message="TradeOfferPreparationAborted";
+                Settle(p);return false;
+            }
             catch(Exception error)
             {
-                if(pending.ContainsKey(token)&&!p.Accepted.HasValue)Unknown(p,"TradeOfferSendUncertain: "+error.Message);
-                else log?.Invoke("TradeOfferSendThrewAfterKnownResult: "+error.Message);
+                Report(p.Accepted.HasValue?"TradeOfferSendThrewAfterKnownResult":"TradeOfferSendUncertain",error);
+                if(pending.ContainsKey(token)&&!p.Accepted.HasValue)Unknown(p,"TradeOfferSendUncertain");
+                else WriteLog("TradeOfferSendThrewAfterKnownResult");
                 return false;
             }
             finally {p.Sending=false;}
@@ -88,7 +108,7 @@ namespace Phinix.TradeExtension.Client
             MainThread();if(!pending.TryGetValue(args.Token,out var p)||!p.Attempted||p.Accepted.HasValue||
                 !string.Equals(p.TradeId,args.Trade.TradeId,StringComparison.OrdinalIgnoreCase))return;
             bool accepted=args.FailureReason==TradeFailureReason.None;
-            if(accepted&&p.FinishedBeforeResult)return;
+            if(accepted&&p.Reset&&p.FinishedBeforeResult)return;
             if(accepted&&p.Reset&&args.Trade.ItemsOnOffer.Length!=0)
             {Unknown(p,"TradeResetResultNotEmpty");return;}
             // A matching known result may resolve a send exception; closure/timeouts never do.
@@ -109,8 +129,8 @@ namespace Phinix.TradeExtension.Client
         private void Unknown(Pending p,string message)
         {
             p.State=TradeOfferOperationState.Unknown;p.Message=message;Touch();
-            if(!p.MarkedUnknown){p.MarkedUnknown=true;try {p.MarkUnknown?.Invoke();}catch(Exception error){log?.Invoke("TradeOfferMarkUncertainFailed: "+error.Message);}}
-            log?.Invoke(message+"; trade="+p.TradeId+"; token="+p.Token);
+            if(!p.MarkedUnknown){p.MarkedUnknown=true;try {p.MarkUnknown?.Invoke();}catch(Exception error){Report("TradeOfferMarkUncertainFailed",error);WriteLog("TradeOfferMarkUncertainFailed");}}
+            WriteLog(message+"; trade="+p.TradeId+"; token="+p.Token);
         }
         private void Settle(Pending p)
         {
@@ -118,11 +138,11 @@ namespace Phinix.TradeExtension.Client
             try
             {
                 var outcome=p.Accepted==true?p.Commit():p.AbortedBeforeSend&&p.Abort!=null?p.Abort():p.Restore();
-                if(outcome==TradeOfferSettlement.Done){pending.Remove(p.Token);Touch();return;}
+                if(outcome==TradeOfferSettlement.Done){pending.Remove(p.Token);Touch();foreach(Action<string> observer in Settled?.GetInvocationList()??Array.Empty<Delegate>())try{observer(p.Token);}catch(Exception error){Report("TradeTerminalCleanupFailed",error);WriteLog("Trade terminal cleanup deferred");}return;}
                 if(outcome==TradeOfferSettlement.Uncertain){Unknown(p,"TradeOfferLocalSettlementUncertain"+ErrorSuffix(p));return;}
-                p.Message="TradeOfferLocalSettlementBlocked"+ErrorSuffix(p);log?.Invoke(p.Message+"; trade="+p.TradeId+"; token="+p.Token);
+                p.Message="TradeOfferLocalSettlementBlocked"+ErrorSuffix(p);WriteLog(p.Message+"; trade="+p.TradeId+"; token="+p.Token);
             }
-            catch(Exception error){Unknown(p,"TradeOfferLocalSettlementThrew: "+error.Message);}
+            catch(Exception error){Report("TradeOfferLocalSettlementThrew",error);Unknown(p,"TradeOfferLocalSettlementThrew");}
             finally {p.Settling=false;}
         }
         private static string ErrorSuffix(Pending p){string reason=p.Error?.Invoke();return string.IsNullOrEmpty(reason)?"":": "+reason;}

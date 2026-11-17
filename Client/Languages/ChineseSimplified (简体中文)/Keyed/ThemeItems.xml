@@ -108,7 +108,7 @@
   <Phinix_theme_desc_chat_imagePlaceholderBg>图片占位背景。</Phinix_theme_desc_chat_imagePlaceholderBg>
   <Phinix_theme_label_chat_imageFailedText>图片失败提示</Phinix_theme_label_chat_imageFailedText>
   <Phinix_theme_desc_chat_imageFailedText>图片失败提示。</Phinix_theme_desc_chat_imageFailedText>
-  <Phinix_theme_label_trade_ourOfferAccent>我方报价的重点颜色</Phinix_theme_label_trade_ourOfferAccent>
+  <Phinix_theme_label_trade_ourOfferAccent>己方报价的重点颜色</Phinix_theme_label_trade_ourOfferAccent>
   <Phinix_theme_desc_trade_ourOfferAccent>己方报价强调色。</Phinix_theme_desc_trade_ourOfferAccent>
   <Phinix_theme_label_trade_theirOfferAccent>对方报价的重点颜色</Phinix_theme_label_trade_theirOfferAccent>
   <Phinix_theme_desc_trade_theirOfferAccent>对方报价强调色。</Phinix_theme_desc_trade_theirOfferAccent>

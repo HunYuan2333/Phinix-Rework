@@ -69,7 +69,7 @@ namespace PhinixClient
             }
             catch (Exception ex)
             {
-                Client.Instance.Log(new LogEventArgs($"Failed to load settings XML: {ex.Message}", LogLevel.ERROR));
+                ClientHostDiagnostics.Report(ex,"LegacySettingsLoadFailed");
                 return null;
             }
 
@@ -184,7 +184,7 @@ namespace PhinixClient
                 }
                 catch (Exception e)
                 {
-                    Client.Instance.Log(new LogEventArgs($"Failed to deserialise ListSetting: {e.Message}", LogLevel.ERROR));
+                    ClientHostDiagnostics.Report(e,"LegacyListSettingParseFailed");
                     return false;
                 }
             }

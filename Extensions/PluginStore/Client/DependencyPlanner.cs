@@ -50,7 +50,8 @@ namespace Phinix.PluginStore
             SearchContext context = new SearchContext(cancellationToken);
             Dictionary<string, PackageRecord> selected = new Dictionary<string, PackageRecord>(StringComparer.Ordinal);
             StoreValidationException failure;
-            if (!Search(packageId, requested, selected, context, out failure)) throw failure;
+            if (!Search(packageId, requested, selected, context, out failure))
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure ?? Error("DependencyConflict","Dependency resolution failed.")).Throw();
             List<PackageRecord> ordered = DependencyOrder(packageId, selected, context);
             List<PlannedPackage> packages = new List<PlannedPackage>();
             foreach (PackageRecord package in ordered)
@@ -88,7 +89,7 @@ namespace Phinix.PluginStore
                     return true;
                 }
                 catch (StoreValidationException ex)
-                {
+                { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("DependencyPlanner/Search", ex);
                     if (ex.Code == "PlanLimit" || ex.Code == "ResolutionLimit") throw;
                     failure = ex;
                     return false;
@@ -96,7 +97,7 @@ namespace Phinix.PluginStore
             }
             List<PackageRecord> candidates;
             try { candidates = Candidates(next, requirements[next]); }
-            catch (StoreValidationException ex) { failure = ex; return false; }
+            catch (StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("DependencyPlanner/Search", ex);  failure = ex; return false; }
             failure = Conflict(next, requirements[next]);
             foreach (PackageRecord candidate in candidates)
             {
@@ -106,7 +107,7 @@ namespace Phinix.PluginStore
                 selected.Add(next, candidate);
                 bool solved;
                 try { solved = Search(rootId, rootRange, selected, context, out failure); }
-                catch { selected.Remove(next); throw; }
+                catch (System.Exception boundaryError100) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("DependencyPlanner/Search", boundaryError100);  selected.Remove(next); throw; }
                 if (solved) return true;
                 selected.Remove(next);
             }

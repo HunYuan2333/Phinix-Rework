@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Phinix_errorReport_title>Phinix Rework Error Report</Phinix_errorReport_title>
+  <Phinix_errorReport_message>An error occurred. Copy the details below to report it to the developer. Closing this window will not cancel or retry the operation.</Phinix_errorReport_message>
+  <Phinix_errorReport_copy>Copy error details</Phinix_errorReport_copy>
+  <Phinix_errorReport_close>Close</Phinix_errorReport_close>
+  <Phinix_errorReport_copied>Copied.</Phinix_errorReport_copied>
+  <Phinix_errorReport_copyFailed>Copy failed. Please try again.</Phinix_errorReport_copyFailed>
+  <Phinix_errorReport_source>Source:</Phinix_errorReport_source>
+  <Phinix_errorReport_number>Error ID:</Phinix_errorReport_number>
+  <Phinix_errorReport_occurrences>Occurrences:</Phinix_errorReport_occurrences>
+  <Phinix_errorReport_recent>Recent errors</Phinix_errorReport_recent>
+  <Phinix_errorReport_empty>No errors recorded in this session.</Phinix_errorReport_empty>
+  <Phinix_errorReport_previous>Previous</Phinix_errorReport_previous>
+  <Phinix_errorReport_next>Next</Phinix_errorReport_next>
+  <Phinix_theme_operationFailed>Operation failed; some changes may have been saved. See Recent errors for details.</Phinix_theme_operationFailed>
+  <Phinix_managed_stateSavedRefreshFailed>Settings saved, but failed to refresh the list. See Recent errors for details.</Phinix_managed_stateSavedRefreshFailed>
+  <Phinix_theme_exportSavedRefreshFailed>Theme package saved, but failed to refresh the window. See Recent errors for details.</Phinix_theme_exportSavedRefreshFailed>
+</LanguageData>

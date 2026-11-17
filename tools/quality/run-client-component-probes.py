@@ -14,7 +14,8 @@ p.add_argument('--assemblies', type=Path, required=True)
 p.add_argument('--game', type=Path, required=True)
 p.add_argument('--output', type=Path, required=True)
 p.add_argument('--harmony', type=Path, help='Explicit compile/runtime Harmony reference for constructor IL inspection')
-p.add_argument('--suite', choices=['legacy-adapter', 'trade-composition', 'trade-wire', 'inventory-runtime', 'inventory-composition', 'host-startup', 'inventory-checkpoint', 'recovery-queue'], required=True)
+p.add_argument('--suite', choices=['legacy-adapter', 'trade-composition', 'trade-wire', 'inventory-runtime', 'inventory-composition', 'host-startup', 'inventory-checkpoint', 'recovery-queue', 'legacy-trade', 'store-composition', 'store-usability', 'theme-composition', 'transport-lifetime', 'credential-lifetime', 'queue-completion', 'chat-regression'], required=True)
+
 a = p.parse_args()
 r = Path(__file__).resolve().parents[2]
 out, assemblies, game = a.output.resolve(), a.assemblies.resolve(), a.game.resolve()
@@ -29,6 +30,15 @@ suites = {
     'host-startup': ('HostStartupTests', 'Tests/HostStartupTests'),
     'trade-composition': ('TradeCompositionRuntimeTests', 'Tests/TradeCompositionRuntimeTests'),
     'trade-wire': ('TradeOfferWireTests', 'Tests/TradeOfferWireTests'),
+    'legacy-trade': ('LegacyTradeRuntimeTests', 'Tests/LegacyTradeRuntimeTests'),
+    'chat-regression': ('ChatRegressionTests', 'Tests/ChatRegressionTests'),
+    'queue-completion': ('QueueCompletionRuntimeTests', 'Tests/QueueCompletionRuntimeTests'),
+    'credential-lifetime': ('ClientCredentialLifetimeTests', 'Tests/ClientCredentialLifetimeTests'),
+    'transport-lifetime': ('ClientTransportLifetimeTests', 'Tests/ClientTransportLifetimeTests'),
+    'theme-composition': ('ThemePresentationCompositionRuntimeTests', 'Tests/ThemePresentationCompositionRuntimeTests'),
+    'store-composition': ('StoreCompositionRuntimeTests', 'Tests/StoreCompositionRuntimeTests'),
+    'store-usability': ('StoreUsabilityRuntimeTests', 'Tests/StoreUsabilityRuntimeTests'),
+
     'inventory-runtime': ('InventoryRuntimeTests', 'Tests/InventoryRuntimeTests'),
     'inventory-composition': ('InventoryCompositionRuntimeTests', 'Tests/InventoryCompositionRuntimeTests'),
 }
@@ -66,6 +76,9 @@ path = out / 'Probe.csproj'
 E.ElementTree(project).write(path, encoding='unicode')
 (out / 'NuGet.Config').write_text('<configuration><packageSources><clear /></packageSources></configuration>')
 commands = [['dotnet', 'build', str(path), '-c', 'Release', '-m:1', '-nr:false', '-p:BuildInParallel=false', '-p:NuGetAudit=false'], ['dotnet', str(out / 'bin/Release/net10.0' / (name + '.dll'))]]
+if a.suite == 'store-usability':
+    commands[1].extend([str(assemblies),str(r)])
+
 if a.suite == 'trade-wire':
     commands[1].append(str(out / 'wire-fixtures'))
 results = []

@@ -59,7 +59,7 @@ namespace Phinix.InventoryExtension.Client
                 file.Flush(true);
                 return new InventorySaveCheckpoint(file, state);
             }
-            catch { file.Dispose(); throw; }
+            catch (System.Exception boundaryError65) { global::Phinix.InventoryExtension.InventoryDiagnostics.Report("InventorySaveCheckpoint/Open", boundaryError65);  global::Phinix.InventoryExtension.InventoryDiagnostics.Cleanup("InventorySaveCheckpoint/Open/Cleanup", () => { file.Dispose(); }); throw; }
         }
         public void Dispose() { file.Dispose(); }
     }

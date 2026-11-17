@@ -140,7 +140,7 @@ namespace Authentication
                     if (credentialStore == null && !File.Exists(CredentialStorePath)) return false;
                     if (credentialStore == null) credentialStore = getCredentialStore();
                     return credentialStore.Credentials.ContainsKey(serverName);
-                } });
+                } }, diagnostics.Report);
         }
 #endif
 
@@ -153,8 +153,12 @@ namespace Authentication
         /// <param name="credentialStorePath">Path to the credential store file</param>
         public ClientAuthenticator(IClientTransport netClient, GetCredentialsDelegate getCredentialsDelegate, string credentialStorePath = "PhinixCredentials.bin")
             : this(netClient, getCredentialsDelegate, credentialStorePath, false) { }
+        private readonly ClientConnectionDiagnostics diagnostics;
         public ClientAuthenticator(IClientTransport netClient, GetCredentialsDelegate getCredentialsDelegate, string credentialStorePath, bool deferHistoricalCredentials)
+            : this(netClient, getCredentialsDelegate, credentialStorePath, deferHistoricalCredentials, null) { }
+        public ClientAuthenticator(IClientTransport netClient, GetCredentialsDelegate getCredentialsDelegate, string credentialStorePath, bool deferHistoricalCredentials, Action<string, Exception> report)
         {
+            diagnostics = new ClientConnectionDiagnostics(report);
             this.netClient = netClient;
             this.getCredentials = getCredentialsDelegate;
             this.CredentialStorePath = credentialStorePath;
@@ -166,17 +170,45 @@ namespace Authentication
                 Enabled = false,
                 AutoReset = false
             };
-            sessionExtendTimer.Elapsed += (sender, args) =>
+            sessionExtendTimer.Elapsed += (sender, args) => RenewSession();
+
+            try
             {
-                // Only attempt to extend the session if we have one
-                if (Authenticated) sendExtendSessionPacket(SessionId);
+                netClient.OnDisconnect += disconnectHandler;
+                netClient.RegisterPacketHandler(MODULE_NAME, packetHandler);
+            }
+            catch (Exception error)
+            {
+                diagnostics.Report("AuthenticationBindingFailed", error);
+                try { netClient.OnDisconnect -= disconnectHandler; }
+                catch (Exception cleanup) { diagnostics.Report("AuthenticationBindingUnsubscribeFailed", cleanup); }
+                try { sessionExtendTimer.Dispose(); }
+                catch (Exception cleanup) { diagnostics.Report("AuthenticationBindingTimerCleanupFailed", cleanup); }
+                throw;
+            }
+        }
 
-                // Stop the timer from firing again
-                sessionExtendTimer.Stop();
-            };
-
-            netClient.OnDisconnect += disconnectHandler;
-            netClient.RegisterPacketHandler(MODULE_NAME, packetHandler);
+        private void RenewSession()
+        {
+            try
+            {
+                if (!disposed && Authenticated) sendExtendSessionPacket(SessionId);
+            }
+            catch (ObjectDisposedException) when (disposed) { }
+            catch (Exception error)
+            {
+                diagnostics.Report("SessionRenewalFailed", error);
+                Authenticated = false;
+                SessionId = null;
+                try { netClient.Disconnect(); }
+                catch (Exception cleanup) { diagnostics.Report("SessionRenewalDisconnectFailed", cleanup); }
+            }
+            finally
+            {
+                try { if (!disposed) sessionExtendTimer.Stop(); }
+                catch (ObjectDisposedException) when (disposed) { }
+                catch (Exception cleanup) { diagnostics.Report("SessionRenewalTimerStopFailed", cleanup); }
+            }
         }
 
         /// <summary>
@@ -241,6 +273,12 @@ namespace Authentication
         /// <returns>New or existing credential store</returns>
         private CredentialStore getCredentialStore()
         {
+            try { return getCredentialStoreCore(); }
+            catch (Exception error) { diagnostics.Report("CredentialStoreLoadFailed", error); throw; }
+        }
+
+        private CredentialStore getCredentialStoreCore()
+        {
             // Prevent other threads from modifying the credential store while we're using it
             lock (credentialStoreLock)
             {
@@ -280,6 +318,12 @@ namespace Authentication
         /// </summary>
         /// <param name="credentialStore">Credential store to save</param>
         private void saveCredentialStore(CredentialStore credentialStore)
+        {
+            try { saveCredentialStoreCore(credentialStore); }
+            catch (Exception error) { diagnostics.Report("CredentialStoreWriteFailed", error); throw; }
+        }
+
+        private void saveCredentialStoreCore(CredentialStore credentialStore)
         {
             // Prevent other threads from modifying the credential store while we're using it
             lock (credentialStoreLock)

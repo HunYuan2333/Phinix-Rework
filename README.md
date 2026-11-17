@@ -86,8 +86,8 @@ Phinix Rework includes an in-game plugin store allowing players to extend featur
 2. **Installing Plugins**:
    - Select a plugin, click **Install** (`安装`).
    - **Restart RimWorld** for the game engine to load newly installed assemblies.
-3. **Managing Installed Extensions**:
-   - Open **Extension Manager** (`扩展管理`) to inspect installed plugins.
+3. **Managing Installed Plugins**:
+   - Open **Plugin management** (`插件管理`) to inspect installed plugins.
    - Toggle plugins **Enabled** or **Disabled**, or click **Uninstall** (`卸载`).
    - Status changes take effect upon the next full game restart.
 4. **Network Acceleration Switch**:
@@ -139,7 +139,7 @@ git submodule update --init --recursive
 
 ### Automated Tests
 
-Run the headless automated regression suites (note: automated tests verify runtime logic and do not replace in-game testing in RimWorld):
+Run the headless automated regression suites:
 
 ```bash
 # Core framework runtime regression
@@ -193,9 +193,7 @@ The **Phinix Rework plugin development skill** provides guided steps for beginne
 - [English skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-en/SKILL.md)
 - [简体中文 skill](skills/phinix-rework-plugin-development/phinix-rework-plugin-development-cn/SKILL.md)
 
-Choose one language and use that complete folder, including its `references/`, with an AI tool that supports skills. The outer `phinix-rework-plugin-development/` directory contains the two variants; it is not itself an installable skill.
-
-The skill is a development guide draft. Confirm the target host supports the APIs and local installation tools described; workspace changes, released builds and game acceptance are recorded separately. Existing publishing Actions and manual release/Index routes remain available. See the chosen skill's version notes before starting.
+Choose one language and load that folder (including its `references/`) into an AI tool that supports skills. The outer `phinix-rework-plugin-development/` directory holds both language variants and is not itself an installable skill.
 
 ### Documentation & References
 

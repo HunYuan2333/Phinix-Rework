@@ -35,8 +35,8 @@ internal static partial class Program
             {
                 runtime.Start(Facts(files),new string[0],new string[0],CancellationToken.None);
                 var wrapper=new BlockingManagementService{Inner=runtime}; var disabled=new List<string>();
-                int details=0, thread=Thread.CurrentThread.ManagedThreadId;
-                using(var controller=new ManagedExtensionManagerController(error=>{ Assert(Thread.CurrentThread.ManagedThreadId==thread,"Internal manager callbacks run during UI polling"); details++; }))
+                int details=0, callbackThread=0, thread=Thread.CurrentThread.ManagedThreadId;
+                using(var controller=new ManagedExtensionManagerController(error=>{callbackThread=Thread.CurrentThread.ManagedThreadId;Interlocked.Increment(ref details);}))
                 {
                     controller.Refresh(wrapper,disabled); Assert(wrapper.Entered.Wait(5000),"Background refresh entered service");
                     Assert(controller.Busy && controller.Snapshot==null,"Drawing can continue while filesystem work is blocked");
@@ -52,7 +52,7 @@ internal static partial class Program
                     expected=controller.Snapshot.Packages.Single().Package;
                     controller.Change(wrapper,expected,ManagedExtensionDesiredState.Disabled,new string[0]); WaitController(controller);
                     Assert(controller.LastChange.Succeeded && controller.MessageCode=="ManagedStateSavedRefreshFailed","Post-commit refresh failure is not reported as a failed write");
-                    Assert(ManagedExtensionInventoryReader.Read(paths,CancellationToken.None).Packages.Single().DesiredState==ManagedExtensionDesiredState.Disabled && details==1,"Saved intent persists and internal detail is delivered once");
+                    Assert(ManagedExtensionInventoryReader.Read(paths,CancellationToken.None).Packages.Single().DesiredState==ManagedExtensionDesiredState.Disabled && details==1 && callbackThread!=thread,"Saved intent persists and original detail is captured once at the actual worker boundary");
                     controller.Refresh(wrapper,new string[0]); WaitController(controller);
                     Assert(controller.MessageCode=="ManagedInventoryReadFailed" && controller.Snapshot!=null && !controller.MessageCode.Contains("private"),"Read failure retains valid view with safe public code");
                 }

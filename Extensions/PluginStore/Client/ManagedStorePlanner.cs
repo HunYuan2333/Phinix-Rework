@@ -48,7 +48,7 @@ namespace Phinix.PluginStore
             if(uncertain.Length!=0) throw new StoreValidationException("ManagedInventoryUncertain","Managed ownership records cannot be confirmed.") {ContextReasons=uncertain};
             if(root==null || !catalog.Packages.Contains(root) || root.IsWorkshop || root.State!="active") throw Error("PackageUnavailable");
             var selected=new Dictionary<string,ManagedStoreRecord>();
-            if(!Search(root,selected)) throw rejection??Error("ManagedDependencyConflict");
+            if(!Search(root,selected)) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(rejection??Error("ManagedDependencyConflict")).Throw();
             var ordered=new List<ManagedStoreRecord>(); var seen=new HashSet<string>(); var stack=new HashSet<string>();
             Visit(root.Id,selected,seen,stack,ordered);
             var items=ordered.Select(p=>new ManagedStorePlanItem(p,Local(p))).ToList();
@@ -68,11 +68,11 @@ namespace Phinix.PluginStore
             if(next==null)
             {
                 try { var ordered=new List<ManagedStoreRecord>(); Visit(root.Id,selected,new HashSet<string>(),new HashSet<string>(),ordered); CheckIdentities(ordered); return true; }
-                catch(StoreValidationException ex) { rejection=ex; return false; }
+                catch(StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStorePlanner/Search", ex);  rejection=ex; return false; }
             }
             foreach(var candidate in catalog.Packages.Where(p=>p.Id==next && !p.IsWorkshop && p.State=="active" && required[next].All(r=>r.Contains(p.Manifest.Version))).OrderByDescending(p=>p.Manifest.Version))
             {
-                try { Compatible(candidate); Local(candidate); } catch(StoreValidationException ex) { rejection=ex; continue; }
+                try { Compatible(candidate); Local(candidate); } catch(StoreValidationException ex) { global::Phinix.PluginStore.PluginStoreDiagnostics.Report("ManagedStorePlanner/Search", ex);  rejection=ex; continue; }
                 selected.Add(next,candidate); if(Search(root,selected)) return true; selected.Remove(next);
             }
             return false;

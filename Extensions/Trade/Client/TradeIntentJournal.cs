@@ -52,64 +52,23 @@ namespace Phinix.TradeExtension.Client
 
     // Private, append-only intent and attempt evidence. No transport, retry, refund,
     // session credential, game mutation or interpretation of a missing server result.
-    internal sealed partial class TradeIntentJournal
+    internal sealed partial class TradeIntentJournal : IDisposable
     {
-        private const int MaxRecord=2*1024*1024, MaxTotal=64*1024*1024, MaxRecords=1024;
+        private const int MaxRecord=64*1024*1024;
+        private readonly TradeSqliteRecords records;
         private readonly string directory;
         private readonly object gate=new object();
         private long revision;
         internal long Revision=>Interlocked.Read(ref revision);
         private readonly Dictionary<string,string> observations=new Dictionary<string,string>(StringComparer.Ordinal);
-        [DllImport("libc",SetLastError=true)] private static extern int chmod(string path,uint mode);
-        internal TradeIntentJournal(string directory)
+        internal TradeIntentJournal(string directory, PhinixClient.Storage.IClientDatabaseService storage = null, Action<string> warning = null) : this(directory,storage,warning,null) { }
+        internal TradeIntentJournal(string directory, PhinixClient.Storage.IClientDatabaseService storage, Action<string> warning, Action<string,Exception> report)
         {
-            this.directory=Path.GetFullPath(directory);CheckEvidencePath(this.directory);Directory.CreateDirectory(this.directory);Private(this.directory,448);
-            lock(gate)
-            {
-                ReadAll();ValidateReservationEvidence();
-                foreach(string path in Directory.GetFiles(this.directory,"*.attempt"))
-                {
-                    string intent=Path.ChangeExtension(path,".intent");
-                    if(!File.Exists(intent))throw new InvalidDataException("Orphan intent attempt.");
-                    ReadAttempt(ReadFile(intent));
-                }
-                foreach(string path in Directory.GetFiles(this.directory,"*.result"))
-                {
-                    string intent=Path.ChangeExtension(path,".intent");
-                    if(!File.Exists(intent))throw new InvalidDataException("Orphan intent result.");
-                    ReadResult(ReadFile(intent));
-                }
-                foreach(string path in Directory.GetFiles(this.directory,"*.query"))
-                {
-                    string intent=Path.ChangeExtension(path,".intent");
-                    if(!File.Exists(intent))throw new InvalidDataException("Orphan query evidence.");
-                    ReadQuery(ReadFile(intent));
-                }
-            }
+            this.directory=Path.GetFullPath(directory);
+            records=new TradeSqliteRecords(storage,this.directory,"intents",warning,report);
+            ReadAll();
         }
-        private static void CheckEvidencePath(string path)
-        {
-            // Inspect every lexical ancestor; never resolve a link into a trusted path.
-            string current=Path.GetFullPath(path);int depth=0;
-            while(current!=null)
-            {
-                try
-                {
-                    if((File.GetAttributes(current)&FileAttributes.ReparsePoint)!=0)
-                        throw new IOException("Trade evidence path contains an unsupported filesystem link.");
-                }
-                catch(FileNotFoundException) { }
-                catch(DirectoryNotFoundException) { }
-                current=Directory.GetParent(current)?.FullName;
-                if(++depth>256)throw new IOException("Trade evidence path cannot be verified.");
-            }
-        }
-        private static void Private(string path,uint mode)
-        {
-            CheckEvidencePath(path);
-            if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)throw new IOException("Intent journal links are unsupported.");
-            if(Path.DirectorySeparatorChar=='/'&&chmod(path,mode)!=0)throw new IOException("Cannot protect intent journal.");
-        }
+        public void Dispose()=>records.Dispose();
         private static void Id(string value,int max=128)
         {if(string.IsNullOrWhiteSpace(value)||value.Length>max||value.Any(char.IsControl))throw new InvalidDataException("Invalid intent identity.");}
         private static string Hash(string value)
@@ -168,64 +127,33 @@ namespace Phinix.TradeExtension.Client
         }
         private TradeIntentRecord ReadFile(string path)
         {
-            if(new FileInfo(path).Length>MaxRecord)throw new InvalidDataException("Intent record exceeds budget.");
-            Private(path,384);var record=FrameworkSerialization.DeserializePayload<TradeIntentRecord>(File.ReadAllText(path,Encoding.UTF8));Validate(record);
+            if(records.Read(path).Length>MaxRecord)throw new InvalidDataException("Intent record exceeds budget.");
+            var record=FrameworkSerialization.DeserializePayload<TradeIntentRecord>(records.Text(path));Validate(record);
             if(path!=PathFor(record))throw new InvalidDataException("Intent file identity differs.");return record;
         }
-        private TradeIntentRecord[] ReadAll()
+        private TradeIntentRecord[] ReadAll(string scope=null)
         {
-            CheckEvidencePath(directory);
-            var files=Directory.GetFiles(directory,"*.intent");
-            if(files.Length>MaxRecords||EvidenceBytes()>MaxTotal)throw new InvalidDataException("Intent journal exceeds budget.");
-            return files.OrderBy(f=>f,StringComparer.Ordinal).Select(ReadFile).ToArray();
-        }
-        private long EvidenceBytes()
-        {
-            CheckEvidencePath(directory);
-            long total=0;
-            // Include bindings, unknown files and interrupted staging files. None is
-            // discarded or promoted simply to admit another operation.
-            foreach(string path in Directory.GetFiles(directory))
-            {CheckEvidencePath(path);total=checked(total+new FileInfo(path).Length);}
-            return total;
-        }
-        private long MissingEvidenceBytes(TradeIntentRecord record)
-        {
-            string path=PathFor(record);long reserved=0;
-            if(!File.Exists(Path.ChangeExtension(path,".attempt")))reserved+=64;
-            if(!File.Exists(Path.ChangeExtension(path,".result")))reserved+=MaxRecord;
-            if(!File.Exists(Path.ChangeExtension(path,".query")))reserved+=8192;
-            if(record.RequestType==FrameworkTradeProtocol.OfferUpdateRequestType&&!File.Exists(Path.ChangeExtension(path,".reservation")))reserved+=MaxRecord;
-            return reserved;
-        }
-        private void RequireAdmissionCapacity(TradeIntentRecord[] previous,TradeIntentRecord record,int bytes)
-        {
-            // Admission only: an existing journal may predate headroom reservation.
-            // Always allow its original results to consume any actual free capacity.
-            long required=checked(EvidenceBytes()+bytes+MissingEvidenceBytes(record));
-            foreach(var existing in previous)required=checked(required+MissingEvidenceBytes(existing));
-            if(required>MaxTotal)throw new IOException("Intent journal has insufficient result evidence headroom.");
+            var result=new List<TradeIntentRecord>();
+            foreach(string path in records.Keys(".intent",scope))
+                try
+                {
+                    var record=ReadFile(path);
+                    if(records.Exists(Path.ChangeExtension(path,".attempt")))ReadAttempt(record);
+                    if(records.Exists(Path.ChangeExtension(path,".result")))ReadResult(record);
+                    if(records.Exists(Path.ChangeExtension(path,".query")))ReadQuery(record);
+                    if(records.Exists(Path.ChangeExtension(path,".reservation")))ReservationBinding(record);
+                    result.Add(record);
+                }
+                catch(Exception error){ global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeIntentJournal/ReadAll", error); records.Quarantine(path,error);}
+            return result.ToArray();
         }
         internal TradeIntentRecord[] Read(string endpoint,string principal)
         {
             Id(endpoint,512);Id(principal);
-            lock(gate)return ReadAll().Where(r=>string.Equals(r.Endpoint,endpoint,StringComparison.OrdinalIgnoreCase)&&string.Equals(r.Principal,principal,StringComparison.OrdinalIgnoreCase)).ToArray();
+            lock(gate)return ReadAll(TradeSqliteRecords.Scope(endpoint,principal)).Where(r=>string.Equals(r.Endpoint,endpoint,StringComparison.OrdinalIgnoreCase)&&string.Equals(r.Principal,principal,StringComparison.OrdinalIgnoreCase)).ToArray();
         }
         private void Publish(string path,byte[] bytes)
-        {
-            CheckEvidencePath(path);
-            if(EvidenceBytes()+bytes.Length>MaxTotal)throw new IOException("Intent evidence storage is full.");
-            string temporary=path+".tmp-"+Guid.NewGuid().ToString("N");
-            try
-            {
-                CheckEvidencePath(temporary);
-                using(var stream=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None))
-                {Private(temporary,384);stream.Write(bytes,0,bytes.Length);stream.Flush(true);}
-                CheckEvidencePath(temporary);CheckEvidencePath(path);File.Move(temporary,path);
-                Interlocked.Increment(ref revision);Changed?.Invoke();
-            }
-            finally{CheckEvidencePath(temporary);if(File.Exists(temporary))File.Delete(temporary);}
-        }
+        {records.Put(path,bytes);Interlocked.Increment(ref revision);}
         internal TradeIntentRecord Prepare(string endpoint,string principal,FrameworkPacket packet,IEnumerable<FrameworkPacket> items)
         {
             if(packet==null)throw new ArgumentNullException(nameof(packet));
@@ -238,29 +166,38 @@ namespace Phinix.TradeExtension.Client
                 record.Checksum=Checksum(record);Validate(record);byte[] bytes=Encoding.UTF8.GetBytes(Json(record));
                 if(bytes.Length>MaxRecord)throw new IOException("Intent record exceeds budget.");
                 string path=PathFor(record);
-                if(File.Exists(path))
+                if(records.WasTerminal(path,bytes))throw new InvalidOperationException("This operation is already completed; it will not be sent again.");
+                if(records.Exists(path))
                 {var existing=ReadFile(path);if(existing.Checksum!=record.Checksum)throw new InvalidDataException("Operation ID has conflicting durable intent.");return existing;}
-                var previous=ReadAll();if(previous.Length>=MaxRecords)throw new IOException("Intent journal is full.");
+                var previous=ReadAll(TradeSqliteRecords.Scope(endpoint,principal));
                 if(previous.Any(r=>string.Equals(r.Endpoint,endpoint,StringComparison.OrdinalIgnoreCase)&&string.Equals(r.Principal,principal,StringComparison.OrdinalIgnoreCase)&&r.CorrelationId==record.CorrelationId))
                     throw new InvalidDataException("Correlation already belongs to a durable operation; query its original result.");
-                RequireAdmissionCapacity(previous,record,bytes.Length);
                 Publish(path,bytes);return ReadFile(path);
             }
         }
         private TradeIntentRecord Resolve(TradeIntentRecord record)
         {var persisted=ReadFile(PathFor(record));if(persisted.Checksum!=record.Checksum)throw new InvalidDataException("Intent differs from committed record.");return persisted;}
+
+        internal bool IsSettled(TradeIntentRecord record)
+        {lock(gate)return records.IsTerminal(PathFor(record));}
+
+        internal void MarkSettled(string endpoint,string principal,string token)
+        {
+            if(endpoint==null||principal==null)return;
+            lock(gate)foreach(var record in Read(endpoint,principal).Where(item=>item.CorrelationId==token))records.Archive(PathFor(record));
+        }
         private void ReadAttempt(TradeIntentRecord record)
         {
             string path=Path.ChangeExtension(PathFor(record),".attempt");
-            if(new FileInfo(path).Length!=64)throw new InvalidDataException("Invalid intent attempt.");
-            Private(path,384);if(File.ReadAllText(path)!=Hash("intent-attempt-v1\n"+record.Checksum))throw new InvalidDataException("Intent attempt differs.");
+            if(records.Read(path).Length!=64)throw new InvalidDataException("Invalid intent attempt.");
+            if(records.Text(path)!=Hash("intent-attempt-v1\n"+record.Checksum))throw new InvalidDataException("Intent attempt differs.");
         }
         internal void BeginAttempt(TradeIntentRecord record)
         {
             lock(gate)
             {
                 record=Resolve(record);string path=Path.ChangeExtension(PathFor(record),".attempt");
-                if(File.Exists(path)){ReadAttempt(record);throw new InvalidOperationException("Intent already attempted; query its original result.");}
+                if(records.Exists(path)){ReadAttempt(record);throw new InvalidOperationException("Intent already attempted; query its original result.");}
                 Publish(path,Encoding.ASCII.GetBytes(Hash("intent-attempt-v1\n"+record.Checksum)));
             }
         }
@@ -269,10 +206,10 @@ namespace Phinix.TradeExtension.Client
             lock(gate)
             {
                 record=Resolve(record);
-                if(File.Exists(Path.ChangeExtension(PathFor(record),".query")))return ReadQuery(record).Success==true?"CommittedSuccess":"CommittedFailure";
-                if(File.Exists(Path.ChangeExtension(PathFor(record),".result")))return ReadResult(record).Success?"ResponseSuccess":"ResponseFailure";
+                if(records.Exists(Path.ChangeExtension(PathFor(record),".query")))return ReadQuery(record).Success==true?"CommittedSuccess":"CommittedFailure";
+                if(records.Exists(Path.ChangeExtension(PathFor(record),".result")))return ReadResult(record).Success?"ResponseSuccess":"ResponseFailure";
                 if(observations.TryGetValue(record.Checksum,out string observed))return observed=="NotFound"?"NotFoundObserved":observed;
-                if(!File.Exists(Path.ChangeExtension(PathFor(record),".attempt")))return "Prepared";ReadAttempt(record);return "OutcomeUnknown";
+                if(!records.Exists(Path.ChangeExtension(PathFor(record),".attempt")))return "Prepared";ReadAttempt(record);return "OutcomeUnknown";
             }
         }
 
@@ -312,8 +249,7 @@ namespace Phinix.TradeExtension.Client
         private TradeIntentResult ReadResult(TradeIntentRecord record)
         {
             ReadAttempt(record);string path=Path.ChangeExtension(PathFor(record),".result");
-            if(new FileInfo(path).Length>MaxRecord)throw new InvalidDataException("Intent result exceeds budget.");Private(path,384);
-            var stored=FrameworkSerialization.DeserializePayload<TradeIntentResult>(File.ReadAllText(path,Encoding.UTF8))??throw new InvalidDataException("Missing result evidence.");
+            if(records.Read(path).Length>MaxRecord)throw new InvalidDataException("Intent result exceeds budget.");var stored=FrameworkSerialization.DeserializePayload<TradeIntentResult>(records.Text(path))??throw new InvalidDataException("Missing result evidence.");
             var expected=Result(record,new FrameworkPacket{MessageType=stored.ResponseType,PayloadJson=stored.ResponseJson});
             if(expected.IntentChecksum!=stored.IntentChecksum||expected.ResponseJson!=stored.ResponseJson||expected.Success!=stored.Success||expected.Checksum!=stored.Checksum)throw new InvalidDataException("Intent result differs.");
             return stored;
@@ -329,12 +265,14 @@ namespace Phinix.TradeExtension.Client
                 if(matches.Length==0)return true;
                 if(matches.Length!=1)throw new InvalidDataException("Ambiguous operation response.");
                 var record=matches[0];ReadAttempt(record);var result=Result(record,packet);string path=Path.ChangeExtension(PathFor(record),".result");
-                if(File.Exists(Path.ChangeExtension(PathFor(record),".query")))CheckSameResult(result,ReadQuery(record));
-                if(File.Exists(path))
+                if(records.Exists(Path.ChangeExtension(PathFor(record),".query")))CheckSameResult(result,ReadQuery(record));
+                if(records.Exists(path))
                 {if(ReadResult(record).Checksum!=result.Checksum)throw new InvalidDataException("Committed operation result changed.");return false;}
                 byte[] bytes=Encoding.UTF8.GetBytes(FrameworkSerialization.SerializePayload(result));
                 if(bytes.Length>MaxRecord)throw new IOException("Intent result budget exceeded.");
-                Publish(path,bytes);return true;
+                Publish(path,bytes);
+                if(record.RequestType!=FrameworkTradeProtocol.OfferUpdateRequestType)records.Archive(PathFor(record));
+                Changed?.Invoke();return true;
             }
         }
 
@@ -369,11 +307,10 @@ namespace Phinix.TradeExtension.Client
         }
         private TradeOperationQueryResponse ReadQuery(TradeIntentRecord record)
         {
-            string path=Path.ChangeExtension(PathFor(record),".query");if(new FileInfo(path).Length>8192)throw new InvalidDataException("Query evidence exceeds budget.");Private(path,384);
-            var evidence=FrameworkSerialization.DeserializePayload<TradeIntentQueryEvidence>(File.ReadAllText(path,Encoding.UTF8))??throw new InvalidDataException("Missing query evidence.");
+            string path=Path.ChangeExtension(PathFor(record),".query");if(records.Read(path).Length>8192)throw new InvalidDataException("Query evidence exceeds budget.");var evidence=FrameworkSerialization.DeserializePayload<TradeIntentQueryEvidence>(records.Text(path))??throw new InvalidDataException("Missing query evidence.");
             ValidateQuery(record,evidence.Result);
             if(evidence.Result.Status!="Committed"||evidence.IntentChecksum!=record.Checksum||evidence.Checksum!=Hash(record.Checksum+"\n"+FrameworkSerialization.SerializePayload(evidence.Result)))throw new InvalidDataException("Query evidence differs.");
-            if(File.Exists(Path.ChangeExtension(PathFor(record),".result")))CheckSameResult(ReadResult(record),evidence.Result);
+            if(records.Exists(Path.ChangeExtension(PathFor(record),".result")))CheckSameResult(ReadResult(record),evidence.Result);
             return evidence.Result;
         }
         internal string Observation(TradeIntentRecord record)
@@ -385,9 +322,9 @@ namespace Phinix.TradeExtension.Client
                 record=Resolve(record);ValidateQuery(record,response);
                 if(response.Status=="Committed")
                 {
-                    if(File.Exists(Path.ChangeExtension(PathFor(record),".result")))CheckSameResult(ReadResult(record),response);
+                    if(records.Exists(Path.ChangeExtension(PathFor(record),".result")))CheckSameResult(ReadResult(record),response);
                     string path=Path.ChangeExtension(PathFor(record),".query");
-                    if(File.Exists(path))
+                    if(records.Exists(path))
                     {if(FrameworkSerialization.SerializePayload(ReadQuery(record))!=FrameworkSerialization.SerializePayload(response))throw new InvalidDataException("Original queried result changed.");}
                     else
                     {

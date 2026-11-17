@@ -109,8 +109,8 @@ namespace PhinixClient.Trade
             {
                 return ConvertThingFromPreview(item);
             }
-            catch (InvalidOperationException)
-            {
+            catch (InvalidOperationException boundaryError212)
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeItemConverter/ConvertThingFromSnapshotPreviewOrUnknown", boundaryError212);
                 return CreateUnknownItem(item);
             }
         }
@@ -148,8 +148,8 @@ namespace PhinixClient.Trade
                 TradeThingStateSerializer.CollectMissingThingDefs(item.StatePayload, missingDefs);
                 foreach (string defName in missingDefs) missing.Add("ThingDef: " + defName);
             }
-            catch (Exception)
-            {
+            catch (Exception boundaryError213)
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeItemConverter/CollectMissingDependencies", boundaryError213);
                 missing.Add("State: " + (item.DefName ?? "<unknown>"));
             }
         }
@@ -214,8 +214,8 @@ namespace PhinixClient.Trade
             {
                 return ConvertThingFromSnapshot(item);
             }
-            catch (InvalidOperationException)
-            {
+            catch (InvalidOperationException boundaryError214)
+            { global::Phinix.TradeExtension.Client.TradeDiagnostics.Report("TradeItemConverter/ConvertThingFromSnapshotOrUnknown", boundaryError214);
                 if (item?.StatePayload != null && item.StatePayload.Length > 0)
                 {
                     throw;
